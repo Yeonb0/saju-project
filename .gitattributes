@@ -1,0 +1,11 @@
+# 팀원 OS가 섞여도 줄바꿈으로 diff가 터지지 않게 한다.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

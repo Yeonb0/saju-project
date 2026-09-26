@@ -1,0 +1,28 @@
+# 비밀값 (PG 키, OAuth 시크릿 등) 커밋 금지
+.env
+.env.*
+!.env.example
+
+# 의존성
+node_modules/
+
+# 빌드 산출물
+dist/
+build/
+out/
+
+# 로그
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 에디터 / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vs/
+*.swp
+
+# 도구 캐시
+.vercel
+*.tsbuildinfo
