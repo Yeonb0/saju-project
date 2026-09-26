@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-수능 수험생 대상 사주 + 부적 모바일 웹서비스 (서비스명 미정: 뿡기사주 / 사주뿡기 / 뿡사주).
+수능 수험생 대상 사주 + 부적 모바일 웹서비스 **뿌기사주** (D-11 확정, 2026-09-26).
 창업 경진대회 출품작 — **2026-10-31 출시, 11/21까지의 실제 수익으로 평가.** 수능은 11/19.
 
 ## 세션 규칙 (반드시 지킬 것)
@@ -32,12 +32,12 @@
 
 ## 구현 원칙
 
-- 같은 모양의 화면은 공통 컴포넌트 하나로 만든다 (`docs/PHASES.md` 5장). 새 화면을 만들기 전에 재사용할 컴포넌트가 있는지 먼저 확인한다.
+- 같은 모양의 화면은 공통 컴포넌트 하나로 만든다 (`frontend/docs/FRONTEND.md` 3장). 새 화면을 만들기 전에 재사용할 컴포넌트가 있는지 먼저 확인한다.
 - **결제 금액은 서버만 계산한다.** 클라이언트가 보낸 금액을 믿지 않는다. 승인은 멱등하게.
 - 사주 계산은 규칙 기반(만세력 라이브러리), 풀이는 템플릿 문구 조합. AI 호출은 추가하지 않는다.
 - 같은 사람 · 같은 시점이면 항상 같은 결과가 나와야 한다 (결정적 산출).
 - 모든 화면은 iOS Safari · Android Chrome · **카카오톡 인챗브라우저**에서 확인한다.
-- 손그림 톤: 캐릭터만 직접 그린 에셋. 카드·버튼·칩·입력창 테두리는 손그림 SVG 프레임(`frame-*.svg`)을 CSS `border-image`(9-slice)로 재사용한다. 박스마다 새로 그리거나 rough.js를 쓰지 않는다 (`docs/PHASES.md` 4장).
+- 손그림 톤: 캐릭터만 직접 그린 에셋. 카드·버튼·칩·입력창 테두리는 손그림 SVG 프레임(`frame-*.svg`)을 CSS `border-image`(9-slice)로 재사용한다. 박스마다 새로 그리거나 rough.js를 쓰지 않는다 (`frontend/docs/FRONTEND.md` 2장).
 
 ## 금지
 
@@ -48,7 +48,7 @@
 
 ## 기술 스택
 
-### 프론트엔드 — 확정 (상세·이유는 `docs/PHASES.md` 3-1)
+### 프론트엔드 — 확정 (상세·이유는 `frontend/docs/FRONTEND.md` 1장)
 
 - Next.js (App Router) + TypeScript, pnpm, Vercel 배포
 - 스타일: Tailwind CSS + CSS 변수 토큰 (색·스텝 5색은 CSS 변수에만 정의하고 Tailwind에서 참조)
@@ -79,7 +79,7 @@ saju-project/
 │  ├─ src/lib/        공용 유틸 (date.ts = Asia/Seoul 고정)
 │  └─ e2e/            Playwright
 ├─ backend/           비어 있음. D-14 확정 전까지 코드 넣지 않는다.
-├─ docs/              PHASES.md(계획) · PROGRESS.md(진행 상황)
+├─ docs/              팀 공용 — PHASES.md(계획·결정) · PROGRESS.md(진행 상황)
 └─ .github/           PR 템플릿, CI
 ```
 
