@@ -6,18 +6,19 @@
 ## 현재 상태
 
 - **현재 Phase**: Phase 0 — 결정 · 확정 착수 · 초기 세팅 (9/26 ~ 9/30)
-- **마지막으로 끝낸 작업**: FE 저장소 생성 + 라이브러리 설치·버전 고정 (Next.js 16.3.6 / React 19.2.8 / Tailwind 4.3.3 / Biome 2.4.2, pnpm 10.33.0). 저장소에 `CLAUDE.md`, `docs/`, PR 템플릿, CI 워크플로 배치
+- **마지막으로 끝낸 작업**: FE 저장소 생성 + 라이브러리 설치·버전 고정 (Next.js 16.3.6 / React 19.2.8 / Tailwind 4.3.3 / Biome 2.4.2, pnpm 10.33.0). 저장소에 `CLAUDE.md`, `docs/`, PR 템플릿, CI 워크플로 배치. GitHub 원격 연결 완료 ([Yeonb0/saju-project](https://github.com/Yeonb0/saju-project))
 - **다음 작업**
   1. 결정 회의 → PHASES.md 7장 D-01 ~ D-16 확정 (D-11 서비스명, D-12 사업자 명의·대회 규정, D-14 백엔드 언어는 9/29까지)
   2. (BE-A) PG 2곳 이상 상담 문의 + 사업자등록 신청 (9/28 일)
-  3. (FE) Vercel 연결 (`main` → 스테이징, PR → 미리보기), GitHub 원격 연결
+  3. (FE) Vercel 연결 (`main` → 스테이징, PR → 미리보기) + GitHub `main` 브랜치 보호 규칙 켜기
   4. (BE-B) BE 저장소·스테이징 세팅 — 단, D-14 확정 전까지 `backend/`는 비워 둔다
   5. (PD) 손그림 프레임 SVG 4장 + 손글씨체 후보 2종 (Phase 1 선행)
 - **막힌 점**
   - 결정 항목 16개 전부 미정 → Phase 1 착수 전 최소 D-11, D-12, D-14 필요
   - PG 심사 기간 미확인 (상담 후 기입)
-  - GitHub 원격 미연결: 이 PC에 `gh` CLI가 없다. 설치하거나 웹에서 저장소를 만든 뒤 `git remote add origin` 필요
-  - Vercel 연결은 계정 로그인이 필요해 사람이 직접 해야 함
+  - Vercel 연결과 GitHub 브랜치 보호 설정은 계정 로그인이 필요해 사람이 직접 해야 함
+  - Playwright 브라우저 미설치 — E2E를 처음 돌리기 전에 `pnpm -C frontend e2e:install` 필요
+  - `docs/` 3개 문서는 기존 초안을 옮겨 적은 것이다. 원본 파일이 따로 있으면 그걸로 덮어쓴다
 
 ## 마감 체크
 
@@ -49,6 +50,6 @@
 
 ## 세션 로그
 
-- 2026-09-26 · 저장소 초기 세팅. `saju-project/` 생성, git init, Next.js 16(App Router·TS·Tailwind 4·Biome) 스캐폴드, 계획 라이브러리 전부 설치·버전 고정, Vitest/Playwright 설정, `/api` rewrites 골격, PR 템플릿·CI·문서 배치. 화면 코드는 아직 없음.
+- 2026-09-26 · 저장소 초기 세팅. `saju-project/` 생성, git init, Next.js 16(App Router·TS·Tailwind 4·Biome) 스캐폴드, 계획 라이브러리 전부 설치·버전 고정, Vitest/Playwright 설정, `/api` rewrites 골격, PR 템플릿·CI·문서 배치, GitHub 원격 연결·첫 푸시. 화면 코드는 아직 없음.
 - 2026-09-26 · 프론트엔드 스택 확정 및 문서 반영. 코드 없음.
 - 2026-09-26 · 계획 문서 초안 작성 (PHASES/PROGRESS/CLAUDE). 코드 없음.
