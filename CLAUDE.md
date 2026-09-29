@@ -36,7 +36,7 @@
 - **결제 금액은 서버만 계산한다.** 클라이언트가 보낸 금액을 믿지 않는다. 승인은 멱등하게.
 - 사주 계산은 규칙 기반(만세력 라이브러리), 풀이는 템플릿 문구 조합. AI 호출은 추가하지 않는다.
 - 같은 사람 · 같은 시점이면 항상 같은 결과가 나와야 한다 (결정적 산출).
-- 모든 화면은 iOS Safari · Android Chrome · **카카오톡 인챗브라우저**에서 확인한다.
+- 모든 화면은 iOS Safari · Android Chrome · **카카오톡 인앱브라우저**에서 확인한다.
 - 손그림 톤: 캐릭터만 직접 그린 에셋. 카드·버튼·칩·입력창 테두리는 손그림 SVG 프레임(`frame-*.svg`)을 CSS `border-image`(9-slice)로 재사용한다. 박스마다 새로 그리거나 rough.js를 쓰지 않는다 (`frontend/docs/FRONTEND.md` 2장).
 
 ## 금지
@@ -51,16 +51,16 @@
 ### 프론트엔드 — 확정 (상세·이유는 `frontend/docs/FRONTEND.md` 1장)
 
 - Next.js (App Router) + TypeScript, pnpm, Vercel 배포
-- 스타일: Tailwind CSS + CSS 변수 토큰 (색·스텝 5색은 CSS 변수에만 정의하고 Tailwind에서 참조)
+- 스타일: Tailwind CSS + CSS 변수 토큰 (색·오행 5색은 CSS 변수에만 정의하고 Tailwind에서 참조)
 - 폰트: Pretendard(본문) + 손글씨체 1종(제목·강조), `next/font/local` 서브셋
 - 오버레이: vaul(바텀시트), Radix Dialog(모달) — shadcn/ui 사용 안 함
 - 데이터: TanStack Query, API 타입은 openapi-typescript + openapi-fetch로 생성 (수동 타입 작성 금지)
 - 폼: React Hook Form + Zod
-- 클라이언트 상태: Zustand는 선물 위자드 동안만 (`sessionStorage` persist). 그 외 전역 상태 추가 금지
+- 클라이언트 상태: Zustand는 선물 위저드 동안만 (`sessionStorage` persist). 그 외 전역 상태 추가 금지
 - 날짜: dayjs + timezone, 항상 `Asia/Seoul` 기준으로 계산
 - 연출: CSS keyframes + 스프라이트 (Lottie·Motion 출시 전 미도입)
 - OG: `next/og`(ImageResponse) + `generateMetadata`, 공유: Web Share API + Kakao JS SDK
-- 품질: Biome, Vitest(D-day·가격 계산), Playwright(모바일 뷰포트, 수능이·선물 구매·선물 수신 3개 흐름)
+- 품질: Biome, Vitest(D-day·가격 계산), Playwright(모바일 뷰포트, 수능운·선물 구매·선물 수신 3개 흐름)
 - 관측: Sentry, PostHog
 
 렌더링: 기본은 클라이언트 컴포넌트. 서버 렌더링은 `/g/[token]`, 심사용·약관 페이지, 홈 첫 화면에만.
@@ -106,7 +106,6 @@ saju-project/
 
 ## 브랜치 · PR
 
-- `main`은 직접 푸시하지 않는다. 기능 브랜치에서 PR을 연다.
-- 브랜치 이름: `feat/<화면 또는 기능>`, `fix/<증상>`, `chore/<작업>`. 예) `feat/appshell`, `fix/checkout-ios-safari`
-- PR은 `.github/pull_request_template.md`의 체크리스트를 채운다. 결제·공유가 걸린 PR에는 카카오톡 인챗브라우저 스크린샷을 붙인다.
+- `main`은 직접 푸시하지 않는다. 프론트엔드 코드 작업은 전부 `boyeon` 브랜치에서 하고, `main`에는 `boyeon`에서 PR을 연다.
+- PR은 `.github/pull_request_template.md`의 체크리스트를 채운다. 결제·공유가 걸린 PR에는 카카오톡 인앱브라우저 스크린샷을 붙인다.
 - CI(`.github/workflows/ci.yml`)가 `pnpm lint` · `typecheck` · `test` · `build`를 돌린다. 초록불이 아니면 머지하지 않는다.
