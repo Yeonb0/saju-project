@@ -47,6 +47,7 @@ docs/        FE 전용 문서
 - 테두리는 `frame-*.svg` + CSS `border-image`. 박스마다 새로 그리지 않는다.
 - 전역 상태는 선물 위저드용 Zustand 하나뿐. 그 외 추가 금지.
 - 새 라이브러리는 [docs/FRONTEND.md](docs/FRONTEND.md) 1장 표에 없으면 추가 전에 팀에 먼저 묻는다.
+- 문서(`*.md`)는 Claude Code가 고치지 않는다. 변경은 웹 대화에서 작성한 완성본으로만 한다 (루트 CLAUDE.md "문서 변경 규칙").
 
 ## 확인 환경
 

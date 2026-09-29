@@ -13,7 +13,7 @@
 - [ ] `pnpm lint` / `pnpm typecheck` / `pnpm test` 통과
 - [ ] iOS Safari
 - [ ] Android Chrome
-- [ ] **카카오톡 인챗브라우저** (결제·공유·이미지 저장이 걸린 PR은 스크린샷 필수)
+- [ ] **카카오톡 인앱브라우저** (결제·공유·이미지 저장이 걸린 PR은 스크린샷 필수)
 
 ## 스크린샷
 
