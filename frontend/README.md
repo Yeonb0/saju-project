@@ -34,7 +34,7 @@ pnpm dev                     # http://localhost:3000
 src/app/     라우트 (App Router)
 src/lib/     공용 유틸 — date.ts 는 Asia/Seoul 고정
 src/types/   api.d.ts 는 pnpm api:types 로 생성. 손으로 고치지 않는다
-e2e/         Playwright — 수능이 · 선물 구매 · 선물 수신 3개 흐름
+e2e/         Playwright — 수능운 · 선물 구매 · 선물 수신 3개 흐름
 docs/        FE 전용 문서
 ```
 
@@ -45,16 +45,16 @@ docs/        FE 전용 문서
 - 기본은 클라이언트 컴포넌트. 서버 렌더링은 `/g/[token]`, 심사용·약관 페이지, 홈 첫 화면에만.
 - 날짜 계산은 `src/lib/date.ts`를 거친다. 기기 시간대를 쓰지 않는다.
 - 테두리는 `frame-*.svg` + CSS `border-image`. 박스마다 새로 그리지 않는다.
-- 전역 상태는 선물 위자드용 Zustand 하나뿐. 그 외 추가 금지.
+- 전역 상태는 선물 위저드용 Zustand 하나뿐. 그 외 추가 금지.
 - 새 라이브러리는 [docs/FRONTEND.md](docs/FRONTEND.md) 1장 표에 없으면 추가 전에 팀에 먼저 묻는다.
 
 ## 확인 환경
 
-iOS Safari · Android Chrome · **카카오톡 인챗브라우저** 3곳에서 본다. 결제·공유가 걸린 PR에는 인챗브라우저 스크린샷을 붙인다.
+iOS Safari · Android Chrome · **카카오톡 인앱브라우저** 3곳에서 본다. 결제·공유가 걸린 PR에는 인앱브라우저 스크린샷을 붙인다.
 
 ## 브랜치 · PR
 
-`feat/<화면 또는 기능>`, `fix/<증상>`, `chore/<작업>`. `main` 직접 푸시 금지.
+FE 작업 브랜치는 `boyeon` 하나다. `main` 직접 푸시 금지, `boyeon` → `main` 은 PR.
 CI가 `lint` · `typecheck` · `test` · `build`를 돌린다. 초록불 아니면 머지하지 않는다.
 
 ## 배포
