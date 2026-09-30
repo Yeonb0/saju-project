@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Providers } from "./providers";
 
 // D-11 확정(2026-09-26): 서비스명 뿌기사주. TODO(PD 문구): description 은 PD 문구 확정 후 교체
 export const metadata: Metadata = {
@@ -17,7 +18,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
