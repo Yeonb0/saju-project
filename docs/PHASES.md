@@ -5,6 +5,7 @@
 > 변경: 2026-09-26 — **서비스명 「뿌기사주」 확정(D-11)**. FE 전용 내용(3-1 상세 · 4장 · 5장)은 `frontend/docs/FRONTEND.md`로 분리
 > 변경: 2026-09-30 — 저장소로 옮기며 바뀐 용어·문구를 원본 초안 기준으로 복원(DOCS-RESTORE), FE 작업 브랜치 `boyeon`(BRANCH)
 > 변경: 2026-09-30 — Phase 0 · 1 체크박스 반영, 글꼴 보류(FONT-HOLD)
+> 변경: 2026-09-30 — Phase 1 에 (FE) 라우트 오류 · 404 화면 체크박스 추가 · 완료
 > 기준 날짜: 출시 **10/31(토)** · 평가 기간 **10/31 ~ 11/21** · 수능 **11/19(목)** → 출시일은 **수능 D-19**
 > 디자인 소스: Figma `9zEtrqV4SoPbQzuworSNUj` / 페이지 `와이어프레임`(node 17:2)
 
@@ -223,6 +224,7 @@ AppShell · PersonForm · PersonCard · Checkout · LoadingScene · SuneungResul
 - [x] (FE) 라우트 표대로 빈 페이지 생성 (각 페이지에 화면명 + Figma 프레임명 표시)
 - [x] (FE) AppShell: 최대 폭 고정 가운데 정렬, `100dvh` + safe-area, 헤더(뒤로/제목/메뉴), 사이드 메뉴(프레임 12의 오버레이 항목) — 애정운 · 취업운 메뉴는 D-10 후. 실기기: Android Chrome · 카카오톡 인앱 확인, iOS Safari 보류
 - [x] (FE) 공통 컴포넌트 껍데기: Button, Card, Chip, FormField, BottomSheet(vaul), Modal(Radix Dialog), LoadingScene(빈)
+- [x] (FE) 라우트 오류 · 404 화면: `error.tsx`(AppShell 유지 + Sentry, `retry`) · `not-found.tsx`, `global-error.tsx` 도 `retry` 로 통일 — 문구는 TODO(PD 문구). 실기기: Android Chrome · 카카오톡 인앱 확인, iOS Safari 보류
 - [ ] (PD) 디자인 토큰 v0: 기본 색 + 오행 5색, 손글씨체 후보 2종(상업 이용 라이선스 확인), 여백·모서리 규칙
 - [ ] (PD) 손그림 프레임 SVG 1차 세트: `frame-card` / `frame-button` / `frame-chip` / `frame-input` (4장 규격)
 - [ ] (FE) 토큰을 CSS 변수로 정의 + Tailwind 설정에서 참조

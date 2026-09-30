@@ -6,7 +6,7 @@
 ## 현재 상태
 
 - **현재 Phase**: Phase 1 — 화면 골격 + PG 심사용 페이지 (9/29 ~ 10/4)
-- **마지막으로 끝낸 작업**: Phase 1 FE — 라우트 26개 자리표시(`e265b25`), AppShell(`22f76cc`), 공통 컴포넌트 껍데기 7종(`7b1b488`), TanStack Query 기본 설정(`a25f1eb`, mutations 재시도 0), Sentry · PostHog 연결 + URL 가리기(`0a7da6e`, 미리보기에서 수신 확인). Phase 0 FE — Vercel 연결 · `main` 보호. 그 밖에 CI typecheck 버그 수정(`0e9c33a`, `next typegen` 선행), 페이지 제목 뿌기사주(`09cb687`)
+- **마지막으로 끝낸 작업**: Phase 1 FE — 라우트 오류 · 404 화면(`f6dedfa`, `error.tsx` AppShell 유지 + Sentry · `not-found.tsx`) + `global-error.tsx` `retry` 통일(`a2d6fda`). 그 전: 라우트 26개 자리표시(`e265b25`), AppShell(`22f76cc`), 공통 컴포넌트 껍데기 7종(`7b1b488`), TanStack Query 기본 설정(`a25f1eb`, mutations 재시도 0), Sentry · PostHog 연결 + URL 가리기(`0a7da6e`, 미리보기에서 수신 확인). Phase 0 FE — Vercel 연결 · `main` 보호. 그 밖에 CI typecheck 버그 수정(`0e9c33a`, `next typegen` 선행), 페이지 제목 뿌기사주(`09cb687`)
 - **다음 작업**
   1. (FE/캐릭터) 캐릭터 에셋 규격 문서(`frontend/docs/FRONTEND.md` 2장) + 뿌기 기본 포즈 1장 — Figma 말 캐릭터 원본(119:60) 레이어 구조 조회부터
   2. (PD) 손그림 프레임 SVG 4장 · 디자인 토큰 v0(기본 색 + 오행 5색) · 심사용 페이지 문구 · 약관 · 환불정책 초안 — FE 토큰 · 프레임 · 심사용 페이지 체크박스의 선행
@@ -14,7 +14,7 @@
   4. (BE-A) `뿌기사주` 도메인 구매 + PG 상담 + 사업자등록
   5. (BE-B) BE 저장소 · 스테이징 — D-14 확정 전까지 `backend/`는 비워 둔다
 - **보류 (재개 조건)**
-  - AppShell 실기기 iOS Safari 확인 — iOS 기기 확보 후 (Android Chrome · 카카오톡 인앱은 통과)
+  - AppShell · 404 화면 실기기 iOS Safari 확인 — iOS 기기 확보 후 (Android Chrome · 카카오톡 인앱은 통과)
   - 폰트 적용 — 글꼴 결정 통보 후 (FONT-HOLD)
   - openapi-fetch 클라이언트 · API 타입 — BE OpenAPI 스펙 수령 후
   - 관측 API 경로 가리기(Sentry fetch 기록의 `/api/...` 속 토큰) — BE OpenAPI 스펙 수령 후
@@ -29,6 +29,8 @@
   - PG 심사 기간 미확인 (상담 후 기입)
   - Playwright 브라우저 미설치 — E2E를 처음 돌리기 전에 `pnpm -C frontend e2e:install` 필요
   - 캐릭터 이름을 서비스명에 맞춰 `뿡기` → `뿌기`로 같이 바꿨다. 캐릭터 이름을 따로 가려면 되돌려야 한다
+  - (PD 전달) 오류 화면 · 404 화면 문구 필요 — 지금은 자리표시 "오류가 발생했습니다" · "다시 시도" · "페이지를 찾을 수 없습니다" · "홈으로" (TODO(PD 문구))
+  - `app/error.tsx` 는 일부러 오류를 던지는 화면이 없어 실기기에서 띄워 보지 못했다 — 단위 테스트 4건으로 확인. 첫 실제 API 연결 화면에서 오류 경로를 실기기로 확인한다
   - 알려진 작은 문제: PC 에서 스크롤바가 있는 긴 페이지는 사이드 메뉴 패널이 앱 기둥보다 몇 px 오른쪽으로 나갈 수 있다 (휴대폰 영향 없음)
 
 ## 마감 체크
@@ -69,6 +71,7 @@
 
 ## 세션 로그
 
+- 2026-09-30 · Phase 1 FE: 라우트 오류 화면 `error.tsx`(AppShell 유지 · Sentry · `retry`) · 404 `not-found.tsx` · `global-error.tsx` `retry` 통일. 실기기 Android Chrome · 카카오톡 인앱 통과, iOS 보류. 문서: Phase 1 체크박스 추가.
 - 2026-09-30 · Phase 1 FE: 라우트 26개 · AppShell · 공통 컴포넌트 7종 · TanStack Query 기본 설정 · Sentry/PostHog(URL 가리기). Phase 0: Vercel 연결 · main 보호. CI typecheck 수정. 결정 OBS-PRIVACY · FONT-HOLD · FIGMA-WEB-ONLY.
 - 2026-09-30 · 문서 원본 복원·확정(DOCS-RESTORE), 브랜치 규칙 `boyeon`(BRANCH), 문서 변경 웹 대화 경유 규칙(DOCS-WEB-ONLY). 화면 코드 없음.
 - 2026-09-26 · 서비스명 `뿌기사주` 확정 반영(D-11), FE 문서 분리(`frontend/docs/FRONTEND.md`), README 공용/FE 분리. 화면 코드 없음.
