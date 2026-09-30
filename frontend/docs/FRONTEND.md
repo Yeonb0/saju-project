@@ -1,7 +1,7 @@
 # 프론트엔드 개발 문서 — 뿌기사주
 
-> FE 전용 문서. 일정·화면 목록·Phase 체크박스·결정 항목은 루트 [`docs/PHASES.md`](../../docs/PHASES.md), 진행 상황은 [`docs/PROGRESS.md`](../../docs/PROGRESS.md)에 있다.
-> 이 문서는 원래 `docs/PHASES.md`의 3-1 · 4 · 5장이었고, 2026-09-26에 여기로 옮겼다. 루트 PHASES.md의 "4장" · "5장" 표현은 이 문서의 2장 · 3장을 가리킨다.
+> FE 전용 문서. 일정·화면 목록·Phase 체크박스·결정 항목은 같은 폴더의 [`PHASES.md`](PHASES.md), 진행 상황은 [`PROGRESS.md`](PROGRESS.md)에 있다 (셋 다 FE 개인 작업 문서, DOCS-FE-OWN).
+> 이 문서는 원래 `PHASES.md`의 3-1 · 4 · 5장이었고, 2026-09-26에 여기로 옮겼다. PHASES.md의 "4장" · "5장" 표현은 이 문서의 2장 · 3장을 가리킨다.
 
 ---
 

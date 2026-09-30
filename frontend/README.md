@@ -3,8 +3,11 @@
 Next.js(App Router) + TypeScript 모바일 웹. 이 폴더가 FE 작업 공간 전체다.
 
 - 스택 선택 이유 · 손그림 톤 구현 방침 · 공통 컴포넌트 맵 → [docs/FRONTEND.md](docs/FRONTEND.md)
-- 일정 · 화면 목록 · Phase 체크박스 → [../docs/PHASES.md](../docs/PHASES.md)
-- 현재 Phase · 다음 작업 → [../docs/PROGRESS.md](../docs/PROGRESS.md)
+- 일정 · 화면 목록 · Phase 체크박스 → [docs/PHASES.md](docs/PHASES.md)
+- 현재 Phase · 다음 작업 → [docs/PROGRESS.md](docs/PROGRESS.md)
+- 작업 규칙 (세션 · 문서 · 금지 사항) → [CLAUDE.md](CLAUDE.md)
+
+위 문서들은 FE 개인 작업 문서다. 팀 합의 문서가 아니다.
 
 ## 시작하기
 
@@ -37,7 +40,7 @@ src/app/     라우트 (App Router)
 src/lib/     공용 유틸 — date.ts 는 Asia/Seoul 고정
 src/types/   api.d.ts 는 pnpm api:types 로 생성. 손으로 고치지 않는다
 e2e/         Playwright — 수능운 · 선물 구매 · 선물 수신 3개 흐름
-docs/        FE 전용 문서
+docs/        FE 전용 문서 — FRONTEND · PHASES · PROGRESS
 ```
 
 ## 작업할 때
@@ -49,7 +52,7 @@ docs/        FE 전용 문서
 - 테두리는 `frame-*.svg` + CSS `border-image`. 박스마다 새로 그리지 않는다.
 - 전역 상태는 선물 위저드용 Zustand 하나뿐. 그 외 추가 금지.
 - 새 라이브러리는 [docs/FRONTEND.md](docs/FRONTEND.md) 1장 표에 없으면 추가 전에 팀에 먼저 묻는다.
-- 문서(`*.md`)는 Claude Code가 고치지 않는다. 변경은 웹 대화에서 작성한 완성본으로만 한다 (루트 CLAUDE.md "문서 변경 규칙").
+- 문서(`*.md`)는 Claude Code가 고치지 않는다. 변경은 웹 대화에서 작성한 완성본으로만 한다 ([CLAUDE.md](CLAUDE.md) "문서 변경 규칙").
 
 ## 확인 환경
 
@@ -62,4 +65,4 @@ CI가 `lint` · `typecheck` · `test` · `build`를 돌린다. 초록불 아니�
 
 ## 배포
 
-Vercel. `main` → 스테이징, PR → 미리보기 URL. (연결 아직 안 됨 — Phase 0 남은 작업)
+Vercel. `main` → 스테이징, PR → 미리보기 URL. 실기기 확인은 미리보기의 브랜치 주소로 한다.
