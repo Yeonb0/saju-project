@@ -4,6 +4,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
+import { COLUMN_WIDTH } from "@/lib/layout";
 import { isMenuGroup, MENU } from "@/lib/navigation";
 import type { RoutePath } from "@/lib/screens";
 
@@ -13,9 +14,6 @@ type AppShellProps = {
   cta?: ReactNode;
   children: ReactNode;
 };
-
-// 앱 기둥 폭 = Figma 프레임 폭 (402). 넓은 화면에서도 이 폭으로 가운데 정렬한다.
-const COLUMN_WIDTH = 402;
 
 // TODO(PD 토큰 v0): 아래 색은 Tailwind 기본 중립색 임시값
 const COLOR_TEXT = "text-neutral-900";
