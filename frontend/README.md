@@ -14,6 +14,8 @@ cp .env.example .env.local   # 값은 각자 채운다. .env* 는 커밋하지 �
 pnpm dev                     # http://localhost:3000
 ```
 
+Windows: pnpm `script-shell`을 Windows PowerShell 5.1(`powershell.exe`)로 두면 스크립트의 `&&`가 깨진다. 기본값(cmd)이나 PowerShell 7(`pwsh`)을 쓴다. 확인: `pnpm config get script-shell`
+
 ## 명령어
 
 | 명령 | 하는 일 |
@@ -21,7 +23,7 @@ pnpm dev                     # http://localhost:3000
 | `pnpm dev` | 개발 서버 |
 | `pnpm build` / `pnpm start` | 프로덕션 빌드 / 빌드 결과 실행 |
 | `pnpm lint` / `pnpm lint:fix` | Biome 검사 / 자동 수정 |
-| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm typecheck` | `next typegen` 후 `tsc --noEmit` (`LayoutProps` 등 Next 생성 타입이 필요하다) |
 | `pnpm test` / `pnpm test:watch` | Vitest 1회 / watch |
 | `pnpm e2e` | Playwright (모바일 뷰포트 2종). 처음이면 `pnpm e2e:install` 먼저 |
 | `pnpm api:types` | `openapi.json` → `src/types/api.d.ts`. 백엔드 스펙이 나온 뒤에 쓴다 |
@@ -47,6 +49,7 @@ docs/        FE 전용 문서
 - 테두리는 `frame-*.svg` + CSS `border-image`. 박스마다 새로 그리지 않는다.
 - 전역 상태는 선물 위저드용 Zustand 하나뿐. 그 외 추가 금지.
 - 새 라이브러리는 [docs/FRONTEND.md](docs/FRONTEND.md) 1장 표에 없으면 추가 전에 팀에 먼저 묻는다.
+- 문서(`*.md`)는 Claude Code가 고치지 않는다. 변경은 웹 대화에서 작성한 완성본으로만 한다 (루트 CLAUDE.md "문서 변경 규칙").
 
 ## 확인 환경
 

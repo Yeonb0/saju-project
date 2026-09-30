@@ -1,25 +1,26 @@
 # PROGRESS
 
-> 모든 세션은 시작할 때 `docs/PHASES.md`와 이 파일을 읽고, 끝날 때 이 파일을 갱신한다.
+> 모든 세션은 시작할 때 `docs/PHASES.md`와 이 파일을 읽고, 끝날 때 이 파일을 갱신한다. 갱신은 웹 대화에서 작성한 완성본으로만 한다 (CLAUDE.md "문서 변경 규칙").
 > 갱신할 때는 "현재 상태"를 덮어쓰고, "세션 로그"에는 맨 위에 한 줄씩 추가한다.
 
 ## 현재 상태
 
-- **현재 Phase**: Phase 0 — 결정 · 행정 착수 · 초기 세팅 (9/26 ~ 9/30)
-- **마지막으로 끝낸 작업**: 서비스명 **뿌기사주** 확정(D-11) 문서 반영, FE 전용 문서를 `frontend/docs/FRONTEND.md`로 분리, 루트 README를 팀 공용으로 정리 + `frontend/README.md` 신설. 그 전: FE 저장소 생성 + 라이브러리 설치·버전 고정 (Next.js 16.3.6 / React 19.2.8 / Tailwind 4.3.3 / Biome 2.4.2, pnpm 10.33.0). 저장소에 `CLAUDE.md`, `docs/`, PR 템플릿, CI 워크플로 배치. GitHub 원격 연결 완료 ([Yeonb0/saju-project](https://github.com/Yeonb0/saju-project))
+- **현재 Phase**: Phase 1 — 화면 골격 + PG 심사용 페이지 (9/29 ~ 10/4). Phase 0 남은 작업(Vercel 연결 등) 병행
+- **마지막으로 끝낸 작업**: 저장소 문서를 원본 초안 기준으로 복원·확정 (PHASES · CLAUDE · README · `frontend/README.md` · `frontend/docs/FRONTEND.md` · PR 템플릿), FE 작업 브랜치 `boyeon` 규칙 반영, 문서 변경은 웹 대화 경유로만 하도록 규칙 추가
 - **다음 작업**
-  1. 결정 회의 → PHASES.md 7장 D-01 ~ D-16 확정 (D-11 확정됨. D-12 사업자 명의·대회 규정, D-14 백엔드 언어는 9/29까지)
-  2. (BE-A) `뿌기사주` 도메인 구매 + PG 2곳 이상 상담 문의 + 사업자등록 신청 (9/28 월)
-  3. (FE) Vercel 연결 (`main` → 스테이징, PR → 미리보기) + GitHub `main` 브랜치 보호 규칙 켜기
-  4. (BE-B) BE 저장소·스테이징 세팅 — 단, D-14 확정 전까지 `backend/`는 비워 둔다
-  5. (PD) 손그림 프레임 SVG 4장 + 손글씨체 후보 2종 (Phase 1 선행)
+  1. (FE) Phase 1 — 라우트 표대로 빈 페이지 생성 (각 페이지에 화면명 + Figma 프레임명 표시)
+  2. (FE) Vercel 연결 (`main` → 스테이징, PR → 미리보기) + GitHub `main` 브랜치 보호 규칙 켜기
+  3. 결정 회의 → PHASES.md 7장 D-01 ~ D-16 확정 (D-11 확정됨. D-12 사업자 명의·대회 규정, D-14 백엔드 언어는 9/29까지)
+  4. (BE-A) `뿌기사주` 도메인 구매 + PG 2곳 이상 상담 문의 + 사업자등록 신청
+  5. (BE-B) BE 저장소·스테이징 세팅 — 단, D-14 확정 전까지 `backend/`는 비워 둔다
+  6. (PD) 손그림 프레임 SVG 4장 + 손글씨체 후보 2종 (Phase 1 선행)
 - **막힌 점**
-  - 결정 항목 15개 미정 (D-11만 확정) → Phase 1 착수 전 최소 D-12, D-14 필요
+  - 결정 항목 15개 미정 (D-11만 확정). D-12 미정 → 심사용 페이지 사업자 정보 footer, D-14 미정 → BE 스켈레톤·OpenAPI 스펙(FE 타입 생성)이 막힌다
   - PG 심사 기간 미확인 (상담 후 기입)
   - Vercel 연결과 GitHub 브랜치 보호 설정은 계정 로그인이 필요해 사람이 직접 해야 함
   - Playwright 브라우저 미설치 — E2E를 처음 돌리기 전에 `pnpm -C frontend e2e:install` 필요
-  - 계획 문서는 기존 초안을 옮겨 적은 것이다. 원본 파일이 따로 있으면 그걸로 덮어쓴다
   - 캐릭터 이름을 서비스명에 맞춰 `뿡기` → `뿌기`로 같이 바꿨다. 캐릭터 이름을 따로 가려면 되돌려야 한다
+  - 코드 쪽 잔여: `frontend/src/app/layout.tsx` metadata가 `TODO(D-11)` "서비스명 미정" 그대로, `frontend/playwright.config.ts` 주석의 "수능이"
 
 ## 마감 체크
 
@@ -40,6 +41,7 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| DOCS-WEB-ONLY | 저장소 문서(`*.md`)는 Claude Code가 수정하지 않는다. 문서 변경(PROGRESS·PHASES 갱신 포함)은 웹 대화에서 작성한 완성본으로만 하고, Claude Code는 diff 확인·커밋만 한다 | 2026-09-29 | FE |
 | BRANCH | FE 코드 작업은 전부 `boyeon` 브랜치에서 한다. `main` 직접 푸시 금지, `boyeon` → `main` PR. 기존 `feat/`·`fix/`·`chore/` 규칙 폐기 | 2026-09-29 | FE |
 | DOCS-RESTORE | 저장소 문서의 용어·문구를 원본 초안 기준으로 복원 (오행 5색, 수능운, 인앱브라우저, 행정, 요일 등). D-11 확정·문서 분리·REPO 결정은 유지 | 2026-09-29 | FE |
 | NAME | 서비스명 **뿌기사주** 확정 (D-11). 도메인·OG·심사용 페이지에 이 이름을 쓴다. 캐릭터 이름도 `뿌기`로 통일 | 2026-09-26 | PD |
@@ -55,6 +57,7 @@
 
 ## 세션 로그
 
+- 2026-09-29 · 문서 원본 복원·확정(DOCS-RESTORE), 브랜치 규칙 `boyeon`(BRANCH), 문서 변경 웹 대화 경유 규칙(DOCS-WEB-ONLY). 화면 코드 없음.
 - 2026-09-26 · 서비스명 `뿌기사주` 확정 반영(D-11), FE 문서 분리(`frontend/docs/FRONTEND.md`), README 공용/FE 분리. 화면 코드 없음.
 - 2026-09-26 · 저장소 초기 세팅. `saju-project/` 생성, git init, Next.js 16(App Router·TS·Tailwind 4·Biome) 스캐폴드, 계획 라이브러리 전부 설치·버전 고정, Vitest/Playwright 설정, `/api` rewrites 골격, PR 템플릿·CI·문서 배치, GitHub 원격 연결·첫 푸시. 화면 코드는 아직 없음.
 - 2026-09-26 · 프론트엔드 스택 확정 및 문서 반영. 코드 없음.
