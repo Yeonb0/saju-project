@@ -21,6 +21,8 @@ const COLUMN_WIDTH = 402;
 const COLOR_TEXT = "text-neutral-900";
 const COLOR_TEXT_MUTED = "text-neutral-400";
 const COLOR_BG = "bg-white";
+// TODO(PD 토큰 v0): 사이드 패널 배경 — Figma 와이어 값(52:174). 덮개(흰색 70%)와 구분돼 패널 위치를 확인할 수 있게
+const COLOR_PANEL_BG = "bg-[#d9d9d9]";
 
 export function AppShell({ title, backHref, cta, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,7 +58,7 @@ export function AppShell({ title, backHref, cta, children }: AppShellProps) {
               */}
               <Dialog.Content
                 aria-describedby={undefined}
-                className={`fixed top-0 flex h-[612px] max-h-dvh w-[168px] flex-col items-end rounded-l-[20px] pt-[env(safe-area-inset-top)] pr-[30px] ${COLOR_BG} ${COLOR_TEXT}`}
+                className={`fixed top-0 flex h-[612px] max-h-dvh w-[168px] flex-col items-end rounded-l-[20px] pt-[env(safe-area-inset-top)] pr-[30px] ${COLOR_PANEL_BG} ${COLOR_TEXT}`}
                 style={{
                   right: `max(0px, calc((100% - ${COLUMN_WIDTH}px) / 2))`,
                 }}
