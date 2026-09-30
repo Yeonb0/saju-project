@@ -5,12 +5,13 @@ import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import { Button } from "@/components/Button";
 
+// Next 16.3 error.md — retry 는 다시 가져와 다시 그린다 (reset 은 다시 가져오지 않음). app/error.tsx 와 같게
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     Sentry.captureException(error);
@@ -20,7 +21,7 @@ export default function GlobalError({
     <html lang="ko">
       <body>
         <h1>오류가 발생했습니다</h1> {/* TODO(PD 문구) */}
-        <Button onClick={reset}>다시 시도</Button> {/* TODO(PD 문구) */}
+        <Button onClick={() => retry()}>다시 시도</Button> {/* TODO(PD 문구) */}
       </body>
     </html>
   );
