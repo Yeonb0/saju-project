@@ -16,7 +16,7 @@
 | 패키지 매니저 | **pnpm** | |
 | 스타일 | **Tailwind CSS + CSS 변수 토큰** | 레이아웃 속도. 오행 5색 등 토큰은 CSS 변수로 정의하고 Tailwind에서 참조 |
 | 손그림 테두리 | **손그림 SVG 프레임 + CSS `border-image`(9-slice)** | 카드·버튼·칩·입력창 프레임 3~4장으로 모든 박스 재사용. 런타임 비용 0, 인앱에서도 안전. rough.js는 크기 측정·재렌더·SSR 문제로 **미채택** |
-| 폰트 | **본문 Pretendard + 제목·강조용 손글씨체 1종**, `next/font/local`로 서브셋 셀프호스팅 | 손글씨체는 상업 이용 가능한 것 중 PD 선정. 한글 폰트 용량 관리 |
+| 폰트 | **보류 (2026-09-30 FONT-HOLD)** — 본문 · 제목 모두 미정. 결정되면 `next/font/local`로 서브셋 셀프호스팅 | 결정 전까지 코드에서 글꼴을 지정하지 않는다. 한글 폰트 용량 관리(서브셋) 원칙은 유지 |
 | 오버레이 UI | **vaul**(바텀시트) + **Radix Dialog**(모달) | headless라 손그림 스타일 입히기 쉬움. shadcn/ui는 기본 룩 제거 비용 때문에 미채택 |
 | 서버 데이터 | **TanStack Query** | |
 | API 타입 | **openapi-typescript + openapi-fetch** | 백엔드 OpenAPI 스펙에서 타입 자동 생성. 백엔드 언어와 무관, 명세 변경이 컴파일 에러로 드러남 |
@@ -43,7 +43,7 @@
 | 캐릭터 (뿌기 거북이, 부적 동물) | 직접 그림. SVG(레이어 분리) 우선, 안 되면 투명 PNG @2x | FE(캐릭터) |
 | 카드·버튼·칩·입력창 테두리 | 손그림 SVG 프레임 3~4장을 CSS `border-image`(9-slice)로 모든 박스에 재사용. 박스마다 따로 그리지 않는다 | PD 그림 / FE 적용 |
 | 부적 틀 · 배경 · 아이콘 | 손그림 에셋 소수 세트로 재사용 | PD |
-| 글꼴 | 본문 Pretendard, 제목·강조에만 손글씨체 1종. 상업 이용 라이선스 확인 필수, `next/font/local`로 서브셋 셀프호스팅 | PD 선정 / FE 적용 |
+| 글꼴 | 보류 (FONT-HOLD). 결정되면 상업 이용 라이선스 확인 필수, `next/font/local`로 서브셋 셀프호스팅 | PD 선정 / FE 적용 |
 | 연출 (등껍질, 분석 중) | 2~4프레임 손그림 스프라이트 + CSS keyframes. Lottie·Motion은 출시 후 | FE |
 
 **프레임 SVG 규격 (9-slice용)**: 모서리 영역이 늘어나도 깨지지 않게 네 모서리를 정사각형 영역 안에 그리고, 가운데 변은 반복·늘림해도 자연스러운 선으로 그린다. 선 두께·색은 토큰과 맞춘다. 파일명 `frame-<용도>.svg` (예: `frame-card.svg`, `frame-button.svg`, `frame-chip.svg`, `frame-input.svg`).

@@ -11,7 +11,7 @@
 4. 결정이 내려지면 `docs/PHASES.md` 7장의 상태 열과 `docs/PROGRESS.md` 결정 로그에 함께 적힌다 — 이것도 웹 대화에서 작성한다.
 5. "결정 필요" 항목(D-xx)에 걸린 작업은 추측으로 진행하지 않고, 보고하고 멈춘다.
 
-## 문서 변경 규칙 (2026-09-29 결정 DOCS-WEB-ONLY)
+## 문서 변경 규칙 (2026-09-30 결정 DOCS-WEB-ONLY)
 
 - 저장소의 Markdown 문서(`docs/`, `CLAUDE.md`, `README.md`, `frontend/README.md`, `frontend/docs/`, `.github/pull_request_template.md` 등 모든 `*.md`)는 Claude Code가 수정 · 생성 · 삭제하지 않는다.
 - 문서 변경은 웹 대화(채팅 Claude)에서 작성한 완성본을 사용자가 교체하는 방식으로만 한다. Claude Code는 교체된 문서의 diff 확인과 커밋만 한다.
@@ -27,12 +27,14 @@
 | BE-A | 결제 · 주문 · 선물 · 사업자/PG 행정 |
 | BE-B | 인증 · 프로필 · 사주 엔진 · 콘텐츠 조합 · 부적/OG 이미지 |
 
-## Figma 사용 규칙
+## Figma 사용 규칙 (2026-09-30 결정 FIGMA-WEB-ONLY)
 
+- **Claude Code는 Figma MCP를 호출하지 않는다.** Figma 조회는 웹 대화(채팅 Claude)에서만 하고, 구현에 쓸 값(크기 · 간격 · 항목 순서 등)은 지시문에 적어서 넘긴다. 지시문에 없는 Figma 값을 추측으로 채우지 않는다.
 - 파일 키 `9zEtrqV4SoPbQzuworSNUj`, 와이어프레임 페이지 node `17:2`.
-- 먼저 `get_metadata`로 구조만 보고, 구현할 **프레임 하나 단위로만** `get_design_context`를 호출한다. 페이지 전체를 한 번에 읽지 않는다.
+- (웹 대화 쪽 규칙) 먼저 `get_metadata`로 구조만 보고, 구현할 **프레임 하나 단위로만** `get_design_context`를 호출한다. 페이지 전체를 한 번에 읽지 않는다.
 - 화면 ↔ 프레임 대응은 `docs/PHASES.md` 1장 표를 기준으로 한다.
 - 와이어프레임 위 메모 텍스트(프레임 밖 글상자)는 미결정 사항이다. 구현 기준으로 쓰지 않는다.
+- 와이어프레임의 회색 · 아이콘 · 글꼴은 임시값이다. 색은 PD 토큰, 아이콘은 PD 에셋, 글꼴은 FONT-HOLD 결정 후에 정한다.
 
 ## 구현 원칙
 
@@ -56,7 +58,7 @@
 
 - Next.js (App Router) + TypeScript, pnpm, Vercel 배포
 - 스타일: Tailwind CSS + CSS 변수 토큰 (색·오행 5색은 CSS 변수에만 정의하고 Tailwind에서 참조)
-- 폰트: Pretendard(본문) + 손글씨체 1종(제목·강조), `next/font/local` 서브셋
+- 폰트: **보류 (2026-09-30 FONT-HOLD)** — 본문 · 제목 글꼴 모두 미정. 결정 전까지 코드에서 글꼴을 지정하지 않는다 (브라우저 기본 글꼴). 결정되면 `next/font/local` 서브셋으로 셀프호스팅
 - 오버레이: vaul(바텀시트), Radix Dialog(모달) — shadcn/ui 사용 안 함
 - 데이터: TanStack Query, API 타입은 openapi-typescript + openapi-fetch로 생성 (수동 타입 작성 금지)
 - 폼: React Hook Form + Zod
@@ -65,7 +67,7 @@
 - 연출: CSS keyframes + 스프라이트 (Lottie·Motion 출시 전 미도입)
 - OG: `next/og`(ImageResponse) + `generateMetadata`, 공유: Web Share API + Kakao JS SDK
 - 품질: Biome, Vitest(D-day·가격 계산), Playwright(모바일 뷰포트, 수능운·선물 구매·선물 수신 3개 흐름)
-- 관측: Sentry, PostHog
+- 관측: Sentry(오류), PostHog(페이지뷰). 화면 녹화 · 자동 수집 끔, URL 은 `src/lib/observability/maskUrl.ts`로 가려서 보낸다 (선물 토큰 · 결제 쿼리). 새 동적 경로 · API 경로가 생기면 가리기 대상인지 확인한다
 
 렌더링: 기본은 클라이언트 컴포넌트. 서버 렌더링은 `/g/[token]`, 심사용·약관 페이지, 홈 첫 화면에만.
 새 라이브러리는 위 목록에 없으면 추가 전에 사용자에게 먼저 묻는다.
