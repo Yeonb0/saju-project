@@ -1,5 +1,5 @@
 import { RoutePlaceholder } from "@/components/RoutePlaceholder";
 
 export default function Page() {
-  return <RoutePlaceholder path="/" />;
+  return <RoutePlaceholder path="/fortune/[type]/questions" />;
 }
