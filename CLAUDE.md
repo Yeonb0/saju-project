@@ -99,7 +99,7 @@ saju-project/
 | `pnpm start` | 빌드 결과 실행 |
 | `pnpm lint` | Biome 검사 (린트 + 포맷) |
 | `pnpm lint:fix` | Biome 자동 수정 |
-| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm typecheck` | `next typegen`(라우트 타입 생성) 후 `tsc --noEmit`. `.next/`가 없는 새 checkout·CI에서도 통과하도록 타입 생성을 포함한다 |
 | `pnpm test` | Vitest 1회 실행 |
 | `pnpm test:watch` | Vitest watch |
 | `pnpm e2e` | Playwright (모바일 뷰포트 2종). 처음이면 `pnpm e2e:install`로 브라우저부터 받는다 |
