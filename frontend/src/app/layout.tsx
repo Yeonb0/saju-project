@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Providers } from "./providers";
 
-// TODO(D-11): 서비스명이 확정되면 title·description을 실제 문구로 바꾼다.
+// D-11 확정(2026-09-26): 서비스명 뿌기사주. TODO(PD 문구): description 은 PD 문구 확정 후 교체
 export const metadata: Metadata = {
-  title: "사주 서비스 (서비스명 미정)",
+  title: "뿌기사주",
   description: "수능 수험생을 위한 사주와 부적",
 };
 
@@ -17,7 +18,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

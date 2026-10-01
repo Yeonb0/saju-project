@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// docs/PHASES.md 3-1: 모바일 뷰포트로만 돌린다. 돈이 걸린 흐름(수능이·선물 구매·선물 수신)에만 E2E.
+// docs/PHASES.md 3-1: 모바일 뷰포트로만 돌린다. 돈이 걸린 흐름(수능운·선물 구매·선물 수신)에만 E2E.
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({

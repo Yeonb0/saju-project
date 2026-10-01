@@ -5,7 +5,7 @@
 - A안: Spring Boot 3 + Spring Security OAuth2 Client(카카오/구글) + JPA + PostgreSQL
 - B안: Next.js 풀스택 + Supabase (이 경우 이 폴더는 없어지고 `frontend/`로 합쳐진다)
 
-자세한 내용은 [docs/PHASES.md](../docs/PHASES.md) 3장·3-2 참고.
+위 A/B안은 FE 가 계획을 잡으며 적은 제안이다 (`frontend/docs/PHASES.md` 3장·3-2). 백엔드 팀 결정이 아니며, 확정되면 백엔드 담당이 이 파일을 고쳐 쓴다.
 
 ## 확정되면 여기 적을 것
 

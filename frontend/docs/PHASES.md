@@ -1,9 +1,13 @@
 # 뿌기사주 — 개발 Phase 계획
 
+> **FE 개인 작업 문서다. 팀 합의 문서가 아니다.** 일정 · Phase · 담당 표기는 FE 가 작업 순서를 잡으려고 세운 계획이고, 7장 "결정 필요" 표와 추천안은 FE 가 팀에 물을 목록과 FE 의견이다 (2026-09-30 DOCS-FE-OWN).
 > 작성: 2026-09-26 (토) · 상태: **초안 v0** — 7장 "결정 필요" 항목이 확정되면 v1로 올린다.
 > 변경: 2026-09-26 — 프론트엔드 스택 확정(3-1), 손그림 테두리 방식 `border-image`로 확정(4장), Phase 0·1·4·5·7 작업 반영
 > 변경: 2026-09-26 — **서비스명 「뿌기사주」 확정(D-11)**. FE 전용 내용(3-1 상세 · 4장 · 5장)은 `frontend/docs/FRONTEND.md`로 분리
-> 변경: 2026-09-29 — 저장소로 옮기며 바뀐 용어·문구를 원본 초안 기준으로 복원(DOCS-RESTORE), FE 작업 브랜치 `boyeon`(BRANCH)
+> 변경: 2026-09-30 — 저장소로 옮기며 바뀐 용어·문구를 원본 초안 기준으로 복원(DOCS-RESTORE), FE 작업 브랜치 `boyeon`(BRANCH)
+> 변경: 2026-09-30 — Phase 0 · 1 체크박스 반영, 글꼴 보류(FONT-HOLD)
+> 변경: 2026-09-30 — Phase 1 에 (FE) 라우트 오류 · 404 화면 체크박스 추가 · 완료
+> 변경: 2026-09-30 — 루트 `docs/` 에서 `frontend/docs/` 로 이동, FE 개인 작업 문서로 전환(DOCS-FE-OWN)
 > 기준 날짜: 출시 **10/31(토)** · 평가 기간 **10/31 ~ 11/21** · 수능 **11/19(목)** → 출시일은 **수능 D-19**
 > 디자인 소스: Figma `9zEtrqV4SoPbQzuworSNUj` / 페이지 `와이어프레임`(node 17:2)
 
@@ -122,9 +126,9 @@
 
 ### 3-1. 프론트엔드 스택 — ✅ 확정 (2026-09-26)
 
-Next.js(App Router)+TypeScript · Vercel · pnpm · Tailwind + CSS 변수 토큰 · 손그림 SVG `border-image` · Pretendard+손글씨체 · vaul/Radix · TanStack Query · openapi-typescript+openapi-fetch · RHF+Zod · Zustand(선물 위저드 한정) · dayjs(Asia/Seoul) · `next/og`+Kakao SDK · Biome/Vitest/Playwright · Sentry/PostHog.
+Next.js(App Router)+TypeScript · Vercel · pnpm · Tailwind + CSS 변수 토큰 · 손그림 SVG `border-image` · 글꼴 보류(FONT-HOLD) · vaul/Radix · TanStack Query · openapi-typescript+openapi-fetch · RHF+Zod · Zustand(선물 위저드 한정) · dayjs(Asia/Seoul) · `next/og`+Kakao SDK · Biome/Vitest/Playwright · Sentry/PostHog.
 
-선택 이유와 렌더링·뷰포트 원칙은 **[`frontend/docs/FRONTEND.md`](../frontend/docs/FRONTEND.md) 1장**에 있다.
+선택 이유와 렌더링·뷰포트 원칙은 **[`FRONTEND.md`](FRONTEND.md) 1장**에 있다.
 
 ### 3-2. 백엔드 · 인프라 — 미확정 (D-14)
 
@@ -141,13 +145,13 @@ A안 기준 제안:
 
 ## 4. 손그림 톤 구현 방침
 
-캐릭터만 직접 그리고, 카드·버튼·칩·입력창 테두리는 손그림 SVG 프레임 3~4장을 CSS `border-image`(9-slice)로 재사용한다. 프레임 SVG·캐릭터 에셋 규격과 출시 필수 캐릭터 세트는 **[`frontend/docs/FRONTEND.md`](../frontend/docs/FRONTEND.md) 2장**에 있다.
+캐릭터만 직접 그리고, 카드·버튼·칩·입력창 테두리는 손그림 SVG 프레임 3~4장을 CSS `border-image`(9-slice)로 재사용한다. 프레임 SVG·캐릭터 에셋 규격과 출시 필수 캐릭터 세트는 **[`FRONTEND.md`](FRONTEND.md) 2장**에 있다.
 
 ---
 
 ## 5. 공통 컴포넌트 재사용 맵
 
-AppShell · PersonForm · PersonCard · Checkout · LoadingScene · SuneungResultViewer · TalismanViewer · Modal · BottomSheet. 화면별 대응과 제작 Phase는 **[`frontend/docs/FRONTEND.md`](../frontend/docs/FRONTEND.md) 3장**에 있다.
+AppShell · PersonForm · PersonCard · Checkout · LoadingScene · SuneungResultViewer · TalismanViewer · Modal · BottomSheet. 화면별 대응과 제작 Phase는 **[`FRONTEND.md`](FRONTEND.md) 3장**에 있다.
 
 ---
 
@@ -173,11 +177,11 @@ AppShell · PersonForm · PersonCard · Checkout · LoadingScene · SuneungResul
 - [ ] (BE-A) 사업자등록증 나오는 즉시 PG 가입 신청서 제출 + 서류 발송
 - [x] (PD) 서비스명 확정 — **뿌기사주** → [ ] (BE-A) 도메인 구매
 - [x] (FE) FE 저장소 생성: pnpm + Next.js(App Router) + TS + Tailwind, Biome, PR 템플릿, 브랜치 전략(`main` 보호 + FE 작업 브랜치 `boyeon`) — 스택은 3-1 확정안
-- [ ] (FE) Vercel 연결: `main` → 스테이징, PR → 미리보기 URL
+- [x] (FE) Vercel 연결: `main` → 스테이징, PR → 미리보기 URL (+ `main` 보호 규칙, 미리보기 로그인 보호 해제)
 - [x] (FE) 라이브러리 설치·버전 고정: TanStack Query, openapi-typescript/openapi-fetch, React Hook Form, Zod, Zustand, dayjs, vaul, Radix Dialog, Sentry, PostHog, Vitest, Playwright
 - [ ] (BE-B) BE 저장소 생성 + DB + 스테이징 배포 파이프라인
 - [ ] (BE-B) 카카오 디벨로퍼스 앱 / 구글 OAuth 클라이언트 생성 (리다이렉트 URI는 스테이징·운영 둘 다)
-- [ ] (전원) `CLAUDE.md`, `docs/PROGRESS.md` 규칙 합의
+- ~~(전원) `CLAUDE.md`, `docs/PROGRESS.md` 규칙 합의~~ — FE 개인 문서로 전환해 팀 합의 대상에서 뺐다 (DOCS-FE-OWN)
 
 **완료 기준 (검증)**
 - 7장 표의 "상태" 열이 비어 있는 행이 없다.
@@ -219,19 +223,20 @@ AppShell · PersonForm · PersonCard · Checkout · LoadingScene · SuneungResul
 | `/about`, `/terms`, `/privacy`, `/refund` | 심사용·법적 고지 |
 
 **작업**
-- [ ] (FE) 라우트 표대로 빈 페이지 생성 (각 페이지에 화면명 + Figma 프레임명 표시)
-- [ ] (FE) AppShell: 최대 폭 고정 가운데 정렬, `100dvh` + safe-area, 헤더(뒤로/제목/메뉴), 사이드 메뉴(프레임 12의 오버레이 항목)
-- [ ] (FE) 공통 컴포넌트 껍데기: Button, Card, Chip, FormField, BottomSheet(vaul), Modal(Radix Dialog), LoadingScene(빈)
+- [x] (FE) 라우트 표대로 빈 페이지 생성 (각 페이지에 화면명 + Figma 프레임명 표시)
+- [x] (FE) AppShell: 최대 폭 고정 가운데 정렬, `100dvh` + safe-area, 헤더(뒤로/제목/메뉴), 사이드 메뉴(프레임 12의 오버레이 항목) — 애정운 · 취업운 메뉴는 D-10 후. 실기기: Android Chrome · 카카오톡 인앱 확인, iOS Safari 보류
+- [x] (FE) 공통 컴포넌트 껍데기: Button, Card, Chip, FormField, BottomSheet(vaul), Modal(Radix Dialog), LoadingScene(빈)
+- [x] (FE) 라우트 오류 · 404 화면: `error.tsx`(AppShell 유지 + Sentry, `retry`) · `not-found.tsx`, `global-error.tsx` 도 `retry` 로 통일 — 문구는 TODO(PD 문구). 실기기: Android Chrome · 카카오톡 인앱 확인, iOS Safari 보류
 - [ ] (PD) 디자인 토큰 v0: 기본 색 + 오행 5색, 손글씨체 후보 2종(상업 이용 라이선스 확인), 여백·모서리 규칙
 - [ ] (PD) 손그림 프레임 SVG 1차 세트: `frame-card` / `frame-button` / `frame-chip` / `frame-input` (4장 규격)
 - [ ] (FE) 토큰을 CSS 변수로 정의 + Tailwind 설정에서 참조
 - [ ] (FE) 프레임 SVG를 `border-image`(9-slice)로 Card·Button·Chip·FormField에 적용, 인앱브라우저 3종에서 렌더 확인
-- [ ] (FE) 폰트 적용: Pretendard + 손글씨체 1종, `next/font/local` 서브셋
-- [ ] (FE) 관측 연결: Sentry, PostHog 페이지뷰 (이벤트 설계는 P7)
-- [ ] (FE/캐릭터) 캐릭터 에셋 규격 문서 작성 (`frontend/docs/FRONTEND.md` 2장) + 뿌기 기본 포즈 1장
+- [ ] (FE) 폰트 적용: `next/font/local` 서브셋 — **보류 (FONT-HOLD, 글꼴 결정 후)**
+- [x] (FE) 관측 연결: Sentry, PostHog 페이지뷰 (이벤트 설계는 P7) — URL 가리기 포함. 소스맵 업로드는 P7
+- [ ] (FE/캐릭터) 캐릭터 에셋 규격 문서 작성 (`FRONTEND.md` 2장) + 뿌기 기본 포즈 1장
 - [ ] (PD) 심사용 페이지 문구 + 약관·환불정책 초안 → (FE) 페이지 구현 → 운영 도메인에 배포
 - [ ] (BE-A, BE-B) API 스켈레톤, 헬스체크, Next.js rewrites 프록시 연결, API 문서(OpenAPI) 자동 생성
-- [ ] (FE) OpenAPI 스펙 → openapi-typescript 타입 생성 스크립트 + openapi-fetch 클라이언트 + TanStack Query 기본 설정
+- [ ] (FE) OpenAPI 스펙 → openapi-typescript 타입 생성 스크립트 + openapi-fetch 클라이언트 + TanStack Query 기본 설정 — 스크립트 · Query 기본 설정 완료, 클라이언트는 BE 스펙 수령 후
 - [ ] (BE-A, BE-B) ERD v0: users, people, products, orders, payments, readings, talismans, gifts
 
 **완료 기준 (검증)**

@@ -4,6 +4,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
+import { COLUMN_WIDTH } from "@/lib/layout";
 import { isMenuGroup, MENU } from "@/lib/navigation";
 import type { RoutePath } from "@/lib/screens";
 
@@ -14,13 +15,12 @@ type AppShellProps = {
   children: ReactNode;
 };
 
-// 앱 기둥 폭 = Figma 프레임 폭 (402). 넓은 화면에서도 이 폭으로 가운데 정렬한다.
-const COLUMN_WIDTH = 402;
-
 // TODO(PD 토큰 v0): 아래 색은 Tailwind 기본 중립색 임시값
 const COLOR_TEXT = "text-neutral-900";
 const COLOR_TEXT_MUTED = "text-neutral-400";
 const COLOR_BG = "bg-white";
+// TODO(PD 토큰 v0): 사이드 패널 배경 — Figma 와이어 값(52:174). 덮개(흰색 70%)와 구분돼 패널 위치를 확인할 수 있게
+const COLOR_PANEL_BG = "bg-[#d9d9d9]";
 
 export function AppShell({ title, backHref, cta, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,7 +56,7 @@ export function AppShell({ title, backHref, cta, children }: AppShellProps) {
               */}
               <Dialog.Content
                 aria-describedby={undefined}
-                className={`fixed top-0 flex h-[612px] max-h-dvh w-[168px] flex-col items-end rounded-l-[20px] pt-[env(safe-area-inset-top)] pr-[30px] ${COLOR_BG} ${COLOR_TEXT}`}
+                className={`fixed top-0 flex h-[612px] max-h-dvh w-[168px] flex-col items-end rounded-l-[20px] pt-[env(safe-area-inset-top)] pr-[30px] ${COLOR_PANEL_BG} ${COLOR_TEXT}`}
                 style={{
                   right: `max(0px, calc((100% - ${COLUMN_WIDTH}px) / 2))`,
                 }}
