@@ -4,8 +4,8 @@
 
 ```
 frontend/   Next.js(App Router) + TypeScript 모바일 웹 — FE 담당
-backend/    백엔드 — 스택이 정해지기 전까지 비어 있다
-docs/       팀이 함께 쓰는 문서 자리 (API 명세 등). 지금은 없다
+backend/    Spring Boot 3 + PostgreSQL — BE 담당
+docs/       팀 공용 제품·기능·API·데이터 문서
 .github/    PR 템플릿, CI (frontend 검사)
 ```
 
@@ -15,6 +15,13 @@ docs/       팀이 함께 쓰는 문서 자리 (API 명세 등). 지금은 없�
 |---|---|
 | [frontend/README.md](frontend/README.md) | 프론트엔드 실행 방법, 명령어, FE 문서 목록 |
 | [backend/README.md](backend/README.md) | 백엔드 폴더 안내 |
+| [docs/PRD.md](docs/PRD.md) | 제품 목표, 사용자, 범위, 정책, 성공 지표 |
+| [docs/FUNCTIONAL_SPEC.md](docs/FUNCTIONAL_SPEC.md) | 화면·기능별 동작과 예외 |
+| [docs/API_SPEC.md](docs/API_SPEC.md) | `/api/v1` endpoint·요청·응답 계약 |
+| [docs/ERD.md](docs/ERD.md) | PostgreSQL 데이터 모델·제약·트랜잭션 경계 |
+| [docs/COMMON_RESPONSE_AND_ERROR_CODES.md](docs/COMMON_RESPONSE_AND_ERROR_CODES.md) | 공통 응답 envelope와 예외 코드 |
+| [docs/PENDING_DECISIONS.md](docs/PENDING_DECISIONS.md) | 확정 정책과 구현 전 남은 결정 |
+| [backend/docs/BACKEND_ROLE_SPLIT.md](backend/docs/BACKEND_ROLE_SPLIT.md) | BE-A/BE-B 책임·API·테이블·일정·리뷰 경계 |
 
 ## 저장소 공통으로 걸려 있는 것
 
