@@ -13,7 +13,9 @@ const FIELDS: readonly { key: BusinessField; label: string }[] = [
   { key: "registrationNumber", label: "사업자등록번호" },
   { key: "address", label: "사업장 주소" },
   { key: "phone", label: "유선번호" },
+  { key: "email", label: "전자우편주소" },
   { key: "mailOrderNumber", label: "통신판매업 신고번호" },
+  { key: "hostingProvider", label: "호스팅 제공자" },
 ];
 
 // 값이 없으면 항목을 숨기지 않고 자리표시를 보인다 — 미정 상태가 화면에서 바로 드러나게 (TODO(O-01))

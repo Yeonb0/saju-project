@@ -13,7 +13,9 @@ const INFO: BusinessInfo = {
   registrationNumber: "000-00-00000",
   address: "테스트주소",
   phone: "00-0000-0000",
+  email: "test@example.com",
   mailOrderNumber: "테스트신고번호",
+  hostingProvider: "테스트호스팅",
 };
 
 const LABELS = [
@@ -22,11 +24,13 @@ const LABELS = [
   "사업자등록번호",
   "사업장 주소",
   "유선번호",
+  "전자우편주소",
   "통신판매업 신고번호",
+  "호스팅 제공자",
 ] as const;
 
 describe("BusinessFooter", () => {
-  it("항목 이름 6개와 값 6개가 모두 보인다", () => {
+  it("항목 이름 8개와 값 8개가 모두 보인다", () => {
     render(<BusinessFooter info={INFO} />);
     for (const label of LABELS) {
       expect(screen.getByText(label)).toBeInTheDocument();
