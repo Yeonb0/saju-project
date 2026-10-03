@@ -28,6 +28,7 @@
 - 상태가 `미정` · `부분 확정`의 미정 부분 · `보류` 인 것, 그리고 가격 · 재화 수량 · 상품 구성 · 문구 · 글꼴 · 사업자 정보는 정하지 않는다. 기본값도 넣지 않는다. 자리가 필요하면 `TODO(결정 ID)` 주석만 둔다 (예: `TODO(P-03A)`, `TODO(O-01)`).
 - 팀 문서끼리 다르면 `PENDING_DECISIONS.md` 의 확정 항목을 기준으로 읽고, 차이는 보고한다 (웹 대화가 `docs/TEAM-QUESTIONS.md` 에 올린다).
 - `docs/API_SPEC.md` 는 계약 초안이다. **타입의 출처는 OpenAPI 생성본뿐이다.** 스펙에 없는 타입 · 응답 모양을 지어내지 않는다.
+- 팀 답은 `docs/TEAM-QUESTIONS.md` 에 상태로 적혀 있다 (TQ-ANSWERS). `해결` 은 따른다. `답변 · 반영 대기` · `답 엇갈림` 항목은 팀 문서에 반영되기 전까지 그 답에 기대는 코드를 만들지 않는다 (예: `/wallet` 라우트는 `FUNCTIONAL_SPEC.md` 2장에 들어간 뒤).
 
 ## 문서 변경 규칙 (DOCS-WEB-ONLY · DOCS-PLACE)
 
@@ -58,20 +59,21 @@
 - **라우트**: 새 페이지는 `src/lib/screens.ts` ROUTES 표에 먼저 있어야 한다 (`screens.test` 가 표 밖 `page.tsx` 를 막는다). 라우트 표의 출처는 `docs/FUNCTIONAL_SPEC.md` 2장. 새 동적 경로 · API 경로가 생기면 `src/lib/observability/maskUrl.ts` 가리기 대상인지 확인한다.
 - **API 호출**: `/api/*` 는 `next.config.ts` rewrites 로 백엔드에 프록시한다(같은 출처, I-02). 백엔드 prefix 는 `/api/v1`. 성공 응답은 `{ data, traceId }` 로 감싸서 오고, 오류는 `{ code, message, traceId, fieldErrors, details? }` 다 (`docs/COMMON_RESPONSE_AND_ERROR_CODES.md`). 분기는 `code` 로 하고 `message` 문자열을 비교하지 않는다. 알 수 없는 `code` 는 HTTP status 로 처리한다 (같은 문서 7장). 새 enum 값은 unknown 분기를 둔다.
 - **금액은 서버만**: 원화 금액 · 등껍질 차감량 · 구매 후 잔액은 서버 견적 · 주문 · 구매 응답 값만 표시한다. 클라이언트에서 계산 · 합산 · 하드코딩하지 않는다 (P-03, P-09).
-- **원화 결제 (토스페이먼츠, P-08)**: 서버가 만든 주문(`orderId` · `amount`)으로만 결제창을 연다. PG 복귀 쿼리의 `paymentKey` · `orderId` · `amount` 는 그대로 서버 승인 요청에 넘기기만 한다. `/pay/success` 는 서버 승인 응답을 받은 뒤에만 성공을 표시한다.
-- **멱등성 (I-05)**: `Idempotency-Key` 는 구매 의도 하나에 하나만 만들고, 재시도 · 새로고침 · PG 복귀 후 재요청에도 같은 키를 쓴다. mutation 자동 재시도는 0 (`makeQueryClient`). `409 IDEMPOTENCY_REQUEST_PROCESSING` 이면 버튼을 다시 열지 않고 상태를 조회한다.
-- **CSRF**: 변경 요청의 `X-CSRF-Token` 은 발급 방식이 정해지기 전까지(`docs/TEAM-QUESTIONS.md` Q-02, I-02) 지어내지 않는다.
+- **원화 결제 (토스페이먼츠, P-08)**: 원화 결제는 충전뿐이다 (선물도 등껍질, Q-16). 서버가 만든 주문(`orderId` · `amount`)으로만 결제창을 연다. PG 복귀 쿼리의 `paymentKey` · `orderId` · `amount` 는 그대로 서버 승인 요청에 넘기기만 한다. `/pay/success` 는 서버 승인 응답을 받은 뒤에만 성공을 표시한다.
+- **충전 완료 (TOPUP-DONE)**: 충전 주문이 `CREDITED` 일 때만 완료와 잔액(서버 값)을 표시한다. `PAID` · `processing: true` 는 처리 중이다. 승인 결과가 불명확하면 주문 조회(`GET /top-up-orders/{orderId}`)를 2초 간격 최대 30초 하고, 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼을 보인다. 지연을 실패로 표시하거나 새 결제로 유도하지 않는다. `processing: false` 만으로 성공 판단하지 않는다.
+- **멱등성 (I-05)**: `Idempotency-Key` 는 구매 의도 하나에 하나만 만들고, 재시도 · 새로고침 · PG 복귀 · CSRF 재시도에도 같은 키 · 같은 본문을 쓴다. 결과가 불명확하다는 이유로 새 키를 만들지 않는다. 키와 본문은 `src/lib/api/idempotency.ts` 로 만든다 (구매 의도당 `createIdempotentCommand` 한 번, 충전 승인은 `createOrderBoundCommand` — 주문 ID 키). mutation 자동 재시도는 0 (`makeQueryClient`). `409 IDEMPOTENCY_REQUEST_PROCESSING` 이면 버튼을 다시 열지 않고 상태를 조회한다.
+- **CSRF (Q-02 해결)**: `GET /session` 응답의 `csrfToken` 을 변경 요청의 `X-CSRF-Token` 헤더로 보낸다. `403 CSRF_FAILED` 면 `GET /session` 을 한 번 불러 새 토큰으로 원래 요청을 **1회만** 재시도하고, 그래도 실패하면 로그인 만료 · 보안 오류로 처리한다. 필드 이름은 OpenAPI 생성본으로 확인한다.
 - **사주 결과**: 만세력 계산과 해석 문장 생성(Liner)은 서버가 한다 (S-06). FE 는 AI · 외부 생성 호출을 추가하지 않고, 서버 결과 스냅샷만 표시한다.
 - **날짜**: `src/lib/date.ts` (Asia/Seoul) 를 거친다. 기기 시간대를 쓰지 않는다. 수능운 판매 마감은 전날 23:59 KST (F-07).
-- **선물**: 원화 직접 결제(P-07). 수신자에게는 서버가 알림톡으로 링크를 보낸다(G-10) — FE 가 선물 링크를 만들거나 공유로 전달하지 않는다. 수신자 휴대전화번호는 입력 칸 외에는 서버가 준 마스킹 값만 표시하고, 로그 · Sentry · PostHog 에 넣지 않는다. 선물 메시지는 텍스트로만 렌더하고(`dangerouslySetInnerHTML` 금지) OG · PostHog · Sentry 에 넣지 않는다 (G-08).
+- **선물**: 1차는 수능운만, 결제는 등껍질(원화 PG 결제는 충전만), 부적은 고르지 않는다 — 팀 결정(2026-10-03, Q-08 · Q-16 · Q-06)이지만 팀 문서 반영 전이다. 반영 · OpenAPI 전에는 선물 결제 · 위저드 코드를 만들지 않고, 가격 · 단위는 서버 `price.currency` · `price.amount` 만 쓴다. 재발송 버튼은 서버의 `delivery.canResend` 만 따른다 (횟수 · 시간을 FE 가 계산하지 않는다). 선물 링크 OG 에는 수신자 · 보낸 사람 이름을 넣을 수 있다(Q-13), 생년정보 · 메시지는 넣지 않는다. 수신자에게는 서버가 알림톡으로 링크를 보낸다(G-10) — FE 가 선물 링크를 만들거나 공유로 전달하지 않는다. 수신자 휴대전화번호는 입력 칸 외에는 서버가 준 마스킹 값만 표시하고, 로그 · Sentry · PostHog 에 넣지 않는다. 선물 메시지는 텍스트로만 렌더하고(`dangerouslySetInnerHTML` 금지) OG · PostHog · Sentry 에 넣지 않는다 (G-08).
 - **공유**: 개인 결과 · 부적은 카카오톡 공유하기(Kakao JS SDK)로, 서버가 만든 비식별 share 리소스만 쓴다 (G-11). 공유 범위는 G-11 미정.
-- **브라우저 저장소**: `localStorage` 는 오늘의 운세 생년정보(`expiresAt` 30일, X-01)와 수능 준비물 체크 상태만. 전역 상태는 선물 위저드의 Zustand(`sessionStorage` persist) 하나뿐.
-- **사업자 정보**(상호 · 대표자 · 사업자등록번호 · 주소 · 유선번호 · 통신판매업 신고번호)는 한 파일에만 둔다. 값은 사용자가 준 것만 넣는다.
+- **브라우저 저장소**: `localStorage` 는 오늘의 운세 생년정보(`expiresAt` 30일, X-01)와 수능 준비물 체크 상태만. `sessionStorage` 는 선물 위저드의 Zustand persist 와 구매 선택 복원(PURCHASE-RESTORE, Q-07)만 — 구매 선택은 인물 ID 와 최소 선택값만(생년정보 원문 금지), 마지막 변경 후 24시간, 읽을 때 만료 검증, 구매 성공 · 로그아웃 시 삭제, 저장한 가격 · 잔액은 표시 근거로 쓰지 않는다. 전역 상태는 선물 위저드의 Zustand 하나뿐.
+- **사업자 정보**(상호 · 대표자 · 사업자등록번호 · 주소 · 유선번호 · 통신판매업 신고번호 · 전자우편주소 · 호스팅서비스 제공자)는 `src/lib/business.ts` 한 파일에만 둔다. 값은 사용자가 준 것만 넣는다.
 - **오류 화면**: 화면 오류는 `src/app/error.tsx`(AppShell 유지 + Sentry), 없는 주소 · 잘못된 토큰은 not-found. `error.message` · `digest` 를 화면에 노출하지 않는다.
 - **관측**: PostHog 이벤트 이름은 O-06 목록만. 인적정보 · 휴대전화번호 · 메시지 · 토큰 · signed URL · 결과 본문 · 결제 키를 Sentry · PostHog 에 보내지 않는다.
 - **고지**: 결제 버튼 위와 결과 하단에 재미 · 참고용 콘텐츠 고지, 시간 미상 결과에 해석 제한 고지 (F-08). 문구는 PD.
 - **비주얼 (STYLE-HAND)**: 손그림체. 카드 · 버튼 · 칩 · 입력창 테두리는 손그림 SVG 프레임(`frame-*.svg`)을 CSS `border-image`(9-slice)로 재사용한다. 도트(픽셀) 처리(`image-rendering: pixelated` 등)는 쓰지 않는다. 적용은 PG 심사 요청 후 (PG-FIRST).
-- 모든 화면은 iOS Safari · Android Chrome · **카카오톡 인앱브라우저** 에서 확인한다.
+- 모든 화면은 iOS Safari · Android Chrome · **카카오톡 인앱브라우저** 에서 확인한다. 확인 결과는 사용자가 말로 알려 준 것으로 받는다 (스크린샷 필수 아님, NO-SCREENSHOT).
 
 ## 금지
 
@@ -106,6 +108,7 @@
 ### 백엔드 — 확정 (팀 문서)
 
 Spring Boot 3 + PostgreSQL, Railway 배포(local · staging · production 분리), API prefix `/api/v1`, 카카오 OAuth + 서버 세션 쿠키, 토스페이먼츠, Cloudflare R2, OpenAPI 는 springdoc 생성 (I-01 · I-02 · I-03 · I-04, `backend/README.md`).
+골격은 `main` 에 있다(`a605afa`, 10/3) — 업무 API 없음, springdoc 은 `local` 프로필에서만 공개 (FE 가 받을 경로는 Q-18).
 
 ## 폴더 구조
 
@@ -147,5 +150,5 @@ saju-project/
 ## 브랜치 · PR
 
 - `main` 은 직접 푸시하지 않는다. 프론트엔드 작업은 전부 `boyeon` 브랜치에서 하고, `main` 에는 `boyeon` 에서 PR 을 연다 (BRANCH).
-- PR 은 `.github/pull_request_template.md` 체크리스트를 채운다. 결제 · 공유가 걸린 PR 에는 카카오톡 인앱브라우저 스크린샷을 붙인다.
+- PR 은 `.github/pull_request_template.md` 체크리스트를 채운다. 결제 · 공유가 걸린 PR 에는 카카오톡 인앱브라우저 확인 결과를 적는다 (스크린샷은 필수 아님, NO-SCREENSHOT).
 - CI(`.github/workflows/ci.yml`)가 `pnpm lint` · `typecheck` · `test` · `build` 를 돌린다. 초록불이 아니면 머지하지 않는다.

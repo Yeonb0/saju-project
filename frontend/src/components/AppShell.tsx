@@ -7,6 +7,7 @@ import { type ReactNode, useState } from "react";
 import { COLUMN_WIDTH } from "@/lib/layout";
 import { isMenuGroup, MENU } from "@/lib/navigation";
 import type { RoutePath } from "@/lib/screens";
+import { BusinessFooter } from "./BusinessFooter";
 
 type AppShellProps = {
   title?: string;
@@ -103,6 +104,8 @@ export function AppShell({ title, backHref, cta, children }: AppShellProps) {
       </header>
 
       <main className="flex-1">{children}</main>
+      {/* PG-4: 모든 화면 하단 사업자 정보 + 약관 링크. cta 는 sticky 라 푸터 위에 겹쳐 따라온다 */}
+      <BusinessFooter />
 
       {cta ? (
         // sticky: 앱 기둥 폭 안에서 화면 아래에 붙고, 본문 위에 겹치지 않아 가려지지 않는다.

@@ -99,3 +99,16 @@ describe("AppShell 하단 CTA", () => {
     expect(screen.queryByTestId("app-cta")).not.toBeInTheDocument();
   });
 });
+
+describe("AppShell 사업자 푸터", () => {
+  it("contentinfo 푸터가 있고 이용약관 링크가 /terms 로 있다", () => {
+    render(<AppShell>본문</AppShell>);
+    expect(screen.getByRole("contentinfo")).toContainElement(
+      screen.getByRole("link", { name: "이용약관" }),
+    );
+    expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+  });
+});
