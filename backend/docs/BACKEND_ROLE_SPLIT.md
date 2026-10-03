@@ -177,7 +177,7 @@ backend/src/main/java/.../sajuppugi/
 
 ### 5.6 부적·R2·공유
 
-- 12지·운세별 부적 카탈로그와 도트 에셋 조합
+- 12지·운세별 부적 카탈로그와 손그림 에셋 조합
 - 원본 1080×1920 PNG, 썸네일 360×640 WebP, 공개 공유 에셋 생성
 - private R2 저장과 10분 signed URL
 - 결과 포함 부적, 결과 후 15 등껍질 추가 구매 fulfillment

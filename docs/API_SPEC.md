@@ -2,7 +2,7 @@
 
 > 버전: Draft v0.2
 > 작성일: 2026-10-01
-> 최종 수정: 2026-10-02
+> 최종 수정: 2026-10-03
 > 상태: P0 정책 결정 전 초안
 > 참조: [`PRD.md`](./PRD.md), [`FUNCTIONAL_SPEC.md`](./FUNCTIONAL_SPEC.md), [`PENDING_DECISIONS.md`](./PENDING_DECISIONS.md), [`COMMON_RESPONSE_AND_ERROR_CODES.md`](./COMMON_RESPONSE_AND_ERROR_CODES.md)
 
@@ -287,8 +287,8 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
       "category": "TOP_UP",
       "price": { "currency": "KRW", "amount": 10000 },
       "paidAmount": 100,
-      "bonusAmount": 12,
-      "creditedAmount": 112,
+      "bonusAmount": 14,
+      "creditedAmount": 114,
       "active": true
     }
   ]
@@ -308,7 +308,7 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "price": { "currency": "TURTLE_SHELL", "amount": 55 },
   "walletBalance": 50,
   "shortage": 5,
-  "recommendedTopUp": "TURTLE_SHELL_30",
+  "recommendedTopUp": "TURTLE_SHELL_10",
   "expiresAt": "2026-10-01T03:10:00Z"
 }
 ```
@@ -354,18 +354,16 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 }
 ```
 
-충전 상품은 다음 여덟 개를 제공한다.
+충전 상품은 다음 여섯 개를 제공한다.
 
 | productCode | 유료 | 보너스 | 총 지급 | 가격 |
 |---|---:|---:|---:|---:|
+| `TURTLE_SHELL_10` | 10 | 0 | 10 | 1,000원 |
 | `TURTLE_SHELL_30` | 30 | 3 | 33 | 3,000원 |
 | `TURTLE_SHELL_50` | 50 | 6 | 56 | 5,000원 |
-| `TURTLE_SHELL_100` | 100 | 12 | 112 | 10,000원 |
-| `TURTLE_SHELL_200` | 200 | 24 | 224 | 20,000원 |
-| `TURTLE_SHELL_300` | 300 | 36 | 336 | 30,000원 |
-| `TURTLE_SHELL_500` | 500 | 60 | 560 | 50,000원 |
-| `TURTLE_SHELL_700` | 700 | 84 | 784 | 70,000원 |
-| `TURTLE_SHELL_1000` | 1,000 | 126 | 1,126 | 100,000원 |
+| `TURTLE_SHELL_100` | 100 | 14 | 114 | 10,000원 |
+| `TURTLE_SHELL_300` | 300 | 46 | 346 | 30,000원 |
+| `TURTLE_SHELL_500` | 500 | 82 | 582 | 50,000원 |
 
 - 승인 완료 시 유료분과 보너스분을 별도 원장 행 또는 동일 거래의 구분 가능한 lot으로 기록한다.
 - 차감 우선순위는 `TBD(P-02A)`다.
