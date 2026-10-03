@@ -6,31 +6,31 @@
 
 ## 현재 상태
 
-- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** — 백엔드 연결과 결제 플로우만, 디자인 요소 배제. FE 목표 10/12 · 카드사 심사 요청 10/14 전후. **위험: BE 10/4 스테이징 미충족 · 충전 API 제공일 재산정 중 (R-06)** — 10/12 · 10/14 는 BE 재산정 결과에 달렸다
-- **마지막으로 끝낸 작업**: 문서 v2.1 — 팀 답 1차 반영 (TQ-ANSWERS): PD 답변서 · BE 답변서(B) · BE-A 결정 기록(1~42). `TEAM-QUESTIONS.md` 상태 갱신 · Q-16 ~ Q-18 신규, PHASES · FRONTEND · CLAUDE 에 CSRF 흐름(Q-02) · 충전 완료 `CREDITED`(TOPUP-DONE) · 구매 선택 복원 `sessionStorage`(PURCHASE-RESTORE) · 실기기 말로 보고(NO-SCREENSHOT) 반영. `boyeon` 에 `main`(BE 골격 `a605afa`) 병합. 그 전: PG-4 사업자 정보 푸터 틀(`d42ba99` · `22f9712` · `4453ba9`) — `src/lib/business.ts` 8개 항목, 값 없음은 "(미정)"
+- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** — 백엔드 연결과 결제 플로우만, 디자인 요소 배제. FE 목표 10/12 · 카드사 심사 요청 10/14 전후. **위험: BE 10/4 스테이징 미충족 · 충전 API 제공일 재산정 중 (R-06)**, 그리고 선물도 등껍질이 되어 **충전이 유일한 원화 결제 경로** (R-01 토스 상담 10/10)
+- **마지막으로 끝낸 작업**: PG-1 일부 — Idempotency-Key 헬퍼 `src/lib/api/idempotency.ts` + 테스트 6개 (`353d9b8`, lint · typecheck · test 19 파일 73개 통과). 팀 결정(10/3) 반영 문서 v2.2. 그 전: 문서 v2.1 팀 답 1차 반영(`c6e08d1`), `main`(BE 골격 `a605afa`) 병합(`def95cd`), PG-4 사업자 정보 푸터 틀(`4453ba9`)
 - **다음 작업**
-  1. (FE) PG-1 백엔드 연결 기반 — 스테이징 주소 또는 OpenAPI 스펙 파일을 받으면 시작 (R-06 · Q-18). CSRF 방식은 정해졌다 (Q-02)
+  1. (FE) PG-1 나머지 — openapi-fetch 클라이언트 · 공통 응답 / 오류 code · CSRF 재시도 · API 경로 가리기. 스테이징 주소 또는 OpenAPI 스펙 파일을 받으면 (R-06 · Q-18)
   2. (FE) PG-3 충전 화면 `/wallet` — `FUNCTIONAL_SPEC.md` 2장에 들어가면 ROUTES 에 넣고 시작 (Q-01). 결제 부분은 BE 충전 API · 토스 테스트 클라이언트 키(R-09) 후
-  3. (FE) PG-4 값 — 사업자 명의(R-08) → 값 8개 · 사업자정보 공개페이지 링크(R-07). `/about` 은 충전 상품 기준(R-01), 제공기간 · 환불 문구 · 약관 원고 대기
+  3. (FE) PG-4 값 — 사업자 명의(R-08) → 값 8개 · 사업자정보 공개페이지 링크(R-07). `/about` 은 충전 상품 기준(R-01), 충전 환불 문구(Q-21) · 약관 원고 대기
   4. (FE) PG-2 카카오 로그인 · 세션 — BE-B OAuth · 세션 API · 리다이렉트 URI(R-04) 후
-  5. (BE) 일정 재산정(R-06) · OpenAPI 경로 · `details`(Q-18) · BE-A 결정의 계약 반영(Q-17, 충전 완료 부분은 10/10) · 토스 상담(R-01) · 테스트 키 계정(R-09)
+  5. (팀) 10/10: 부적 자동생성 세부(Q-19), 충전 환불 문구(Q-21), 토스 상담(R-01), 충전 `processing` · 충전 승인 키 확인(Q-17). 10/15: 선물 등껍질 결제 세부(Q-20), 신살 F-03, BE-A 단독 결정 확인(G-07 · G-09 · G-10 · P-02A)
 - **보류 (재개 조건)**
   - 디자인 항목 — PG 심사 요청 후 (PG-FIRST): 토큰 CSS 변수(값 D-01), 프레임 `border-image`(에셋 D-03 10/10 · 10/15, **PD 가 손그림 테두리 사용 여부 미확정 Q-15**), 폰트(FONT-HOLD · D-02), 캐릭터 규격 + 뿌기 포즈(범위 R-02 해결, 합성 입력 Q-14 제안), 사이드 메뉴 운세 목록 정리(일반 5종 + 수능운, `TODO(D-10)` 취업운 제거)
-  - 팀 확정 대기로 만들지 않는 것: 부적 선택 UI(Q-06), 선물 범위 · 관심 항목(Q-08), 선물 결제 재화(Q-16), 단위 표기 "조각"(Q-03), 공유 랜딩(Q-10)
+  - 팀 결정은 났지만 팀 문서 반영 전이라 만들지 않는 것: 선물 위저드 · 선물 등껍질 결제(Q-08 · Q-16 · Q-20), 부적 자동생성 화면 흐름(Q-06 · Q-19), 단위 문구 "등껍질 N개"(Q-03), `/wallet` · 공유 랜딩 라우트(Q-01 · Q-10)
   - iOS Safari 실기기 확인(AppShell · 404) — iPhone 확보 후 (R-03, PD 보유 · 대여 미정). Android Chrome · 카카오톡 인앱은 통과
   - openapi-fetch 클라이언트 · API 타입 · 관측 API 경로 가리기 — BE OpenAPI 수령 후 (PG-1)
   - Sentry 소스맵 업로드(`SENTRY_AUTH_TOKEN`) — Phase 7
 - **막힌 점 · 전달할 것**
-  - 팀에 받을 것(필요한 날은 `TEAM-QUESTIONS.md`): BE 재산정 일정(R-06) · OpenAPI 받는 방법 · `details`(Q-18) · BE-A 결정의 팀 문서 · API_SPEC 반영(Q-17), 사업자 명의(R-08, 전원) → 사업자 정보 값(R-07), 토스 상담 결과(R-01) · 테스트 클라이언트 키(R-09), 카카오 리다이렉트 URI · JavaScript 키(R-04), 심사 테스트 계정(R-05)
-  - 팀 확정이 필요한 것(답이 엇갈리거나 확정 결정을 바꿈): 선물 1차 범위 · 관심 항목(Q-08), 선물 결제 재화 P-07(Q-16), 단위 "조각" / "개"(Q-03), 부적 자동생성 T-01 변경(Q-06)
-  - 팀 문서에 반영돼야 하는 것 — 반영 담당 미정: `FUNCTIONAL_SPEC.md` 2장 `/wallet` · `/share/[shareId]`(Q-01 · Q-10), T-01 · FUNCTIONAL_SPEC 9 · 10장 부적(Q-06), F-01 수능 입력(Q-04), FUNCTIONAL_SPEC 8장 · PRD 4장 옛 문구(Q-11), O-06 서버 이벤트(Q-12), API_SPEC CSRF(Q-02) · 견적 · 충전 `processing` · 선물 `delivery` · 재발송 새 링크(Q-17)
+  - 팀에 보낸 정리본: `TEAM-DECISIONS-NEEDED-20261003-v2.md` (저장소 밖) — 남은 결정 8개와 팀 문서 반영 목록
+  - 팀에 받을 것(필요한 날은 `TEAM-QUESTIONS.md`): BE 재산정 일정(R-06) · OpenAPI 받는 방법 · `details`(Q-18) · BE-A 결정의 팀 문서 · API_SPEC 반영(Q-17), 사업자 명의(R-08, 전원) → 사업자 정보 값(R-07), 토스 상담 결과(R-01) · 테스트 클라이언트 키(R-09), 카카오 리다이렉트 URI · JavaScript 키(R-04), 심사 테스트 계정(R-05), Q-19 · Q-20 · Q-21
+  - 팀 문서에 반영돼야 하는 것 — 반영 담당 미정 (사용자가 맡기면 FE 가 고쳐 PR): 핵심 전제 · P-07 · P-03A(선물 등껍질) · 선물 대상 수능운만, T-01 · `FUNCTIONAL_SPEC.md` 9 · 10장(부적 자동생성 · 위저드), P-03 · `PRD.md` 5장 "등껍질 N개", F-01 · F-04 수능 입력, `FUNCTIONAL_SPEC.md` 2장 `/wallet` · `/share/[shareId]`, 8장 · `PRD.md` 4장 옛 문구, O-06 서버 이벤트, API_SPEC CSRF · 견적 · 충전 `processing` · 선물 `delivery` · 재발송 새 링크 · 선물 결제 · `talismanType`
   - (PD 전달) 개인정보처리방침 국외 이전 고지 — PostHog(US) · Sentry(지역 확인 필요), 오류 정보 · 접속 기록
   - (PD 전달) 카카오톡 인앱브라우저의 떠 있는 버튼이 화면 오른쪽 가운데를 가린다 — 누르는 요소 배치 참고
   - (PD 전달) 오류 화면 · 404 화면 문구 — 지금은 자리표시 "오류가 발생했습니다" · "다시 시도" · "페이지를 찾을 수 없습니다" · "홈으로" (TODO(PD 문구)). 공통 응답 문서에 따라 5xx 화면에 `traceId` 를 보여 줄 수 있다
   - `app/error.tsx` 는 실기기에서 띄워 보지 못했다 — 첫 실제 API 연결 화면에서 오류 경로를 실기기로 확인한다
   - Claude Code 는 `frontend/` 에서 시작한다 — 루트에 `CLAUDE.md` 가 없다
   - Playwright 브라우저 미설치 — E2E 처음 돌리기 전에 `pnpm -C frontend e2e:install`
-  - 알려진 작은 문제: PC 에서 스크롤바가 있는 긴 페이지는 사이드 메뉴 패널이 앱 기둥보다 몇 px 오른쪽으로 나갈 수 있다 (휴대폰 영향 없음)
+  - 알려진 작은 문제: PC 에서 스크롤바가 있는 긴 페이지는 사이드 메뉴 패널이 앱 기둥보다 몇 px 오른쪽으로 나갈 수 있다 (휴대폰 영향 없음). `next.config.ts` 주석이 아직 "D-14(백엔드 언어) 확정 전" 이다 (I-01 확정 — 다음 코드 수정 때 같이)
   - `.github/pull_request_template.md` 에 "스크린샷 필수" 문구가 남아 있다 (팀 공용 파일이라 그대로, NO-SCREENSHOT 와 다름)
 
 ## 마감 체크
@@ -55,6 +55,9 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| TEAM-1003 | 팀 결정(사용자 전달): 선물도 **등껍질** 결제(원화는 충전만, P-07 변경), 1차 선물은 **수능운만**(핵심 전제 변경), 부적은 **고르지 않고 결과 기반 자동생성**(T-01 변경), 단위 표기 **"등껍질 N개"**(P-03), 신살은 일반 5종에 포함(잠정, F-03 미정). 팀 문서 반영 전에는 이 결정에 기대는 코드를 만들지 않는다 (TQ-ANSWERS) | 2026-10-03 | 팀 |
+| CONFIRM-KEY | 충전 승인(`POST /top-up-orders/{orderId}/confirm`)의 `Idempotency-Key` 는 서버 주문 ID(UUID)를 그대로 쓴다 — PG 복귀 페이지 새로고침에도 저장소 없이 같은 키. 그 밖의 멱등 명령은 구매 의도당 무작위 UUID 하나 + 본문 직렬화 고정 (`src/lib/api/idempotency.ts`, `353d9b8`). BE-A 확인 요청 (Q-17) | 2026-10-03 | FE |
+| FILE-HANDOFF | 지시문으로 넘기는 파일(문서 zip · 코드 파일)은 사용자 PC 의 `~/Downloads`(`$HOME/Downloads`)에 받아 두고 SHA-256 으로 대조한다. 코드 본문을 지시문에 직접 붙이지 않는다 (붙여 넣기 중 잘린 적이 있다) | 2026-10-03 | 사용자 |
 | TQ-ANSWERS | 팀 답 1차 반영 (PD 답변서 · BE 답변서 · BE-A 결정 기록 1~42). `TEAM-QUESTIONS.md` 상태를 `해결` · `답변 · 반영 대기` · `답 엇갈림` · `부분` · `대기` 로 나눈다. `반영 대기` · `엇갈림` 항목은 팀 문서(PENDING_DECISIONS · FUNCTIONAL_SPEC · API_SPEC)에 들어가기 전까지 그 답에 기대는 코드를 만들지 않는다. 답변 원문은 저장소에 두지 않고 요지만 적는다 | 2026-10-03 | FE |
 | TOPUP-DONE | 충전 완료는 주문 `CREDITED` 일 때만 표시. `PAID` · `processing: true` 는 처리 중. 승인 결과가 불명확하면 주문 조회 2초 간격 최대 30초 → 확인 중 안내 + 주문 확인 버튼, 새 결제 · 새 멱등 키로 유도하지 않음 (BE-A 결정 17 · 39 · 42 채택, 계약 반영은 Q-17) | 2026-10-03 | FE |
 | PURCHASE-RESTORE | 잔액 부족 → 충전 → 복귀 때 구매 선택은 `sessionStorage` 에 둔다 — 인물 ID · 최소 선택값만(생년정보 원문 금지), 마지막 변경 후 24시간, 읽을 때 만료 검증, 구매 성공 · 로그아웃 시 삭제, 저장한 가격 · 잔액은 표시 근거가 아님(`GET /quotes/{quoteId}` 재확인). 전역 상태가 아니며 Zustand 를 쓰지 않는다. FE 브라우저 저장소 규칙 확장 (Q-07, BE-A 결정 1 · 15 채택) | 2026-10-03 | FE |
@@ -90,7 +93,8 @@
 
 ## 세션 로그
 
-- 2026-10-03 · 문서 v2.1: 팀 답 1차 반영(TQ-ANSWERS) — TEAM-QUESTIONS 상태 갱신 · Q-16 ~ Q-18 신규, PHASES · FRONTEND · CLAUDE 갱신(CSRF · TOPUP-DONE · PURCHASE-RESTORE · NO-SCREENSHOT), `boyeon` 에 `main`(BE 골격 `a605afa`) 병합. 코드 변경 없음.
+- 2026-10-03 · PG-1 일부: Idempotency-Key 헬퍼(`353d9b8`). `main` 병합(`def95cd`). 팀 결정 반영 문서 v2.2(TEAM-1003 · CONFIRM-KEY · FILE-HANDOFF), TEAM-QUESTIONS Q-19 ~ Q-21 신규. 팀 정리본 `TEAM-DECISIONS-NEEDED` v1 · v2 작성(저장소 밖).
+- 2026-10-03 · 문서 v2.1: 팀 답 1차 반영(TQ-ANSWERS) — TEAM-QUESTIONS 상태 갱신 · Q-16 ~ Q-18 신규, PHASES · FRONTEND · CLAUDE 갱신(CSRF · TOPUP-DONE · PURCHASE-RESTORE · NO-SCREENSHOT), `boyeon` 에 `main`(BE 골격 `a605afa`) 병합 — 실제 병합은 `def95cd`. 코드 변경 없음.
 - 2026-10-03 · PG-4 사업자 정보 푸터 틀(`d42ba99` · `22f9712` · `4453ba9`): `business.ts` 8개 항목(토스 6 + 전자우편주소 · 호스팅 제공자), 값 없음은 "(미정)", 약관 링크 간격. TEAM-QUESTIONS R-07 확장 · R-08 · R-09 판은 팀에만 전달됐고 저장소에는 v2.1 로 반영.
 - 2026-10-03 · 문서 v2: GitHub 팀 문서(PR #5) 반영 — 원본 GitHub 전환(DOCS-GITHUB), PHASES · PROGRESS · FRONTEND · CLAUDE · README 갱신, TEAM-QUESTIONS 신규(TQ-RESET). PG 트랙 v2(PG-TRACK) · 디자인 배제(PG-FIRST 보완). 팀 문서에 P-02 충전 상품 6종 · D-01/D-05 손그림 반영. 코드 변경 없음.
 - 2026-10-01 · 문서 v1(PG-FIRST · TOSS-SDK · STYLE-HAND · VIEWER · DECISION-IDS · TEAM-DOCS) 작성 — 저장소에 배치하지 않고 10/3 v2 로 대체. 코드 변경 없음.
