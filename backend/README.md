@@ -104,7 +104,7 @@ $env:DB_PASSWORD = '<configured-password>'
 - Hibernate는 `ddl-auto: validate`이며 테이블을 자동 생성/수정하지 않는다.
 - 이미 공유한 마이그레이션은 수정하지 않고 새 마이그레이션을 추가한다.
 - 패키지: `common`, `auth`, `member`, `person`, `catalog`, `wallet`, `payment`, `gift`, `fortune`, `talisman`, `share`, `admin`, `infrastructure`.
-- `common`의 API 응답/오류, 요청 traceId, 최소 보안만 구현했다. 나머지는 기능을 추가할 패키지 경계만 마련했다.
+- `common`의 API 응답/오류, 요청 traceId, 최소 보안을 구현했다. A 영역에는 도메인 타입과 내부 호출 계약, 일부 확정 정책을 추가했다. 상세 범위는 [백엔드 A 골격](docs/BACKEND_A_SCAFFOLD.md)을 참고한다.
 
 ## 컨테이너 및 Railway
 
@@ -120,4 +120,4 @@ docker build -t sajuppugi-backend .
 - 실행 컨테이너는 비루트 사용자이며 플랫폼의 `PORT`를 사용한다.
 - 실제 배포 주소/계정은 아직 등록하지 않았다.
 
-이 변경은 프로젝트 골격이다. 상품/결제/원장/선물의 도메인 구현, 미정 정책, 외부 서비스 연동은 포함하지 않는다.
+아직 업무 API, DB 저장 구현과 외부 서비스 연동은 없다. A의 순수 정책/타입과 인터페이스를 실제 서비스 구현과 구분하고, 미정 정책은 임의로 확정하지 않는다.
