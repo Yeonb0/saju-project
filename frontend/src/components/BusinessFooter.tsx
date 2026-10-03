@@ -34,7 +34,8 @@ export function BusinessFooter({
           </div>
         ))}
       </dl>
-      <nav aria-label="약관">
+      {/* 링크 3개가 한 단어처럼 붙어 보이지 않게 최소 간격만 둔다 (꾸밈 아님, PG-FIRST). TODO(PD 토큰 v0): 간격 값 */}
+      <nav aria-label="약관" className="flex flex-wrap gap-x-[12px]">
         <Link href="/terms">이용약관</Link>
         <Link href="/privacy">개인정보처리방침</Link>
         <Link href="/refund">환불정책</Link>
