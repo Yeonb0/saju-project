@@ -1,0 +1,6 @@
+spring:
+  config:
+    activate:
+      on-profile: production
+
+# No development credentials or public API documentation in production.

@@ -1,0 +1,6 @@
+spring:
+  config:
+    activate:
+      on-profile: staging
+
+# Database settings are mandatory in the shared application configuration.
