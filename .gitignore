@@ -24,5 +24,6 @@ Thumbs.db
 *.swp
 
 # 도구 캐시
+.gradle/
 .vercel
 *.tsbuildinfo

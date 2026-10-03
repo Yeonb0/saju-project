@@ -14,4 +14,110 @@
 - [공통 응답·예외 코드](../docs/COMMON_RESPONSE_AND_ERROR_CODES.md)
 - [BE-A/BE-B 역할 분담](docs/BACKEND_ROLE_SPLIT.md)
 
-프로젝트 스켈레톤을 생성한 뒤 이 문서에 설치·실행·테스트 명령어, 로컬 DB 실행법, 환경 변수 이름, OpenAPI 경로를 추가한다. 비밀값은 문서나 저장소에 기록하지 않는다.
+## 실행 환경
+
+- Java 21, Spring Boot 3.5.16, Gradle Wrapper 8.14.3
+- PostgreSQL 17 (로컬 Docker Compose)
+- 별도 Gradle 설치는 필요 없다. 첫 실행 시 Wrapper와 Maven 의존성을 다운로드한다.
+- 한글 Windows 경로의 Java 실행 인자 파일을 위해 Gradle JVM은 네이티브 호환 인코딩을 사용하고, 소스 컴파일/테스트 인코딩은 UTF-8로 고정한다.
+
+## 로컬 실행
+
+저장소의 `backend/`에서 실행한다. Docker Desktop이 실행 중이어야 한다.
+
+```powershell
+docker compose up -d --wait db
+.\gradlew.bat bootRun
+```
+
+macOS/Linux:
+
+```sh
+docker compose up -d --wait db
+bash ./gradlew bootRun
+```
+
+- 기본 프로필: `local`, 포트: `8080`
+- 기본 DB: `jdbc:postgresql://localhost:5432/sajuppugi`
+- 기본 로컬 계정: `sajuppugi` / `local-development-only` (개발용)
+- 프로세스 종료: 터미널에서 Ctrl+C
+- 로컬 DB 중지: `docker compose stop db` (데이터 유지)
+- `.env.example`은 설정 예시다. Spring Boot가 `.env` 파일을 자동으로 읽지 않는다.
+- Compose에 사용할 `.env`를 별도로 만들었다면 DB 계정/포트 변경값을 Spring Boot 프로세스 환경변수에도 동일하게 설정한다.
+
+## 기동 확인과 API 문서
+
+| 경로 | 용도 |
+|---|---|
+| `GET /actuator/health` | 애플리케이션과 DB 상태 |
+| `GET /actuator/health/liveness` | 프로세스 생존 확인 |
+| `GET /actuator/health/readiness` | DB를 포함한 서비스 준비 상태 |
+| `/v3/api-docs` | OpenAPI JSON, local 프로필에서만 공개 |
+| `/swagger-ui/index.html` | Swagger UI, local 프로필에서만 공개 |
+
+헬스 응답은 Actuator 기본 형식인 `{ "status": "UP" }`이며 업무 API의 응답 envelope와 구분한다. 아직 업무 endpoint는 없다.
+
+인증 구현 전에는 health와 local API 문서만 허용하고 나머지 요청은 거절한다. 폼/Basic 로그인과 기본 개발 사용자 로그인을 제공하지 않는다. CSRF 보호는 유지한다. 카카오 로그인, 세션, B가 결정한 CSRF 발급 계약은 후속 구현 대상이다.
+
+## 테스트와 빌드
+
+```powershell
+.\gradlew.bat clean check bootJar
+```
+
+```sh
+bash ./gradlew clean check bootJar
+```
+
+- 테스트 기본 DB는 테스트 범위에만 포함한 H2다. Docker 없이 기동/응답/보안 테스트를 실행할 수 있다.
+- PostgreSQL 검증은 `TEST_DATABASE_URL`, `TEST_DATABASE_USERNAME`, `TEST_DATABASE_PASSWORD`를 설정하고 같은 테스트를 실행한다.
+- GitHub Backend CI는 PostgreSQL 서비스에서 테스트하고 실행 JAR를 빌드한다.
+- 테스트용 컨트롤러는 `src/test/`에만 있으며 실행 JAR에 포함되지 않는다.
+- 산출물: `build/libs/sajuppugi-backend-0.0.1-SNAPSHOT.jar`
+
+## 환경 설정
+
+| 변수 | 용도 |
+|---|---|
+| `SPRING_PROFILES_ACTIVE` | `local`, `staging`, `production` |
+| `DB_URL` | JDBC URL (`jdbc:postgresql://host:port/database`) |
+| `DB_USERNAME` | DB 사용자 |
+| `DB_PASSWORD` | DB 비밀번호 |
+| `PORT` | HTTP 포트, 기본 8080 |
+
+`staging`과 `production`에는 개발 DB 기본값이 없다. 세 DB 환경변수를 배포 환경에서 제공해야 한다. `postgresql://...` 연결 문자열을 그대로 `DB_URL`에 넣지 말고 JDBC 형식과 분리된 계정값을 사용한다.
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = 'staging'
+$env:DB_URL = 'jdbc:postgresql://localhost:5432/sajuppugi'
+$env:DB_USERNAME = 'sajuppugi'
+$env:DB_PASSWORD = '<configured-password>'
+.\gradlew.bat bootRun
+```
+
+운영 환경에서는 배포 플랫폼의 비밀 환경변수 설정을 사용한다. 토스/OAuth/Liner/R2 키는 아직 필요하지 않으며 구현 전 임의 값을 추가하지 않는다.
+
+## DB 마이그레이션과 패키지
+
+- Flyway 경로: `src/main/resources/db/migration`
+- 골격 단계에서는 도메인 테이블을 만들지 않는다. 실제 기능 구현 시 `V202610031800__a_create_wallet.sql` 같은 시간 기반 버전으로 추가한다.
+- Hibernate는 `ddl-auto: validate`이며 테이블을 자동 생성/수정하지 않는다.
+- 이미 공유한 마이그레이션은 수정하지 않고 새 마이그레이션을 추가한다.
+- 패키지: `common`, `auth`, `member`, `person`, `catalog`, `wallet`, `payment`, `gift`, `fortune`, `talisman`, `share`, `admin`, `infrastructure`.
+- `common`의 API 응답/오류, 요청 traceId, 최소 보안만 구현했다. 나머지는 기능을 추가할 패키지 경계만 마련했다.
+
+## 컨테이너 및 Railway
+
+`backend/`를 빌드 컨텍스트로 사용한다.
+
+```sh
+docker build -t sajuppugi-backend .
+```
+
+- Railway Root Directory를 `backend`로 설정하고 Dockerfile 빌드를 사용한다.
+- 컨테이너 기본 프로필은 `production`이다. 스테이징은 `SPRING_PROFILES_ACTIVE=staging`으로 지정한다.
+- DB 환경변수를 등록하고 준비 상태 확인 경로를 `/actuator/health/readiness`로 설정한다.
+- 실행 컨테이너는 비루트 사용자이며 플랫폼의 `PORT`를 사용한다.
+- 실제 배포 주소/계정은 아직 등록하지 않았다.
+
+이 변경은 프로젝트 골격이다. 상품/결제/원장/선물의 도메인 구현, 미정 정책, 외부 서비스 연동은 포함하지 않는다.
