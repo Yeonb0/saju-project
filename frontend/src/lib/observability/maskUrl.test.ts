@@ -14,7 +14,9 @@ describe("maskUrl", () => {
 
   it("동적 경로를 패턴으로 바꾼다", () => {
     expect(maskUrl("/suneung/r/r_1")).toBe("/suneung/r/[readingId]");
-    expect(maskUrl("/fortune/love/checkout")).toBe("/fortune/[type]/checkout");
+    expect(maskUrl("/fortune/love/questions")).toBe(
+      "/fortune/[type]/questions",
+    );
     expect(maskUrl("/me/people/p9")).toBe("/me/people/[id]");
     expect(maskUrl("/gift/done/o1")).toBe("/gift/done/[orderId]");
     expect(maskUrl("/talisman/t1")).toBe("/talisman/[id]");
@@ -22,7 +24,7 @@ describe("maskUrl", () => {
   });
 
   it("정적 경로는 동적 패턴보다 먼저 맞아 그대로 둔다", () => {
-    expect(maskUrl("/suneung/checkout")).toBe("/suneung/checkout");
+    expect(maskUrl("/suneung")).toBe("/suneung");
     expect(maskUrl("/me/people/new")).toBe("/me/people/new");
     expect(maskUrl("/gift/new")).toBe("/gift/new");
     expect(maskUrl("/wallet")).toBe("/wallet");

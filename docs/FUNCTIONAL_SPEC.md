@@ -78,10 +78,10 @@
 | `/today` | 오늘의 운세 `TODAY-01~02` | 🆕 필수 |
 | `/fortune/[type]` | 일반 운세 정보 확인 `FORT-01` · 궁합 사람 선택 `MATCH-01~02` | 구매 시 필수 |
 | `/fortune/[type]/questions` | 질문 · 옵션 선택 `FORT-02~03` · `MATCH-03` | 필수 |
-| `/fortune/[type]/checkout` | 🆕 별도 화면 없이 질문 화면 옵션 버튼 + 확인 팝업으로 처리 (라우트 유지 여부는 FE 판단) | 필수 |
+| ~~`/fortune/[type]/checkout`~~ | 🆕 삭제 — 질문 화면 옵션 버튼 + 확인 팝업 (FE 결정 CHECKOUT-POPUP, 2026-10-04) | — |
 | `/fortune/r/[readingId]` | 일반 운세 로딩 · 결과 `FORT-05~07` | 소유자 |
 | `/suneung` | 수능운 정보 확인 `CSAT-01` · ✚ 판매 종료 상태 | 구매 시 필수 |
-| `/suneung/checkout` | 🆕 확인 팝업으로 처리 | 필수 |
+| ~~`/suneung/checkout`~~ | 🆕 삭제 — 정보 확인(`CSAT-01`) 안 확인 팝업 (CHECKOUT-POPUP, 2026-10-04) | — |
 | `/suneung/r/[readingId]` | 수능운 로딩 · 결과 `CSAT-02~07` | 소유자 |
 | `/talisman/[id]` | 부적 생성 · 결과 `FORT-08~09` | 권한 보유자 |
 | `/gift/new` | 선물 위저드 `GIFT-01~03` (여러 명 `GIFT-06~08` ⚠️) | 필수 |

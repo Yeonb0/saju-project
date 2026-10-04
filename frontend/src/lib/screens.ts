@@ -132,16 +132,16 @@ export const ROUTES = {
   "/onboarding": { screens: [2] },
   "/": { screens: [4] },
   "/today": { screens: [6, 7] },
-  "/suneung": { screens: [15] },
-  "/suneung/checkout": { screens: [16] },
+  // CHECKOUT-POPUP — 수능운 차감 확인(구 #16)은 정보 확인 화면 안 팝업 (FUNCTIONAL_SPEC 2장 v0.3, 최종 와이어 CSAT-01 다음)
+  "/suneung": { screens: [15, 16] },
   "/suneung/r/[readingId]": { screens: [17, 18, 19, 20, 21, 22] },
   "/fortune/[type]": { screens: [8] },
-  "/fortune/[type]/questions": { screens: [9] },
-  "/fortune/[type]/checkout": { screens: [10] },
+  // CHECKOUT-POPUP — 옵션 선택 · 차감 확인(구 #10)은 질문 화면의 옵션 버튼 + 팝업 (FUNCTIONAL_SPEC 2장 v0.3, 최종 와이어 FORT-02 · 03 · MATCH-03)
+  "/fortune/[type]/questions": { screens: [9, 10] },
   "/fortune/r/[readingId]": { screens: [11, 12] },
   "/talisman/[id]": { screens: [13, 14] },
-  "/gift/new": { screens: [23, 24, 25, 26, 27] },
-  "/gift/checkout": { screens: [28] },
+  // FUNCTIONAL_SPEC 2장 v0.3 — /gift/checkout 삭제, 선물 등껍질 차감 확인(구 #28)은 위저드 안 팝업 (최종 와이어 GIFT-03 다음)
+  "/gift/new": { screens: [23, 24, 25, 26, 27, 28] },
   "/gift/done/[orderId]": { screens: [29] },
   "/g/[token]": { screens: [30, 31, 32, 33, 34, 35, 36] },
   // FUNCTIONAL_SPEC 2장 (Q-10) — 공유 랜딩, 와이어 없음. 공유 범위 · 만료는 G-11 미정
