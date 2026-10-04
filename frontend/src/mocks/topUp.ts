@@ -23,7 +23,11 @@ export const FAKE_TOP_UP_SCENARIOS = [
 
 export type FakeTopUpScenario = (typeof FAKE_TOP_UP_SCENARIOS)[number];
 
-// 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다.
+// 구성만 실제 상품 목록(P-02)과 맞춘다: 판매 상품 6개, 첫 상품은 보너스 0, 마지막에 비활성 1개.
+// 금액 · 수량은 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다 (P-02 · P-03 값을 옮기지 않는다).
+// 숫자를 일부러 실제와 다르게 둔 것은, 화면이 값을 하드코딩하면 테스트에서 바로 드러나게 하려는 것이다.
+// 비활성 상품은 화면이 고를 수 없게 막는지 확인하는 용도다.
+// creditedAmount 는 가짜 서버 데이터라 유료 + 보너스를 미리 계산해 적는다.
 const FIXTURE_PRODUCTS: readonly TopUpProduct[] = [
   {
     code: "FIXTURE_TOP_UP_A",
@@ -42,11 +46,43 @@ const FIXTURE_PRODUCTS: readonly TopUpProduct[] = [
     active: true,
   },
   {
-    code: "FIXTURE_TOP_UP_INACTIVE",
+    code: "FIXTURE_TOP_UP_C",
     price: { currency: "KRW", amount: 3333 },
     paidAmount: 33,
     bonusAmount: 3,
     creditedAmount: 36,
+    active: true,
+  },
+  {
+    code: "FIXTURE_TOP_UP_D",
+    price: { currency: "KRW", amount: 4444 },
+    paidAmount: 44,
+    bonusAmount: 4,
+    creditedAmount: 48,
+    active: true,
+  },
+  {
+    code: "FIXTURE_TOP_UP_E",
+    price: { currency: "KRW", amount: 5555 },
+    paidAmount: 55,
+    bonusAmount: 5,
+    creditedAmount: 60,
+    active: true,
+  },
+  {
+    code: "FIXTURE_TOP_UP_F",
+    price: { currency: "KRW", amount: 6666 },
+    paidAmount: 66,
+    bonusAmount: 6,
+    creditedAmount: 72,
+    active: true,
+  },
+  {
+    code: "FIXTURE_TOP_UP_INACTIVE",
+    price: { currency: "KRW", amount: 7777 },
+    paidAmount: 77,
+    bonusAmount: 7,
+    creditedAmount: 84,
     active: false,
   },
 ];

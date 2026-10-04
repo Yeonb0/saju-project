@@ -30,8 +30,9 @@ describe("WalletScreen (PAY-01)", () => {
   it("서버(가짜) 상품 값을 그대로 보여 주고, 비활성 상품은 고를 수 없다", async () => {
     setup();
     const radios = await screen.findAllByRole("radio");
-    expect(radios).toHaveLength(3);
-    expect(radios[2]).toBeDisabled();
+    expect(radios).toHaveLength(7);
+    for (const radio of radios.slice(0, 6)) expect(radio).not.toBeDisabled();
+    expect(radios[6]).toBeDisabled();
     expect(screen.getByText(/1,111 KRW/)).toBeInTheDocument();
   });
 
