@@ -140,8 +140,8 @@ export const ROUTES = {
   "/fortune/[type]/checkout": { screens: [10] },
   "/fortune/r/[readingId]": { screens: [11, 12] },
   "/talisman/[id]": { screens: [13, 14] },
-  "/gift/new": { screens: [23, 24, 25, 26, 27] },
-  "/gift/checkout": { screens: [28] },
+  // FUNCTIONAL_SPEC 2장 v0.3 — /gift/checkout 삭제, 선물 등껍질 차감 확인(구 #28)은 위저드 안 팝업 (최종 와이어 GIFT-03 다음)
+  "/gift/new": { screens: [23, 24, 25, 26, 27, 28] },
   "/gift/done/[orderId]": { screens: [29] },
   "/g/[token]": { screens: [30, 31, 32, 33, 34, 35, 36] },
   // FUNCTIONAL_SPEC 2장 (Q-10) — 공유 랜딩, 와이어 없음. 공유 범위 · 만료는 G-11 미정
