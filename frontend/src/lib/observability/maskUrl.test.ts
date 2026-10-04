@@ -18,12 +18,14 @@ describe("maskUrl", () => {
     expect(maskUrl("/me/people/p9")).toBe("/me/people/[id]");
     expect(maskUrl("/gift/done/o1")).toBe("/gift/done/[orderId]");
     expect(maskUrl("/talisman/t1")).toBe("/talisman/[id]");
+    expect(maskUrl("/share/s1")).toBe("/share/[shareId]");
   });
 
   it("정적 경로는 동적 패턴보다 먼저 맞아 그대로 둔다", () => {
     expect(maskUrl("/suneung/checkout")).toBe("/suneung/checkout");
     expect(maskUrl("/me/people/new")).toBe("/me/people/new");
     expect(maskUrl("/gift/new")).toBe("/gift/new");
+    expect(maskUrl("/wallet")).toBe("/wallet");
   });
 
   it("결제 복귀 쿼리를 지운다", () => {

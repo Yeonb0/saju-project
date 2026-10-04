@@ -144,10 +144,14 @@ export const ROUTES = {
   "/gift/checkout": { screens: [28] },
   "/gift/done/[orderId]": { screens: [29] },
   "/g/[token]": { screens: [30, 31, 32, 33, 34, 35, 36] },
+  // FUNCTIONAL_SPEC 2장 (Q-10) — 공유 랜딩, 와이어 없음. 공유 범위 · 만료는 G-11 미정
+  "/share/[shareId]": { screens: [], note: "공유 랜딩" },
   "/me": { screens: [37] },
   "/me/people/new": { screens: [3] },
   "/me/people/[id]": { screens: [3] },
   "/vault": { screens: [38, 39] },
+  // FUNCTIONAL_SPEC 2장 (Q-01) — 충전. 최종 와이어 PAY-01 · PAY-02 · FORT-04 (구 번호 없음, FIGMA-FINAL)
+  "/wallet": { screens: [], note: "결제 공통 · 충전" },
   "/pay/success": { screens: [], note: "결제 공통" },
   "/pay/fail": { screens: [], note: "결제 공통" },
   "/about": { screens: [], note: "심사용·법적 고지" },
