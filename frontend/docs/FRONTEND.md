@@ -6,12 +6,13 @@
 > 변경: 2026-10-03 — 공용 문서(PR #5) 반영: 토스 SDK(TOSS-SDK), 공통 응답 · 오류 처리, 카카오톡 공유하기만, 결과 뷰어 ReadingViewer 하나(VIEWER), 선물 단건 · 알림톡, Checkout 두 종류 · 사업자 정보 푸터. 손그림체 재확인(STYLE-HAND), 디자인 항목은 PG 심사 요청 후(PG-FIRST)
 > 변경: 2026-10-03 — 팀 답 1차 반영 (TQ-ANSWERS): CSRF 흐름(Q-02), 충전 완료 `CREDITED`(TOPUP-DONE), 구매 선택 복원 `sessionStorage`(PURCHASE-RESTORE), 캐릭터 범위(R-02) · 합성 입력 제안(Q-14), 실기기 확인은 말로 보고(NO-SCREENSHOT)
 > 변경: 2026-10-03 — 팀 결정 반영 (TEAM-1003, 팀 문서 반영 대기): 선물도 등껍질 결제(원화 PG 결제는 충전만), 1차 선물 수능운만, 부적 자동생성 → Checkout 대응과 GiftWizard 단계 수정. `src/lib/api/idempotency.ts`(`353d9b8`)
+> 변경: 2026-10-04 — 최종 와이어프레임(Figma `와이어프레임 최종`, node `195:91`, FIGMA-FINAL): 3장 "쓰이는 화면" 을 새 화면 ID 로. 등껍질 차감 확인은 팝업(Modal) 안의 Checkout (경로는 Q-27), 충전 화면 PAY-01 · 02 (결제 수단 Q-25). 팀 문서 2차 반영 PR(`cc60ab3`)
 
 ---
 
 ## 1. 프론트엔드 스택 — ✅ 확정 (2026-09-26, 10-03 보완)
 
-판단 기준: FE 1명이 5주에 화면 40개 · 카카오톡 인앱브라우저에서 결제 · 공유 동작 · 선물 링크 OG · 손그림 톤.
+판단 기준: FE 1명이 5주에 화면 · 팝업 50여 개 · 카카오톡 인앱브라우저에서 결제 · 공유 동작 · 선물 링크 OG · 손그림 톤.
 
 | 영역 | 선택 | 이유 |
 |---|---|---|
@@ -84,14 +85,14 @@
 | AppShell (헤더: 뒤로/제목/메뉴, 사이드 메뉴, 하단 고정 CTA) | 거의 전부 | Phase 1 (완료) |
 | API 클라이언트 (`src/lib/api` — openapi-fetch + 공통 응답 · 오류 code 처리 + Idempotency-Key) | 서버를 부르는 모든 화면 | PG-1 (`idempotency.ts` 완료 `353d9b8` — 구매 의도당 키 · 본문 고정, 충전 승인은 주문 ID 키) |
 | 로그인 가드 (세션 확인 · `returnTo` 복귀) | 로그인 필요 화면 전부 (A-02) | PG-2 |
-| Checkout — PG 결제 (서버 주문 요약 · 동의 · 토스 결제창 · `/pay/success` 승인 · `CREDITED` 확인 · 승인 지연 확인 중 화면 · `/pay/fail`) | 충전 `/wallet` 만 (Q-01 반영 대기). 선물은 등껍질 결제라 쓰지 않는다 (Q-16) | PG-3 |
+| Checkout — PG 결제 (서버 주문 요약 · 동의 · 토스 결제창 · `/pay/success` 승인 · `CREDITED` 확인 · 승인 지연 확인 중 화면 · `/pay/fail`) | PAY-01 · PAY-02 · FORT-04 (`/wallet`, 팀 문서 PR `cc60ab3` 병합 대기) — 결제 수단 · 동의 체크는 Q-25. 선물은 등껍질 결제라 쓰지 않는다 (P-07) | PG-3 |
 | BusinessFooter (사업자 정보 8개 + 약관 3종 링크, 값은 `src/lib/business.ts` 한 파일) | 전부 (AppShell 하단) | PG-4 (틀 완료 `4453ba9`, 값 대기 R-07) |
-| PersonForm (이름 · 생년월일 · 양력/음력 · 윤달 · 시간 · 시간 모름 · 성별 · 관계 · 타인 정보 권한 확인) | 2, 3, 31 (+ 오늘의 운세 비로그인 입력, 궁합 상대) | Phase 3 |
-| PersonCard (프로필 카드 + 수정 + "저장된 다른 사용자 불러오기") | 8, 15, 37 | Phase 3 |
-| Checkout — 등껍질 차감 (서버 견적: 상품 · 대상 · 옵션 · 차감량 · 구매 후 잔액, 단일 구매 명령) + 잔액 부족 모달 (P-06) + 구매 선택 복원(`sessionStorage`, `GET /quotes/{quoteId}` 재확인) | 10, 16, 부적 추가 구매, 28 선물 결제 (Q-16 · Q-20) | Phase 4 / 5 |
-| LoadingScene (캐릭터 + 문구) | 6, 11, 13, 17 | Phase 4 |
-| ReadingViewer (API 섹션 타입별: `TEXT` · `PERIOD_GUIDANCE` · `FOOD_RECOMMENDATION` · `CHECKLIST`, 고지, 메시지 · 편지 슬롯) — SuneungResultViewer 대체 (VIEWER) | 12, 18~22, 32~36 | Phase 4 |
-| TalismanViewer (부적 이미지 + 설명 + 저장 · 카카오톡 공유하기) | 14, 22, 36, 39 | Phase 4 |
-| GiftWizard (Zustand + `sessionStorage`) — 옵션 → 수신자 이름 · 전화번호 → 편지 + 보내는 사람 이름(보이는 글자 1~20자, `Intl.Segmenter`) → 검토 → 등껍질 차감 Checkout. 운세 유형 단계 없음(1차 수능운만, Q-08) · 부적 단계 없음(자동생성, Q-06) | 23, 25, 27, 28 (24 · 26 삭제) | Phase 5 |
-| Modal (Radix Dialog) — "부적이 저장되었어요!", 잔액 부족 등 | 40 외 | Phase 1 (껍데기) / 4 |
-| BottomSheet (vaul) | 39 (충전은 별도 화면 `/wallet`, Q-01) | Phase 1 (껍데기) / 6 |
+| PersonForm (이름 · 생년월일 · 양력/음력 · 윤달 · 시간 · 시간 모름 · 성별 · 관계 · 타인 정보 권한 확인) | HOME-02, MY-02, RECV-02 · RECV-T-02 (+ 오늘의 운세 비로그인 입력 — 와이어에 없음 Q-23, 궁합 사람 추가 MATCH-01) | Phase 3 |
+| PersonCard (프로필 카드 + 수정 + "저장된 다른 사용자 불러오기") | FORT-01, CSAT-01, MY-01, MATCH-02 | Phase 3 |
+| Checkout — 등껍질 차감 (서버 견적: 상품 · 대상 · 옵션 · 차감량 · 구매 후 잔액, 단일 구매 명령) + 잔액 부족 모달 (P-06) + 구매 선택 복원(`sessionStorage`, `GET /quotes/{quoteId}` 재확인) | 와이어는 팝업(Modal 안) — FORT-02 · 03 · MATCH-03 옵션 버튼, CSAT-01 다음, FORT-07 부적 만들기, GIFT-03 다음 (경로 · 표시 항목 Q-27). 잔액 부족 팝업 → PAY-02 → 충전 완료 팝업 → 원래 화면 | Phase 4 / 5 |
+| LoadingScene (캐릭터 + 문구) | TODAY-01, FORT-05, FORT-08, CSAT-02 | Phase 4 |
+| ReadingViewer (API 섹션 타입별: `TEXT` · `PERIOD_GUIDANCE` · `FOOD_RECOMMENDATION` · `CHECKLIST`, 고지, 메시지 · 편지 슬롯) — SuneungResultViewer 대체 (VIEWER) | FORT-06 · 07, CSAT-03 ~ 06, RECV-03 ~ 06, RECV-T-03 (섹션 순서는 서버 응답) | Phase 4 |
+| TalismanViewer (부적 이미지 + 설명 + 저장 · 카카오톡 공유하기) | FORT-09, CSAT-07, RECV-07, RECV-T-04, TALBOX-02 | Phase 4 |
+| GiftWizard (Zustand + `sessionStorage`) — 옵션 → 수신자 이름 · 전화번호 → 편지 + 보내는 사람 이름(보이는 글자 1~20자, `Intl.Segmenter`) → 검토 → 등껍질 차감 Checkout. 운세 유형 단계 없음(1차 수능운만, Q-08) · 부적 단계 없음(자동생성, Q-06) | GIFT-01 · 02 · 03 + 차감 확인 팝업 (여러 명 GIFT-06 ~ 08 은 만들지 않음 — Q-23) | Phase 5 |
+| Modal (Radix Dialog) — "부적이 저장되었어요!", 등껍질 차감 확인, 잔액 부족, 충전 완료 | 팝업 전부 (PHASES 1장 "(팝업)" 행) | Phase 1 (껍데기) / 4 |
+| BottomSheet (vaul) | TALBOX-02 (충전은 별도 화면 `/wallet`, Q-01) | Phase 1 (껍데기) / 6 |
