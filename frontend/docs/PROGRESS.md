@@ -6,32 +6,33 @@
 
 ## 현재 상태
 
-- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** — 백엔드 연결과 결제 플로우만, 디자인 요소 배제. FE 목표 10/12 · 카드사 심사 요청 10/14 전후. **위험: BE 10/4 스테이징 미충족 · 충전 API 제공일 재산정 중 (R-06)**. 10/4 `main` 에 BE-A 도메인 골격(`2c682e0`)만 — 업무 API · 스테이징 없음, 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
-- **마지막으로 끝낸 작업**: (10/4) 최종 와이어프레임(Figma `와이어프레임 최종`, node `195:91`) 대조 — PHASES 1장 화면 목록을 새 화면 ID 로, 와이어와 팀 결정의 충돌 · 빈 곳을 Q-23 ~ Q-27 로 (FIGMA-FINAL), `main` 의 BE-A 골격(`2c682e0`)을 `boyeon` 에 병합. 그 전(10/3): 팀 문서 2차 반영 (`cc60ab3` — `docs/PENDING_DECISIONS.md` · `FUNCTIONAL_SPEC.md` · `PRD.md`). PD 요청(정리본 8번)으로 FE 가 고쳐 PR, **`boyeon` → `main` PR 검토 · 병합 대기** (DOCS-TEAM-PR). 같은 날: `boyeon` 을 `main` 병합 커밋 `90703b7` 에 fast-forward, `next.config.ts` 주석 보정(`e4ae66b`, lint · typecheck · test 73개 · build 통과). 그 전: PG-1 Idempotency-Key 헬퍼(`353d9b8`), PG-4 푸터 틀(`4453ba9`)
+- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** — 백엔드 연결과 결제 플로우만, 디자인 요소 배제. FE 목표 10/12 · 카드사 심사 요청 10/14 전후. **위험: BE 10/4 스테이징 미충족 · 충전 API 제공일 재산정 중 (R-06)**. `main` 에는 BE 골격(`a605afa`) + BE-A 도메인 골격(`2c682e0`)만 — 업무 API · 스테이징 없음. 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
+- **마지막으로 끝낸 작업** (10/4): 기능 명세서 v0.3(PD/PM) 을 팀 문서에 반영(`9fb9d21`, 3차, `main` 병합 `d396cce`). 코드: `/wallet` · `/share/[shareId]` 라우트 자리표시(`078662d`), `/gift/checkout` 삭제(`b9a95ea`), 일반 운세 · 수능운 Checkout 경로 삭제(CHECKOUT-POPUP, 이번 커밋). FUNCTIONAL_SPEC 2장 표 정리 + FE 문서 v2.5 (이번 커밋). 그 전(10/4): 최종 와이어 대조 v2.4(`05585e4`, FIGMA-FINAL) · 팀 문서 2차(`cc60ab3`) — `main` 병합 `6510c4f`
 - **다음 작업**
-  1. (사용자) PR `boyeon` → `main` — 검토 PD(전체 · P-02 50,000원 보너스 82 · 신살 관심 항목), BE-A(P-03 가격 변경 · 정가 필드 · P-03A 선물 견적 필드 · P-07 에 따른 API · G-07 24시간 유예 문구 · 정보 입력 마감 · G-09 환급), BE-B(T-01 부족한 기운 · `talismanType` 삭제 · T-06 묶음 · F-03 17종 계산)
-  2. (사용자 → PD · BE) Q-23 ~ Q-27 전달 — 10/8 까지 필요한 것: Q-23 a(로그인 수단) · j(서비스명), Q-25(충전 결제 수단 4칸 · 동의 체크 — 심사 중 변경 금지)
-  3. (FE) PR 병합 후 `src/lib/screens.ts` ROUTES 에 `/wallet` · `/share/[shareId]` 추가 → PG-3 `/wallet`(PAY-01 · PAY-02) 시작 (데이터 · 결제는 BE 충전 API · OpenAPI · R-09 후, 결제 수단은 Q-25 후)
-  4. (FE) PG-1 나머지 — openapi-fetch 클라이언트 · 공통 응답 / 오류 code · CSRF 재시도 · API 경로 가리기. 스테이징 주소 또는 OpenAPI 스펙 파일을 받으면 (R-06 · Q-18)
-  5. (FE) PG-4 값 — 사업자 명의(R-08) → 값 8개 · 사업자정보 공개페이지 링크(R-07). `/refund` 는 PD 확정 원고(10/10, 초안만 수령 — Q-21), `/about` 은 충전 상품 기준(R-01)
-  6. (FE) PG-2 카카오 로그인 · 세션(HOME-01, 카카오 버튼만 — Q-23 a) — BE-B OAuth · 세션 API · 리다이렉트 URI(R-04) 후
-  7. (팀) 10/8: Q-23 a · j, Q-25. 10/10: Q-27(결제 확인 팝업 · Checkout 경로), 부족한 기운 산출 · 기준일(Q-19, BE-B), 충전 환불 원고 확정(Q-21) · 토스 상담(R-01), 가격 표기 값(Q-22), 충전 `processing` · 충전 승인 키 확인(Q-17). 10/15: 선물 견적 필드 · 주문 API · 환급(Q-20, BE-A), 신살 17종 계산 · 문구(F-03), Q-23 나머지 · Q-24 · Q-26
+  1. (사용자) PR `boyeon` → `main` — FUNCTIONAL_SPEC 2장 Checkout 행 정리(PD 확인) + 라우트 코드 + FE 문서
+  2. (사용자 → 팀) 남은 질문 전달 — **10/8: Q-25 충전 결제 수단 4칸**(유저 플로우 ⑧ 은 상품 선택 → 바로 결제창). 10/15: Q-23 d(여러 명 선물) · e(발송 실패 링크 공유) · f(`부적` 선물 체크리스트 — v0.3 10장 ↔ 11장) · g(수능 결과 구성), F-04 고민 입력(BE-B), A-01 네이버 · 구글 개발 범위(BE-B · FE), 선물 주문 상태 이름(v0.3 15장, BE-A)
+  3. (FE) PG-3 `/wallet`(PAY-01 · PAY-02 · FORT-04) — BE 충전 API · OpenAPI · R-09 · Q-25 후
+  4. (FE) PG-1 나머지 — openapi-fetch 클라이언트 · 공통 응답 / 오류 code · CSRF 재시도. 스테이징 주소 또는 OpenAPI 스펙 파일 후 (R-06 · Q-18)
+  5. (FE) PG-4 값 — 사업자 명의(R-08) → 값 8개(R-07). `/refund` 는 PD 확정 원고(Q-21, 10/10)
+  6. (FE) PG-2 로그인 · 세션(HOME-01) — 카카오 먼저, 네이버 · 구글은 BE-B 지원 · 범위 확정 후(A-01). 로그인 직후 본인 정보가 없으면 `/onboarding`(A-03), 비로그인으로 홈 기능을 누르면 로그인(A-02). BE-B OAuth · 세션 API · R-04 후
+  7. (팀) 10/10: Q-19(부족한 기운 산출, BE-B) · Q-21 · R-01 · Q-22(정가 필드), Q-17(API_SPEC 반영). 10/15: Q-20(선물 견적 필드 · 주문 API) · F-03 · Q-24(PD ✚ 프레임) · Q-26(질문 선택지)
 - **보류 (재개 조건)**
-  - 디자인 항목 — PG 심사 요청 후 (PG-FIRST): 토큰 CSS 변수(값 D-01), 프레임 `border-image`(에셋 D-03 10/10 · 10/15, **PD 가 손그림 테두리 사용 여부 미확정 Q-15**), 폰트(FONT-HOLD · D-02), 캐릭터 규격 + 뿌기 포즈(범위 R-02 해결, 합성 입력 Q-14 제안), 사이드 메뉴 운세 목록 정리(일반 5종 + 수능운, `TODO(D-10)` 취업운 제거)
-  - 최종 와이어에만 있고 팀 결정과 부딪혀 만들지 않는 것 (Q-23 해결 전): 네이버 · 구글 로그인 버튼, 여러 명 선물(GIFT-06 ~ 08), 발송 실패 링크 복사(GIFT-05), 오늘의 운세 로그인 필수, 관계 칩(엄마 · 아빠 · 애인). 충전 화면 결제 수단 4칸 · 동의 체크는 Q-25 전까지 정하지 않는다
-  - 팀 문서 PR(`cc60ab3`) 병합 전이라 만들지 않는 것: `/wallet` · 공유 랜딩 라우트(Q-01 · Q-10), 선물 위저드 · 선물 등껍질 결제(P-07 · P-03A, 세부 Q-20), 부적 자동생성 화면 흐름(T-01, 세부 Q-19), 단위 문구 "등껍질 N개"(P-03). 병합 후에도 API 는 OpenAPI 를 기다린다
+  - 디자인 항목 — PG 심사 요청 후 (PG-FIRST): 토큰 CSS 변수(값 D-01), UI 손그림 프레임(사용 여부 D-03 미정 · Q-15), 폰트(FONT-HOLD · D-02), 캐릭터 규격 + 뿌기 포즈(결과 화면 캐릭터 D-06 미정, 부적 동물 12지 랜덤 T-01), 사이드 메뉴 운세 목록 정리(홈 · 마이페이지 · 내 부적 창고 · 오늘의 운세 · 유료 운세 · 수능운 — `TODO(D-10)` 취업운 제거)
+  - 팀 확정 전이라 만들지 않는 것 (v0.3 ⚠️): 여러 명 선물(GIFT-06 ~ 08, GIFT-01 "수신인 당"), 발송 실패 링크 직접 공유(GIFT-05), 네이버 · 구글 로그인(개발 범위), 고민 입력의 결과 반영(F-04 — 확정 전까지 "결과 미반영" 기준). 충전 화면 결제 수단 4칸 · 동의 체크는 Q-25 전까지 정하지 않는다
+  - 선물 위저드 · 선물 결제 · 부적 화면 흐름 — 팀 문서에는 반영됐고 API 는 OpenAPI 대기 (Q-17 · Q-20)
   - iOS Safari 실기기 확인(AppShell · 404) — iPhone 확보 후 (R-03, PD 보유 · 대여 미정). Android Chrome · 카카오톡 인앱은 통과
   - openapi-fetch 클라이언트 · API 타입 · 관측 API 경로 가리기 — BE OpenAPI 수령 후 (PG-1)
   - Sentry 소스맵 업로드(`SENTRY_AUTH_TOKEN`) — Phase 7
 - **막힌 점 · 전달할 것**
-  - 팀에 받을 것(필요한 날은 `TEAM-QUESTIONS.md`): BE 재산정 일정(R-06) · OpenAPI 받는 방법 · `details`(Q-18) · API_SPEC · OpenAPI 반영(Q-17), 사업자 명의(R-08, 전원) → 사업자 정보 값(R-07), 토스 상담 결과(R-01) · 테스트 클라이언트 키(R-09), 카카오 리다이렉트 URI · JavaScript 키(R-04), 심사 테스트 계정(R-05), Q-19 · Q-20 · Q-21 · Q-22, 최종 와이어 대조 Q-23 ~ Q-27
-  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17): `API_SPEC.md` · `COMMON_RESPONSE_AND_ERROR_CODES.md` · `ERD.md` — `talismanType` 삭제 · 생성된 부적 정보 응답, 선물 등껍질 주문(원화 `/gift-orders` → 토스 흐름 대체) · 선물 상태 이름, 수능운 단일 상품(`READING_ONLY` 없음), 정가 필드(Q-22), 충전 `processing`, 견적 필드 · `GET /quotes/{quoteId}`, CSRF, 선물 `delivery` · 재발송 새 링크. `BACKEND_ROLE_SPLIT.md` 의 선물 원화 결제 일정 문구
-  - 팀 문서에 아직 없는 FE 쪽 답: O-06 서버 이벤트 `gift_alimtalk_sent/failed`(Q-12 해결, FUNCTIONAL_SPEC 16장에는 있음)
-  - PD 에게 받은 것 (저장소 밖): 선물 재발송 안내 문구(확인 모달 · 남은 횟수 · 초과 · 간격 — Phase 5), 충전 환불정책 초안 `refund-policy-draft.md`(확정 전 코드 반영 금지). 재발송 "1분 뒤" 문구와 서버 `nextResendAt` 의 관계는 Phase 5 에서 PD 와 맞춘다
+  - 팀에 받을 것(필요한 날은 `TEAM-QUESTIONS.md`): BE 재산정 일정(R-06) · OpenAPI 받는 방법 · `details`(Q-18) · API_SPEC · OpenAPI 반영(Q-17), 사업자 명의(R-08) → 사업자 정보 값(R-07), 토스 상담 결과(R-01) · 테스트 클라이언트 키(R-09), 카카오 리다이렉트 URI · JavaScript 키(R-04), 심사 테스트 계정(R-05), Q-19 · Q-20 · Q-21 · Q-22 · Q-23 d ~ g · Q-24 · Q-25 · Q-26
+  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17): `API_SPEC.md` · `COMMON` · `ERD.md` — `talismanType` 삭제 · 생성된 부적 정보(동물 랜덤), 선물 등껍질 주문 · 상태 이름, 수능운 단일 상품, 정가 필드(Q-22), 충전 `processing`, 견적 필드, CSRF, 선물 `delivery`, 오늘의 운세 로그인 필요, 관계 선택지(직접 입력), 고민 입력 필드(확정 시), 50,000원 상품 580개
+  - PD 에게 받은 것 (저장소 밖): 선물 재발송 안내 문구(Phase 5), 충전 환불정책 초안 `refund-policy-draft.md`(확정 전 코드 반영 금지)
+  - 유저 플로우: FigJam `dd8IamO1coU9vpa4P7AgMi`(v1, 10/4) — 기능 명세서 v0.3 과 같은 흐름. 웹 대화에서 조회한다
   - (PD 전달) 개인정보처리방침 국외 이전 고지 — PostHog(US) · Sentry(지역 확인 필요), 오류 정보 · 접속 기록
   - (PD 전달) 카카오톡 인앱브라우저의 떠 있는 버튼이 화면 오른쪽 가운데를 가린다 — 누르는 요소 배치 참고
-  - (PD 전달) 오류 화면 · 404 화면 문구 — 지금은 자리표시 "오류가 발생했습니다" · "다시 시도" · "페이지를 찾을 수 없습니다" · "홈으로" (TODO(PD 문구)). 공통 응답 문서에 따라 5xx 화면에 `traceId` 를 보여 줄 수 있다
+  - (PD 전달) 오류 화면 · 404 화면 문구 — 지금은 자리표시 (TODO(PD 문구)). 5xx 화면에 `traceId` 를 보여 줄 수 있다
   - `app/error.tsx` 는 실기기에서 띄워 보지 못했다 — 첫 실제 API 연결 화면에서 오류 경로를 실기기로 확인한다
+  - `pnpm test` 가 한 번 "no tests · 19 errors" 로 실패하고 바로 재실행에서 통과했다(10/4, 재현 안 됨). 다시 나오면 로그 전체를 받는다
   - Claude Code 는 `frontend/` 에서 시작한다 — 루트에 `CLAUDE.md` 가 없다
   - Playwright 브라우저 미설치 — E2E 처음 돌리기 전에 `pnpm -C frontend e2e:install`
   - 알려진 작은 문제: PC 에서 스크롤바가 있는 긴 페이지는 사이드 메뉴 패널이 앱 기둥보다 몇 px 오른쪽으로 나갈 수 있다 (휴대폰 영향 없음)
@@ -59,6 +60,7 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| CHECKOUT-POPUP | 등껍질 차감 확인은 별도 Checkout 경로 없이 앞 화면 안 Modal 로 한다 — 일반 운세는 질문 화면(옵션 버튼 → 팝업), 수능운은 정보 확인 화면, 선물은 위저드, 부적 추가는 결과 화면. `/fortune/[type]/checkout` · `/suneung/checkout` 삭제(`/gift/checkout` 은 v0.3 이 삭제). 잔액 부족 → 충전 → 앞 화면 복귀 후 팝업 다시 열기(PURCHASE-RESTORE). 팝업 표시: 상품명 · 대상 인물 · 옵션 · 보유 · 사용 · 구매 후 잔액(서버 견적) + 고지(F-08) | 2026-10-04 | 사용자 (FUNCTIONAL_SPEC v0.3 이 FE 판단에 맡김) |
 | FIGMA-FINAL | 최종 와이어프레임 = Figma 페이지 `와이어프레임 최종`(node `195:91`). 화면 ID 는 프레임 이름(HOME-01 · FORT-06 · CSAT-04 · GIFT-03 · RECV-T-04 등)을 쓴다. 옛 페이지 `17:2` 와 구 번호 #1 ~ #40 은 기록용(PHASES 1장 "구 #" 열). 와이어와 팀 문서가 다르면 팀 문서를 따르고 Q 로 올린다(Q-23 ~ Q-27). 와이어 문구 · 수량은 자리표시 | 2026-10-04 | 사용자 (PD 최종본) |
 | DOCS-TEAM-PR | 팀 문서(`docs/`) 반영은 FE 가 고쳐 `boyeon` → `main` PR 로 올리고 PD 가 검토한다 (PD 답변 8번). FE 범위: 기획 결정과 BE-A 제안 중 PD 가 동의한 결정. `API_SPEC` · `COMMON` · `ERD` · `BACKEND_ROLE_SPLIT` 의 계약 변경은 BE. 첫 반영 `cc60ab3` (PENDING_DECISIONS · FUNCTIONAL_SPEC · PRD). 병합 전에는 그 결정에 기대는 코드를 만들지 않는다 (TEAM-QUESTIONS 상태 `반영 PR 대기`) | 2026-10-03 | 팀 (PD 요청, 사용자) |
 | P-03 · P-03A 변경 | PD 가격: 일반 `사주` 10 · `사주+부적` 15 · 부적 추가 10, 수능운 15(부적 포함 단일, 정가 20 할인 표기), 선물(수능운) `부적` 10 · `부적+사주` 15 — 단위 등껍질 N개. 보너스 유효기간 1년(P-04). 화면에는 서버 값만 (Q-22). 팀 문서 `cc60ab3` | 2026-10-03 | PD |
@@ -100,6 +102,7 @@
 
 ## 세션 로그
 
+- 2026-10-04 · 기능 명세서 v0.3 팀 문서 반영(3차 `9fb9d21`, 병합 `d396cce`) — Q-23 b · c · h · i · j · k 해결(j: 서비스명 뿌기사주), Q-27 해결. 라우트: `/wallet` · `/share/[shareId]` 추가(`078662d`), Checkout 3개 삭제(`b9a95ea` · CHECKOUT-POPUP). 유저 플로우 FigJam v1 조회(새 충돌 없음). FE 문서 v2.5 · 지침 갱신.
 - 2026-10-04 · 최종 와이어프레임(`195:91`) 대조로 FE 문서 v2.4 — PHASES 1장 화면 ID 재작성 · FRONTEND 3장 · `frontend/CLAUDE.md` Figma 규칙 · Q-23 ~ Q-27 (FIGMA-FINAL). `main` BE-A 골격 `2c682e0` 확인(업무 API 없음, G-07 유예 규칙 확인 → Q-17) 후 `boyeon` 에 병합.
 - 2026-10-03 · PD 추가 답변 반영(가격 · 부적 자동생성 · 신살 · BE-A 제안 결정 동의 · 재발송 문구 · 충전 환불 초안). `boyeon` 을 `main`(`90703b7`)에 fast-forward, `next.config.ts` 주석(`e4ae66b`), 팀 문서 2차 반영(`cc60ab3`, DOCS-TEAM-PR). FE 문서 v2.3: TEAM-QUESTIONS 상태 `반영 PR 대기` 추가 · Q-22 신규. PR `boyeon` → `main` 검토 대기.
 - 2026-10-03 · PG-1 일부: Idempotency-Key 헬퍼(`353d9b8`). `main` 병합(`def95cd`). 팀 결정 반영 문서 v2.2(TEAM-1003 · CONFIRM-KEY · FILE-HANDOFF), TEAM-QUESTIONS Q-19 ~ Q-21 신규. 팀 정리본 `TEAM-DECISIONS-NEEDED` v1 · v2 작성(저장소 밖).
