@@ -27,7 +27,8 @@
 - 결정 원본은 `docs/PENDING_DECISIONS.md`. 결정은 그 ID(P- · F- · G- · A- · S- · T- · X- · O- · D- · I-)로 부른다. 옛 FE 결정 번호 D-01 ~ D-16 은 닫혔고(DECISION-IDS) 기록에서만 "구 D-xx" 로 부른다. 대응표는 `docs/PHASES.md` 7장.
 - 상태가 `미정` · `부분 확정`의 미정 부분 · `보류` 인 것, 그리고 가격 · 재화 수량 · 상품 구성 · 문구 · 글꼴 · 사업자 정보는 정하지 않는다. 기본값도 넣지 않는다. 자리가 필요하면 `TODO(결정 ID)` 주석만 둔다 (예: `TODO(P-03A)`, `TODO(O-01)`).
 - 팀 문서끼리 다르면 `PENDING_DECISIONS.md` 의 확정 항목을 기준으로 읽고, 차이는 보고한다 (웹 대화가 `docs/TEAM-QUESTIONS.md` 에 올린다).
-- `docs/API_SPEC.md` 는 계약 초안이다. **타입의 출처는 OpenAPI 생성본뿐이다.** 스펙에 없는 타입 · 응답 모양을 지어내지 않는다.
+- `docs/API_SPEC.md` 는 계약 초안이다. **백엔드 요청 · 응답 타입의 출처는 OpenAPI 생성본뿐이다.** 스펙에 없는 타입 · 응답 모양을 지어내지 않는다. 생성 타입은 `src/lib/api/adapters/` 에서만 쓴다.
+- **OpenAPI 전 개발은 포트 + 가짜 구현으로 한다 (MOCK-PORT, 2026-10-04)**: 화면은 API 를 직접 부르지 않고 FE 가 정의한 포트(`src/lib/ports/`)만 부른다. 포트 모델은 화면이 쓰는 FE 모델이고 백엔드 타입이 아니다. 구현은 가짜(`src/mocks/`, 메모리 픽스처)와 진짜(`src/lib/api/adapters/`, OpenAPI 수령 후 생성 타입 → 포트 모델 변환) 둘이다. 세부 규칙은 `docs/FRONTEND.md` 1-2.
 - 팀 답은 `docs/TEAM-QUESTIONS.md` 에 상태로 적혀 있다 (TQ-ANSWERS). `해결` 은 따른다. `답변 · 반영 대기` · `반영 PR 대기` · `답 엇갈림` 항목은 팀 문서(`main`)에 반영되기 전까지 그 답에 기대는 코드를 만들지 않는다 (예: `/wallet` 라우트는 `FUNCTIONAL_SPEC.md` 2장을 고친 PR `cc60ab3` 이 `main` 에 병합된 뒤).
 
 ## 문서 변경 규칙 (DOCS-WEB-ONLY · DOCS-PLACE)
@@ -58,7 +59,7 @@
 
 - **재사용**: 새 화면 전에 `docs/FRONTEND.md` 3장 공통 컴포넌트를 먼저 확인한다 (`src/components`: AppShell · Button · Card · Chip · FormField · BottomSheet · Modal · LoadingScene). 결과 화면은 **ReadingViewer 하나** 를 API 섹션 타입별로 수능 · 일반 5종 · 선물 수신에 재사용한다 (VIEWER).
 - **라우트**: 새 페이지는 `src/lib/screens.ts` ROUTES 표에 먼저 있어야 한다 (`screens.test` 가 표 밖 `page.tsx` 를 막는다). 라우트 표의 출처는 `docs/FUNCTIONAL_SPEC.md` 2장. 등껍질 차감 확인은 Checkout 경로 없이 앞 화면 안 Modal 이다 (CHECKOUT-POPUP). 새 동적 경로 · API 경로가 생기면 `src/lib/observability/maskUrl.ts` 가리기 대상인지 확인한다.
-- **API 호출**: `/api/*` 는 `next.config.ts` rewrites 로 백엔드에 프록시한다(같은 출처, I-02). 백엔드 prefix 는 `/api/v1`. 성공 응답은 `{ data, traceId }` 로 감싸서 오고, 오류는 `{ code, message, traceId, fieldErrors, details? }` 다 (`docs/COMMON_RESPONSE_AND_ERROR_CODES.md`). 분기는 `code` 로 하고 `message` 문자열을 비교하지 않는다. 알 수 없는 `code` 는 HTTP status 로 처리한다 (같은 문서 7장). 새 enum 값은 unknown 분기를 둔다.
+- **API 호출**: 화면 → 포트 → 구현 순서로만 부른다 (MOCK-PORT). `/api/*` 는 `next.config.ts` rewrites 로 백엔드에 프록시한다(같은 출처, I-02). 백엔드 prefix 는 `/api/v1`. 성공 응답은 `{ data, traceId }` 로 감싸서 오고, 오류는 `{ code, message, traceId, fieldErrors, details? }` 다 (`docs/COMMON_RESPONSE_AND_ERROR_CODES.md`). 분기는 `code` 로 하고 `message` 문자열을 비교하지 않는다. 알 수 없는 `code` 는 HTTP status 로 처리한다 (같은 문서 7장). 새 enum 값은 unknown 분기를 둔다.
 - **금액은 서버만**: 원화 금액 · 등껍질 차감량 · 구매 후 잔액은 서버 견적 · 주문 · 구매 응답 값만 표시한다. 클라이언트에서 계산 · 합산 · 하드코딩하지 않는다 (P-03, P-09).
 - **원화 결제 (토스페이먼츠, P-08)**: 원화 결제는 충전뿐이다 (선물도 등껍질, Q-16). 서버가 만든 주문(`orderId` · `amount`)으로만 결제창을 연다. PG 복귀 쿼리의 `paymentKey` · `orderId` · `amount` 는 그대로 서버 승인 요청에 넘기기만 한다. `/pay/success` 는 서버 승인 응답을 받은 뒤에만 성공을 표시한다.
 - **충전 완료 (TOPUP-DONE)**: 충전 주문이 `CREDITED` 일 때만 완료와 잔액(서버 값)을 표시한다. `PAID` · `processing: true` 는 처리 중이다. 승인 결과가 불명확하면 주문 조회(`GET /top-up-orders/{orderId}`)를 2초 간격 최대 30초 하고, 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼을 보인다. 지연을 실패로 표시하거나 새 결제로 유도하지 않는다. `processing: false` 만으로 성공 판단하지 않는다.
@@ -66,7 +67,7 @@
 - **CSRF (Q-02 해결)**: `GET /session` 응답의 `csrfToken` 을 변경 요청의 `X-CSRF-Token` 헤더로 보낸다. `403 CSRF_FAILED` 면 `GET /session` 을 한 번 불러 새 토큰으로 원래 요청을 **1회만** 재시도하고, 그래도 실패하면 로그인 만료 · 보안 오류로 처리한다. 필드 이름은 OpenAPI 생성본으로 확인한다.
 - **사주 결과**: 만세력 계산과 해석 문장 생성(Liner)은 서버가 한다 (S-06). FE 는 AI · 외부 생성 호출을 추가하지 않고, 서버 결과 스냅샷만 표시한다.
 - **날짜**: `src/lib/date.ts` (Asia/Seoul) 를 거친다. 기기 시간대를 쓰지 않는다. 수능운 판매 마감은 전날 23:59 KST (F-07).
-- **선물**: 1차는 수능운만, 결제는 등껍질(원화 PG 결제는 충전만), 부적은 고르지 않는다 — 팀 결정(2026-10-03, P-07 · P-03A · T-01)으로 팀 문서 PR(`cc60ab3`)에 넣었지만 `main` 병합 전이다. 병합 · OpenAPI 전에는 선물 결제 · 위저드 코드를 만들지 않고, 가격 · 단위는 서버 `price.currency` · `price.amount` 만 쓴다. 재발송 버튼은 서버의 `delivery.canResend` 만 따른다 (횟수 · 시간을 FE 가 계산하지 않는다). 선물 링크 OG 에는 수신자 · 보낸 사람 이름을 넣을 수 있다(Q-13), 생년정보 · 메시지는 넣지 않는다. 수신자에게는 서버가 알림톡으로 링크를 보낸다(G-10) — FE 가 선물 링크를 만들거나 공유로 전달하지 않는다. 수신자 휴대전화번호는 입력 칸 외에는 서버가 준 마스킹 값만 표시하고, 로그 · Sentry · PostHog 에 넣지 않는다. 선물 메시지는 텍스트로만 렌더하고(`dangerouslySetInnerHTML` 금지) OG · PostHog · Sentry 에 넣지 않는다 (G-08).
+- **선물**: 1차는 수능운만, 결제는 등껍질(원화 PG 결제는 충전만), 부적은 고르지 않는다 — 팀 결정(2026-10-03, P-07 · P-03A · T-01)으로 팀 문서(`main`, `cc60ab3` · `9fb9d21`)에 반영됐다. OpenAPI 전에는 선물 결제 · 위저드 코드를 만들지 않고(가짜 포트로도 만들지 않는다, MOCK-PORT 범위 밖), 가격 · 단위는 서버 `price.currency` · `price.amount` 만 쓴다. 재발송 버튼은 서버의 `delivery.canResend` 만 따른다 (횟수 · 시간을 FE 가 계산하지 않는다). 선물 링크 OG 에는 수신자 · 보낸 사람 이름을 넣을 수 있다(Q-13), 생년정보 · 메시지는 넣지 않는다. 수신자에게는 서버가 알림톡으로 링크를 보낸다(G-10) — FE 가 선물 링크를 만들거나 공유로 전달하지 않는다. 수신자 휴대전화번호는 입력 칸 외에는 서버가 준 마스킹 값만 표시하고, 로그 · Sentry · PostHog 에 넣지 않는다. 선물 메시지는 텍스트로만 렌더하고(`dangerouslySetInnerHTML` 금지) OG · PostHog · Sentry 에 넣지 않는다 (G-08).
 - **공유**: 개인 결과 · 부적은 카카오톡 공유하기(Kakao JS SDK)로, 서버가 만든 비식별 share 리소스만 쓴다 (G-11). 공유 범위는 G-11 미정.
 - **브라우저 저장소**: `localStorage` 는 수능 준비물 체크 상태만 (오늘의 운세는 로그인 + 저장된 본인 정보로 바뀌어 생년정보를 기기에 저장하지 않는다, X-01 2026-10-04 변경). `sessionStorage` 는 선물 위저드의 Zustand persist 와 구매 선택 복원(PURCHASE-RESTORE, Q-07)만 — 구매 선택은 인물 ID 와 최소 선택값만(생년정보 원문 금지), 마지막 변경 후 24시간, 읽을 때 만료 검증, 구매 성공 · 로그아웃 시 삭제, 저장한 가격 · 잔액은 표시 근거로 쓰지 않는다. 전역 상태는 선물 위저드의 Zustand 하나뿐.
 - **사업자 정보**(상호 · 대표자 · 사업자등록번호 · 주소 · 유선번호 · 통신판매업 신고번호 · 전자우편주소 · 호스팅서비스 제공자)는 `src/lib/business.ts` 한 파일에만 둔다. 값은 사용자가 준 것만 넣는다.
@@ -93,7 +94,7 @@
 - 스타일: Tailwind CSS + CSS 변수 토큰 (토큰 적용은 PG 심사 요청 후)
 - 폰트: **보류 (FONT-HOLD)** — 결정 전까지 코드에서 글꼴을 지정하지 않는다. 결정되면 `next/font/local` 서브셋으로 셀프호스팅
 - 오버레이: vaul(바텀시트), Radix Dialog(모달) — shadcn/ui 사용 안 함
-- 데이터: TanStack Query, API 타입은 openapi-typescript + openapi-fetch 로 생성 (수동 타입 작성 금지, 생성 파일 손수정 금지)
+- 데이터: TanStack Query, API 타입은 openapi-typescript + openapi-fetch 로 생성 (백엔드 타입 수동 작성 금지, 생성 파일 손수정 금지). OpenAPI 전에는 포트 + 가짜 구현 (MOCK-PORT, 새 라이브러리 없음 — MSW 쓰지 않음)
 - 결제: 토스페이먼츠 SDK v2 `@tosspayments/tosspayments-sdk` (TOSS-SDK 승인, 설치는 PG-3 에서 사용자가 직접)
 - 폼: React Hook Form + Zod
 - 클라이언트 상태: Zustand 는 선물 위저드 동안만 (`sessionStorage` persist). 그 외 전역 상태 추가 금지
@@ -120,6 +121,9 @@ saju-project/
 │  ├─ docs/           FE 개인 작업 문서 — FRONTEND · PHASES · PROGRESS · TEAM-QUESTIONS
 │  ├─ src/app/        라우트
 │  ├─ src/lib/        공용 유틸 (date.ts = Asia/Seoul 고정, screens.ts = 라우트 표)
+│  ├─ src/lib/ports/  화면이 부르는 포트 (FE 모델, MOCK-PORT)
+│  ├─ src/lib/api/    공통 응답 · 오류 · CSRF · 멱등, adapters/ = OpenAPI 생성 타입 → 포트 모델
+│  ├─ src/mocks/      가짜 구현 (개발 서버 · 미리보기 전용, 운영 배포 금지)
 │  ├─ src/types/      api.d.ts — pnpm api:types 로 생성. 손으로 고치지 않는다
 │  └─ e2e/            Playwright
 ├─ backend/           Spring Boot — BE 담당. backend/docs/ 에 BE 역할 분담
@@ -145,7 +149,7 @@ saju-project/
 | `pnpm e2e` | Playwright (모바일 뷰포트 2종) — 전체 실행은 사용자가 직접. 처음이면 `pnpm e2e:install` |
 | `pnpm api:types` | `frontend/openapi.json` → `src/types/api.d.ts` 타입 생성 (BE OpenAPI 스펙 수령 후) |
 
-- 환경 변수: `frontend/.env.example` 을 복사해 `frontend/.env.local` 로 쓴다 (사용자가 직접 작성). `API_PROXY_TARGET` 에 백엔드 주소.
+- 환경 변수: `frontend/.env.example` 을 복사해 `frontend/.env.local` 로 쓴다 (사용자가 직접 작성). `API_PROXY_TARGET` 에 백엔드 주소. 가짜 구현 전환 변수는 MOCK-PORT 코드 단계에서 `.env.example` 에 추가한다 (`docs/FRONTEND.md` 1-2).
 - 배포: Vercel. `main` → 스테이징, PR → 미리보기 URL. 실기기 확인은 미리보기의 브랜치 주소, PG 심사 대상 확인은 운영 도메인.
 
 ## 브랜치 · PR

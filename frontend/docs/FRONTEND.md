@@ -8,6 +8,7 @@
 > 변경: 2026-10-03 — 팀 결정 반영 (TEAM-1003, 팀 문서 반영 대기): 선물도 등껍질 결제(원화 PG 결제는 충전만), 1차 선물 수능운만, 부적 자동생성 → Checkout 대응과 GiftWizard 단계 수정. `src/lib/api/idempotency.ts`(`353d9b8`)
 > 변경: 2026-10-04 — 기능 명세서 v0.3 반영: 차감 확인은 Checkout 경로 없이 앞 화면 Modal (CHECKOUT-POPUP), 오늘의 운세는 로그인 + 저장된 본인 정보(localStorage 쓰지 않음)
 > 변경: 2026-10-04 — 최종 와이어프레임(Figma `와이어프레임 최종`, node `195:91`, FIGMA-FINAL): 3장 "쓰이는 화면" 을 새 화면 ID 로. 등껍질 차감 확인은 팝업(Modal) 안의 Checkout (경로는 Q-27), 충전 화면 PAY-01 · 02 (결제 수단 Q-25). 팀 문서 2차 반영 PR(`cc60ab3`)
+> 변경: 2026-10-04 — **포트 + 가짜 구현 (MOCK-PORT)**: OpenAPI 전에 화면 · 결제 흐름을 끝까지 눌러 볼 수 있게, 화면은 FE 포트만 부르고 구현은 가짜 / 진짜로 나눈다 (1-2). PersonForm 검증 규칙 `src/lib/person/schema.ts`(`1a7fe39`)
 
 ---
 
@@ -25,7 +26,7 @@
 | 폰트 | **보류 (FONT-HOLD, D-02 미정)** | 결정 전까지 코드에서 글꼴을 지정하지 않는다. 결정되면 `next/font/local` 서브셋 셀프호스팅 |
 | 오버레이 UI | **vaul**(바텀시트) + **Radix Dialog**(모달) | headless 라 손그림 스타일 입히기 쉬움. shadcn/ui 미채택 |
 | 서버 데이터 | **TanStack Query** | mutation 자동 재시도 0 (`makeQueryClient`) — 결제 · 구매 명령 중복 방지 |
-| API 타입 | **openapi-typescript + openapi-fetch** | BE springdoc OpenAPI 에서 생성 (API_SPEC 15장). 명세 변경이 컴파일 에러로 드러남 |
+| API 타입 | **openapi-typescript + openapi-fetch** | BE springdoc OpenAPI 에서 생성 (API_SPEC 15장). 명세 변경이 컴파일 에러로 드러남. 생성 타입은 `src/lib/api/adapters/` 에서만 쓰고, 그 전에는 포트 + 가짜 구현 (MOCK-PORT, 1-2) |
 | 결제 | **토스페이먼츠 SDK v2** `@tosspayments/tosspayments-sdk` (2026-10-01 TOSS-SDK) | P-08 토스 기준. 결제창 열기만 FE, 금액 · 승인은 서버. 설치는 PG-3 에서 |
 | 폼 | **React Hook Form + Zod** | PersonForm 하나를 여러 곳에서 재사용, "시간 모름" 조건부 검증 (A-04 · A-05) |
 | 클라이언트 상태 | **Zustand** (선물 위저드 한정, `sessionStorage` persist) | 결제창 리다이렉트 후 복귀해도 선물 입력값 유지 |
@@ -51,6 +52,24 @@
 - 충전 완료 (TOPUP-DONE): 주문 `CREDITED` 일 때만 완료 · 잔액 표시. `PAID` · `processing: true` 는 처리 중. 승인 결과가 불명확하면 `GET /top-up-orders/{orderId}` 를 2초 간격 최대 30초 조회하고, 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼 (새 결제 유도 금지). `processing: false` 만으로 성공 판단 금지. 계약 반영은 Q-17.
 - 견적 (Q-07): 유효 30분, `GET /quotes/{quoteId}` 로 재확인, `409 QUOTE_EXPIRED` 면 선택 유지 + 새 견적, 가격이 바뀌면 다시 확인받는다. 부족분 · 추천 충전 상품은 서버 값(`shortage` · `recommendedTopUp`)만.
 - 화면에 `traceId` 는 보여도 되지만 `error.message` · `digest` · 서버 원문은 보이지 않는다.
+
+### 1-2. 포트 + 가짜 구현 (MOCK-PORT, 2026-10-04)
+
+BE 스테이징 · OpenAPI 가 늦어져(R-06 · Q-18) 화면과 결제 흐름을 먼저 만들기 위한 구조다. OpenAPI 가 오면 고치는 곳을 변환 층 하나로 묶는 것이 목적이다.
+
+- **구조**: 화면 → 포트(`src/lib/ports/<영역>.ts`) → 구현. 구현은 둘이다.
+  - 가짜: `src/mocks/<영역>.ts` — 메모리 픽스처. 개발 서버와 Vercel 미리보기에서만 쓴다.
+  - 진짜: `src/lib/api/adapters/<영역>.ts` — OpenAPI 생성 타입(`src/types/api.d.ts`) → 포트 모델 변환. OpenAPI 를 받은 뒤 만든다.
+- **포트 모델**: 화면이 필요한 값만 담은 FE 모델이다. 백엔드 타입이 아니다. 상태 · enum 이름은 `API_SPEC.md` 초안 이름을 따르되 "초안" 주석을 달고, 알 수 없는 값 분기를 둔다. 생성 타입은 adapters 밖(화면 · 포트 · mocks)에서 import 하지 않는다.
+- **선택은 한 곳**: 가짜 / 진짜 선택은 `src/lib/ports/` 한 파일에서 환경 변수로 한다. 기본은 진짜다. 운영 배포에서 가짜가 켜져 있으면 조용히 넘어가지 않고 시작 시 오류를 낸다. 변수 이름 · 판단 방법은 코드 단계에서 정하고 `.env.example` 에 적는다. PG 심사 대상(운영 도메인)은 항상 진짜다.
+- **공통 응답 · 오류 껍데기**(`src/lib/api/`): `COMMON_RESPONSE_AND_ERROR_CODES.md` 와 BE 골격(`a605afa`)의 `ApiResponse(data, traceId)` · `ApiError(code, message, traceId, fieldErrors)` 를 기준으로, 런타임 검사로 모양이 다르면 오류를 낸다. CSRF 재시도 · `Idempotency-Key` · code 분기(1-1)는 이 층에서 처리하고, 가짜 fetch 로 테스트한다. OpenAPI 를 받으면 생성 타입과 대조한다.
+- **가짜의 규칙**
+  - 금액 · 등껍질 수량 · 날짜 · 토큰 · ID 에는 "픽스처일 뿐이며 실제 가격 · 규칙과 무관하다" 주석을 단다. 실제 가격(P-03 · P-02)을 옮겨 적지 않는다.
+  - 화면은 가짜에서도 포트가 준 값만 표시한다. 클라이언트 계산 금지(P-03 · P-09)는 그대로다.
+  - 가짜도 서버 규칙대로 움직인다: 같은 `Idempotency-Key` 재요청은 같은 결과, 충전 승인 후 `PAID` → `CREDITED` 지연, 오류 code(`403 CSRF_FAILED` · `409 INSUFFICIENT_BALANCE` · `409 IDEMPOTENCY_REQUEST_PROCESSING` · `409 QUOTE_EXPIRED` · `429` · `5xx` · 알 수 없는 code)를 시나리오로 고를 수 있게 한다. 시나리오 선택 방법은 코드 단계에서 정한다.
+  - 토스 결제창은 열지 않고 `/pay/success` · `/pay/fail` 복귀를 흉내 낸다. 실제 SDK 결제창은 테스트 클라이언트 키(R-09)와 진짜 구현에서 연다.
+- **범위 밖**: 선물(OpenAPI 전 선물 코드 금지 유지), 충전 결제 수단 · 동의 체크(Q-25), 네이버 · 구글 로그인(A-01), 사용자에게 보이는 문구(자리표시 규칙 그대로). 와이어 · 팀 문서에 없는 기능은 가짜로도 만들지 않는다.
+- **진짜 연결 때**: adapters 작성 → 같은 포트 테스트를 진짜 구현에도 적용 → 포트 모델과 생성 타입이 다르면 포트를 고치고 차이를 TEAM-QUESTIONS 에 올린다. 가짜는 테스트 · 개발용으로 남긴다.
 
 ---
 
@@ -84,11 +103,11 @@
 | 컴포넌트 · 모듈 | 쓰이는 화면 | 만드는 단계 |
 |---|---|---|
 | AppShell (헤더: 뒤로/제목/메뉴, 사이드 메뉴, 하단 고정 CTA) | 거의 전부 | Phase 1 (완료) |
-| API 클라이언트 (`src/lib/api` — openapi-fetch + 공통 응답 · 오류 code 처리 + Idempotency-Key) | 서버를 부르는 모든 화면 | PG-1 (`idempotency.ts` 완료 `353d9b8` — 구매 의도당 키 · 본문 고정, 충전 승인은 주문 ID 키) |
+| API 클라이언트 (`src/lib/api` — 공통 응답 · 오류 code 처리 + CSRF + Idempotency-Key, `adapters/` 는 openapi-fetch) + 포트(`src/lib/ports`) · 가짜(`src/mocks`) (MOCK-PORT) | 서버를 부르는 모든 화면 | PG-1 (`idempotency.ts` 완료 `353d9b8` — 구매 의도당 키 · 본문 고정, 충전 승인은 주문 ID 키) |
 | 로그인 가드 (세션 확인 · `returnTo` 복귀) | 로그인 필요 화면 전부 (A-02) | PG-2 |
-| Checkout — PG 결제 (서버 주문 요약 · 동의 · 토스 결제창 · `/pay/success` 승인 · `CREDITED` 확인 · 승인 지연 확인 중 화면 · `/pay/fail`) | PAY-01 · PAY-02 · FORT-04 (`/wallet`, 팀 문서 PR `cc60ab3` 병합 대기) — 결제 수단 · 동의 체크는 Q-25. 선물은 등껍질 결제라 쓰지 않는다 (P-07) | PG-3 |
+| Checkout — PG 결제 (서버 주문 요약 · 동의 · 토스 결제창 · `/pay/success` 승인 · `CREDITED` 확인 · 승인 지연 확인 중 화면 · `/pay/fail`) | PAY-01 · PAY-02 · FORT-04 (`/wallet`, 팀 문서 반영 `cc60ab3`) — 결제 수단 · 동의 체크는 Q-25. 선물은 등껍질 결제라 쓰지 않는다 (P-07) | PG-3 |
 | BusinessFooter (사업자 정보 8개 + 약관 3종 링크, 값은 `src/lib/business.ts` 한 파일) | 전부 (AppShell 하단) | PG-4 (틀 완료 `4453ba9`, 값 대기 R-07) |
-| PersonForm (이름 · 생년월일 · 양력/음력 · 윤달 · 시간 · 시간 모름 · 성별 · 관계 · 타인 정보 권한 확인) | HOME-02, MY-02, RECV-02 · RECV-T-02 (궁합 상대 새로 입력도 MY-02) | Phase 3 |
+| PersonForm (이름 · 생년월일 · 양력/음력 · 윤달 · 시간 · 시간 모름 · 성별 · 관계 · 타인 정보 권한 확인) | HOME-02, MY-02, RECV-02 · RECV-T-02 (궁합 상대 새로 입력도 MY-02) | Phase 3 (검증 규칙 `src/lib/person/schema.ts` 완료 `1a7fe39`) |
 | PersonCard (프로필 카드 + 수정 + "저장된 다른 사용자 불러오기") | FORT-01, CSAT-01, MY-01, MATCH-02 | Phase 3 |
 | Checkout — 등껍질 차감 (서버 견적: 상품 · 대상 · 옵션 · 차감량 · 구매 후 잔액, 단일 구매 명령) + 잔액 부족 모달 (P-06) + 구매 선택 복원(`sessionStorage`, `GET /quotes/{quoteId}` 재확인) | 와이어는 팝업(Modal 안) — FORT-02 · 03 · MATCH-03 옵션 버튼, CSAT-01 다음, FORT-07 부적 만들기, GIFT-03 다음 (CHECKOUT-POPUP — 표시: 상품명 · 대상 · 옵션 · 보유 · 사용 · 구매 후 잔액 + 고지 F-08). 잔액 부족 팝업 → PAY-02 → 충전 완료 팝업 → 원래 화면 | Phase 4 / 5 |
 | LoadingScene (캐릭터 + 문구) | TODAY-01, FORT-05, FORT-08, CSAT-02 | Phase 4 |
