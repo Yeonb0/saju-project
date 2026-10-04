@@ -1,7 +1,13 @@
 // 포트 구현 선택은 이 파일 한 곳에서만 한다 (docs/FRONTEND.md 1-2, MOCK-PORT).
 // 진짜 구현(src/lib/api/adapters)은 OpenAPI 수령 후 만든다. 그 전에 진짜 모드로 부르면 조용히 넘어가지 않고 던진다.
-// 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited). 모르는 값은 기본값으로 덮지 않고 던진다.
+// 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
+// NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out). 모르는 값은 기본값으로 덮지 않고 던진다.
 import { createFakePaymentLauncher } from "@/mocks/paymentLauncher";
+import {
+  createFakeSessionPort,
+  FAKE_SESSION_SCENARIOS,
+  type FakeSessionScenario,
+} from "@/mocks/session";
 import {
   createFakeTopUpPort,
   FAKE_TOP_UP_SCENARIOS,
@@ -9,6 +15,7 @@ import {
 } from "@/mocks/topUp";
 import { API_MODE, type ApiMode } from "./mode";
 import type { PaymentLauncher } from "./paymentLauncher";
+import type { SessionPort } from "./session";
 import type { TopUpPort } from "./topUp";
 
 export function resolveTopUpScenario(
@@ -58,4 +65,35 @@ export function getPaymentLauncher(
   navigate: (url: string) => void,
 ): PaymentLauncher {
   return selectPaymentLauncher(API_MODE, navigate);
+}
+
+export function resolveSessionScenario(
+  raw: string | undefined,
+): FakeSessionScenario {
+  if (raw === undefined || raw === "") return "signed_out";
+  if ((FAKE_SESSION_SCENARIOS as readonly string[]).includes(raw)) {
+    return raw as FakeSessionScenario;
+  }
+  throw new Error(`NEXT_PUBLIC_MOCK_SESSION_SCENARIO 값이 잘못됐다: ${raw}`);
+}
+
+export function selectSessionPort(
+  mode: ApiMode,
+  scenarioRaw: string | undefined,
+): SessionPort {
+  if (mode !== "mock") return noRealYet("세션 포트");
+  return createFakeSessionPort({
+    scenario: resolveSessionScenario(scenarioRaw),
+  });
+}
+
+// 세션도 탭 하나에 하나
+let sessionPort: SessionPort | null = null;
+
+export function getSessionPort(): SessionPort {
+  sessionPort ??= selectSessionPort(
+    API_MODE,
+    process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO,
+  );
+  return sessionPort;
 }

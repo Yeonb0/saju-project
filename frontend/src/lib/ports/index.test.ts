@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  resolveSessionScenario,
   resolveTopUpScenario,
   selectPaymentLauncher,
+  selectSessionPort,
   selectTopUpPort,
 } from "./index";
 
@@ -39,5 +41,18 @@ describe("포트 선택 (MOCK-PORT)", () => {
     );
     expect(url.searchParams.get("amount")).toBe("1111");
     expect(url.searchParams.get("paymentKey")).toBeTruthy();
+  });
+});
+
+describe("세션 포트 선택 (MOCK-PORT)", () => {
+  it("진짜 모드는 구현이 없어 던진다", () => {
+    expect(() => selectSessionPort("real", undefined)).toThrow();
+  });
+
+  it("시나리오: 비우면 signed_out, 모르는 값은 던진다", () => {
+    expect(resolveSessionScenario(undefined)).toBe("signed_out");
+    expect(resolveSessionScenario("")).toBe("signed_out");
+    expect(resolveSessionScenario("new_user")).toBe("new_user");
+    expect(() => resolveSessionScenario("guest")).toThrow();
   });
 });
