@@ -17,6 +17,18 @@ if (process.env.VERCEL === "1") {
   }
 }
 
+// docs/FRONTEND.md 1-2 (MOCK-PORT): 가짜 구현은 로컬과 Vercel 미리보기에서만 쓴다.
+// Vercel 의 미리보기가 아닌 배포(운영 · 스테이징)에서 켜져 있으면 빌드를 멈춘다. 실행 단계 검사는 src/lib/ports/mode.ts.
+if (
+  process.env.VERCEL === "1" &&
+  process.env.NEXT_PUBLIC_API_MODE === "mock" &&
+  process.env.VERCEL_ENV !== "preview"
+) {
+  throw new Error(
+    "NEXT_PUBLIC_API_MODE=mock 은 Vercel 미리보기에서만 쓸 수 있다 (MOCK-PORT)",
+  );
+}
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   async rewrites() {
