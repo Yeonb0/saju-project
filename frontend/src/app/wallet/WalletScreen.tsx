@@ -3,7 +3,7 @@
 // "use client" 이유: 포트 호출(TanStack Query)과 결제창 이동은 브라우저에서 한다.
 // PAY-01 등껍질 충전 · PG-3. 근거: TOPUP-DONE, I-05 (구매 의도당 키 하나), P-03 · P-09 (서버 값만 표시),
 // docs/FRONTEND.md 1-2 (MOCK-PORT). 디자인 요소 없음 (PG-FIRST) — 기본 HTML 요소의 최소 레이아웃만.
-// TODO(PG-2): 로그인 가드 — 세션 · 가드 체크박스에서 붙인다.
+// 로그인 가드는 page.tsx 의 RequireSession (PG-2 · A-02 · A-03).
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
 import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
+import { loginHref } from "@/lib/auth/returnTo";
 import { getPaymentLauncher, getTopUpPort } from "@/lib/ports";
 import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
 import type { TopUpPort } from "@/lib/ports/topUp";
@@ -113,10 +114,10 @@ export function WalletScreen({
       {/* TODO(Q-25): 결제 수단 · 동의 체크 자리 — 팀 확정 전이라 만들지 않는다 */}
 
       {errorKind === "login_required" || errorKind === "csrf_failed" ? (
-        // TODO(PG-2): 로그인 후 이 화면으로 복귀 (returnTo)
+        // 로그인 후 이 화면으로 복귀 (PG-2, safeReturnTo)
         <p>
           {/* TODO(PD 문구) */}
-          <Link href="/login">다시 로그인해 주세요</Link>
+          <Link href={loginHref("/wallet")}>다시 로그인해 주세요</Link>
         </p>
       ) : errorKind ? (
         // TODO(PD 문구): 오류 종류별 안내
