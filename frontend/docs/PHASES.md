@@ -3,7 +3,7 @@
 > **FE 개인 작업 문서다. 팀 합의 문서가 아니다.** 일정 · Phase · 담당 표기는 FE 가 작업 순서를 잡으려고 세운 계획이다 (DOCS-FE-OWN).
 > **결정 기준은 GitHub 의 팀 문서다** — 루트 [`docs/PENDING_DECISIONS.md`](../../docs/PENDING_DECISIONS.md) (DOCS-GITHUB). 결정은 팀 ID(P- · F- · G- · A- · S- · T- · X- · O- · D- · I-)로 부른다. 옛 FE 결정 번호 D-01 ~ D-16 은 닫았고 기록에서만 "구 D-xx" 로 부른다 (7장, DECISION-IDS).
 > 팀 문서끼리 어긋나거나 정의가 빈 곳은 [`TEAM-QUESTIONS.md`](TEAM-QUESTIONS.md) (Q-xx · R-xx). BE 일정은 [`backend/docs/BACKEND_ROLE_SPLIT.md`](../../backend/docs/BACKEND_ROLE_SPLIT.md) 9장.
-> 작성: 2026-09-26 (토) · 상태: **v2.5** (2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
+> 작성: 2026-09-26 (토) · 상태: **v2.6** (2026-10-05 MOCK-PORT 진행 · 2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
 > 변경: 2026-09-26 — 프론트엔드 스택 확정(3-1), 손그림 테두리 `border-image`(4장), 서비스명 「뿌기사주」(구 D-11), FE 전용 내용은 `FRONTEND.md` 로 분리
 > 변경: 2026-09-30 — 용어 복원(DOCS-RESTORE), FE 브랜치 `boyeon`(BRANCH), Phase 0 · 1 체크박스, 글꼴 보류(FONT-HOLD), 라우트 오류 · 404 화면, `frontend/docs/` 로 이동(DOCS-FE-OWN)
 > 변경: 2026-10-03 — **v2**: 공용 문서(PR #5) 반영. 구 D-xx 닫고 팀 ID 로 전환(DECISION-IDS). **PG 심사 트랙 신설 · 최우선 — 백엔드 연결과 결제 플로우만, 디자인 요소 배제 (PG-FIRST)**. Phase 2 를 PG 트랙에 흡수. 운세 6종(일반 5 + 수능운), 선물 단건 · 원화 결제 · 알림톡, 충전 상품 6종(P-02 변경). 결과 뷰어 ReadingViewer 하나(VIEWER), 손그림체(STYLE-HAND). (10/1 에 만든 v1 은 배치하지 않고 이 판으로 대체)
@@ -12,6 +12,7 @@
 > 변경: 2026-10-03 — **v2.3 PD 추가 답변 · 팀 문서 2차 반영 (DOCS-TEAM-PR)**: FE 가 팀 문서를 고쳐 PR(`cc60ab3` — PENDING_DECISIONS · FUNCTIONAL_SPEC · PRD, `main` 병합 · PD 검토 대기). 가격 P-03 · P-03A(등껍질), 부적 자동생성 규칙 T-01, 신살 구성 F-03, 보너스 유효기간 1년 P-04, BE-A 제안 결정(P-02A · P-05 · G-07 · G-09 · G-10) PD 동의, `/wallet` · `/share/[shareId]` 라우트. 상태 "반영 PR 대기" 추가(TEAM-QUESTIONS)
 > 변경: 2026-10-04 — **v2.4 최종 와이어프레임 (FIGMA-FINAL)**: Figma 페이지 `와이어프레임 최종`(node `195:91`)을 기준으로 1장 화면 목록을 새 화면 ID(HOME- · TODAY- · MY- · TALBOX- · FORT- · MATCH- · PAY- · GIFT- · RECV- · RECV-T- · CSAT-)로 다시 썼다. 구 번호 #1 ~ #40 은 1장 "구 #" 열에만 남긴다. 결제 확인이 화면에서 팝업으로, 충전 화면(PAY-01 · 02) · 궁합 사람 선택(MATCH) · `부적` 선물 수신(RECV-T) 추가. 와이어와 팀 결정이 부딪히는 곳은 Q-23 ~ Q-27 (해결 전에는 팀 문서를 따르고 와이어만의 부분은 만들지 않는다)
 > 변경: 2026-10-04 — **v2.5 기능 명세서 v0.3 반영**: 팀 문서 3차(`9fb9d21`, `main`) — 소셜 로그인 3종(A-01 부분) · 로그인 직후 정보 입력(A-03) · 오늘의 운세 로그인 필요(A-02 · X-01) · 관계 칩(A-07) · 부적 동물 12지 랜덤 · 창고 같은 동물(T-01 · T-06) · 오행분석 결제 전 노출(F-09). Checkout 경로 3개 삭제 → 앞 화면 팝업 (CHECKOUT-POPUP). 서비스명 뿌기사주. 유저 플로우 FigJam `dd8IamO1coU9vpa4P7AgMi`
+> 변경: 2026-10-05 — **v2.6 포트 + 가짜 구현 (MOCK-PORT) · 코드는 Claude Code (CODE-BY-CC)**: PG-1 · PG-2 · PG-3 · Phase 3 에 "가짜 구현 범위" 하위 체크박스를 두고 끝낸 것을 [x] 로 표시. 상위 체크박스는 진짜 구현 · 실기기 확인 후 [x]
 > 기준 날짜: 출시 **10/31(토)** · 평가 기간 **10/31 ~ 11/21** · 수능 **11/19(목)** → 출시일은 **수능 D-19**
 > 디자인 소스: Figma `9zEtrqV4SoPbQzuworSNUj` / 페이지 **`와이어프레임 최종`(node `195:91`)** — FIGMA-FINAL. 옛 페이지 `와이어프레임`(node `17:2`)은 기록용
 
@@ -232,9 +233,16 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 
 **작업** (번호 = 의존 순서. 막힌 체크박스는 건너뛰고 풀린 것부터)
 - [ ] (FE) **PG-1 백엔드 연결 기반** — `/api` rewrites 를 스테이징에 연결(`API_PROXY_TARGET`), OpenAPI JSON → `pnpm api:types` → openapi-fetch 클라이언트, 공통 응답 `{data, traceId}` · 오류 `code` 처리(알 수 없는 code 는 status), `Idempotency-Key` 헬퍼(같은 명령의 재요청은 같은 키 · 같은 본문), CSRF — `GET /session` 의 `csrfToken` 을 `X-CSRF-Token` 으로, `403 CSRF_FAILED` 면 세션 1회 재조회 후 1회만 재시도 (Q-02 해결), API 경로 가리기(`maskUrl`). 선행: BE 스테이징 주소 · OpenAPI (R-06 · Q-18). BE 골격(`a605afa`)은 `main` 에 있으나 업무 API · 공개 OpenAPI 없음
+  - [x] (FE) API 코어 — 공통 응답 · 오류 껍데기 런타임 검사, `classifyApiError`(code 우선 · status), CSRF 1회 재시도(`CsrfSource`), 멱등 키 · 본문 고정, 포트 모드 선택 · 운영 mock 차단 (`ffe1080`, MOCK-PORT)
+  - [x] (FE) 테스트 간헐 시간 초과 완화 — 동시 워커 50% · 한도 15초 (`ebb16b0`)
+  - [ ] (FE) openapi-fetch 클라이언트 · 생성 타입 · `adapters/` — OpenAPI 수령 후 (R-06 · Q-18)
   - 진행: Idempotency-Key 헬퍼 완료 (`353d9b8`, 10/3) — `src/lib/api/idempotency.ts`: 구매 의도당 무작위 UUID 키 하나 + 생성 시점에 본문 직렬화 고정, 충전 승인은 주문 ID(UUID)를 키로 (CONFIRM-KEY, BE-A 확인 Q-17). 남은 것: openapi-fetch 클라이언트 · 공통 응답 / 오류 code 처리 · CSRF 재시도 · API 경로 가리기 (OpenAPI 대기)
 - [ ] (FE) **PG-2 카카오 로그인 · 세션** — `/login`(HOME-01, 카카오 먼저 — 네이버 · 구글은 A-01 부분 확정, BE-B 지원 · 개발 범위 확정 후). 로그인 직후 본인 정보가 없으면 `/onboarding`(A-03), 비로그인으로 홈 기능을 누르면 로그인(A-02) → `GET /api/v1/auth/kakao/authorize?returnTo=`(내부 경로만), `GET /session`, 로그인 필요 화면 가드 + 원 경로 복귀, OAuth 취소 · 세션 만료 처리, 로그아웃(`POST /auth/logout`, CSRF), 로그아웃 시 구매 선택 `sessionStorage` 삭제 (PURCHASE-RESTORE). 선행: PG-1, BE-B OAuth · 세션 · CSRF, 카카오 리다이렉트 URI (R-04)
+  - [x] (FE) 가짜 구현 범위 — `safeReturnTo`(내부 경로만 · 로그인/온보딩 고리 · `/api` 차단), 세션 포트 · 가짜 세션 시나리오 4종 (`728e9fb`), 로그인 가드 `RequireSession`(새로 받은 세션으로만 판단) · `/login` 카카오 버튼 · `/wallet` 연결 (`84b5390`)
+  - [ ] (FE) 진짜 세션 adapter(`GET /session` · `GET /me` · 카카오 authorize 이동 · 로그아웃) · OAuth 취소 · 세션 만료 처리 — BE-B · OpenAPI · R-04 후
 - [ ] (FE) **PG-3 충전 결제 플로우** — 충전 화면 `/wallet`(PAY-01 · PAY-02 · FORT-04, 결제 수단 · 동의 체크는 Q-25 전까지 정하지 않는다)(잔액 `GET /wallet` · 충전 상품 `GET /products?category=TOP_UP`, 서버 값만) → 주문 생성(`POST /top-up-orders`, 구매 의도당 `Idempotency-Key` 하나) → 토스 결제창(SDK v2) → `/pay/success` 에서 PG 복귀 쿼리를 그대로 `POST /top-up-orders/{orderId}/confirm` → **주문 `CREDITED` 일 때만 충전 완료 · 잔액(서버 값) 표시**. `PAID` · `processing: true` 는 처리 중, 결과가 불명확하면 `GET /top-up-orders/{orderId}` 를 2초 간격 최대 30초 조회 → 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼, 새 결제 · 새 키로 유도하지 않음 (TOPUP-DONE). `/pay/fail` · 결제 취소 처리. 선행: PG-2, `/wallet` 라우트(Q-01 — 팀 문서 PR `cc60ab3` 병합), BE-A 충전 API(R-06 재산정), `processing` 계약(Q-17), 결제 수단 구성(Q-25), 토스 테스트 클라이언트 키(R-09) · SDK 설치(사용자)
+  - [x] (FE) 가짜 구현 범위 — 충전 포트 · 가짜 서버 시나리오 6종 · 승인 확인 흐름(`e0ce4dd`), `/wallet` · `/pay/success` · `/pay/fail` 화면(`03f01fa`), 가짜 상품 구성 판매 6 + 비활성 1(`816b130`). 로컬 시나리오 6종 확인 (10/4)
+  - [ ] (FE) 진짜 충전 adapter · 토스 SDK 결제창(R-09) · 결제 수단 · 동의(Q-25) · PURCHASE-RESTORE 복귀 · 실기기 3곳
 - [ ] (FE) **PG-4 심사 노출 요건 (스타일 없이)** — 사업자 정보 푸터(값은 한 파일, 사용자가 준 값만, 미정은 `TODO(O-01)`), `/about` 상품 소개(심사 상품의 이름 · 가격(서버 값) · 제공 내용 · 제공 기간 · 환불 요약 · 구매 진입), `/terms` · `/privacy` · `/refund` 본문(PD 원고 그대로). 선행: 사업자 정보(R-07 · R-08), 심사 상품 = 충전(R-01 부분 — 카테고리 · 제공기간은 토스 상담 대기), 충전 환불정책 문구(Q-21 — PD 초안 수령, 토스 상담 후 10/10 확정 원고. 확정 전에는 넣지 않는다), PD 원고
   - 진행: 푸터 틀 완료 (`d42ba99` · `22f9712` · `4453ba9`, 10/3) — `src/lib/business.ts` 에 8개 항목(토스 심사 6 + 전자우편주소 · 호스팅 제공자), 값이 없으면 "(미정)", AppShell 하단 BusinessFooter + 약관 3종 링크. 남은 것: 값 8개 · 공정위 사업자정보 공개페이지 링크(R-07), `/about` · 약관 본문
 - [ ] (FE) **PG-5 운영 도메인 실기기** — 로그인 → 충전 결제창 열림 · 카드사 노출 · 복귀를 Android Chrome · 카카오톡 인앱에서 확인 (iOS 는 R-03), 심사용 테스트 계정 경로 확인 (R-05)
@@ -266,7 +274,11 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 
 **작업**
 - [ ] (FE) PersonForm (React Hook Form + Zod): 이름/닉네임 · 양력/음력 · 윤달(음력일 때만) · 생년월일(1900-01-01~오늘 KST) · 시 · 분 또는 시간 모름 · 성별(남성/여성/선택하지 않음) · 관계(타인) · 타인 정보 권한 확인 (F-01 · A-04 ~ A-07, O-03). 오류는 `fieldErrors` 필드로 이동
+  - [x] (FE) 검증 규칙 `src/lib/person/schema.ts`(`1a7fe39`, 한 번 제출에 모든 오류 보정 `8f94cde`) · 본인 입력 폼 `src/components/PersonForm.tsx`(`8f94cde`) — 음력 30일 텍스트 입력, 윤달은 음력만
+  - [ ] (FE) 타인 입력(관계 · 타인 권한 확인 체크) — 권한 확인 문구 PD 확정 후 (MY-02)
 - [ ] (FE) 내 정보 저장(HOME-02) · 다른 사람 추가 · 수정(MY-02) — `POST/PATCH /people`, `409 PERSON_LIMIT_EXCEEDED` · 중복 경고 후 저장 허용
+  - [x] (FE) 가짜 구현 범위 — 인물 포트 · 가짜 계정 공유(`75b774c`), `/onboarding`(HOME-02 · A-03, 저장 후 returnTo, `8f94cde`)
+  - [ ] (FE) 진짜 인물 adapter, MY-02 추가 · 수정, 중복 경고 — BE-B · OpenAPI 후
 - [ ] (FE) PersonCard + "저장된 다른 사용자 불러오기" (FORT-01 · CSAT-01 · MY-01 · MATCH-02). 관계 선택지는 A-07 (엄마 · 아빠 · 애인 · 직접 입력)
 - [ ] (BE-B) people API · 암호화 · 만세력 계산 (10/5~10/10 spike)
 

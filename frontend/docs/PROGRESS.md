@@ -6,33 +6,45 @@
 
 ## 현재 상태
 
-- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** — 백엔드 연결과 결제 플로우만, 디자인 요소 배제. FE 목표 10/12 · 카드사 심사 요청 10/14 전후. **위험: BE 10/4 스테이징 미충족 · 충전 API 제공일 재산정 중 (R-06)**. `main` 에는 BE 골격(`a605afa`) + BE-A 도메인 골격(`2c682e0`)만 — 업무 API · 스테이징 없음. 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
-- **마지막으로 끝낸 작업** (10/4): 기능 명세서 v0.3(PD/PM) 을 팀 문서에 반영(`9fb9d21`, 3차, `main` 병합 `d396cce`). 코드: `/wallet` · `/share/[shareId]` 라우트 자리표시(`078662d`), `/gift/checkout` 삭제(`b9a95ea`), 일반 운세 · 수능운 Checkout 경로 삭제(CHECKOUT-POPUP, 이번 커밋). FUNCTIONAL_SPEC 2장 표 정리 + FE 문서 v2.5 (이번 커밋). 그 전(10/4): 최종 와이어 대조 v2.4(`05585e4`, FIGMA-FINAL) · 팀 문서 2차(`cc60ab3`) — `main` 병합 `6510c4f`
+- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** — 백엔드 연결과 결제 플로우만, 디자인 요소 배제. FE 목표 10/12 · 카드사 심사 요청 10/14 전후. BE API · OpenAPI 가 늦어져 **포트 + 가짜 구현(MOCK-PORT)** 으로 FE 가 할 수 있는 것을 먼저 끝낸다. 코드는 Claude Code 가 쓰고 웹 대화는 명세 · 검토만 한다 (CODE-BY-CC). **위험: BE 스테이징 · 업무 API 없음, 제공일 재산정 중 (R-06)**. 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
+- **마지막으로 끝낸 작업** (10/4 ~ 10/5, `boyeon` `8f94cde`):
+  - PR #12 병합(`47e2055`) 후 `boyeon` fast-forward. MOCK-PORT 규칙 문서(`fe549f4`)
+  - PG-1 API 코어(`ffe1080`): 공통 응답 · 오류 껍데기 런타임 검사, code 우선 · status 분류(`classifyApiError`), CSRF 1회 재시도, 멱등 키 · 본문 고정, 포트 모드 선택 · 운영 mock 차단(`next.config.ts` + `ports/mode.ts`)
+  - PG-3 가짜 흐름: 충전 포트 · 가짜 서버 · 승인 확인(`e0ce4dd` — `CREDITED` 만 완료, 2초 간격 30초 조회, 승인 1회), 화면 `/wallet` · `/pay/success` · `/pay/fail`(`03f01fa`), 가짜 상품 구성 6 + 비활성 1(`816b130`). 로컬 시나리오 6종 확인(10/4)
+  - PG-2 가짜 흐름: `safeReturnTo` · 세션 포트 · 가짜 세션(`728e9fb`), 로그인 가드 `RequireSession` · `/login` · `/wallet` 연결(`84b5390`)
+  - Phase 3: 인물 포트 · 가짜 계정 공유(`75b774c`), PersonForm(본인) · `/onboarding`(HOME-02 · A-03, `8f94cde`) — 검증 규칙(`1a7fe39`)을 한 번 제출에 모든 오류가 나오게 보정
+  - 테스트 간헐 시간 초과 완화 — 동시 워커 50% · 한도 15초(`ebb16b0`)
 - **다음 작업**
-  1. (사용자) PR `boyeon` → `main` — FUNCTIONAL_SPEC 2장 Checkout 행 정리(PD 확인) + 라우트 코드 + FE 문서
-  2. (사용자 → 팀) 남은 질문 전달 — **10/8: Q-25 충전 결제 수단 4칸**(유저 플로우 ⑧ 은 상품 선택 → 바로 결제창). 10/15: Q-23 d(여러 명 선물) · e(발송 실패 링크 공유) · f(`부적` 선물 체크리스트 — v0.3 10장 ↔ 11장) · g(수능 결과 구성), F-04 고민 입력(BE-B), A-01 네이버 · 구글 개발 범위(BE-B · FE), 선물 주문 상태 이름(v0.3 15장, BE-A)
-  3. (FE) PG-3 `/wallet`(PAY-01 · PAY-02 · FORT-04) — BE 충전 API · OpenAPI · R-09 · Q-25 후
-  4. (FE) PG-1 나머지 — openapi-fetch 클라이언트 · 공통 응답 / 오류 code · CSRF 재시도. 스테이징 주소 또는 OpenAPI 스펙 파일 후 (R-06 · Q-18)
+  1. (사용자) 로컬 확인 — `NEXT_PUBLIC_MOCK_SESSION_SCENARIO=new_user` 로 `/wallet` → `/login` → `/onboarding` → 저장 → `/wallet` (빈 제출 오류 5곳 · 윤달 표시 · 복귀). 결과 미수신
+  2. (사용자 → 팀) 10/8: **Q-25** 충전 결제 수단 · 동의(PD). R-06 BE 일정 · OpenAPI 받는 방법(Q-18). R-08 → R-07 사업자 정보. R-09 토스 테스트 클라이언트 키. R-04 카카오 키. BE-A: `API_SPEC` 6장 `TURTLE_SHELL_500` 을 보너스 80 · 총 580 으로(P-02 v0.3), 서버 상품 데이터도 같은 값
+  3. (FE, MOCK-PORT) 등껍질 차감 확인 · 잔액 부족 Modal(CHECKOUT-POPUP) — 가짜 견적 포트부터. 그다음 ReadingViewer(섹션 픽스처), 구매 선택 복원(PURCHASE-RESTORE)
+  4. (FE) 진짜 구현 — OpenAPI 수령 후 `adapters/`(세션 · 인물 · 충전), openapi-fetch 클라이언트, 토스 SDK 결제창(R-09). 세션 adapter 가 `CsrfSource` 를 만든다
   5. (FE) PG-4 값 — 사업자 명의(R-08) → 값 8개(R-07). `/refund` 는 PD 확정 원고(Q-21, 10/10)
-  6. (FE) PG-2 로그인 · 세션(HOME-01) — 카카오 먼저, 네이버 · 구글은 BE-B 지원 · 범위 확정 후(A-01). 로그인 직후 본인 정보가 없으면 `/onboarding`(A-03), 비로그인으로 홈 기능을 누르면 로그인(A-02). BE-B OAuth · 세션 API · R-04 후
-  7. (팀) 10/10: Q-19(부족한 기운 산출, BE-B) · Q-21 · R-01 · Q-22(정가 필드), Q-17(API_SPEC 반영). 10/15: Q-20(선물 견적 필드 · 주문 API) · F-03 · Q-24(PD ✚ 프레임) · Q-26(질문 선택지)
+  6. (사용자) Vercel 미리보기 환경 변수에 `NEXT_PUBLIC_API_MODE=mock` 을 넣고 가짜 흐름을 Android Chrome · 카카오톡 인앱에서 확인 (완료 기준은 아님)
+  7. (팀) 10/10: Q-19 · Q-21 · R-01 · Q-22(정가 필드) · Q-17. 10/15: Q-20 · F-03 · Q-23 d ~ g · Q-24 · Q-26 · A-01
+- **`main` PR 주의**: 지금 `boyeon` 을 `main` 에 병합하면, mock 을 켜지 않은 `main` 배포에서 `/wallet` · `/login` · `/onboarding` 은 "진짜 구현 없음" 오류 화면이 된다(의도된 시끄러운 실패). 진짜 adapter 전까지는 병합해도 되지만 그 화면을 남에게 보여 주지 않는다
 - **보류 (재개 조건)**
-  - 디자인 항목 — PG 심사 요청 후 (PG-FIRST): 토큰 CSS 변수(값 D-01), UI 손그림 프레임(사용 여부 D-03 미정 · Q-15), 폰트(FONT-HOLD · D-02), 캐릭터 규격 + 뿌기 포즈(결과 화면 캐릭터 D-06 미정, 부적 동물 12지 랜덤 T-01), 사이드 메뉴 운세 목록 정리(홈 · 마이페이지 · 내 부적 창고 · 오늘의 운세 · 유료 운세 · 수능운 — `TODO(D-10)` 취업운 제거)
-  - 팀 확정 전이라 만들지 않는 것 (v0.3 ⚠️): 여러 명 선물(GIFT-06 ~ 08, GIFT-01 "수신인 당"), 발송 실패 링크 직접 공유(GIFT-05), 네이버 · 구글 로그인(개발 범위), 고민 입력의 결과 반영(F-04 — 확정 전까지 "결과 미반영" 기준). 충전 화면 결제 수단 4칸 · 동의 체크는 Q-25 전까지 정하지 않는다
-  - 선물 위저드 · 선물 결제 · 부적 화면 흐름 — 팀 문서에는 반영됐고 API 는 OpenAPI 대기 (Q-17 · Q-20)
-  - iOS Safari 실기기 확인(AppShell · 404) — iPhone 확보 후 (R-03, PD 보유 · 대여 미정). Android Chrome · 카카오톡 인앱은 통과
-  - openapi-fetch 클라이언트 · API 타입 · 관측 API 경로 가리기 — BE OpenAPI 수령 후 (PG-1)
+  - 디자인 항목 — PG 심사 요청 후 (PG-FIRST): 토큰 CSS 변수(값 D-01), UI 손그림 프레임(사용 여부 D-03 미정 · Q-15), 폰트(FONT-HOLD · D-02), 캐릭터 규격 + 뿌기 포즈(결과 화면 캐릭터 D-06 미정, 부적 동물 12지 랜덤 T-01), 사이드 메뉴 운세 목록 정리(`TODO(D-10)` 취업운 제거)
+  - 팀 확정 전이라 만들지 않는 것 (v0.3 ⚠️): 여러 명 선물(GIFT-06 ~ 08, GIFT-01 "수신인 당"), 발송 실패 링크 직접 공유(GIFT-05), 네이버 · 구글 로그인(개발 범위), 고민 입력의 결과 반영(F-04). 충전 화면 결제 수단 4칸 · 동의 체크는 Q-25 전까지 정하지 않는다
+  - 타인 정보 입력(MY-02 — 관계 · 타인 권한 확인 체크) — 권한 확인 문구 PD 확정 후. 본인 재저장 규칙 · 중복 경고 응답 모양은 BE-B(API_SPEC 미정)
+  - OAuth 취소 · 오류 복귀 처리 — BE-B 콜백 동작 확정 후. 로그아웃 UI — MY-01
+  - `/pay/success` 의 로그인 필요 링크에 결제 복귀 쿼리를 `returnTo` 로 넘길지 — 진짜 세션 연결 때 판단 (지금 `TODO(PG-2)`)
+  - 선물 위저드 · 선물 결제 · 부적 화면 흐름 — OpenAPI 대기 (Q-17 · Q-20), 가짜 포트로도 만들지 않는다
+  - iOS Safari 실기기 확인 — iPhone 확보 후 (R-03)
   - Sentry 소스맵 업로드(`SENTRY_AUTH_TOKEN`) — Phase 7
 - **막힌 점 · 전달할 것**
   - 팀에 받을 것(필요한 날은 `TEAM-QUESTIONS.md`): BE 재산정 일정(R-06) · OpenAPI 받는 방법 · `details`(Q-18) · API_SPEC · OpenAPI 반영(Q-17), 사업자 명의(R-08) → 사업자 정보 값(R-07), 토스 상담 결과(R-01) · 테스트 클라이언트 키(R-09), 카카오 리다이렉트 URI · JavaScript 키(R-04), 심사 테스트 계정(R-05), Q-19 · Q-20 · Q-21 · Q-22 · Q-23 d ~ g · Q-24 · Q-25 · Q-26
-  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17): `API_SPEC.md` · `COMMON` · `ERD.md` — `talismanType` 삭제 · 생성된 부적 정보(동물 랜덤), 선물 등껍질 주문 · 상태 이름, 수능운 단일 상품, 정가 필드(Q-22), 충전 `processing`, 견적 필드, CSRF, 선물 `delivery`, 오늘의 운세 로그인 필요, 관계 선택지(직접 입력), 고민 입력 필드(확정 시), 50,000원 상품 580개
+  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17): `API_SPEC.md` · `COMMON` · `ERD.md` — `talismanType` 삭제 · 생성된 부적 정보(동물 랜덤), 선물 등껍질 주문 · 상태 이름, 수능운 단일 상품, 정가 필드(Q-22), 충전 `processing`, 견적 필드, CSRF, 선물 `delivery`, 오늘의 운세 로그인 필요, 관계 선택지(직접 입력), 고민 입력 필드(확정 시), **50,000원 상품 80 · 580 (API_SPEC 6장은 아직 82 · 582)**
+  - 가짜 구현 환경 변수 (사용자가 `.env.local` 에 직접): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person, 비우면 signed_out). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로. `.env.example` 반영은 아직 안 함(사용자가 직접)
+  - Vercel "Automatically expose System Environment Variables" 켜짐 확인(10/4) — 운영 mock 차단 · Sentry 키 검사가 `VERCEL` · `VERCEL_ENV` 에 기댄다
+  - `pnpm test` 간헐 실패(시간 초과 · Unhandled Errors) — PC 부하가 클 때(실행 100초 이상) 났고 재실행에서 통과. `ebb16b0` 로 완화. 커밋 단계는 "실패하면 그 회차의 Unhandled Errors 구간을 받고 1회 재실행" 조건으로 진행. 개선 후보: 순수 `.ts` 테스트를 jsdom 대신 node 환경으로
   - PD 에게 받은 것 (저장소 밖): 선물 재발송 안내 문구(Phase 5), 충전 환불정책 초안 `refund-policy-draft.md`(확정 전 코드 반영 금지)
   - 유저 플로우: FigJam `dd8IamO1coU9vpa4P7AgMi`(v1, 10/4) — 기능 명세서 v0.3 과 같은 흐름. 웹 대화에서 조회한다
   - (PD 전달) 개인정보처리방침 국외 이전 고지 — PostHog(US) · Sentry(지역 확인 필요), 오류 정보 · 접속 기록
   - (PD 전달) 카카오톡 인앱브라우저의 떠 있는 버튼이 화면 오른쪽 가운데를 가린다 — 누르는 요소 배치 참고
-  - (PD 전달) 오류 화면 · 404 화면 문구 — 지금은 자리표시 (TODO(PD 문구)). 5xx 화면에 `traceId` 를 보여 줄 수 있다
+  - (PD 전달) 화면 문구는 전부 자리표시 (`TODO(PD 문구)`) — 오류 · 404 · 로그인 · 충전 · 결제 복귀 · 정보 입력 · 검증 오류(`src/lib/person/messages.ts`)
   - `app/error.tsx` 는 실기기에서 띄워 보지 못했다 — 첫 실제 API 연결 화면에서 오류 경로를 실기기로 확인한다
-  - `pnpm test` 가 한 번 "no tests · 19 errors" 로 실패하고 바로 재실행에서 통과했다(10/4, 재현 안 됨). 다시 나오면 로그 전체를 받는다
+  - 테스트 출력의 jsdom 경고 "Not implemented: navigation to another Document" 는 `AppShell.test.tsx` 사이드 메뉴 링크 테스트가 낸다 (통과에 영향 없음)
   - Claude Code 는 `frontend/` 에서 시작한다 — 루트에 `CLAUDE.md` 가 없다
   - Playwright 브라우저 미설치 — E2E 처음 돌리기 전에 `pnpm -C frontend e2e:install`
   - 알려진 작은 문제: PC 에서 스크롤바가 있는 긴 페이지는 사이드 메뉴 패널이 앱 기둥보다 몇 px 오른쪽으로 나갈 수 있다 (휴대폰 영향 없음)
@@ -60,6 +72,7 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| CODE-BY-CC | 코드는 Claude Code 가 작성한다. 웹 대화는 구현 명세(만들 · 바꿀 파일, 규칙 · 근거 ID, 동작, 반드시 넣을 테스트 경우, 하지 말 것)를 쓰고 diff · 새 파일 전문을 검토한다. 코드 단계는 형식 B(구현 · 검사 · diff 보고, 커밋 없음) → 검토 → 형식 C(커밋) 또는 B 재지시. 웹 대화는 코드 파일을 만들거나 zip 으로 넘기지 않는다 (정확한 값 — 픽스처 표 · 상수 · 오류 code — 은 명세에 적는다). FILE-HANDOFF 는 문서 · 외부 파일로 좁힌다 | 2026-10-04 | 사용자 |
 | MOCK-PORT | OpenAPI 전에는 화면이 FE 포트(`src/lib/ports/`)만 부르고, 구현은 가짜(`src/mocks/`, 메모리 픽스처 — 개발 서버 · 미리보기 전용, 운영 배포에서 켜지면 오류)와 진짜(`src/lib/api/adapters/`, OpenAPI 생성 타입 → 포트 모델)로 나눈다. 생성 타입은 adapters 에서만. 공통 응답 · 오류 껍데기는 COMMON + BE 골격 `a605afa` 기준 런타임 검사. 가짜도 금액은 픽스처 주석 · 화면 계산 금지 그대로, 선물 · Q-25 · 네이버 · 구글은 범위 밖. 새 라이브러리 없음(MSW 미사용). 세부는 FRONTEND.md 1-2 | 2026-10-04 | 사용자 (선택지 A 목업 없음 · B MSW · C 포트 중 C) |
 | CHECKOUT-POPUP | 등껍질 차감 확인은 별도 Checkout 경로 없이 앞 화면 안 Modal 로 한다 — 일반 운세는 질문 화면(옵션 버튼 → 팝업), 수능운은 정보 확인 화면, 선물은 위저드, 부적 추가는 결과 화면. `/fortune/[type]/checkout` · `/suneung/checkout` 삭제(`/gift/checkout` 은 v0.3 이 삭제). 잔액 부족 → 충전 → 앞 화면 복귀 후 팝업 다시 열기(PURCHASE-RESTORE). 팝업 표시: 상품명 · 대상 인물 · 옵션 · 보유 · 사용 · 구매 후 잔액(서버 견적) + 고지(F-08) | 2026-10-04 | 사용자 (FUNCTIONAL_SPEC v0.3 이 FE 판단에 맡김) |
 | FIGMA-FINAL | 최종 와이어프레임 = Figma 페이지 `와이어프레임 최종`(node `195:91`). 화면 ID 는 프레임 이름(HOME-01 · FORT-06 · CSAT-04 · GIFT-03 · RECV-T-04 등)을 쓴다. 옛 페이지 `17:2` 와 구 번호 #1 ~ #40 은 기록용(PHASES 1장 "구 #" 열). 와이어와 팀 문서가 다르면 팀 문서를 따르고 Q 로 올린다(Q-23 ~ Q-27). 와이어 문구 · 수량은 자리표시 | 2026-10-04 | 사용자 (PD 최종본) |
@@ -67,13 +80,13 @@
 | P-03 · P-03A 변경 | PD 가격: 일반 `사주` 10 · `사주+부적` 15 · 부적 추가 10, 수능운 15(부적 포함 단일, 정가 20 할인 표기), 선물(수능운) `부적` 10 · `부적+사주` 15 — 단위 등껍질 N개. 보너스 유효기간 1년(P-04). 화면에는 서버 값만 (Q-22). 팀 문서 `cc60ab3` | 2026-10-03 | PD |
 | TEAM-1003 | 팀 결정(사용자 전달): 선물도 **등껍질** 결제(원화는 충전만, P-07 변경), 1차 선물은 **수능운만**(핵심 전제 변경), 부적은 **고르지 않고 결과 기반 자동생성**(T-01 변경), 단위 표기 **"등껍질 N개"**(P-03), 신살은 일반 5종에 포함(잠정, F-03 미정). 팀 문서 반영 전에는 이 결정에 기대는 코드를 만들지 않는다 (TQ-ANSWERS) | 2026-10-03 | 팀 |
 | CONFIRM-KEY | 충전 승인(`POST /top-up-orders/{orderId}/confirm`)의 `Idempotency-Key` 는 서버 주문 ID(UUID)를 그대로 쓴다 — PG 복귀 페이지 새로고침에도 저장소 없이 같은 키. 그 밖의 멱등 명령은 구매 의도당 무작위 UUID 하나 + 본문 직렬화 고정 (`src/lib/api/idempotency.ts`, `353d9b8`). BE-A 확인 요청 (Q-17) | 2026-10-03 | FE |
-| FILE-HANDOFF | 지시문으로 넘기는 파일(문서 zip · 코드 파일)은 사용자 PC 의 `~/Downloads`(`$HOME/Downloads`)에 받아 두고 SHA-256 으로 대조한다. 코드 본문을 지시문에 직접 붙이지 않는다 (붙여 넣기 중 잘린 적이 있다) | 2026-10-03 | 사용자 |
+| FILE-HANDOFF | 지시문으로 넘기는 파일은 사용자 PC 의 `~/Downloads`(`$HOME/Downloads`)에 받아 두고 SHA-256 으로 대조한다. 압축 해제 임시 폴더는 고정 경로 `$HOME/Downloads/stepN-unzip`, 변수에 담은 경로를 `rm` 하지 않는다. **10/4 CODE-BY-CC 로 범위를 문서(DOCS-PLACE) · 외부에서 받은 파일로 좁힌다 — 코드 파일은 넘기지 않는다** | 2026-10-03 | 사용자 |
 | TQ-ANSWERS | 팀 답 1차 반영 (PD 답변서 · BE 답변서 · BE-A 결정 기록 1~42). `TEAM-QUESTIONS.md` 상태를 `해결` · `답변 · 반영 대기` · `답 엇갈림` · `부분` · `대기` 로 나눈다. `반영 대기` · `엇갈림` 항목은 팀 문서(PENDING_DECISIONS · FUNCTIONAL_SPEC · API_SPEC)에 들어가기 전까지 그 답에 기대는 코드를 만들지 않는다. 답변 원문은 저장소에 두지 않고 요지만 적는다 | 2026-10-03 | FE |
 | TOPUP-DONE | 충전 완료는 주문 `CREDITED` 일 때만 표시. `PAID` · `processing: true` 는 처리 중. 승인 결과가 불명확하면 주문 조회 2초 간격 최대 30초 → 확인 중 안내 + 주문 확인 버튼, 새 결제 · 새 멱등 키로 유도하지 않음 (BE-A 결정 17 · 39 · 42 채택, 계약 반영은 Q-17) | 2026-10-03 | FE |
 | PURCHASE-RESTORE | 잔액 부족 → 충전 → 복귀 때 구매 선택은 `sessionStorage` 에 둔다 — 인물 ID · 최소 선택값만(생년정보 원문 금지), 마지막 변경 후 24시간, 읽을 때 만료 검증, 구매 성공 · 로그아웃 시 삭제, 저장한 가격 · 잔액은 표시 근거가 아님(`GET /quotes/{quoteId}` 재확인). 전역 상태가 아니며 Zustand 를 쓰지 않는다. FE 브라우저 저장소 규칙 확장 (Q-07, BE-A 결정 1 · 15 채택) | 2026-10-03 | FE |
 | NO-SCREENSHOT | 실기기 확인 결과는 사용자가 말로 알려 준 것으로 받는다. FE 문서의 "스크린샷 첨부" 요구를 뺀다 (PR 템플릿 문구는 팀 공용이라 그대로) | 2026-10-03 | 사용자 |
 | DOCS-GITHUB | 팀 문서의 원본은 GitHub 저장소 — 루트 `docs/`(PENDING_DECISIONS · PRD · FUNCTIONAL_SPEC · API_SPEC · COMMON_RESPONSE_AND_ERROR_CODES · ERD)와 `backend/docs/`. 결정 원본은 `docs/PENDING_DECISIONS.md`. Notion 스냅샷 방식(TEAM-DOCS)은 폐기하고, 10/1 스냅샷 묶음(`docs-20261001.zip`)은 배치하지 않는다 | 2026-10-03 | FE (사용자) |
-| P-02 변경 | 충전 상품 6종으로 변경 — 1,000원 10개(보너스 없음) · 3,000원 33개(30+3) · 5,000원 56개(50+6) · 10,000원 114개(100+14) · 30,000원 346개(300+46) · 50,000원 582개(500+82). 팀 문서 PENDING_DECISIONS · PRD · FUNCTIONAL_SPEC · API_SPEC 반영 | 2026-10-03 | 사용자 |
+| P-02 변경 | 충전 상품 6종으로 변경 — 1,000원 10개(보너스 없음) · 3,000원 33개(30+3) · 5,000원 56개(50+6) · 10,000원 114개(100+14) · 30,000원 346개(300+46) · 50,000원 582개(500+82). 팀 문서 PENDING_DECISIONS · PRD · FUNCTIONAL_SPEC · API_SPEC 반영. → 10/4 기능 명세서 v0.3 에서 50,000원은 보너스 80 · 총 580 (Q-22). `API_SPEC` 6장은 아직 82 · 582 — BE-A 수정 요청 | 2026-10-03 | 사용자 |
 | STYLE-HAND | 비주얼은 손그림체. 손그림 SVG 프레임 `border-image` 와 레이어 분리 벡터 캐릭터, 도트(픽셀) 처리 안 함. 10/3 재확인 — 팀 문서 D-01 · D-05 · PRD 1장 · FUNCTIONAL_SPEC 1장 · BACKEND_ROLE_SPLIT 의 도트 문장을 손그림으로 고침 | 2026-10-01 | FE (사용자) |
 | PG-FIRST | PG 심사 통과용 흐름이 최우선. 10/3 보완: **PG 심사 요청 전까지 디자인 요소(토큰 · 프레임 · 글꼴 · 캐릭터 · 꾸밈)를 배제하고 백엔드 연결과 결제 플로우만** 만든다. 디자인 항목은 PG 심사 요청 후 Phase 6 에서 재개 | 2026-10-01 | 사용자 |
 | PG-TRACK | PG 심사 트랙 체크박스 v2 — PG-1 백엔드 연결 기반 · PG-2 카카오 로그인 · 세션 · PG-3 충전 결제 플로우 · PG-4 심사 노출 요건(푸터 · /about · 약관, 스타일 없이) · PG-5 운영 도메인 실기기. 옛 P-1 ~ P-6 · PG-1 ~ PG-6 번호 대체. 팀 결정 ID P-01 ~ P-09 와 헷갈리지 않게 `PG-` 를 붙인다. 옛 Phase 2 는 이 트랙에 흡수 | 2026-10-03 | FE |
@@ -103,6 +116,7 @@
 
 ## 세션 로그
 
+- 2026-10-04 ~ 10-05 · MOCK-PORT 로 PG-1 · PG-2 · PG-3 가짜 범위와 Phase 3 본인 입력 진행 — API 코어(`ffe1080`), 충전 포트 · 화면(`e0ce4dd` · `03f01fa` · `816b130`), returnTo · 세션 · 로그인 가드 · `/login`(`728e9fb` · `84b5390`), 인물 포트 · PersonForm · `/onboarding`(`75b774c` · `8f94cde`), PersonForm 검증 규칙(`1a7fe39`), 테스트 시간 초과 완화(`ebb16b0`). 결정 MOCK-PORT(`fe549f4`) · CODE-BY-CC. PR #12 병합(`47e2055`). 로컬 충전 시나리오 6종 확인.
 - 2026-10-04 · 기능 명세서 v0.3 팀 문서 반영(3차 `9fb9d21`, 병합 `d396cce`) — Q-23 b · c · h · i · j · k 해결(j: 서비스명 뿌기사주), Q-27 해결. 라우트: `/wallet` · `/share/[shareId]` 추가(`078662d`), Checkout 3개 삭제(`b9a95ea` · CHECKOUT-POPUP). 유저 플로우 FigJam v1 조회(새 충돌 없음). FE 문서 v2.5 · 지침 갱신.
 - 2026-10-04 · 최종 와이어프레임(`195:91`) 대조로 FE 문서 v2.4 — PHASES 1장 화면 ID 재작성 · FRONTEND 3장 · `frontend/CLAUDE.md` Figma 규칙 · Q-23 ~ Q-27 (FIGMA-FINAL). `main` BE-A 골격 `2c682e0` 확인(업무 API 없음, G-07 유예 규칙 확인 → Q-17) 후 `boyeon` 에 병합.
 - 2026-10-03 · PD 추가 답변 반영(가격 · 부적 자동생성 · 신살 · BE-A 제안 결정 동의 · 재발송 문구 · 충전 환불 초안). `boyeon` 을 `main`(`90703b7`)에 fast-forward, `next.config.ts` 주석(`e4ae66b`), 팀 문서 2차 반영(`cc60ab3`, DOCS-TEAM-PR). FE 문서 v2.3: TEAM-QUESTIONS 상태 `반영 PR 대기` 추가 · Q-22 신규. PR `boyeon` → `main` 검토 대기.
