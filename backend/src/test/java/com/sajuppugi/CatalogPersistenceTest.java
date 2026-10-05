@@ -91,11 +91,14 @@ class CatalogPersistenceTest {
     }
 
     private void product(String code, String category, boolean active, Instant starts, Instant ends) {
+        boolean topUp = category.equals("TOP_UP");
         jdbc.update("""
                 INSERT INTO products (id, code, category, price_currency, price_amount, active,
-                sale_start_at, sale_end_at, catalog_version) VALUES (?, ?, ?, 'TURTLE_SHELL', 10, ?, ?, ?, 'test-v1')
-                """, UUID.randomUUID(), code, category, active,
-                starts == null ? null : Timestamp.from(starts), ends == null ? null : Timestamp.from(ends));
+                sale_start_at, sale_end_at, catalog_version, paid_shell_amount, bonus_shell_amount)
+                VALUES (?, ?, ?, ?, 10, ?, ?, ?, 'test-v1', ?, ?)
+                """, UUID.randomUUID(), code, category, topUp ? "KRW" : "TURTLE_SHELL", active,
+                starts == null ? null : Timestamp.from(starts), ends == null ? null : Timestamp.from(ends),
+                topUp ? 10 : null, topUp ? 0 : null);
     }
 
     private void assertCode(Runnable action, ErrorCode code) {

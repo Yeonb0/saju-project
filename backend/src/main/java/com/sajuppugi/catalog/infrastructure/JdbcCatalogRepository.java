@@ -3,6 +3,7 @@ package com.sajuppugi.catalog.infrastructure;
 import com.sajuppugi.catalog.domain.Price;
 import com.sajuppugi.catalog.domain.Product;
 import com.sajuppugi.catalog.domain.PurchaseQuote;
+import com.sajuppugi.catalog.domain.TopUpProduct;
 import com.sajuppugi.catalog.port.CatalogRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -38,6 +39,16 @@ public class JdbcCatalogRepository implements CatalogRepository {
     public Optional<Product> findProductByCode(String code) {
         return jdbc.query("SELECT * FROM products WHERE code = ?",
                 (rs, row) -> product(rs, "id", "code"), code).stream().findFirst();
+    }
+
+    @Override
+    public List<TopUpProduct> findAvailableTopUps(Instant now) {
+        return jdbc.query("""
+                SELECT * FROM products WHERE category = 'TOP_UP' AND active = TRUE
+                AND (sale_start_at IS NULL OR sale_start_at <= ?)
+                AND (sale_end_at IS NULL OR sale_end_at > ?) ORDER BY price_amount, code
+                """, (rs, row) -> new TopUpProduct(product(rs, "id", "code"),
+                        rs.getInt("paid_shell_amount"), rs.getInt("bonus_shell_amount")), timestamp(now), timestamp(now));
     }
 
     @Override

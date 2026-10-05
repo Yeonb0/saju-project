@@ -2,6 +2,7 @@ package com.sajuppugi.catalog.application;
 
 import com.sajuppugi.catalog.domain.Product;
 import com.sajuppugi.catalog.domain.PurchaseQuote;
+import com.sajuppugi.catalog.domain.TopUpProduct;
 import com.sajuppugi.catalog.port.CatalogRepository;
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ErrorCode;
@@ -26,6 +27,11 @@ public class CatalogService implements CatalogUseCase {
     @Override
     public List<Product> availableProducts(Product.Category category) {
         return repository.findAvailableProducts(category, clock.instant());
+    }
+
+    @Override
+    public List<TopUpProduct> availableTopUps() {
+        return repository.findAvailableTopUps(clock.instant());
     }
 
     @Override
