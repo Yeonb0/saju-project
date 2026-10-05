@@ -19,6 +19,18 @@ public record WalletTransaction(UUID id, UUID userId, Type type, int amount,
         if (amount == 0 || allocations.isEmpty()) {
             throw new IllegalArgumentException("Ledger transaction must have nonzero allocations");
         }
+        boolean validDirection = switch (type) {
+            case TOP_UP -> amount > 0;
+            case PURCHASE, EXPIRY -> amount < 0;
+            // Refunds may restore a purchase or reclaim a cash-refunded top-up.
+            case REFUND, ADJUSTMENT -> true;
+        };
+        if (!validDirection) {
+            throw new IllegalArgumentException("Ledger amount direction does not match transaction type");
+        }
+        if (id.equals(reversalOfId)) {
+            throw new IllegalArgumentException("Ledger transaction cannot reverse itself");
+        }
         var ids = new HashSet<UUID>();
         long sum = 0;
         for (Allocation allocation : allocations) {
