@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { createFakeAccount } from "@/mocks/account";
 import {
   resolveSessionScenario,
   resolveTopUpScenario,
   selectPaymentLauncher,
+  selectPersonPort,
   selectSessionPort,
   selectTopUpPort,
 } from "./index";
@@ -54,5 +56,13 @@ describe("세션 포트 선택 (MOCK-PORT)", () => {
     expect(resolveSessionScenario("")).toBe("signed_out");
     expect(resolveSessionScenario("new_user")).toBe("new_user");
     expect(() => resolveSessionScenario("guest")).toThrow();
+  });
+});
+
+describe("인물 포트 선택 (MOCK-PORT)", () => {
+  it("진짜 모드는 구현이 없어 던진다", () => {
+    expect(() =>
+      selectPersonPort("real", createFakeAccount("signed_in")),
+    ).toThrow();
   });
 });

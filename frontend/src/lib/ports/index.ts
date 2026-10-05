@@ -2,12 +2,15 @@
 // 진짜 구현(src/lib/api/adapters)은 OpenAPI 수령 후 만든다. 그 전에 진짜 모드로 부르면 조용히 넘어가지 않고 던진다.
 // 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out). 모르는 값은 기본값으로 덮지 않고 던진다.
-import { createFakePaymentLauncher } from "@/mocks/paymentLauncher";
 import {
-  createFakeSessionPort,
+  createFakeAccount,
   FAKE_SESSION_SCENARIOS,
+  type FakeAccount,
   type FakeSessionScenario,
-} from "@/mocks/session";
+} from "@/mocks/account";
+import { createFakePaymentLauncher } from "@/mocks/paymentLauncher";
+import { createFakePersonPort } from "@/mocks/person";
+import { createFakeSessionPort } from "@/mocks/session";
 import {
   createFakeTopUpPort,
   FAKE_TOP_UP_SCENARIOS,
@@ -15,6 +18,7 @@ import {
 } from "@/mocks/topUp";
 import { API_MODE, type ApiMode } from "./mode";
 import type { PaymentLauncher } from "./paymentLauncher";
+import type { PersonPort } from "./person";
 import type { SessionPort } from "./session";
 import type { TopUpPort } from "./topUp";
 
@@ -80,11 +84,31 @@ export function resolveSessionScenario(
 export function selectSessionPort(
   mode: ApiMode,
   scenarioRaw: string | undefined,
+  account?: FakeAccount,
 ): SessionPort {
   if (mode !== "mock") return noRealYet("세션 포트");
   return createFakeSessionPort({
     scenario: resolveSessionScenario(scenarioRaw),
+    account,
   });
+}
+
+export function selectPersonPort(
+  mode: ApiMode,
+  account: FakeAccount,
+): PersonPort {
+  if (mode !== "mock") return noRealYet("인물 포트");
+  return createFakePersonPort(account);
+}
+
+// 가짜 계정은 탭 하나에 하나 — 세션 · 인물 포트가 같은 계정을 본다
+let fakeAccount: FakeAccount | null = null;
+
+function getFakeAccount(): FakeAccount {
+  fakeAccount ??= createFakeAccount(
+    resolveSessionScenario(process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO),
+  );
+  return fakeAccount;
 }
 
 // 세션도 탭 하나에 하나
@@ -94,6 +118,14 @@ export function getSessionPort(): SessionPort {
   sessionPort ??= selectSessionPort(
     API_MODE,
     process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO,
+    getFakeAccount(),
   );
   return sessionPort;
+}
+
+let personPort: PersonPort | null = null;
+
+export function getPersonPort(): PersonPort {
+  personPort ??= selectPersonPort(API_MODE, getFakeAccount());
+  return personPort;
 }
