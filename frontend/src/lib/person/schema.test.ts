@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { kst } from "@/lib/date";
 import {
   createPersonSchema,
+  EMPTY_PERSON_FORM,
   PERSON_ERROR,
   type PersonFormInput,
 } from "./schema";
@@ -187,5 +188,51 @@ describe("타인 정보", () => {
   it("본인은 관계 · 권한 확인을 보지 않고 관계를 null 로 낸다", () => {
     expect(errorsOf(SELF, "self")).toEqual({});
     expect(parse({ ...SELF, relation: "mother" }, "self").relation).toBeNull();
+  });
+});
+
+describe("빈 선택값 (한 번 제출에 모든 오류)", () => {
+  it("모든 칸이 비면 이름 · 생년월일 · 시간 · 달력 · 성별 필수 오류가 함께 나온다", () => {
+    expect(errorsOf(EMPTY_PERSON_FORM)).toEqual({
+      name: PERSON_ERROR.required,
+      birthDate: PERSON_ERROR.required,
+      birthTime: PERSON_ERROR.required,
+      calendar: PERSON_ERROR.required,
+      gender: PERSON_ERROR.required,
+    });
+  });
+
+  it("달력 · 성별이 비어도 생년월일 오류가 함께 나온다", () => {
+    expect(
+      errorsOf({
+        ...SELF,
+        calendar: undefined,
+        gender: undefined,
+        birthDate: "2026-10-05",
+      }),
+    ).toEqual({
+      calendar: PERSON_ERROR.required,
+      gender: PERSON_ERROR.required,
+      birthDate: PERSON_ERROR.dateInFuture,
+    });
+  });
+
+  it("성별 빈 문자열 · 달력 null 도 필수 오류", () => {
+    expect(errorsOf({ ...SELF, gender: "", calendar: null })).toEqual({
+      calendar: PERSON_ERROR.required,
+      gender: PERSON_ERROR.required,
+    });
+  });
+
+  it("시간 모름이면 birthTime undefined 도 통과하고 출력은 null", () => {
+    expect(
+      parse({ ...SELF, timeUnknown: true, birthTime: undefined }).birthTime,
+    ).toBeNull();
+  });
+
+  it("시간 모름이 아닌데 birthTime undefined 면 필수 오류", () => {
+    expect(
+      errorsOf({ ...SELF, timeUnknown: false, birthTime: undefined }),
+    ).toEqual({ birthTime: PERSON_ERROR.required });
   });
 });

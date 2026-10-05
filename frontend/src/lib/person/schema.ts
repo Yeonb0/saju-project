@@ -3,6 +3,7 @@
 // 이 파일의 값 이름(calendar · gender · relation 등)은 FE 폼 모델이다. 백엔드 API 타입이 아니며,
 // 서버 요청 모양으로의 변환은 OpenAPI 수령 후 따로 만든다 (CLAUDE.md — 타입의 출처는 OpenAPI 생성본뿐).
 // 오류 메시지는 화면 문구가 아니라 코드(PERSON_ERROR)다. 화면 문구는 PD 가 정한다 — TODO(PD 문구).
+// 한 번 제출에 모든 오류가 나오도록 선택값 필수 검사는 superRefine 에서 한다 (기본 객체 검사가 먼저 실패하면 superRefine 이 돌지 않는다).
 import { z } from "zod";
 import type dayjs from "@/lib/date";
 import { kstStartOfToday } from "@/lib/date";
@@ -38,6 +39,13 @@ type SchemaOptions = {
   today?: dayjs.Dayjs;
 };
 
+function isOneOf<T extends string>(
+  values: readonly T[],
+  value: string | null | undefined,
+): value is T {
+  return value !== null && value !== undefined && values.includes(value as T);
+}
+
 function isSolarDate(year: number, month: number, day: number) {
   const date = new Date(Date.UTC(year, month - 1, day));
   return (
@@ -59,12 +67,14 @@ export function createPersonSchema({ kind, today }: SchemaOptions) {
   return z
     .object({
       name: z.string(),
-      calendar: z.enum(CALENDARS, { error: PERSON_ERROR.required }),
+      // 비어 있는 선택값("" · null · undefined)은 여기서 받고 필수 여부는 superRefine 에서 낸다
+      calendar: z.union([z.enum(CALENDARS), z.literal("")]).nullish(),
       isLeapMonth: z.boolean(),
       birthDate: z.string(),
       timeUnknown: z.boolean(),
-      birthTime: z.string(),
-      gender: z.enum(GENDERS, { error: PERSON_ERROR.required }),
+      // 시간 모름으로 비활성된 입력은 undefined 로 온다
+      birthTime: z.string().optional(),
+      gender: z.union([z.enum(GENDERS), z.literal("")]).nullish(),
       relation: z.enum(RELATIONS).nullable(),
       relationText: z.string(),
       permissionConfirmed: z.boolean(),
@@ -75,6 +85,21 @@ export function createPersonSchema({ kind, today }: SchemaOptions) {
         ctx.addIssue({
           code: "custom",
           path: ["name"],
+          message: PERSON_ERROR.required,
+        });
+      }
+
+      if (!isOneOf(CALENDARS, value.calendar)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["calendar"],
+          message: PERSON_ERROR.required,
+        });
+      }
+      if (!isOneOf(GENDERS, value.gender)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["gender"],
           message: PERSON_ERROR.required,
         });
       }
@@ -121,7 +146,7 @@ export function createPersonSchema({ kind, today }: SchemaOptions) {
 
       // 태어난 시간: 시 · 분 또는 시간 모름
       if (!value.timeUnknown) {
-        if (value.birthTime === "") {
+        if (value.birthTime === undefined || value.birthTime === "") {
           ctx.addIssue({
             code: "custom",
             path: ["birthTime"],
@@ -165,23 +190,34 @@ export function createPersonSchema({ kind, today }: SchemaOptions) {
         }
       }
     })
-    .transform((value) => ({
-      name: value.name.trim(),
-      calendar: value.calendar,
-      // 윤달은 음력일 때만 의미가 있다 (FUNCTIONAL_SPEC 4장)
-      isLeapMonth: value.calendar === "lunar" ? value.isLeapMonth : false,
-      birthDate: value.birthDate,
-      birthTime: value.timeUnknown ? null : value.birthTime,
-      gender: value.gender,
-      relation:
-        kind === "other" && value.relation !== null
-          ? {
-              kind: value.relation,
-              label:
-                value.relation === "custom" ? value.relationText.trim() : null,
-            }
-          : null,
-    }));
+    .transform((value) => {
+      // transform 은 superRefine 을 통과한 값에만 실행된다 — 아래 검사는 그 불변식을 타입에 반영할 뿐이다
+      const { calendar, gender } = value;
+      if (!isOneOf(CALENDARS, calendar) || !isOneOf(GENDERS, gender)) {
+        throw new Error(
+          "검증을 통과한 값에만 실행되는데 달력 · 성별이 비어 있다",
+        );
+      }
+      return {
+        name: value.name.trim(),
+        calendar,
+        // 윤달은 음력일 때만 의미가 있다 (FUNCTIONAL_SPEC 4장)
+        isLeapMonth: value.calendar === "lunar" ? value.isLeapMonth : false,
+        birthDate: value.birthDate,
+        birthTime: value.timeUnknown ? null : (value.birthTime ?? null),
+        gender,
+        relation:
+          kind === "other" && value.relation !== null
+            ? {
+                kind: value.relation,
+                label:
+                  value.relation === "custom"
+                    ? value.relationText.trim()
+                    : null,
+              }
+            : null,
+      };
+    });
 }
 
 export type PersonFormInput = z.input<ReturnType<typeof createPersonSchema>>;
