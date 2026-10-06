@@ -16,6 +16,7 @@ import {
 } from "@/lib/payment/confirmTopUp";
 import { getTopUpPort } from "@/lib/ports";
 import type { PaymentReturn, TopUpPort } from "@/lib/ports/topUp";
+import { loadPurchaseSelection } from "@/lib/purchase/restore";
 
 type View =
   | { kind: "confirming" }
@@ -43,6 +44,12 @@ export function TopUpSuccess({
   // 포트는 렌더 중이 아니라 요청할 때 고른다 (진짜 구현이 없으면 오류 화면으로)
   const topUp = () => port ?? getTopUpPort();
   const [view, setView] = useState<View>({ kind: "confirming" });
+  // 충전 전 앞 화면 (PURCHASE-RESTORE). 저장소는 렌더가 아니라 effect 에서 읽는다 — 서버 렌더와 어긋나지 않게
+  const [resumePath, setResumePath] = useState<string | null>(null);
+  useEffect(() => {
+    if (view.kind !== "credited") return;
+    setResumePath(loadPurchaseSelection()?.returnPath ?? null);
+  }, [view.kind]);
 
   useEffect(() => {
     let alive = true;
@@ -90,9 +97,13 @@ export function TopUpSuccess({
             // 서버가 준 잔액만 표시한다 (P-09). TODO(PD 문구)
             <p>보유 {view.walletBalance.toLocaleString("ko-KR")}</p>
           ) : null}
-          {/* TODO(PURCHASE-RESTORE): 충전 전 화면으로 돌아가 팝업 다시 열기 */}
-          {/* TODO(PD 문구) */}
-          <Link href="/wallet">확인</Link>
+          {resumePath !== null ? (
+            // 앞 화면이 저장한 선택으로 차감 확인 팝업을 다시 연다 (PURCHASE-RESTORE). TODO(PD 문구)
+            <Link href={resumePath}>이어서 하기</Link>
+          ) : (
+            // TODO(PD 문구)
+            <Link href="/wallet">확인</Link>
+          )}
         </>
       ) : view.kind === "pending" ? (
         <>

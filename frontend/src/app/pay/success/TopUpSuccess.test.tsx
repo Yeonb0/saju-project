@@ -3,11 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiContractError } from "@/lib/api/errors";
+import { savePurchaseSelection } from "@/lib/purchase/restore";
 import { createFakeTopUpPort, type FakeTopUpScenario } from "@/mocks/topUp";
 import { TopUpSuccess } from "./TopUpSuccess";
 
 // vitest 는 globals 를 켜지 않아 Testing Library 자동 정리가 동작하지 않는다.
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  sessionStorage.clear();
+});
 
 // 픽스처일 뿐이며 실제 가격 · 결제 키 · 규칙과 무관하다.
 const KEY = "11111111-1111-4111-8111-111111111111";
@@ -43,6 +47,33 @@ describe("TopUpSuccess (/pay/success)", () => {
     expect(
       screen.getByText(`보유 ${balance.toLocaleString("ko-KR")}`),
     ).toBeVisible();
+  });
+
+  it("구매 선택이 저장돼 있으면 완료 뒤 앞 화면으로 이어 간다 (PURCHASE-RESTORE)", async () => {
+    // 픽스처일 뿐이며 실제 상품 · 규칙과 무관하다
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId: "fixture-quote",
+      selection: {
+        productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
+        personId: "66666666-6666-4666-8666-666666666666",
+        counterpartPersonId: null,
+      },
+    });
+    const { port, ret, deps } = await prepare("credited");
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />);
+    expect(
+      await screen.findByRole("link", { name: "이어서 하기" }),
+    ).toHaveAttribute("href", "/suneung");
+  });
+
+  it("구매 선택이 없으면 충전 화면으로 확인", async () => {
+    const { port, ret, deps } = await prepare("credited");
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />);
+    expect(await screen.findByRole("link", { name: "확인" })).toHaveAttribute(
+      "href",
+      "/wallet",
+    );
   });
 
   it("StrictMode 이중 실행에도 승인은 한 번", async () => {
