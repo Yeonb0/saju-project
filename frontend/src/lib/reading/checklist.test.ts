@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// 브라우저 저장소(sessionStorage · localStorage)를 쓰는 테스트라 jsdom 에서 돈다 (vitest.config.mts — .ts 는 기본 node).
 import { afterEach, describe, expect, it } from "vitest";
 import { checklistStorageKey, loadChecked, saveChecked } from "./checklist";
 
