@@ -1,7 +1,7 @@
 "use client";
 
 // "use client" 이유: Radix Dialog 는 클라이언트 전용 라이브러리다.
-// 닫기 버튼은 두지 않는다 — 화면마다 다르다 (40 "부적이 저장되었어요!" 모달은 Phase 4).
+// 닫기 버튼은 두지 않는다 — 화면마다 다르다 ("부적이 저장되었어요!" 팝업은 Phase 4).
 import * as Dialog from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
 import { COLUMN_WIDTH } from "@/lib/layout";
