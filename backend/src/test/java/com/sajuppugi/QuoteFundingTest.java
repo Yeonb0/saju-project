@@ -37,6 +37,7 @@ class QuoteFundingTest {
         var view = service.get(USER, QUOTE);
         assertThat(view.quote()).isEqualTo(quote);
         assertThat(view.walletBalance()).isEqualTo(balance);
+        assertThat(view.balanceAfter()).isEqualTo(balance - 15);
         assertThat(view.shortage()).isZero();
         assertThat(view.recommendedTopUp()).isNull();
         verify(catalog, never()).availableTopUps();
@@ -50,6 +51,7 @@ class QuoteFundingTest {
                 topUp("MEDIUM", 3000, 30, 3), topUp("SMALL", 1000, 10, 0)));
         var view = service.get(USER, QUOTE);
         assertThat(view.shortage()).isEqualTo(33);
+        assertThat(view.balanceAfter()).isNull();
         assertThat(view.recommendedTopUp()).isEqualTo("MEDIUM");
     }
 

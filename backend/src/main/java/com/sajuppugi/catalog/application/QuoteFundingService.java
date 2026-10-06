@@ -42,9 +42,11 @@ public class QuoteFundingService {
                             .thenComparing(topUp -> topUp.product().code()))
                     .map(topUp -> topUp.product().code()).orElse(null);
         }
-        return new FundingView(quote, balance, shortage, recommendation);
+        Integer balanceAfter = shortage == 0 ? balance - product.price().amount() : null;
+        return new FundingView(quote, balance, balanceAfter, shortage, recommendation);
     }
 
     // Null recommendation means no eligible single product, not that the wallet is sufficient.
-    public record FundingView(PurchaseQuote quote, int walletBalance, int shortage, String recommendedTopUp) {}
+    public record FundingView(PurchaseQuote quote, int walletBalance, Integer balanceAfter,
+                              int shortage, String recommendedTopUp) {}
 }

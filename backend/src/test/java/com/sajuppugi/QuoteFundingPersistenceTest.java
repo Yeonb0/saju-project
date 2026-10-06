@@ -40,6 +40,7 @@ class QuoteFundingPersistenceTest {
         var gated = funding.get(user, quote.id());
         assertThat(gated.walletBalance()).isEqualTo(3);
         assertThat(gated.shortage()).isEqualTo(12);
+        assertThat(gated.balanceAfter()).isNull();
         assertThat(gated.recommendedTopUp()).isNull();
 
         jdbc.update("UPDATE products SET active = TRUE WHERE code IN ('TURTLE_SHELL_10', 'TURTLE_SHELL_30')");
