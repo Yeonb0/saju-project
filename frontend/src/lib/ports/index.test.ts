@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFakeAccount } from "@/mocks/account";
+import { createFakeReadings } from "@/mocks/reading";
+import { createFakeWallet } from "@/mocks/wallet";
 import {
   resolveFortuneScenario,
   resolveSessionScenario,
@@ -7,6 +9,7 @@ import {
   selectFortunePort,
   selectPaymentLauncher,
   selectPersonPort,
+  selectReadingPort,
   selectSessionPort,
   selectTopUpPort,
 } from "./index";
@@ -79,5 +82,34 @@ describe("운세 구매 포트 선택 (MOCK-PORT)", () => {
     expect(resolveFortuneScenario("")).toBe("fulfilled");
     expect(resolveFortuneScenario("quote_expired")).toBe("quote_expired");
     expect(() => resolveFortuneScenario("expired")).toThrow();
+  });
+});
+
+describe("결과 포트 선택 (MOCK-PORT)", () => {
+  it("진짜 모드는 구현이 없어 던진다", () => {
+    expect(() => selectReadingPort("real", createFakeReadings())).toThrow();
+  });
+
+  it("가짜 구매가 만든 결과를 가짜 결과 포트로 다시 연다", async () => {
+    const readings = createFakeReadings();
+    const fortune = selectFortunePort(
+      "mock",
+      undefined,
+      createFakeWallet(100),
+      readings,
+    );
+    const [product] = await fortune.listProducts("SUNEUNG");
+    const selection = {
+      productCode: product.code,
+      // 픽스처일 뿐이며 실제 사용자와 무관하다
+      personId: "66666666-6666-4666-8666-666666666666",
+      counterpartPersonId: null,
+    };
+    const { quoteId } = await fortune.createQuote(selection);
+    const result = await fortune.purchase({ quoteId, selection }, "key-1");
+    const reading = await selectReadingPort("mock", readings).getReading(
+      result.readingId,
+    );
+    expect(reading.fortuneType).toBe("SUNEUNG");
   });
 });

@@ -16,6 +16,7 @@ import {
 } from "@/mocks/fortune";
 import { createFakePaymentLauncher } from "@/mocks/paymentLauncher";
 import { createFakePersonPort } from "@/mocks/person";
+import { createFakeReadings, type FakeReadings } from "@/mocks/reading";
 import { createFakeSessionPort } from "@/mocks/session";
 import {
   createFakeTopUpPort,
@@ -27,6 +28,7 @@ import type { FortunePort } from "./fortune";
 import { API_MODE, type ApiMode } from "./mode";
 import type { PaymentLauncher } from "./paymentLauncher";
 import type { PersonPort } from "./person";
+import type { ReadingPort } from "./reading";
 import type { SessionPort } from "./session";
 import type { TopUpPort } from "./topUp";
 
@@ -100,12 +102,30 @@ export function selectFortunePort(
   mode: ApiMode,
   scenarioRaw: string | undefined,
   wallet?: FakeWallet,
+  readings?: FakeReadings,
 ): FortunePort {
   if (mode !== "mock") return noRealYet("운세 구매 포트");
   return createFakeFortunePort({
     scenario: resolveFortuneScenario(scenarioRaw),
     wallet,
+    onFulfilled: readings ? (product) => readings.create(product) : undefined,
   });
+}
+
+export function selectReadingPort(
+  mode: ApiMode,
+  readings: FakeReadings,
+): ReadingPort {
+  if (mode !== "mock") return noRealYet("결과 포트");
+  return readings.port;
+}
+
+// 가짜 결과는 탭 하나에 하나 — 가짜 구매가 만든 결과를 결과 화면이 다시 연다
+let fakeReadings: FakeReadings | null = null;
+
+function getFakeReadings(): FakeReadings {
+  fakeReadings ??= createFakeReadings();
+  return fakeReadings;
 }
 
 let fortunePort: FortunePort | null = null;
@@ -115,8 +135,16 @@ export function getFortunePort(): FortunePort {
     API_MODE,
     process.env.NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO,
     getFakeWallet(),
+    getFakeReadings(),
   );
   return fortunePort;
+}
+
+let readingPort: ReadingPort | null = null;
+
+export function getReadingPort(): ReadingPort {
+  readingPort ??= selectReadingPort(API_MODE, getFakeReadings());
+  return readingPort;
 }
 
 export function getPaymentLauncher(
