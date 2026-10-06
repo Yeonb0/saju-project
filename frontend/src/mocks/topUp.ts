@@ -11,6 +11,7 @@ import type {
   TopUpPort,
   TopUpProduct,
 } from "@/lib/ports/topUp";
+import { createFakeWallet, type FakeWallet } from "./wallet";
 
 export const FAKE_TOP_UP_SCENARIOS = [
   "credited", // 승인 응답에서 바로 CREDITED
@@ -87,8 +88,6 @@ const FIXTURE_PRODUCTS: readonly TopUpProduct[] = [
   },
 ];
 
-// 픽스처일 뿐이며 실제 잔액 · 규칙과 무관하다.
-const FIXTURE_BALANCE = 7;
 const TRACE = "fixture-trace";
 
 type StoredOrder = {
@@ -99,13 +98,18 @@ type StoredOrder = {
 };
 
 export function createFakeTopUpPort(
-  options: { scenario?: FakeTopUpScenario; creditAfterPolls?: number } = {},
+  options: {
+    scenario?: FakeTopUpScenario;
+    creditAfterPolls?: number;
+    // 가짜 운세 구매와 잔액을 나눠 쓸 때 넘긴다 (src/lib/ports/index.ts)
+    wallet?: FakeWallet;
+  } = {},
 ): TopUpPort {
   const scenario = options.scenario ?? "credited";
   const creditAfterPolls = options.creditAfterPolls ?? 2;
   const orders = new Map<string, StoredOrder>();
   const orderIdByKey = new Map<string, string>();
-  let balance = FIXTURE_BALANCE;
+  const wallet = options.wallet ?? createFakeWallet();
 
   const fail = (status: number, code: string) =>
     new ApiError({ status, code, traceId: TRACE });
@@ -113,7 +117,7 @@ export function createFakeTopUpPort(
   function credit(stored: StoredOrder) {
     if (stored.status === "CREDITED") return;
     stored.status = "CREDITED";
-    balance += stored.product.creditedAmount;
+    wallet.credit(stored.product.creditedAmount);
   }
 
   function stateOf(stored: StoredOrder): TopUpOrderState {
@@ -121,7 +125,7 @@ export function createFakeTopUpPort(
       orderId: stored.order.orderId,
       status: stored.status,
       processing: stored.status === "PAID",
-      walletBalance: stored.status === "CREDITED" ? balance : null,
+      walletBalance: stored.status === "CREDITED" ? wallet.balance() : null,
     };
   }
 
@@ -133,7 +137,7 @@ export function createFakeTopUpPort(
 
   return {
     async getWallet() {
-      return { currency: "TURTLE_SHELL", balance };
+      return { currency: "TURTLE_SHELL", balance: wallet.balance() };
     },
 
     async listTopUpProducts() {

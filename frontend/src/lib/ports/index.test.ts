@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFakeAccount } from "@/mocks/account";
 import {
+  resolveFortuneScenario,
   resolveSessionScenario,
   resolveTopUpScenario,
+  selectFortunePort,
   selectPaymentLauncher,
   selectPersonPort,
   selectSessionPort,
@@ -64,5 +66,18 @@ describe("인물 포트 선택 (MOCK-PORT)", () => {
     expect(() =>
       selectPersonPort("real", createFakeAccount("signed_in")),
     ).toThrow();
+  });
+});
+
+describe("운세 구매 포트 선택 (MOCK-PORT)", () => {
+  it("진짜 모드는 구현이 없어 던진다", () => {
+    expect(() => selectFortunePort("real", undefined)).toThrow();
+  });
+
+  it("시나리오: 비우면 fulfilled, 모르는 값은 던진다", () => {
+    expect(resolveFortuneScenario(undefined)).toBe("fulfilled");
+    expect(resolveFortuneScenario("")).toBe("fulfilled");
+    expect(resolveFortuneScenario("quote_expired")).toBe("quote_expired");
+    expect(() => resolveFortuneScenario("expired")).toThrow();
   });
 });
