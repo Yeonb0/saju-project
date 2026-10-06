@@ -211,14 +211,57 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     expect(purchase.mock.calls[1][1]).toBe(purchase.mock.calls[0][1]);
   });
 
-  it("생성 실패(FAILED · refunded)도 그대로 앞 화면에 넘긴다", async () => {
+  it("생성 실패(FAILED · refunded)는 앞 화면에 넘기지 않고 환급 · 다시 시도 안내", async () => {
     const user = userEvent.setup();
-    const { onPurchased } = setup({ scenario: "generation_failed" });
-    await user.click(await useButton());
-    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
-    expect(onPurchased.mock.calls[0][0]).toMatchObject({
-      status: "FAILED",
-      refunded: true,
+    const { onPurchased, purchase, createQuote } = setup({
+      scenario: "generation_failed",
     });
+    await user.click(await useButton());
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.getByText("사용한 등껍질은 돌려드렸습니다")).toBeVisible();
+    expect(onPurchased).not.toHaveBeenCalled();
+
+    // 다시 시도는 새 견적 · 새 키
+    await user.click(screen.getByRole("button", { name: "다시 시도" }));
+    await user.click(await useButton());
+    await waitFor(() => expect(purchase).toHaveBeenCalledTimes(2));
+    expect(createQuote).toHaveBeenCalledTimes(2);
+    expect(purchase.mock.calls[1][1]).not.toBe(purchase.mock.calls[0][1]);
+  });
+
+  it("500 READING_GENERATION_FAILED 도 같은 안내", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockRejectedValueOnce(
+      new ApiError({
+        status: 500,
+        code: "READING_GENERATION_FAILED",
+        traceId: null,
+      }),
+    );
+    setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.queryByText("구매하지 못했습니다")).toBeNull();
+  });
+
+  it("구매 요청이 걸린 동안 생성 대기 장면", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    let release: () => void = () => {};
+    const real = port.purchase.bind(port);
+    vi.spyOn(port, "purchase").mockImplementationOnce(
+      (input, key) =>
+        new Promise((resolve) => {
+          release = () => resolve(real(input, key));
+        }),
+    );
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "결과를 만들고 있습니다",
+    );
+    release();
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
   });
 });

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Button } from "@/components/Button";
+import { GenerationScene } from "@/components/GenerationScene";
 import { Modal } from "@/components/Modal";
 import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
@@ -26,6 +27,10 @@ import {
   clearPurchaseSelection,
   savePurchaseSelection,
 } from "@/lib/purchase/restore";
+import {
+  generationFailureOfError,
+  generationFailureOfResult,
+} from "@/lib/reading/generation";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
 
@@ -56,7 +61,7 @@ export function ShellCheckout({
   resumeQuoteId?: string | null;
   // 충전 후 돌아올 앞 화면 경로 (safeReturnTo 를 거쳐 저장된다)
   returnPath: string;
-  // 구매 응답 그대로. 생성 실패(FAILED · refunded)도 여기로 온다 — 앞 화면이 결과 화면 · 실패 안내로 보낸다
+  // 구매 응답 그대로 (결과 화면으로 보낼 때). 생성 실패(FAILED · READING_GENERATION_FAILED)는 이 팝업이 안내하고 넘기지 않는다
   onPurchased: (result: ReadingPurchaseResult) => void;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다.
   port?: FortunePort;
@@ -105,6 +110,8 @@ export function ShellCheckout({
     mutationFn: (next: Intent) =>
       fortune().purchase({ quoteId: next.quoteId, selection }, next.key),
     onSuccess: (result) => {
+      // 생성 실패는 팝업 안에서 환급 · 재시도 안내 (F-06 · COMMON 4.8)
+      if (generationFailureOfResult(result)) return;
       clearPurchaseSelection();
       onPurchased(result);
     },
@@ -166,6 +173,19 @@ export function ShellCheckout({
     router.push("/wallet");
   }
 
+  const failure = purchase.data
+    ? generationFailureOfResult(purchase.data)
+    : purchase.error
+      ? generationFailureOfError(purchase.error)
+      : null;
+
+  // 생성이 끝난 구매는 다시 보내지 않는다 — 다시 시도는 새 견적(새 구매 의도 · 새 키)으로
+  function retryAfterFailure() {
+    purchase.reset();
+    setNotice(null);
+    setRound((n) => n + 1);
+  }
+
   // 새 견적을 기다리는 동안에는 지난 견적 값을 보이지 않는다
   const current = quote.isFetching ? null : (quote.data ?? null);
   const insufficient = current !== null && current.shortage > 0;
@@ -181,7 +201,26 @@ export function ShellCheckout({
       // TODO(PD 문구): 제목 — 잔액 부족이면 다른 제목
       title={insufficient ? "등껍질 부족" : "등껍질 사용 확인"}
     >
-      {!current ? (
+      {purchase.isPending ? (
+        // 생성은 구매 요청 안에서 끝난다 (F-06) — 기다리는 동안 대기 장면
+        <GenerationScene failure={null} />
+      ) : failure ? (
+        <GenerationScene
+          failure={failure}
+          actions={
+            <>
+              <Button onClick={retryAfterFailure}>
+                {/* TODO(PD 문구) */}
+                다시 시도
+              </Button>
+              <Button onClick={() => onOpenChange(false)}>
+                {/* TODO(PD 문구) */}
+                닫기
+              </Button>
+            </>
+          }
+        />
+      ) : !current ? (
         // TODO(PD 문구)
         <output className="block">확인하고 있습니다</output>
       ) : insufficient ? (
@@ -253,7 +292,7 @@ export function ShellCheckout({
               {/* TODO(PD 문구) */}
               <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
             </p>
-          ) : errorKind !== null && !requoting ? (
+          ) : errorKind !== null && !requoting && failure === null ? (
             // TODO(PD 문구): 오류 종류별 안내
             <p role="alert">구매하지 못했습니다</p>
           ) : null}
