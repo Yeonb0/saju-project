@@ -1,5 +1,5 @@
 // 인물 포트 (FE 모델, MOCK-PORT). 근거: FUNCTIONAL_SPEC 4장, API_SPEC 4장 초안
-// (POST /people — 인증 · CSRF, 타인 최대 10명 → 409 PERSON_LIMIT_EXCEEDED), A-03 · A-07 · O-03.
+// (GET /people · POST /people — 인증 · CSRF, 타인 최대 10명 → 409 PERSON_LIMIT_EXCEEDED), A-03 · A-07 · O-03.
 //
 // - FE 모델이다. 서버 요청 모양(PersonInput · relation · thirdPartyAuthorizationConfirmed — 초안)으로
 //   바꾸는 일은 진짜 adapter 가 한다.
@@ -18,6 +18,8 @@ export type PersonSummary = {
 };
 
 export type PersonPort = {
+  // 본인이 먼저, 그다음 저장한 타인 (FORT-01 · CSAT-01 · MATCH-02 "저장된 다른 사용자 불러오기")
+  list(): Promise<readonly PersonSummary[]>;
   createSelf(input: PersonFormOutput): Promise<PersonSummary>;
   createOther(input: PersonFormOutput): Promise<PersonSummary>;
 };

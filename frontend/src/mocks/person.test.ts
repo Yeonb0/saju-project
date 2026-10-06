@@ -73,4 +73,16 @@ describe("가짜 인물 포트 (MOCK-PORT)", () => {
       code: "PERSON_LIMIT_EXCEEDED",
     });
   });
+
+  it("list: 로그아웃이면 401, 로그인이면 본인 먼저 · 저장한 타인 순서", async () => {
+    await expect(
+      createFakePersonPort(createFakeAccount("signed_out")).list(),
+    ).rejects.toMatchObject({ status: 401 });
+
+    const port = createFakePersonPort(createFakeAccount("signed_in"));
+    const other = await port.createOther(otherInput());
+    const people = await port.list();
+    expect(people.map((p) => p.isSelf)).toEqual([true, false]);
+    expect(people[1]).toEqual(other);
+  });
 });

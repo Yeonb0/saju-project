@@ -16,6 +16,11 @@ export function createFakePersonPort(account: FakeAccount): PersonPort {
   }
 
   return {
+    async list() {
+      requireSignedIn();
+      const self = account.getSelf();
+      return [...(self ? [self] : []), ...account.getOthers()];
+    },
     async createSelf(input) {
       requireSignedIn();
       if (input.relation !== null) {
