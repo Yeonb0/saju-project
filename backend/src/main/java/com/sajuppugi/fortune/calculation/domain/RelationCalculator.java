@@ -33,6 +33,16 @@ public final class RelationCalculator {
             for (int right = left + 1; right < positions.size(); right++) {
                 PillarPosition lp = positions.get(left);
                 PillarPosition rp = positions.get(right);
+                String branch = known.get(lp).branch().hanja();
+                if (branch.equals(known.get(rp).branch().hanja()) && Set.of("辰", "午", "酉", "亥").contains(branch)) {
+                    result.add(new Relation(RelationType.BRANCH_PUNISHMENT, List.of(lp, rp), branch + branch + " 자형"));
+                }
+            }
+        }
+        for (int left = 0; left < positions.size(); left++) {
+            for (int right = left + 1; right < positions.size(); right++) {
+                PillarPosition lp = positions.get(left);
+                PillarPosition rp = positions.get(right);
                 Pillar l = known.get(lp);
                 Pillar r = known.get(rp);
                 addPair(result, STEM_COMBINATION, RelationType.STEM_COMBINATION, l.stem().hanja(), r.stem().hanja(), lp, rp, "천간합");

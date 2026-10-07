@@ -35,6 +35,9 @@ public class DeterministicSajuEngine implements SajuCalculationUseCase {
             throw new IllegalArgumentException("Only Asia/Seoul is supported");
         }
         CalendarDates dates = convert(input);
+        if (input.birthTimeUnknown() && crossesPillarBoundary(dates.solarDate())) {
+            throw new UnsupportedUnknownBirthTimeException(dates.solarDate());
+        }
         LocalTime calculationTime = input.birthTimeUnknown() ? LocalTime.NOON : input.birthTime();
         LocalDateTime kst = LocalDateTime.of(dates.solarDate(), calculationTime);
 
@@ -83,6 +86,13 @@ public class DeterministicSajuEngine implements SajuCalculationUseCase {
         return Solar.fromYmdHms(dateTime.getYear(), dateTime.getMonthValue(), dateTime.getDayOfMonth(), dateTime.getHour(), dateTime.getMinute(), dateTime.getSecond());
     }
 
+    private boolean crossesPillarBoundary(LocalDate date) {
+        Lunar start = solar(LocalDateTime.of(date, LocalTime.MIN).minusHours(1)).getLunar();
+        Lunar end = solar(LocalDateTime.of(date, LocalTime.of(23, 59, 59)).minusHours(1)).getLunar();
+        return !start.getYearInGanZhiExact().equals(end.getYearInGanZhiExact())
+                || !start.getMonthInGanZhiExact().equals(end.getMonthInGanZhiExact());
+    }
+
     private FiveElements fiveElements(Pillars pillars) {
         Map<Element, Integer> counts = new EnumMap<>(Element.class);
         for (Element element : Element.values()) counts.put(element, 0);
@@ -128,5 +138,18 @@ public class DeterministicSajuEngine implements SajuCalculationUseCase {
         return new Luck(yun.isForward() ? LuckDirection.FORWARD : LuckDirection.BACKWARD,
                 decades.isEmpty() ? null : decades.getFirst().startAge(),
                 LocalDate.of(start.getYear(), start.getMonth(), start.getDay()), decades, annual);
+    }
+
+    public static class UnsupportedUnknownBirthTimeException extends IllegalArgumentException {
+        private final LocalDate solarDate;
+
+        public UnsupportedUnknownBirthTimeException(LocalDate solarDate) {
+            super("Birth time is required on a solar-term boundary date: " + solarDate);
+            this.solarDate = solarDate;
+        }
+
+        public LocalDate solarDate() {
+            return solarDate;
+        }
     }
 }

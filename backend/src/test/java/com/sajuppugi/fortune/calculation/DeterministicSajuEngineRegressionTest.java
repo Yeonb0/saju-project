@@ -1,6 +1,7 @@
 package com.sajuppugi.fortune.calculation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType;
@@ -58,6 +59,15 @@ class DeterministicSajuEngineRegressionTest {
     void appliesMinuteExactKstIpchunBoundary() {
         assertThat(calculate("2024-02-04", "17:26", CalendarType.SOLAR, false, Gender.MALE).pillars().year().display()).isEqualTo("계묘");
         assertThat(calculate("2024-02-04", "17:28", CalendarType.SOLAR, false, Gender.MALE).pillars().year().display()).isEqualTo("갑진");
+    }
+
+    @Test
+    void rejectsUnknownTimeOnSolarTermBoundaryInsteadOfGuessingPillars() {
+        BirthInput input = new BirthInput(LocalDate.of(2024, 2, 4), null, true,
+                CalendarType.SOLAR, false, Gender.FEMALE);
+
+        assertThatThrownBy(() -> engine.calculate(input, CalculationPolicy.CURRENT))
+                .isInstanceOf(DeterministicSajuEngine.UnsupportedUnknownBirthTimeException.class);
     }
 
     private CalculationFacts calculate(String date, String time, CalendarType type, boolean leap, Gender gender) {
