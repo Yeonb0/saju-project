@@ -68,7 +68,7 @@ class ReadingGenerationServiceTest {
 
     private ReadingGenerationService service(LinerProvider provider, GenerationSnapshotStore store) {
         return new ReadingGenerationService(provider, store, new LinerFactProjector(mapper),
-                new GenerationKeyFactory(mapper), new LinerResponseValidator());
+                new GenerationKeyFactory(mapper), new LinerResponseValidator(mapper));
     }
 
     private GenerationCommand command() {

@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 class LinerResponseValidatorTest {
     private final ObjectMapper mapper = new ObjectMapper();
-    private final LinerResponseValidator validator = new LinerResponseValidator();
+    private final LinerResponseValidator validator = new LinerResponseValidator(mapper);
     private final LinerRequest request = new LinerRequest("a".repeat(64), "calc-v1", "gen-v1",
             FortuneType.OVERALL, LocalDate.of(2026, 10, 8), null,
             mapper.createObjectNode().putObject("dayMaster").put("hanja", "癸"),

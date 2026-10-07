@@ -1,6 +1,10 @@
 package com.sajuppugi.fortune.generation.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.networknt.schema.JsonSchema;
+import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SpecVersion;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
@@ -10,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,8 +26,27 @@ public class LinerResponseValidator {
             Pattern.compile("(질병|정신질환).{0,12}(진단|확정)"),
             Pattern.compile("(죽음|사망).{0,12}(예정|확정|운명)"),
             Pattern.compile("시스템\\s*프롬프트", Pattern.CASE_INSENSITIVE));
+    private final ObjectMapper mapper;
+    private final JsonSchema schema;
+
+    public LinerResponseValidator(ObjectMapper mapper) {
+        this.mapper = mapper;
+        try {
+            this.schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                    .getSchema(new ClassPathResource("liner/liner-response.schema.json").getInputStream());
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("Cannot load Liner response JSON Schema", exception);
+        }
+    }
 
     public void validate(LinerRequest request, LinerResponse response) {
+        if (response == null) {
+            throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "response is required");
+        }
+        var schemaErrors = schema.validate(mapper.valueToTree(response));
+        if (!schemaErrors.isEmpty()) {
+            throw new InvalidGenerationException("LINER_SCHEMA_INVALID", schemaErrors.toString());
+        }
         if (response == null || response.sections() == null || response.omittedSections() == null) {
             throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "sections and omittedSections are required");
         }
