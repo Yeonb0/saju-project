@@ -100,7 +100,7 @@ $env:DB_PASSWORD = '<configured-password>'
 ## DB 마이그레이션과 패키지
 
 - Flyway 경로: `src/main/resources/db/migration`
-- 골격 단계에서는 도메인 테이블을 만들지 않는다. 실제 기능 구현 시 `V202610031800__a_create_wallet.sql` 같은 시간 기반 버전으로 추가한다.
+- 상품·기본 견적과 지갑·지급분·원장 조회용 도메인 테이블을 Flyway migration으로 추가했다. 후속 기능은 시간 기반 버전의 새 migration으로 확장한다.
 - Hibernate는 `ddl-auto: validate`이며 테이블을 자동 생성/수정하지 않는다.
 - 이미 공유한 마이그레이션은 수정하지 않고 새 마이그레이션을 추가한다.
 - 패키지: `common`, `auth`, `member`, `person`, `catalog`, `wallet`, `payment`, `gift`, `fortune`, `talisman`, `share`, `admin`, `infrastructure`.
@@ -120,4 +120,4 @@ docker build -t sajuppugi-backend .
 - 실행 컨테이너는 비루트 사용자이며 플랫폼의 `PORT`를 사용한다.
 - 실제 배포 주소/계정은 아직 등록하지 않았다.
 
-아직 업무 API, DB 저장 구현과 외부 서비스 연동은 없다. A의 순수 정책/타입과 인터페이스를 실제 서비스 구현과 구분하고, 미정 정책은 임의로 확정하지 않는다.
+아직 업무 HTTP API와 외부 서비스 연동은 없다. 상품·기본 견적은 실제 DB 저장·조회, 지갑은 잔액·거래 내역 조회까지 구현했다. 실제 차감·지급·복구는 아직 없으며, 인증 연동 전에는 기존 업무 API 차단을 유지한다. 미정 정책은 임의로 확정하지 않는다.
