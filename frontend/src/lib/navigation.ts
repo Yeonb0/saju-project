@@ -1,3 +1,4 @@
+import type { FortuneType } from "./ports/fortune";
 import type { RoutePath } from "./screens";
 
 // 근거: FUNCTIONAL_SPEC 1장(사이드 메뉴) · 2장(/fortune/[type] 의 type), Q-23 k 해결, HOME-04 와이어(Figma 195:647).
@@ -25,6 +26,17 @@ export const FORTUNE_LABELS: Record<FortuneSlug, string> = {
   overall: "종합운",
   sinsal: "신살",
   compatibility: "궁합",
+};
+
+// slug → 운세 종류 (상품 조회용). 근거: API_SPEC 2장 초안 enum. 궁합은 사람 선택(MATCH-01 · 02) 단계라 뺀다
+export const FORTUNE_TYPE_OF_SLUG: Record<
+  Exclude<FortuneSlug, "compatibility">,
+  FortuneType
+> = {
+  love: "LOVE",
+  wealth: "WEALTH",
+  overall: "OVERALL",
+  sinsal: "SINSAL",
 };
 
 export type MenuLink = { label: string; href: RoutePath | FortunePath };

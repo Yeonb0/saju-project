@@ -5,7 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { COLUMN_WIDTH } from "@/lib/layout";
-import { isMenuGroup, MENU } from "@/lib/navigation";
+import { type FortunePath, isMenuGroup, MENU } from "@/lib/navigation";
 import type { RoutePath } from "@/lib/screens";
 import { BusinessFooter } from "./BusinessFooter";
 
@@ -13,7 +13,7 @@ import { BusinessFooter } from "./BusinessFooter";
 type AppShellProps = {
   header?: boolean;
   title?: string;
-  backHref?: RoutePath;
+  backHref?: RoutePath | FortunePath;
   cta?: ReactNode;
   children: ReactNode;
 };

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isFortuneSlug, isMenuGroup, MENU } from "./navigation";
+import {
+  FORTUNE_TYPE_OF_SLUG,
+  isFortuneSlug,
+  isMenuGroup,
+  MENU,
+} from "./navigation";
 import { ROUTES } from "./screens";
 
 describe("사이드 메뉴 항목", () => {
@@ -53,5 +58,17 @@ describe("isFortuneSlug (FORT-01)", () => {
     for (const value of ["SUNEUNG", "suneung", "", "Love", "love "]) {
       expect(isFortuneSlug(value), JSON.stringify(value)).toBe(false);
     }
+  });
+});
+
+describe("FORTUNE_TYPE_OF_SLUG (FORT-02 · 03)", () => {
+  it("q. 4개 slug 를 LOVE · WEALTH · OVERALL · SINSAL 로 정확히 옮긴다", () => {
+    expect(FORTUNE_TYPE_OF_SLUG).toEqual({
+      love: "LOVE",
+      wealth: "WEALTH",
+      overall: "OVERALL",
+      sinsal: "SINSAL",
+    });
+    expect(Object.keys(FORTUNE_TYPE_OF_SLUG)).toHaveLength(4);
   });
 });
