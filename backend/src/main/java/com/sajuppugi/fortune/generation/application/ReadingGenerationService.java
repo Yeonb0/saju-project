@@ -52,7 +52,7 @@ public class ReadingGenerationService {
                 if (cached != null) return reused(cached);
                 LinerRequest request = new LinerRequest(generationKey,
                         command.calculationFacts().meta().calculationVersion(), command.generationVersion(),
-                        command.fortuneType(), command.referenceDate(), command.interestKey(), safeFacts,
+                        command.fortuneType(), command.referenceDate(), command.interestKey(), command.relationKey(), safeFacts,
                         command.missingFields(), command.allowedSections());
                 if (!snapshots.tryClaim(request, command.contentVersion(), GENERATION_LEASE)) {
                     cached = snapshots.findSucceeded(generationKey).orElse(null);

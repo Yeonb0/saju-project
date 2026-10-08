@@ -105,8 +105,9 @@ public class SuneungReadingService {
                     userId, readingId, facts, SuneungEventPolicy.CONTENT_VERSION);
             if (talisman == null) throw new IllegalStateException("Talisman fulfillment returned no result");
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
-                    FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, subject.displayName(),
-                    SuneungEventPolicy.EXAM_DATE, generated.response(), generated.calculationVersion(),
+                    FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(),
+                    null, null, null, "EXAM_FOCUS", SuneungEventPolicy.EXAM_DATE,
+                    generated.response(), generated.calculationVersion(),
                     generated.generationVersion(), generated.contentVersion(), generated.generationMode(), talisman.talismanId(),
                     talisman.status().name(), clock.instant());
             readings.fulfill(purchase, reading);

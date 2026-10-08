@@ -61,12 +61,20 @@ public final class GenerationModels {
             FortuneType fortuneType,
             LocalDate referenceDate,
             String interestKey,
+            String relationKey,
             JsonNode facts,
             List<String> missingFields,
             List<SectionKey> allowedSections) {
         public LinerRequest {
             missingFields = List.copyOf(missingFields);
             allowedSections = List.copyOf(allowedSections);
+        }
+
+        public LinerRequest(String generationKey, String calculationVersion, String generationVersion,
+                            FortuneType fortuneType, LocalDate referenceDate, String interestKey,
+                            JsonNode facts, List<String> missingFields, List<SectionKey> allowedSections) {
+            this(generationKey, calculationVersion, generationVersion, fortuneType, referenceDate,
+                    interestKey, null, facts, missingFields, allowedSections);
         }
     }
 

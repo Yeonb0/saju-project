@@ -23,6 +23,12 @@ public class SuneungPurchaseClaimService {
 
     @Transactional
     public ReadingPurchase claim(UUID userId, UUID quoteId, UUID productId, UUID personId) {
+        return claim(userId, quoteId, productId, personId, null, null, null);
+    }
+
+    @Transactional
+    public ReadingPurchase claim(UUID userId, UUID quoteId, UUID productId, UUID personId,
+                                 UUID counterpartPersonId, String relationType, String questionKey) {
         var existing = readings.findPurchaseByQuote(userId, quoteId);
         if (existing.isPresent()) return existing.get();
 
@@ -32,7 +38,7 @@ public class SuneungPurchaseClaimService {
                     .orElseThrow(() -> new IllegalStateException("Quote was claimed without a reading purchase"));
         }
         ReadingPurchase purchase = new ReadingPurchase(purchaseId, userId, productId, quoteId, personId,
-                null, Status.CREATED, null, clock.instant(), null);
+                counterpartPersonId, relationType, questionKey, null, Status.CREATED, null, clock.instant(), null);
         readings.createPurchase(purchase);
         return purchase;
     }
