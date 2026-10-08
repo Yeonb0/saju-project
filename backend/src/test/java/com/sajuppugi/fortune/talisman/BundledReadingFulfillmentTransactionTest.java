@@ -13,7 +13,10 @@ import com.sajuppugi.fortune.reading.domain.OwnedReading;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
+import com.sajuppugi.fortune.reading.port.ReadingRepository;
+import com.sajuppugi.fortune.talisman.domain.Talisman.AssetKeys;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateTalisman;
+import com.sajuppugi.fortune.talisman.port.TalismanRepository;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -31,6 +34,8 @@ import org.springframework.test.context.ActiveProfiles;
 class BundledReadingFulfillmentTransactionTest {
     @Autowired BundledReadingFulfillmentService fulfillment;
     @Autowired JdbcTemplate jdbc;
+    @Autowired ReadingRepository readings;
+    @Autowired TalismanRepository talismans;
 
     @Test
     void rollsBackTalismanWhenReadingCannotBeStored() {
@@ -60,6 +65,35 @@ class BundledReadingFulfillmentTransactionTest {
                 String.class, purchaseId)).isEqualTo("GENERATING");
     }
 
+    @Test
+    void readingQueriesUseTheCurrentTalismanStatus() {
+        Instant now = Instant.parse("2026-10-08T04:00:00Z");
+        UUID userId = UUID.randomUUID();
+        UUID personId = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
+        UUID quoteId = UUID.randomUUID();
+        UUID purchaseId = UUID.randomUUID();
+        UUID readingId = UUID.randomUUID();
+        UUID resultId = UUID.randomUUID();
+        seedGeneratingPurchase(productId, quoteId, purchaseId, userId, personId, now);
+        seedReadingResult(resultId, now);
+        ReadingPurchase purchase = new ReadingPurchase(purchaseId, userId, productId, quoteId, personId,
+                UUID.randomUUID(), Status.GENERATING, null, now, null);
+        OwnedReading draft = new OwnedReading(readingId, resultId, userId, purchaseId,
+                FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, personId, "민지",
+                null, null, null, "EXAM_FOCUS", null, new LinerResponse(List.of(), List.of()),
+                "calc-v1", "generation-v1", "content-v1", GenerationMode.LINER, null, null, now);
+
+        OwnedReading stored = fulfillment.fulfill(purchase, draft,
+                new CreateTalisman(userId, readingId, FortuneType.SUNEUNG, facts(), "content-v1"));
+        Instant readyAt = now.plusSeconds(5);
+        talismans.markReady(stored.talismanId(), new AssetKeys("original", "thumbnail", "share"), readyAt);
+
+        assertThat(readings.findOwnedReading(userId, readingId).orElseThrow().talismanStatus()).isEqualTo("READY");
+        assertThat(readings.findOwnedReadings(userId, FortuneType.SUNEUNG, null, null, null, 10))
+                .singleElement().extracting(OwnedReading::talismanStatus).isEqualTo("READY");
+    }
+
     private void seedGeneratingPurchase(UUID productId, UUID quoteId, UUID purchaseId,
                                         UUID userId, UUID personId, Instant now) {
         jdbc.update("""
@@ -87,5 +121,16 @@ class BundledReadingFulfillmentTransactionTest {
         return new CalculationFacts(null, null, null, null,
                 new CalculationFacts.FiveElements(counts, List.of(), List.of(Element.WATER)),
                 null, null, null, null);
+    }
+
+    private void seedReadingResult(UUID resultId, Instant now) {
+        String generationKey = resultId.toString().replace("-", "").repeat(2);
+        jdbc.update("""
+                INSERT INTO reading_results (id, generation_key, fortune_type, reference_date, facts_json,
+                sections_json, calculation_version, generation_version, content_version, status,
+                created_at, completed_at)
+                VALUES (?, ?, 'SUNEUNG', '2026-11-19', '{}', '{}', 'calc-v1', 'generation-v1',
+                'content-v1', 'SUCCEEDED', ?, ?)
+                """, resultId, generationKey, Timestamp.from(now), Timestamp.from(now));
     }
 }

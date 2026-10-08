@@ -11,7 +11,9 @@ import java.util.UUID;
 public interface ReadingRepository {
     void createPurchase(ReadingPurchase purchase);
     Optional<ReadingPurchase> findPurchaseByQuote(UUID buyerUserId, UUID quoteId);
-    void markDebited(UUID purchaseId, UUID walletTransactionId);
+    boolean tryClaimDebit(UUID purchaseId, UUID claimToken, Instant claimedAt, Instant staleBefore);
+    void releaseDebitClaim(UUID purchaseId, UUID claimToken);
+    void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId);
     void markGenerating(UUID purchaseId);
     void fulfill(ReadingPurchase purchase, OwnedReading reading);
     void markFailed(UUID purchaseId);

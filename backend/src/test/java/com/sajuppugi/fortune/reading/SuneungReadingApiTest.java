@@ -1,5 +1,6 @@
 package com.sajuppugi.fortune.reading;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -33,6 +34,9 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -140,6 +144,39 @@ class SuneungReadingApiTest {
 
         verify(wallet, times(1)).debit(eq(userId), eq(quoteId), any());
         verify(liner, times(1)).generate(any());
+    }
+
+    @Test
+    void concurrentSameQuoteRequestsOnlyDebitOnce() throws Exception {
+        CountDownLatch debitStarted = new CountDownLatch(1);
+        CountDownLatch releaseDebit = new CountDownLatch(1);
+        when(wallet.debit(eq(userId), eq(quoteId), any())).thenAnswer(invocation -> {
+            debitStarted.countDown();
+            if (!releaseDebit.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("test debit timed out");
+            return new WalletPurchasePort.DebitResult(UUID.randomUUID(), 15, new WalletBalance(20, 5));
+        });
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var first = executor.submit(() -> mvc.perform(post("/api/v1/reading-purchases")
+                            .with(user(userId.toString())).with(csrf())
+                            .header("Idempotency-Key", "concurrent-first")
+                            .contentType(MediaType.APPLICATION_JSON).content(body()))
+                    .andReturn());
+            assertThat(debitStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+            mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
+                            .header("Idempotency-Key", "concurrent-second")
+                            .contentType(MediaType.APPLICATION_JSON).content(body()))
+                    .andExpect(status().isAccepted())
+                    .andExpect(jsonPath("$.data.status").value("CREATED"))
+                    .andExpect(jsonPath("$.data.reused").value(true));
+
+            releaseDebit.countDown();
+            assertThat(first.get(5, TimeUnit.SECONDS).getResponse().getStatus()).isEqualTo(201);
+        } finally {
+            releaseDebit.countDown();
+        }
+        verify(wallet, times(1)).debit(eq(userId), eq(quoteId), any());
     }
 
     @Test

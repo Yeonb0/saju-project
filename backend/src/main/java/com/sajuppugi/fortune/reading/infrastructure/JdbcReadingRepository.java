@@ -50,11 +50,29 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
-    public void markDebited(UUID purchaseId, UUID walletTransactionId) {
-        requireOne(jdbc.update("""
-                UPDATE reading_purchases SET status = 'DEBITED', wallet_transaction_id = ?
+    public boolean tryClaimDebit(UUID purchaseId, UUID claimToken, Instant claimedAt, Instant staleBefore) {
+        return jdbc.update("""
+                UPDATE reading_purchases SET debit_claim_token = ?, debit_claimed_at = ?
                 WHERE id = ? AND status = 'CREATED'
-                """, walletTransactionId, purchaseId), "mark purchase debited");
+                AND (debit_claim_token IS NULL OR debit_claimed_at < ?)
+                """, claimToken, Timestamp.from(claimedAt), purchaseId, Timestamp.from(staleBefore)) == 1;
+    }
+
+    @Override
+    public void releaseDebitClaim(UUID purchaseId, UUID claimToken) {
+        jdbc.update("""
+                UPDATE reading_purchases SET debit_claim_token = NULL, debit_claimed_at = NULL
+                WHERE id = ? AND status = 'CREATED' AND debit_claim_token = ?
+                """, purchaseId, claimToken);
+    }
+
+    @Override
+    public void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId) {
+        requireOne(jdbc.update("""
+                UPDATE reading_purchases SET status = 'DEBITED', wallet_transaction_id = ?,
+                debit_claim_token = NULL, debit_claimed_at = NULL
+                WHERE id = ? AND status = 'CREATED' AND debit_claim_token = ?
+                """, walletTransactionId, purchaseId, claimToken), "mark purchase debited");
     }
 
     @Override
@@ -102,32 +120,40 @@ public class JdbcReadingRepository implements ReadingRepository {
 
     @Override
     public Optional<OwnedReading> findOwnedReading(UUID ownerUserId, UUID readingId) {
-        return jdbc.query("SELECT * FROM readings WHERE owner_user_id = ? AND id = ?",
+        return jdbc.query("""
+                SELECT r.*, t.status AS current_talisman_status
+                FROM readings r LEFT JOIN talismans t ON t.id = r.talisman_id
+                WHERE r.owner_user_id = ? AND r.id = ?
+                """,
                 (rs, row) -> reading(rs), ownerUserId, readingId).stream().findFirst();
     }
 
     @Override
     public List<OwnedReading> findOwnedReadings(UUID ownerUserId, FortuneType fortuneType, UUID personId,
                                                 Instant beforeCreatedAt, UUID beforeId, int limit) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM readings WHERE owner_user_id = ?");
+        StringBuilder sql = new StringBuilder("""
+                SELECT r.*, t.status AS current_talisman_status
+                FROM readings r LEFT JOIN talismans t ON t.id = r.talisman_id
+                WHERE r.owner_user_id = ?
+                """);
         List<Object> args = new ArrayList<>();
         args.add(ownerUserId);
         if (fortuneType != null) {
-            sql.append(" AND fortune_type = ?");
+            sql.append(" AND r.fortune_type = ?");
             args.add(fortuneType.name());
         }
         if (personId != null) {
-            sql.append(" AND subject_person_id = ?");
+            sql.append(" AND r.subject_person_id = ?");
             args.add(personId);
         }
         if (beforeCreatedAt != null) {
-            sql.append(" AND (created_at < ? OR (created_at = ? AND id < ?))");
+            sql.append(" AND (r.created_at < ? OR (r.created_at = ? AND r.id < ?))");
             Timestamp cursorTime = Timestamp.from(beforeCreatedAt);
             args.add(cursorTime);
             args.add(cursorTime);
             args.add(beforeId);
         }
-        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ?");
+        sql.append(" ORDER BY r.created_at DESC, r.id DESC LIMIT ?");
         args.add(limit);
         return jdbc.query(sql.toString(), (rs, row) -> reading(rs), args.toArray());
     }
@@ -144,6 +170,7 @@ public class JdbcReadingRepository implements ReadingRepository {
 
     private OwnedReading reading(ResultSet rs) throws SQLException {
         try {
+            String currentTalismanStatus = rs.getString("current_talisman_status");
             return new OwnedReading(rs.getObject("id", UUID.class), rs.getObject("reading_result_id", UUID.class),
                     rs.getObject("owner_user_id", UUID.class), rs.getObject("purchase_id", UUID.class),
                     FortuneType.valueOf(rs.getString("fortune_type")), ProductOption.valueOf(rs.getString("product_option")),
@@ -155,7 +182,8 @@ public class JdbcReadingRepository implements ReadingRepository {
                     rs.getString("calculation_version"), rs.getString("generation_version"),
                     rs.getString("content_version"), GenerationMode.valueOf(rs.getString("generation_mode")),
                     rs.getObject("talisman_id", UUID.class),
-                    rs.getString("talisman_status"), instant(rs, "created_at"));
+                    currentTalismanStatus == null ? rs.getString("talisman_status") : currentTalismanStatus,
+                    instant(rs, "created_at"));
         } catch (JsonProcessingException exception) {
             throw new SQLException("Invalid reading snapshot", exception);
         }

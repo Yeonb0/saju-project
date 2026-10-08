@@ -26,6 +26,7 @@ import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateTalisman;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class GeneralReadingService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+    private static final Duration DEBIT_CLAIM_LEASE = Duration.ofMinutes(1);
 
     private final CatalogUseCase catalog;
     private final ObjectProvider<WalletPurchasePort> walletProvider;
@@ -100,12 +102,26 @@ public class GeneralReadingService {
         }
 
         WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
-        WalletPurchasePort.DebitResult debit = wallet.debit(userId, quoteId, key);
-        if (debit == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-        readings.markDebited(purchase.id(), debit.transactionId());
+        UUID debitClaim = UUID.randomUUID();
+        if (!readings.tryClaimDebit(purchase.id(), debitClaim, clock.instant(),
+                clock.instant().minus(DEBIT_CLAIM_LEASE))) {
+            ReadingPurchase current = readings.findPurchaseByQuote(userId, quoteId).orElseThrow();
+            return new PurchaseResult(current.id(), current.readingId(), current.status(), null, null, true,
+                    quote.productSnapshot().price());
+        }
+        IdempotencyKey debitKey = debitKey(purchase.id(), key);
+        WalletPurchasePort.DebitResult debit;
+        try {
+            debit = wallet.debit(userId, quoteId, debitKey);
+            if (debit == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
+            readings.markDebited(purchase.id(), debitClaim, debit.transactionId());
+        } catch (RuntimeException failure) {
+            readings.releaseDebitClaim(purchase.id(), debitClaim);
+            throw failure;
+        }
         if (debit.debitedAmount() != quote.productSnapshot().price().amount()) {
             readings.markFailed(purchase.id());
-            compensate(wallet, debit.transactionId(), key, purchase.id(), "READING_DEBIT_MISMATCH");
+            compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_DEBIT_MISMATCH");
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
 
@@ -134,7 +150,7 @@ public class GeneralReadingService {
         } catch (RuntimeException failure) {
             readings.markFailed(purchase.id());
             try {
-                compensate(wallet, debit.transactionId(), key, purchase.id(), "READING_GENERATION_FAILED");
+                compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_GENERATION_FAILED");
             } catch (RuntimeException compensationFailure) {
                 failure.addSuppressed(compensationFailure);
             }
@@ -206,6 +222,11 @@ public class GeneralReadingService {
                             UUID purchaseId, String reason) {
         wallet.compensate(transactionId, reason, new IdempotencyKey(key.value() + ":compensate"));
         readings.markRefunded(purchaseId);
+    }
+
+    private IdempotencyKey debitKey(UUID purchaseId, IdempotencyKey requestKey) {
+        if (requestKey == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
+        return new IdempotencyKey("reading-purchase:" + purchaseId);
     }
 
     private <T> T required(T dependency) {
