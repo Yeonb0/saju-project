@@ -10,7 +10,7 @@ import * as Sentry from "@sentry/nextjs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { GenerationScene } from "@/components/GenerationScene";
 import { Modal } from "@/components/Modal";
@@ -35,6 +35,43 @@ import {
 } from "@/lib/reading/generation";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
+
+// 팝업 배치 (LAYOUT-FIGMA, 248:267~271) — 내용 배치만, 표시 항목은 CHECKOUT-POPUP 그대로
+// TODO(PD 토큰 v0): 와이어 임시값
+const INFO_CLASS = "mt-[19px] text-[16px] leading-[normal]";
+const NOTE_CLASS = "my-[8px] text-[16px]";
+const ACTIONS_CLASS = "mt-[18px] flex flex-col items-center";
+
+// 한 줄 "이름 : 값" 가운데 정렬. 구분자는 dt 의 ::after 라 화면 글자(dt · dd)는 그대로다
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex justify-center gap-x-[4px]">
+      <dt className="after:ml-[4px] after:content-[':']">{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+// 와이어에 없는 닫기 — 주 버튼 아래 8px 의 글자 버튼
+function CloseButton({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mt-[8px] text-[16px] underline disabled:opacity-50"
+    >
+      {/* TODO(PD 문구) */}
+      닫기
+    </button>
+  );
+}
 
 // 추천 충전 상품이 상품 목록에 없거나 비활성일 때의 경고 — 상품 code 만 보낸다 (본문 · 인적정보 금지, CLAUDE.md 관측)
 function reportMismatchToSentry(productCode: string) {
@@ -247,134 +284,128 @@ export function ShellCheckout({
         <GenerationScene
           failure={failure}
           actions={
-            <>
-              <Button onClick={retryAfterFailure}>
+            <div className={ACTIONS_CLASS}>
+              <Button variant="popup" onClick={retryAfterFailure}>
                 {/* TODO(PD 문구) */}
                 다시 시도
               </Button>
-              <Button onClick={() => onOpenChange(false)}>
-                {/* TODO(PD 문구) */}
-                닫기
-              </Button>
-            </>
+              <CloseButton onClick={() => onOpenChange(false)} />
+            </div>
           }
         />
       ) : quoteLoginRequired ? (
         <>
-          <p>
+          <p className={NOTE_CLASS}>
             {/* TODO(PD 문구) */}
             <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
           </p>
-          <Button onClick={() => onOpenChange(false)}>
-            {/* TODO(PD 문구) */}
-            닫기
-          </Button>
+          <div className={ACTIONS_CLASS}>
+            <CloseButton onClick={() => onOpenChange(false)} />
+          </div>
         </>
       ) : !current ? (
         // TODO(PD 문구)
-        <output className="block">확인하고 있습니다</output>
+        <output className={`block ${NOTE_CLASS}`}>확인하고 있습니다</output>
       ) : insufficient ? (
         <>
           {/* 서버 견적 값만 표시한다 (P-06 · P-09). TODO(PD 문구): 항목 이름 · 단위 */}
-          <dl>
-            <dt>보유</dt>
-            <dd>{formatNumber(current.walletBalance)}</dd>
-            <dt>부족</dt>
-            <dd>{formatNumber(current.shortage)}</dd>
+          <dl className={INFO_CLASS}>
+            <Row label="보유">{formatNumber(current.walletBalance)}</Row>
+            <Row label="부족">{formatNumber(current.shortage)}</Row>
             {recommended ? (
               <>
                 {/* TODO(PD 문구): 항목 이름 · 단위 */}
-                <dt>추천 충전</dt>
-                <dd>
+                <Row label="추천 충전">
                   {formatNumber(recommended.price.amount)}{" "}
                   {recommended.price.currency}
-                </dd>
+                </Row>
                 {/* TODO(PD 문구): 항목 이름 · 단위 */}
-                <dt>받는 수</dt>
-                <dd>{formatNumber(recommended.creditedAmount)}</dd>
+                <Row label="받는 수">
+                  {formatNumber(recommended.creditedAmount)}
+                </Row>
               </>
             ) : null}
           </dl>
           {notice === "requoted" ? (
             // TODO(PD 문구)
-            <p role="alert">잔액이 바뀌었습니다</p>
+            <p role="alert" className={NOTE_CLASS}>
+              잔액이 바뀌었습니다
+            </p>
           ) : null}
-          <Button onClick={() => onTopUp(current)}>
-            {/* TODO(PD 문구) */}
-            충전하기
-          </Button>
-          <Button onClick={() => onOpenChange(false)}>
-            {/* TODO(PD 문구) */}
-            닫기
-          </Button>
+          <div className={ACTIONS_CLASS}>
+            <Button variant="popup" onClick={() => onTopUp(current)}>
+              {/* TODO(PD 문구) */}
+              충전하기
+            </Button>
+            <CloseButton onClick={() => onOpenChange(false)} />
+          </div>
         </>
       ) : (
         <>
           {/* 서버 견적 값만 표시한다 (P-03 · P-09). TODO(PD 문구): 항목 이름 · 단위 */}
-          <dl>
-            <dt>상품</dt>
-            <dd>{current.productName}</dd>
-            <dt>대상</dt>
-            <dd>{targetName}</dd>
-            <dt>옵션</dt>
-            <dd>{optionLabel}</dd>
-            <dt>보유</dt>
-            <dd>{formatNumber(current.walletBalance)}</dd>
-            <dt>사용</dt>
-            <dd>
+          <dl className={INFO_CLASS}>
+            <Row label="상품">{current.productName}</Row>
+            <Row label="대상">{targetName}</Row>
+            <Row label="옵션">{optionLabel}</Row>
+            <Row label="보유">{formatNumber(current.walletBalance)}</Row>
+            <Row label="사용">
               {formatNumber(current.price.amount)} {current.price.currency}
-            </dd>
+            </Row>
             {current.balanceAfter !== null ? (
-              <>
-                <dt>구매 후</dt>
-                <dd>{formatNumber(current.balanceAfter)}</dd>
-              </>
+              <Row label="구매 후">{formatNumber(current.balanceAfter)}</Row>
             ) : null}
           </dl>
           {notice === "requoted" ? (
             // TODO(PD 문구): 가격 · 잔액이 바뀌어 다시 확인받는 안내
-            <p role="alert">내용이 바뀌었습니다. 다시 확인해 주세요</p>
+            <p role="alert" className={NOTE_CLASS}>
+              내용이 바뀌었습니다. 다시 확인해 주세요
+            </p>
           ) : null}
           {/* TODO(F-08 · PD 문구): 결제 버튼 위 재미 · 참고용 콘텐츠 고지 */}
-          <p data-slot="disclaimer" />
+          <p data-slot="disclaimer" className={NOTE_CLASS} />
           {outcomePending ? (
             <>
               {/* TODO(PD 문구) */}
-              <output className="block">처리 중입니다</output>
+              <output className={`block ${NOTE_CLASS}`}>처리 중입니다</output>
               {/* 같은 키 · 같은 본문으로 다시 보내 결과를 확인한다 (I-05) */}
-              <Button
-                onClick={() => send(current)}
-                disabled={purchase.isPending}
-              >
-                {/* TODO(PD 문구) */}
-                결과 확인
-              </Button>
+              <div className="flex justify-center">
+                <Button
+                  variant="popup"
+                  onClick={() => send(current)}
+                  disabled={purchase.isPending}
+                >
+                  {/* TODO(PD 문구) */}
+                  결과 확인
+                </Button>
+              </div>
             </>
           ) : errorKind === "login_required" || errorKind === "csrf_failed" ? (
-            <p>
+            <p className={NOTE_CLASS}>
               {/* TODO(PD 문구) */}
               <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
             </p>
           ) : errorKind !== null && !requoting && failure === null ? (
             // TODO(PD 문구): 오류 종류별 안내
-            <p role="alert">구매하지 못했습니다</p>
+            <p role="alert" className={NOTE_CLASS}>
+              구매하지 못했습니다
+            </p>
           ) : null}
-          <Button
-            onClick={() => onConfirm(current)}
-            disabled={
-              purchase.isPending || outcomePending || purchase.isSuccess
-            }
-          >
-            {/* TODO(PD 문구) */}
-            사용하기
-          </Button>
-          <Button
-            onClick={() => onOpenChange(false)}
-            disabled={purchase.isPending || outcomePending}
-          >
-            {/* TODO(PD 문구) */}
-            닫기
-          </Button>
+          <div className={ACTIONS_CLASS}>
+            <Button
+              variant="popup"
+              onClick={() => onConfirm(current)}
+              disabled={
+                purchase.isPending || outcomePending || purchase.isSuccess
+              }
+            >
+              {/* TODO(PD 문구) */}
+              사용하기
+            </Button>
+            <CloseButton
+              onClick={() => onOpenChange(false)}
+              disabled={purchase.isPending || outcomePending}
+            />
+          </div>
         </>
       )}
     </Modal>

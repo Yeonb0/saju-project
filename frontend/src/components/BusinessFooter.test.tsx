@@ -45,6 +45,18 @@ describe("BusinessFooter", () => {
     expect(screen.getAllByText("(미정)")).toHaveLength(1);
   });
 
+  it("각 항목은 dt · dd 를 그대로 가진 채 한 줄(flex) 컨테이너 안에 있다 (LAYOUT-FIGMA)", () => {
+    render(<BusinessFooter info={INFO} />);
+    for (const label of LABELS) {
+      const dt = screen.getByText(label);
+      expect(dt.tagName).toBe("DT");
+      const row = dt.parentElement;
+      expect(row).toHaveClass("flex");
+      expect(row?.querySelectorAll("dt")).toHaveLength(1);
+      expect(row?.querySelectorAll("dd")).toHaveLength(1);
+    }
+  });
+
   it("약관 링크 3개가 각자의 href 를 가진다", () => {
     render(<BusinessFooter info={INFO} />);
     expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute(

@@ -4,7 +4,6 @@
 // 닫기 버튼은 두지 않는다 — 화면마다 다르다 ("부적이 저장되었어요!" 팝업은 Phase 4).
 import * as Dialog from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
-import { COLUMN_WIDTH } from "@/lib/layout";
 
 type ModalProps = {
   open: boolean;
@@ -30,10 +29,10 @@ export function Modal({
         <Dialog.Content
           // description 이 없을 때만 aria-describedby={undefined} 로 Radix 경고를 끈다
           {...(description ? {} : { "aria-describedby": undefined })}
-          className="fixed top-1/2 left-1/2 w-[calc(100%-32px)] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 text-neutral-900" // TODO(PD 토큰 v0): 색 · 모서리 임시값
-          style={{ maxWidth: COLUMN_WIDTH - 32 }}
+          // 와이어(LAYOUT-FIGMA, 248:267): 폭 308px · 회색 · 모서리 없음 · 안쪽 위 22 / 좌우 13 / 아래 18 · 글자 가운데. 좁은 화면에서는 양옆 16px 여백 안으로
+          className="fixed top-1/2 left-1/2 w-[308px] max-w-[calc(100%-32px)] -translate-x-1/2 -translate-y-1/2 bg-[#d9d9d9] px-[13px] pt-[22px] pb-[18px] text-center text-neutral-900" // TODO(PD 토큰 v0): 와이어 임시값
         >
-          <Dialog.Title>{title}</Dialog.Title>
+          <Dialog.Title className="text-[20px]">{title}</Dialog.Title>
           {description ? (
             <Dialog.Description>{description}</Dialog.Description>
           ) : null}

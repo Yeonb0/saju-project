@@ -33,44 +33,51 @@ export function AboutScreen({
   return (
     // 서비스명이 화면 제목(AppShell 의 h1) — NAME (D-11). h1 은 하나만 둔다
     <AppShell title="뿌기사주">
-      {/* TODO(PD 문구 · R-01): 서비스 · 상품 소개 */}
-      <p data-slot="intro" />
+      {/* 본문 좌우 34px · 헤더 아래 32px · 영역 사이 32px · 글자 16px (LAYOUT-FIGMA) */}
+      <div className="mx-[34px] mt-[32px] flex flex-col gap-y-[32px] text-[16px]">
+        {/* TODO(PD 문구 · R-01): 서비스 · 상품 소개 */}
+        <p data-slot="intro" />
 
-      <section>
-        {/* TODO(PD 문구) */}
-        <h2>충전 상품</h2>
-        {active && active.length > 0 ? (
-          <ul>
-            {active.map((product) => (
-              <li key={product.code}>
-                {/* 서버 값만 표시한다 (P-09). TODO(PD 문구): 항목 이름 · 단위 */}
-                {formatNumber(product.price.amount)} {product.price.currency} ·
-                유료 {formatNumber(product.paidAmount)} · 보너스{" "}
-                {formatNumber(product.bonusAmount)} · 총{" "}
-                {formatNumber(product.creditedAmount)}
-              </li>
-            ))}
-          </ul>
-        ) : active ? (
-          // TODO(PD 문구)
-          <p>판매 중인 충전 상품이 없습니다</p>
-        ) : null}
-      </section>
+        <section>
+          {/* TODO(PD 문구) */}
+          <h2 className="text-[20px] font-semibold">충전 상품</h2>
+          {active && active.length > 0 ? (
+            <ul>
+              {active.map((product) => (
+                <li key={product.code}>
+                  {/* 서버 값만 표시한다 (P-09). TODO(PD 문구): 항목 이름 · 단위 */}
+                  {formatNumber(product.price.amount)} {product.price.currency}{" "}
+                  · 유료 {formatNumber(product.paidAmount)} · 보너스{" "}
+                  {formatNumber(product.bonusAmount)} · 총{" "}
+                  {formatNumber(product.creditedAmount)}
+                </li>
+              ))}
+            </ul>
+          ) : active ? (
+            // TODO(PD 문구)
+            <p>판매 중인 충전 상품이 없습니다</p>
+          ) : null}
+        </section>
 
-      {/* TODO(R-01 · P-04 · PD 문구): 제공 기간 · 보너스 유효기간 표기 */}
-      <p data-slot="period" />
+        {/* TODO(R-01 · P-04 · PD 문구): 제공 기간 · 보너스 유효기간 표기 */}
+        <p data-slot="period" />
 
-      {/* TODO(Q-21): 확정 원고 전 넣지 않는다 */}
-      <p data-slot="refund-summary" />
-      <p>
-        {/* TODO(PD 문구) */}
-        <Link href="/refund">환불정책</Link>
-      </p>
+        {/* TODO(Q-21): 확정 원고 전 넣지 않는다 */}
+        <p data-slot="refund-summary" />
+        <p>
+          {/* TODO(PD 문구) */}
+          <Link href="/refund" className="underline">
+            환불정책
+          </Link>
+        </p>
 
-      <p>
-        {/* TODO(PD 문구) */}
-        <Link href="/wallet">충전하러 가기</Link>
-      </p>
+        <p>
+          {/* TODO(PD 문구) */}
+          <Link href="/wallet" className="underline">
+            충전하러 가기
+          </Link>
+        </p>
+      </div>
     </AppShell>
   );
 }

@@ -1,13 +1,15 @@
 import type { ButtonHTMLAttributes } from "react";
 
-// variant: cta = 최종 와이어 하단 CTA(195:216) (LAYOUT-FIGMA)
+// variant: cta = 최종 와이어 하단 CTA(195:216), popup = 팝업 안 주 버튼(248:268) (LAYOUT-FIGMA)
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "default" | "cta";
+  variant?: "default" | "cta" | "popup";
 };
 
 // TODO(PD 토큰 v0): 와이어 임시값 — cta 의 폭 · 높이 · 배경 · 글자
 const VARIANT_CLASS = {
   default: "rounded-lg border border-neutral-900 bg-white px-4 py-3",
+  popup:
+    "h-[55px] w-[274px] border border-black bg-[#d9d9d9] text-center text-[20px]",
   cta: "h-[69px] w-[327px] border border-black bg-[#d9d9d9] text-center text-[20px] font-semibold",
 } as const;
 

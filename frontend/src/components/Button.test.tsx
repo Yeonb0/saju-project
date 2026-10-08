@@ -43,6 +43,13 @@ describe("Button", () => {
     expect(plain).not.toHaveClass("w-[327px]");
   });
 
+  it('variant="popup" 은 폭 274px · 높이 55px 클래스를 갖는다 (LAYOUT-FIGMA)', () => {
+    render(<Button variant="popup">사용하기</Button>);
+    const popup = screen.getByRole("button", { name: "사용하기" });
+    expect(popup).toHaveClass("w-[274px]", "h-[55px]");
+    expect(popup).not.toHaveClass("w-[327px]", "rounded-lg");
+  });
+
   it('data-frame="button"', () => {
     render(<Button>확인</Button>);
     expect(screen.getByRole("button")).toHaveAttribute("data-frame", "button");
