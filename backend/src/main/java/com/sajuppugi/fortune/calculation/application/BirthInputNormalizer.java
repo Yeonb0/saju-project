@@ -27,7 +27,7 @@ public class BirthInputNormalizer {
             Gender gender) {
         try {
             LocalDate date = LocalDate.parse(birthDate.strip());
-            LocalDate today = LocalDate.now(clock);
+            LocalDate today = LocalDate.now(clock.withZone(java.time.ZoneId.of("Asia/Seoul")));
             if (date.isBefore(MIN_DATE) || date.isAfter(today)) {
                 throw new IllegalArgumentException("birthDate must be between 1900-01-01 and today");
             }

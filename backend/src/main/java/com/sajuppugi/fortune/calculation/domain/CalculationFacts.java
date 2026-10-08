@@ -1,5 +1,6 @@
 package com.sajuppugi.fortune.calculation.domain;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -36,6 +37,7 @@ public record CalculationFacts(
     public record Pillars(Pillar year, Pillar month, Pillar day, Pillar hour) {}
 
     public record Pillar(Stem stem, Branch branch) {
+        @JsonProperty("display")
         public String display() {
             return stem.hangul() + branch.hangul();
         }

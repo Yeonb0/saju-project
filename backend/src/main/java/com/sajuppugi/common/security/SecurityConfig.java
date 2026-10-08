@@ -23,6 +23,7 @@ public class SecurityConfig {
         // Authentication and business permissions will be implemented by BE-B.
         http.authorizeHttpRequests(authorize -> {
             authorize.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
+            authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
             if (environment.acceptsProfiles(Profiles.of("local"))) {
                 authorize.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
             }

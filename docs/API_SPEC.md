@@ -424,6 +424,26 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 ## 8. 유료 운세 구매·결과
 
+### `POST /fortune/basic`
+
+- 인증·CSRF 필요
+- 결제 전 정보 확인 화면의 기본 원국·오행 분석에 사용한다.
+- 요청에 포함된 인물정보는 계산에만 사용하며 이 API 자체는 저장하지 않는다.
+- 응답에는 사용자 ID, 이름, 원본 생년월일시를 포함하지 않는다.
+
+```json
+{
+  "birthDate": "2004-03-15",
+  "birthTime": "14:32",
+  "birthTimeUnknown": false,
+  "calendarType": "SOLAR",
+  "leapMonth": false,
+  "gender": "FEMALE"
+}
+```
+
+응답은 원국 네 기둥, 일간, 오행 분포, 십성, 12운성, 합·충·형·파·해와 `calculationVersion`을 반환한다. 시간 미상인 경우 시주와 시주 기반 값은 `null`이다. 절기 경계일에 시간이 미상이면 `BIRTH_TIME_REQUIRED_AT_TERM`을 반환한다.
+
 ### `POST /reading-purchases`
 
 - 인증·CSRF·`Idempotency-Key` 필요
