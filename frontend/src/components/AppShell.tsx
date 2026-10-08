@@ -87,8 +87,8 @@ export function AppShell({
                         {/* TODO(PD 아이콘): 텍스트 글리프 임시 */}×
                       </Dialog.Close>
                     </div>
-                    {/* HOME-04 (LAYOUT-FIGMA): 첫 항목이 패널 위에서 104px(닫기 줄 56px + 48px), 항목 사이 28px */}
-                    <nav className="mt-[48px] flex flex-col items-end gap-y-[28px] text-[20px] font-semibold">
+                    {/* HOME-04 (LAYOUT-FIGMA): 첫 항목이 패널 위에서 104px(닫기 줄 56px + 48px), 항목 사이 28px, 줄 높이 큰 항목 24px · 하위 항목 20px (195:657 텍스트 상자 높이) */}
+                    <nav className="mt-[48px] flex flex-col items-end gap-y-[28px] text-[20px] leading-[24px] font-semibold">
                       {MENU.map((entry) =>
                         isMenuGroup(entry) ? (
                           <div
@@ -98,7 +98,7 @@ export function AppShell({
                             <span className={COLOR_TEXT_MUTED}>
                               {entry.label}
                             </span>
-                            <div className="mt-[14px] flex flex-col items-end gap-y-[12px] text-[17px] font-semibold">
+                            <div className="mt-[14px] flex flex-col items-end gap-y-[12px] text-[17px] leading-[20px] font-semibold">
                               {entry.items.map((item) => (
                                 <Link
                                   key={item.href}
