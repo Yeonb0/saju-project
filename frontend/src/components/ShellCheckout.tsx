@@ -277,6 +277,7 @@ export function ShellCheckout({
         if (!next && (purchase.isPending || outcomePending)) return;
         onOpenChange(next);
       }}
+      layout={purchase.isPending ? "screen" : "popup"}
       // TODO(PD 문구): 제목 — 잔액 부족이면 다른 제목
       title={insufficient ? "등껍질 부족" : "등껍질 사용 확인"}
     >
