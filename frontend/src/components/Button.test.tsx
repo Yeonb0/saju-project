@@ -20,6 +20,36 @@ describe("Button", () => {
     expect(screen.getByRole("button")).toBeDisabled();
   });
 
+  it('variant="cta" 는 폭 327px · 높이 69px 클래스를 갖고, 기본 variant 는 지금 클래스 그대로 (LAYOUT-FIGMA)', () => {
+    render(
+      <>
+        <Button variant="cta">진행</Button>
+        <Button>확인</Button>
+      </>,
+    );
+    const cta = screen.getByRole("button", { name: "진행" });
+    expect(cta).toHaveClass("w-[327px]", "h-[69px]");
+    // variant 는 DOM 속성으로 새지 않는다
+    expect(cta).not.toHaveAttribute("variant");
+    const plain = screen.getByRole("button", { name: "확인" });
+    expect(plain).toHaveClass(
+      "rounded-lg",
+      "border",
+      "border-neutral-900",
+      "bg-white",
+      "px-4",
+      "py-3",
+    );
+    expect(plain).not.toHaveClass("w-[327px]");
+  });
+
+  it('variant="popup" 은 폭 274px · 높이 55px 클래스를 갖는다 (LAYOUT-FIGMA)', () => {
+    render(<Button variant="popup">사용하기</Button>);
+    const popup = screen.getByRole("button", { name: "사용하기" });
+    expect(popup).toHaveClass("w-[274px]", "h-[55px]");
+    expect(popup).not.toHaveClass("w-[327px]", "rounded-lg");
+  });
+
   it('data-frame="button"', () => {
     render(<Button>확인</Button>);
     expect(screen.getByRole("button")).toHaveAttribute("data-frame", "button");

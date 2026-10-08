@@ -84,6 +84,24 @@ describe("AppShell 헤더", () => {
   });
 });
 
+describe("AppShell header 옵션 (LAYOUT-FIGMA)", () => {
+  it("header={false} 면 헤더(banner)와 메뉴 버튼이 없고, 기본값이면 있다", () => {
+    const { unmount } = render(<AppShell header={false}>본문</AppShell>);
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "메뉴 열기" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("본문")).toBeInTheDocument();
+    unmount();
+
+    render(<AppShell>본문</AppShell>);
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "메뉴 열기" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("AppShell 하단 CTA", () => {
   it("cta 를 넘기면 렌더링된다", () => {
     render(

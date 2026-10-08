@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createIdempotencyKey,
   createIdempotentCommand,
   createOrderBoundCommand,
 } from "./idempotency";
@@ -48,5 +49,13 @@ describe("createOrderBoundCommand", () => {
 
   it("주문 ID 가 UUID 가 아니면 던진다", () => {
     expect(() => createOrderBoundCommand("not-a-uuid", PAYLOAD)).toThrow();
+  });
+});
+
+describe("createIdempotencyKey", () => {
+  it("UUID 형식이고 부를 때마다 다르다", () => {
+    const first = createIdempotencyKey();
+    expect(first).toMatch(UUID_PATTERN);
+    expect(createIdempotencyKey()).not.toBe(first);
   });
 });
