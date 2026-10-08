@@ -53,9 +53,15 @@ bash ./gradlew bootRun
 | `GET /actuator/health/liveness` | 프로세스 생존 확인 |
 | `GET /actuator/health/readiness` | DB를 포함한 서비스 준비 상태 |
 | `/v3/api-docs` | OpenAPI JSON, local 프로필에서만 공개 |
+| `/v3/api-docs/v1` | 프론트 타입 생성용 `/api/v1/**` OpenAPI JSON |
 | `/swagger-ui/index.html` | Swagger UI, local 프로필에서만 공개 |
 
-헬스 응답은 Actuator 기본 형식인 `{ "status": "UP" }`이며 업무 API의 응답 envelope와 구분한다. 아직 업무 endpoint는 없다.
+헬스 응답은 Actuator 기본 형식인 `{ "status": "UP" }`이며 업무 API의 응답 envelope와 구분한다.
+
+Swagger UI는 API 명세에 맞춰 `JSESSIONID` 세션 쿠키와 상태 변경 요청용
+`X-CSRF-Token` 보안 스키마를 표시한다. 브라우저가 `HttpOnly` 세션 쿠키를 자동으로 전송하므로
+Swagger UI에서 쿠키 값을 직접 입력하지 않는다. 인증 및 CSRF 발급 API가 구현되기 전까지
+보호된 API의 `Try it out` 요청은 인증 오류가 정상이다.
 
 인증 구현 전에는 health와 local API 문서만 허용하고 나머지 요청은 거절한다. 폼/Basic 로그인과 기본 개발 사용자 로그인을 제공하지 않는다. CSRF 보호는 유지한다. 카카오 로그인, 세션, B가 결정한 CSRF 발급 계약은 후속 구현 대상이다.
 
