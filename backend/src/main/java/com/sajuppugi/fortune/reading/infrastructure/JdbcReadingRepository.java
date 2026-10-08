@@ -14,6 +14,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,9 +36,11 @@ public class JdbcReadingRepository implements ReadingRepository {
     public void createPurchase(ReadingPurchase purchase) {
         jdbc.update("""
                 INSERT INTO reading_purchases (id, buyer_user_id, product_id, quote_id, subject_person_id,
-                status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+                counterpart_person_id, relation_type, question_key, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, purchase.id(), purchase.buyerUserId(), purchase.productId(), purchase.quoteId(),
-                purchase.subjectPersonId(), purchase.status().name(), Timestamp.from(purchase.createdAt()));
+                purchase.subjectPersonId(), purchase.counterpartPersonId(), purchase.relationType(),
+                purchase.questionKey(), purchase.status().name(), Timestamp.from(purchase.createdAt()));
     }
 
     @Override
@@ -64,12 +68,15 @@ public class JdbcReadingRepository implements ReadingRepository {
     public void fulfill(ReadingPurchase purchase, OwnedReading reading) {
         jdbc.update("""
                 INSERT INTO readings (id, reading_result_id, owner_user_id, purchase_id, fortune_type,
-                product_option, subject_display_name, event_date, public_snapshot, calculation_version,
-                generation_version, content_version, generation_mode, talisman_id, talisman_status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                product_option, subject_person_id, subject_display_name, counterpart_person_id,
+                counterpart_display_name, relation_type, question_key, event_date, public_snapshot,
+                calculation_version, generation_version, content_version, generation_mode, talisman_id,
+                talisman_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, reading.id(), reading.resultId(), reading.ownerUserId(), reading.purchaseId(),
-                reading.fortuneType().name(), reading.productOption().name(), reading.subjectDisplayName(),
-                reading.eventDate(), json(reading.sections()), reading.calculationVersion(),
+                reading.fortuneType().name(), reading.productOption().name(), reading.subjectPersonId(),
+                reading.subjectDisplayName(), reading.counterpartPersonId(), reading.counterpartDisplayName(),
+                reading.relationType(), reading.questionKey(), reading.eventDate(), json(reading.sections()), reading.calculationVersion(),
                 reading.generationVersion(), reading.contentVersion(), reading.generationMode().name(),
                 reading.talismanId(), reading.talismanStatus(),
                 Timestamp.from(reading.createdAt()));
@@ -99,10 +106,38 @@ public class JdbcReadingRepository implements ReadingRepository {
                 (rs, row) -> reading(rs), ownerUserId, readingId).stream().findFirst();
     }
 
+    @Override
+    public List<OwnedReading> findOwnedReadings(UUID ownerUserId, FortuneType fortuneType, UUID personId,
+                                                Instant beforeCreatedAt, UUID beforeId, int limit) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM readings WHERE owner_user_id = ?");
+        List<Object> args = new ArrayList<>();
+        args.add(ownerUserId);
+        if (fortuneType != null) {
+            sql.append(" AND fortune_type = ?");
+            args.add(fortuneType.name());
+        }
+        if (personId != null) {
+            sql.append(" AND subject_person_id = ?");
+            args.add(personId);
+        }
+        if (beforeCreatedAt != null) {
+            sql.append(" AND (created_at < ? OR (created_at = ? AND id < ?))");
+            Timestamp cursorTime = Timestamp.from(beforeCreatedAt);
+            args.add(cursorTime);
+            args.add(cursorTime);
+            args.add(beforeId);
+        }
+        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ?");
+        args.add(limit);
+        return jdbc.query(sql.toString(), (rs, row) -> reading(rs), args.toArray());
+    }
+
     private ReadingPurchase purchase(ResultSet rs) throws SQLException {
         return new ReadingPurchase(rs.getObject("id", UUID.class), rs.getObject("buyer_user_id", UUID.class),
                 rs.getObject("product_id", UUID.class), rs.getObject("quote_id", UUID.class),
-                rs.getObject("subject_person_id", UUID.class), rs.getObject("wallet_transaction_id", UUID.class),
+                rs.getObject("subject_person_id", UUID.class), rs.getObject("counterpart_person_id", UUID.class),
+                rs.getString("relation_type"), rs.getString("question_key"),
+                rs.getObject("wallet_transaction_id", UUID.class),
                 Status.valueOf(rs.getString("status")), rs.getObject("reading_id", UUID.class),
                 instant(rs, "created_at"), instant(rs, "fulfilled_at"));
     }
@@ -112,7 +147,10 @@ public class JdbcReadingRepository implements ReadingRepository {
             return new OwnedReading(rs.getObject("id", UUID.class), rs.getObject("reading_result_id", UUID.class),
                     rs.getObject("owner_user_id", UUID.class), rs.getObject("purchase_id", UUID.class),
                     FortuneType.valueOf(rs.getString("fortune_type")), ProductOption.valueOf(rs.getString("product_option")),
-                    rs.getString("subject_display_name"), rs.getObject("event_date", java.time.LocalDate.class),
+                    rs.getObject("subject_person_id", UUID.class), rs.getString("subject_display_name"),
+                    rs.getObject("counterpart_person_id", UUID.class), rs.getString("counterpart_display_name"),
+                    rs.getString("relation_type"), rs.getString("question_key"),
+                    rs.getObject("event_date", java.time.LocalDate.class),
                     mapper.readValue(rs.getString("public_snapshot"), LinerResponse.class),
                     rs.getString("calculation_version"), rs.getString("generation_version"),
                     rs.getString("content_version"), GenerationMode.valueOf(rs.getString("generation_mode")),

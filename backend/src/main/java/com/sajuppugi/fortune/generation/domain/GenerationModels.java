@@ -28,6 +28,8 @@ public final class GenerationModels {
             LocalDate referenceDate,
             String interestKey,
             CalculationFacts calculationFacts,
+            CalculationFacts counterpartCalculationFacts,
+            String relationKey,
             List<SectionKey> allowedSections,
             List<String> missingFields,
             String generationVersion,
@@ -41,6 +43,14 @@ public final class GenerationModels {
             Objects.requireNonNull(contentVersion, "contentVersion");
             allowedSections = List.copyOf(allowedSections);
             missingFields = List.copyOf(missingFields);
+        }
+
+        public GenerationCommand(UUID requesterUserId, FortuneType fortuneType, LocalDate referenceDate,
+                                 String interestKey, CalculationFacts calculationFacts,
+                                 List<SectionKey> allowedSections, List<String> missingFields,
+                                 String generationVersion, String contentVersion) {
+            this(requesterUserId, fortuneType, referenceDate, interestKey, calculationFacts, null, null,
+                    allowedSections, missingFields, generationVersion, contentVersion);
         }
     }
 

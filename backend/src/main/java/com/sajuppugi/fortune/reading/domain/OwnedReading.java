@@ -14,7 +14,12 @@ public record OwnedReading(
         UUID purchaseId,
         FortuneType fortuneType,
         ProductOption productOption,
+        UUID subjectPersonId,
         String subjectDisplayName,
+        UUID counterpartPersonId,
+        String counterpartDisplayName,
+        String relationType,
+        String questionKey,
         LocalDate eventDate,
         LinerResponse sections,
         String calculationVersion,
@@ -24,6 +29,16 @@ public record OwnedReading(
         UUID talismanId,
         String talismanStatus,
         Instant createdAt) {
+
+    public OwnedReading(UUID id, UUID resultId, UUID ownerUserId, UUID purchaseId,
+                        FortuneType fortuneType, ProductOption productOption, String subjectDisplayName,
+                        LocalDate eventDate, LinerResponse sections, String calculationVersion,
+                        String generationVersion, String contentVersion, GenerationMode generationMode,
+                        UUID talismanId, String talismanStatus, Instant createdAt) {
+        this(id, resultId, ownerUserId, purchaseId, fortuneType, productOption, null, subjectDisplayName,
+                null, null, null, null, eventDate, sections, calculationVersion, generationVersion,
+                contentVersion, generationMode, talismanId, talismanStatus, createdAt);
+    }
 
     public enum ProductOption { READING_ONLY, READING_WITH_TALISMAN }
 }

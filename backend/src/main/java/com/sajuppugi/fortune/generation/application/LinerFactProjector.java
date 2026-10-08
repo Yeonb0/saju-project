@@ -25,4 +25,12 @@ public class LinerFactProjector {
         safe.set("luck", mapper.valueToTree(facts.luck()));
         return safe;
     }
+
+    public JsonNode project(CalculationFacts facts, CalculationFacts counterpartFacts) {
+        ObjectNode safe = (ObjectNode) project(facts);
+        if (counterpartFacts != null) {
+            safe.set("counterpart", project(counterpartFacts));
+        }
+        return safe;
+    }
 }

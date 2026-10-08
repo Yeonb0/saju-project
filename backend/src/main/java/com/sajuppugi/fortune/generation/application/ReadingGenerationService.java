@@ -40,7 +40,7 @@ public class ReadingGenerationService {
 
     public GeneratedReading generate(GenerationCommand command) {
         Objects.requireNonNull(command.requesterUserId(), "requesterUserId");
-        JsonNode safeFacts = projector.project(command.calculationFacts());
+        JsonNode safeFacts = projector.project(command.calculationFacts(), command.counterpartCalculationFacts());
         String generationKey = keys.create(command, safeFacts);
         GeneratedReading cached = snapshots.findSucceeded(generationKey).orElse(null);
         if (cached != null) return reused(cached);
