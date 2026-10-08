@@ -86,46 +86,59 @@ export function TopUpSuccess({
   return (
     // TODO(PD 문구): 제목
     <AppShell title="충전" backHref="/wallet">
-      {view.kind === "confirming" ? (
-        // TODO(PD 문구)
-        <output className="block">결제를 확인하고 있습니다</output>
-      ) : view.kind === "credited" ? (
-        <>
-          {/* TODO(PD 문구) */}
-          <output className="block">충전이 완료되었습니다</output>
-          {view.walletBalance !== null ? (
-            // 서버가 준 잔액만 표시한다 (P-09). TODO(PD 문구)
-            <p>보유 {view.walletBalance.toLocaleString("ko-KR")}</p>
-          ) : null}
-          {resumePath !== null ? (
-            // 앞 화면이 저장한 선택으로 차감 확인 팝업을 다시 연다 (PURCHASE-RESTORE). TODO(PD 문구)
-            <Link href={resumePath}>이어서 하기</Link>
-          ) : (
-            // TODO(PD 문구)
-            <Link href="/wallet">확인</Link>
-          )}
-        </>
-      ) : view.kind === "pending" ? (
-        <>
-          {/* TODO(PD 문구) — 새 결제를 권하지 않는다 (TOPUP-DONE) */}
-          <output className="block">결제 확인이 늦어지고 있습니다</output>
-          {/* TODO(PD 문구) */}
-          <Button onClick={recheck}>주문 확인</Button>
-        </>
-      ) : view.kind === "login_required" ? (
-        // TODO(PG-2): 로그인 후 이 주소로 복귀 (returnTo) — 같은 주문으로 다시 확인한다
-        <p>
-          {/* TODO(PD 문구) */}
-          <Link href="/login">다시 로그인해 주세요</Link>
-        </p>
-      ) : (
-        <>
-          {/* TODO(PD 문구): 실패 원인별 안내 */}
-          <p role="alert">충전이 완료되지 않았습니다</p>
-          {/* TODO(PD 문구) */}
-          <Link href="/wallet">충전으로 돌아가기</Link>
-        </>
-      )}
+      {/* 본문 좌우 34px · 헤더 아래 32px · 요소 사이 16px · 16px (LAYOUT-FIGMA) */}
+      <div className="mx-[34px] mt-[32px] flex flex-col gap-y-[16px] text-[16px]">
+        {view.kind === "confirming" ? (
+          // TODO(PD 문구)
+          <output className="block">결제를 확인하고 있습니다</output>
+        ) : view.kind === "credited" ? (
+          <>
+            {/* TODO(PD 문구) */}
+            <output className="block">충전이 완료되었습니다</output>
+            {view.walletBalance !== null ? (
+              // 서버가 준 잔액만 표시한다 (P-09). TODO(PD 문구)
+              <p>보유 {view.walletBalance.toLocaleString("ko-KR")}</p>
+            ) : null}
+            {resumePath !== null ? (
+              // 앞 화면이 저장한 선택으로 차감 확인 팝업을 다시 연다 (PURCHASE-RESTORE). TODO(PD 문구)
+              <Link href={resumePath} className="underline">
+                이어서 하기
+              </Link>
+            ) : (
+              // TODO(PD 문구)
+              <Link href="/wallet" className="underline">
+                확인
+              </Link>
+            )}
+          </>
+        ) : view.kind === "pending" ? (
+          <>
+            {/* TODO(PD 문구) — 새 결제를 권하지 않는다 (TOPUP-DONE) */}
+            <output className="block">결제 확인이 늦어지고 있습니다</output>
+            {/* TODO(PD 문구) */}
+            <Button className="self-start" onClick={recheck}>
+              주문 확인
+            </Button>
+          </>
+        ) : view.kind === "login_required" ? (
+          // TODO(PG-2): 로그인 후 이 주소로 복귀 (returnTo) — 같은 주문으로 다시 확인한다
+          <p>
+            {/* TODO(PD 문구) */}
+            <Link href="/login" className="underline">
+              다시 로그인해 주세요
+            </Link>
+          </p>
+        ) : (
+          <>
+            {/* TODO(PD 문구): 실패 원인별 안내 */}
+            <p role="alert">충전이 완료되지 않았습니다</p>
+            {/* TODO(PD 문구) */}
+            <Link href="/wallet" className="underline">
+              충전으로 돌아가기
+            </Link>
+          </>
+        )}
+      </div>
     </AppShell>
   );
 }

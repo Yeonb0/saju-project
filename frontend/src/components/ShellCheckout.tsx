@@ -45,9 +45,12 @@ const ACTIONS_CLASS = "mt-[18px] flex flex-col items-center";
 // 한 줄 "이름 : 값" 가운데 정렬. 구분자는 dt 의 ::after 라 화면 글자(dt · dd)는 그대로다
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex justify-center gap-x-[4px]">
-      <dt className="after:ml-[4px] after:content-[':']">{label}</dt>
-      <dd>{children}</dd>
+    <div className="flex flex-wrap justify-center gap-x-[4px]">
+      <dt className="shrink-0 whitespace-nowrap after:ml-[4px] after:content-[':']">
+        {label}
+      </dt>
+      {/* 긴 값은 상자 안에서 줄바꿈한다 */}
+      <dd className="min-w-0 [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }

@@ -104,6 +104,14 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     expect(screen.getByText("87")).toBeInTheDocument();
   });
 
+  it("정보 줄의 값(dd)은 긴 값이 상자 안에서 줄바꿈되는 클래스를 갖는다 (LAYOUT-FIGMA)", async () => {
+    setup({ balance: 100 });
+    await useButton();
+    const value = screen.getByText("FIXTURE 옵션");
+    expect(value.tagName).toBe("DD");
+    expect(value).toHaveClass("[overflow-wrap:anywhere]");
+  });
+
   it("사용하기를 두 번 눌러도 구매 명령은 한 번, 성공하면 결과를 넘기고 복원 값을 지운다", async () => {
     const user = userEvent.setup();
     savePurchaseSelection({

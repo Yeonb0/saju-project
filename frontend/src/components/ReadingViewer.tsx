@@ -11,6 +11,14 @@ import { loadChecked, saveChecked } from "@/lib/reading/checklist";
 
 type Checklist = Extract<ReadingSection, { type: "CHECKLIST" }>;
 
+// 결과 카드 (LAYOUT-FIGMA, CSAT-04 195:397 · CSAT-05 195:432 · CSAT-06 195:463)
+// TODO(PD 토큰 v0): 와이어 임시값
+const CARD_CLASS =
+  "mx-auto min-h-[640px] w-[376px] bg-[#d9d9d9] px-[32px] py-[36px]";
+const TITLE_CLASS = "text-center text-[20px] font-semibold";
+const BODY_CLASS = "text-[20px] font-semibold";
+const SUB_CLASS = "text-[16px] text-[#414141]";
+
 // 모르는 섹션 타입 경고 — 타입 이름만 보낸다 (결과 본문 · 인적정보 금지, CLAUDE.md 관측)
 function reportUnknownToSentry(rawType: string) {
   Sentry.captureMessage("unknown reading section type", {
@@ -37,18 +45,35 @@ export function ReadingViewer({
   }, [reading.sections, reportUnknown]);
 
   return (
-    <article>
-      {letter ? <section data-slot="letter">{letter}</section> : null}
-      {reading.sections.map((section) =>
-        section.type === "UNKNOWN" ? null : (
-          <section key={section.key} aria-labelledby={`s-${section.key}`}>
-            <h2 id={`s-${section.key}`}>{section.title}</h2>
-            <SectionBody readingId={reading.id} section={section} />
+    <article className="mt-[53px]">
+      {/* 카드 사이 16px. 편지 자리는 첫 카드 위에 같은 카드 모양으로 */}
+      <div className="flex flex-col gap-y-[16px]">
+        {letter ? (
+          <section data-slot="letter" className={CARD_CLASS}>
+            {letter}
           </section>
-        ),
-      )}
+        ) : null}
+        {reading.sections.map((section) =>
+          section.type === "UNKNOWN" ? null : (
+            <section
+              key={section.key}
+              data-slot="result-card"
+              aria-labelledby={`s-${section.key}`}
+              className={CARD_CLASS}
+            >
+              <h2 id={`s-${section.key}`} className={TITLE_CLASS}>
+                {section.title}
+              </h2>
+              <SectionBody readingId={reading.id} section={section} />
+            </section>
+          ),
+        )}
+      </div>
       {/* 결과 하단 고지 (F-08). 서버 코드 그대로 — TODO(PD 문구): 코드별 고지 문구 */}
-      <ul data-slot="disclaimers">
+      <ul
+        data-slot="disclaimers"
+        className="mx-[34px] mt-[24px] text-[12px] text-neutral-600"
+      >
         {reading.disclaimers.map((code) => (
           <li key={code}>{code}</li>
         ))}
@@ -66,15 +91,25 @@ function SectionBody({
 }) {
   switch (section.type) {
     case "TEXT":
-      return <p className="whitespace-pre-line">{section.content}</p>;
+      return (
+        <p
+          className={`mt-[24px] whitespace-pre-line leading-[normal] ${BODY_CLASS}`}
+        >
+          {section.content}
+        </p>
+      );
     case "PERIOD_GUIDANCE":
       return (
-        <ol>
+        <ol className="mt-[24px] flex flex-col gap-y-[45px]">
           {section.items.map((item) => (
-            <li key={item.label}>
-              <h3>{item.label}</h3>
-              <p>{item.guidance}</p>
-              {item.focusPoint !== null ? <p>{item.focusPoint}</p> : null}
+            <li key={item.label} className="flex gap-x-[37px]">
+              <h3 className={`shrink-0 ${BODY_CLASS}`}>{item.label}</h3>
+              <div>
+                <p className={BODY_CLASS}>{item.guidance}</p>
+                {item.focusPoint !== null ? (
+                  <p className={SUB_CLASS}>{item.focusPoint}</p>
+                ) : null}
+              </div>
             </li>
           ))}
         </ol>
@@ -82,14 +117,22 @@ function SectionBody({
     case "FOOD_RECOMMENDATION":
       return (
         <>
-          <h3>{section.primary.name}</h3>
-          <p>{section.primary.reason}</p>
+          {/* TODO(이미지): 음식 이미지 — API 없음 */}
+          <div className="mt-[24px] flex justify-center">
+            <div
+              aria-hidden
+              data-slot="food-image"
+              className="h-[194px] w-[311px] shrink-0 bg-[#b1b1b1]"
+            />
+          </div>
+          <h3 className={`mt-[34px] ${TITLE_CLASS}`}>{section.primary.name}</h3>
+          <p className={`mt-[36px] ${BODY_CLASS}`}>{section.primary.reason}</p>
           {section.alternatives.length > 0 ? (
-            <ul>
+            <ul className="mt-[36px] flex flex-col gap-y-[12px]">
               {section.alternatives.map((food) => (
                 <li key={food.name}>
-                  <h4>{food.name}</h4>
-                  <p>{food.reason}</p>
+                  <h4 className={BODY_CLASS}>{food.name}</h4>
+                  <p className={SUB_CLASS}>{food.reason}</p>
                 </li>
               ))}
             </ul>
@@ -128,15 +171,18 @@ function ChecklistBody({
   }
 
   return (
-    <ul>
+    <ul className="mt-[45px]">
       {section.items.map((item) => (
         <li key={item.id}>
-          <label>
+          <label
+            className={`flex h-[35px] items-center gap-x-[13px] ${BODY_CLASS}`}
+          >
             <input
               type="checkbox"
+              className="h-[24px] w-[24px]"
               checked={checked.has(item.id)}
               onChange={() => toggle(item.id)}
-            />{" "}
+            />
             {item.label}
           </label>
         </li>

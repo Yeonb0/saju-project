@@ -8,10 +8,15 @@ export default function Page() {
   return (
     // TODO(PD 문구): 제목
     <AppShell title="충전" backHref="/wallet">
-      {/* TODO(PD 문구) */}
-      <p role="alert">결제가 완료되지 않았습니다</p>
-      {/* TODO(PD 문구) */}
-      <Link href="/wallet">충전으로 돌아가기</Link>
+      {/* 본문 좌우 34px · 헤더 아래 32px · 요소 사이 16px · 16px (LAYOUT-FIGMA) */}
+      <div className="mx-[34px] mt-[32px] flex flex-col gap-y-[16px] text-[16px]">
+        {/* TODO(PD 문구) */}
+        <p role="alert">결제가 완료되지 않았습니다</p>
+        {/* TODO(PD 문구) */}
+        <Link href="/wallet" className="underline">
+          충전으로 돌아가기
+        </Link>
+      </div>
     </AppShell>
   );
 }

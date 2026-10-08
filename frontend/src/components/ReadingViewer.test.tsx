@@ -49,6 +49,16 @@ const READING: Reading = {
 };
 
 describe("ReadingViewer (VIEWER)", () => {
+  it("섹션마다 결과 카드 모양(폭 376px)을 갖고, 모르는 타입은 카드가 없다 (LAYOUT-FIGMA)", () => {
+    const { container } = render(
+      <ReadingViewer reading={READING} reportUnknown={vi.fn()} />,
+    );
+    const cards = container.querySelectorAll('[data-slot="result-card"]');
+    // 그려지는 섹션 4개 (TEXT · PERIOD_GUIDANCE · FOOD_RECOMMENDATION · CHECKLIST)
+    expect(cards).toHaveLength(4);
+    for (const card of cards) expect(card).toHaveClass("w-[376px]");
+  });
+
   it("섹션을 서버 순서대로 타입별로 그린다", () => {
     render(<ReadingViewer reading={READING} reportUnknown={vi.fn()} />);
     const titles = screen
