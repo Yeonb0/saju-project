@@ -1,9 +1,16 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
-import type { FortunePort, FortuneSelection } from "@/lib/ports/fortune";
+import { loginHref } from "@/lib/auth/returnTo";
+import type {
+  FortunePort,
+  FortuneQuote,
+  FortuneSelection,
+} from "@/lib/ports/fortune";
+import type { TopUpPort } from "@/lib/ports/topUp";
 import {
   loadPurchaseSelection,
   savePurchaseSelection,
@@ -13,6 +20,7 @@ import {
   createFakeFortunePort,
   type FakeFortuneScenario,
 } from "@/mocks/fortune";
+import { createFakeTopUpPort } from "@/mocks/topUp";
 import { createFakeWallet } from "@/mocks/wallet";
 import { ShellCheckout } from "./ShellCheckout";
 
@@ -37,6 +45,7 @@ function setup(
     balance?: number;
     scenario?: FakeFortuneScenario;
     port?: FortunePort;
+    topUpPort?: TopUpPort;
     resumeQuoteId?: string | null;
   } = {},
 ) {
@@ -48,6 +57,9 @@ function setup(
   const createQuote = vi.spyOn(port, "createQuote");
   const getQuote = vi.spyOn(port, "getQuote");
   const onPurchased = vi.fn();
+  const topUpPort = options.topUpPort ?? createFakeTopUpPort();
+  const listTopUpProducts = vi.spyOn(topUpPort, "listTopUpProducts");
+  const reportMismatch = vi.fn();
   render(
     <QueryClientProvider client={makeQueryClient()}>
       <ShellCheckout
@@ -60,10 +72,21 @@ function setup(
         returnPath="/suneung"
         onPurchased={onPurchased}
         port={port}
+        topUpPort={topUpPort}
+        reportMismatch={reportMismatch}
       />
     </QueryClientProvider>,
   );
-  return { wallet, port, purchase, createQuote, getQuote, onPurchased };
+  return {
+    wallet,
+    port,
+    purchase,
+    createQuote,
+    getQuote,
+    onPurchased,
+    listTopUpProducts,
+    reportMismatch,
+  };
 }
 
 const useButton = () => screen.findByRole("button", { name: "사용하기" });
@@ -173,7 +196,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       walletBalance: 2,
       balanceAfter: null,
       shortage: 11,
-      recommendedTopUp: "FIXTURE_TOP_UP_A",
+      // 추천 없음 — 추천 상품 값(예: 받는 수 11)이 부족분 "11" 단언과 겹치지 않게 (추천 줄은 아래 g~j 에서 본다)
+      recommendedTopUp: null,
       expiresAt: "2099-01-01T00:00:00Z",
     });
     await user.click(button);
@@ -263,5 +287,133 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     );
     release();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+  });
+
+  // 견적 값은 서버 모양 그대로 주입한다 (픽스처일 뿐이며 실제 가격 · 규칙과 무관)
+  const shortQuote = (recommendedTopUp: string | null): FortuneQuote => ({
+    quoteId: "fixture-quote",
+    productCode: SELECTION.productCode,
+    productName: "FIXTURE",
+    price: { currency: "TURTLE_SHELL", amount: 13 },
+    walletBalance: 1,
+    balanceAfter: null,
+    shortage: 12,
+    recommendedTopUp,
+    expiresAt: "2099-01-01T00:00:00Z",
+  });
+
+  describe("잔액 부족 — 추천 충전 상품 (P-06)", () => {
+    it("g. 추천 상품의 가격 · 받는 수를 목록 값 그대로 보이고 다른 상품 값은 보이지 않는다", async () => {
+      // 잔액 1 → 부족 12 → 가짜 서버 추천은 FIXTURE_TOP_UP_B (2,222 KRW · 받는 수 24)
+      setup({ balance: 1 });
+      expect(await screen.findByText("2,222 KRW")).toBeInTheDocument();
+      expect(screen.getByText("24")).toBeInTheDocument();
+      expect(screen.queryByText("1,111 KRW")).toBeNull();
+      expect(screen.queryByText("3,333 KRW")).toBeNull();
+      expect(screen.queryByText("36")).toBeNull();
+    });
+
+    it("h. 추천이 null 이면 추천 줄도 없고 충전 상품 목록 조회도 하지 않는다", async () => {
+      // 충전 상품이 하나도 없으면 가짜 서버는 부족한데도 추천 null 을 준다
+      const port = createFakeFortunePort({
+        wallet: createFakeWallet(1),
+        topUpProducts: [],
+      });
+      const { listTopUpProducts } = setup({ port });
+      await screen.findByRole("button", { name: "충전하기" });
+      expect(screen.queryByText("추천 충전")).toBeNull();
+      expect(listTopUpProducts).not.toHaveBeenCalled();
+    });
+
+    it("i. 추천 code 가 목록에 없으면 추천 줄 없이 그 code 로 경고를 한 번 보낸다", async () => {
+      const port = createFakeFortunePort({ wallet: createFakeWallet(1) });
+      vi.spyOn(port, "createQuote").mockResolvedValue(
+        shortQuote("NOT_IN_LIST"),
+      );
+      const { listTopUpProducts, reportMismatch } = setup({ port });
+      await screen.findByRole("button", { name: "충전하기" });
+      await waitFor(() => expect(reportMismatch).toHaveBeenCalledTimes(1));
+      expect(reportMismatch).toHaveBeenCalledWith("NOT_IN_LIST");
+      expect(listTopUpProducts).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText("추천 충전")).toBeNull();
+    });
+
+    it("j. 추천 code 가 비활성이면 추천 줄 없이 경고를 한 번 보낸다", async () => {
+      const port = createFakeFortunePort({ wallet: createFakeWallet(1) });
+      vi.spyOn(port, "createQuote").mockResolvedValue(
+        shortQuote("FIXTURE_TOP_UP_INACTIVE"),
+      );
+      const { reportMismatch } = setup({ port });
+      await screen.findByRole("button", { name: "충전하기" });
+      await waitFor(() => expect(reportMismatch).toHaveBeenCalledTimes(1));
+      expect(reportMismatch).toHaveBeenCalledWith("FIXTURE_TOP_UP_INACTIVE");
+      expect(screen.queryByText("추천 충전")).toBeNull();
+      expect(screen.queryByText("7,777 KRW")).toBeNull();
+    });
+
+    it("k. 잔액이 충분하면 충전 상품 목록 조회를 하지 않는다", async () => {
+      const { listTopUpProducts, reportMismatch } = setup({ balance: 100 });
+      await useButton();
+      expect(listTopUpProducts).not.toHaveBeenCalled();
+      expect(reportMismatch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("견적 조회 실패 (A-03)", () => {
+    it("l. 견적 조회가 401 이면 던지지 않고 로그인 링크를 보인다", async () => {
+      const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+      vi.spyOn(port, "createQuote").mockRejectedValue(
+        new ApiError({ status: 401, code: "UNAUTHENTICATED", traceId: null }),
+      );
+      setup({ port });
+      const link = await screen.findByRole("link", {
+        name: "다시 로그인해 주세요",
+      });
+      expect(link).toHaveAttribute("href", loginHref("/suneung"));
+    });
+
+    it("m. 견적 조회가 500 이면 오류 화면으로 던진다", async () => {
+      const silence = vi.spyOn(console, "error").mockImplementation(() => {});
+      let caught: unknown = null;
+      class Boundary extends Component<
+        { children: ReactNode },
+        { failed: boolean }
+      > {
+        state = { failed: false };
+        static getDerivedStateFromError() {
+          return { failed: true };
+        }
+        componentDidCatch(error: unknown) {
+          caught = error;
+        }
+        render() {
+          return this.state.failed ? <p>caught</p> : this.props.children;
+        }
+      }
+      const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+      vi.spyOn(port, "createQuote").mockRejectedValue(
+        new ApiError({ status: 500, code: "INTERNAL_ERROR", traceId: null }),
+      );
+      render(
+        <QueryClientProvider client={makeQueryClient()}>
+          <Boundary>
+            <ShellCheckout
+              open
+              onOpenChange={vi.fn()}
+              selection={SELECTION}
+              targetName="FIXTURE"
+              optionLabel="FIXTURE 옵션"
+              returnPath="/suneung"
+              onPurchased={vi.fn()}
+              port={port}
+            />
+          </Boundary>
+        </QueryClientProvider>,
+      );
+      expect(await screen.findByText("caught")).toBeInTheDocument();
+      expect(caught).toBeInstanceOf(ApiError);
+      expect((caught as ApiError).status).toBe(500);
+      silence.mockRestore();
+    });
   });
 });

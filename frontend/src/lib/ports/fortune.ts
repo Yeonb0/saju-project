@@ -4,7 +4,7 @@
 //
 // - 이 모델은 FE 모델이다. 백엔드 타입이 아니며, 진짜 구현(adapters)이 OpenAPI 생성 타입을 이 모양으로 바꾼다.
 // - 금액 · 등껍질 수량 · 구매 후 잔액은 서버(또는 가짜 구현)가 준 값만 표시한다. 화면에서 계산하지 않는다 (P-03 · P-09).
-// - quoteId · productName · balanceAfter 는 API_SPEC 초안 견적 예시에 아직 없다 — 견적 필드 반영은 BE-A (Q-17).
+// - 견적 필드: BE-A 내부 계약(main a064ea6, backend/docs/FE_COMPATIBILITY.md)에 quoteId · walletBalance · balanceAfter · shortage · recommendedTopUp 이 있고 productName 은 아직 없다 — API_SPEC · OpenAPI 반영은 BE-A (Q-17).
 // - 고민 입력(interestKey · memo)은 F-04 · Q-26 확정 전이라 넣지 않는다. talismanType 은 T-01 자동생성으로 빠졌다.
 // - 실패는 src/lib/api/errors.ts 의 ApiError · ApiNetworkError · ApiContractError 로 던진다 (가짜도 같다).
 import type { Money } from "./topUp";

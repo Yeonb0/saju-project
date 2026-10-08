@@ -87,7 +87,13 @@ export function WalletScreen({
         보유 {wallet.data ? formatNumber(wallet.data.balance) : null}
       </p>
 
-      {products.data ? (
+      {products.data && !products.data.some((p) => p.active) ? (
+        // BE-A 충전 상품은 PG 준비 전 비활성이라 목록이 비거나 전부 비활성일 수 있다 (FE_COMPATIBILITY.md)
+        <p>
+          {/* TODO(PD 문구) */}
+          판매 중인 충전 상품이 없습니다
+        </p>
+      ) : products.data ? (
         <fieldset>
           {/* TODO(PD 문구) */}
           <legend>충전 상품</legend>

@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 // "use client" 이유: 견적 조회 · 구매 명령(TanStack Query)과 충전 화면 이동은 브라우저에서 한다.
 // 등껍질 차감 확인 팝업 + 잔액 부족 팝업 (CHECKOUT-POPUP, FRONTEND.md 3장 "Checkout — 등껍질 차감").
 // 근거: P-06 · P-09 (부족분 · 추천 충전 · 구매 후 잔액은 서버 견적 값만), Q-07 (견적 재확인 · QUOTE_EXPIRED 면 선택 유지 + 새 견적),
@@ -9,20 +10,21 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { GenerationScene } from "@/components/GenerationScene";
 import { Modal } from "@/components/Modal";
 import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
 import { loginHref } from "@/lib/auth/returnTo";
-import { getFortunePort } from "@/lib/ports";
+import { getFortunePort, getTopUpPort } from "@/lib/ports";
 import type {
   FortunePort,
   FortuneQuote,
   FortuneSelection,
   ReadingPurchaseResult,
 } from "@/lib/ports/fortune";
+import type { TopUpPort } from "@/lib/ports/topUp";
 import {
   clearPurchaseSelection,
   savePurchaseSelection,
@@ -33,6 +35,14 @@ import {
 } from "@/lib/reading/generation";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
+
+// 추천 충전 상품이 상품 목록에 없거나 비활성일 때의 경고 — 상품 code 만 보낸다 (본문 · 인적정보 금지, CLAUDE.md 관측)
+function reportMismatchToSentry(productCode: string) {
+  Sentry.captureMessage("recommended top-up not in product list", {
+    level: "warning",
+    tags: { productCode },
+  });
+}
 
 type Intent = { quoteId: string; key: string };
 
@@ -49,6 +59,8 @@ export function ShellCheckout({
   returnPath,
   onPurchased,
   port,
+  topUpPort,
+  reportMismatch = reportMismatchToSentry,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -65,6 +77,9 @@ export function ShellCheckout({
   onPurchased: (result: ReadingPurchaseResult) => void;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다.
   port?: FortunePort;
+  topUpPort?: TopUpPort;
+  // 테스트에서 주입한다
+  reportMismatch?: (productCode: string) => void;
 }) {
   const router = useRouter();
   const fortune = () => port ?? getFortunePort();
@@ -129,8 +144,36 @@ export function ShellCheckout({
     },
   });
 
-  // 시끄럽게 실패: 견적 조회 실패 · 계약 위반은 오류 화면(error.tsx)으로
-  if (quote.error) throw quote.error;
+  // 새 견적을 기다리는 동안에는 지난 견적 값을 보이지 않는다
+  const current = quote.isFetching ? null : (quote.data ?? null);
+  const insufficient = current !== null && current.shortage > 0;
+
+  // 추천 충전 상품 (P-06 · P-09): 부족하고 서버가 추천 code 를 줬을 때만 상품 목록을 받는다.
+  // 추천 code 는 서버 값이고 금액 · 수량은 목록(서버)의 값 그대로 — 화면 계산 없음. 포트는 요청할 때 고른다.
+  const recommendedCode = insufficient ? current.recommendedTopUp : null;
+  const topUps = useQuery({
+    queryKey: ["topUpProducts"],
+    queryFn: () => (topUpPort ?? getTopUpPort()).listTopUpProducts(),
+    enabled: open && recommendedCode !== null,
+  });
+  const recommended =
+    topUps.data?.find((p) => p.code === recommendedCode && p.active) ?? null;
+  const mismatchCode =
+    recommendedCode !== null && topUps.data && recommended === null
+      ? recommendedCode
+      : null;
+  useEffect(() => {
+    if (mismatchCode !== null) reportMismatch(mismatchCode);
+  }, [mismatchCode, reportMismatch]);
+
+  // 견적 조회가 401 이면 오류 화면 대신 팝업 안에서 로그인 안내 (A-03). 그 밖의 실패는 오류 화면으로
+  const quoteErrorKind = quote.error ? classifyApiError(quote.error) : null;
+  const quoteLoginRequired =
+    quoteErrorKind === "login_required" || quoteErrorKind === "csrf_failed";
+
+  // 시끄럽게 실패: 견적 조회 실패 · 충전 상품 조회 실패 · 계약 위반은 오류 화면(error.tsx)으로
+  if (quote.error && !quoteLoginRequired) throw quote.error;
+  if (topUps.error) throw topUps.error;
   if (purchase.error instanceof ApiContractError) throw purchase.error;
 
   const errorKind = purchase.error ? classifyApiError(purchase.error) : null;
@@ -186,10 +229,6 @@ export function ShellCheckout({
     setRound((n) => n + 1);
   }
 
-  // 새 견적을 기다리는 동안에는 지난 견적 값을 보이지 않는다
-  const current = quote.isFetching ? null : (quote.data ?? null);
-  const insufficient = current !== null && current.shortage > 0;
-
   return (
     <Modal
       open={open}
@@ -220,6 +259,17 @@ export function ShellCheckout({
             </>
           }
         />
+      ) : quoteLoginRequired ? (
+        <>
+          <p>
+            {/* TODO(PD 문구) */}
+            <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
+          </p>
+          <Button onClick={() => onOpenChange(false)}>
+            {/* TODO(PD 문구) */}
+            닫기
+          </Button>
+        </>
       ) : !current ? (
         // TODO(PD 문구)
         <output className="block">확인하고 있습니다</output>
@@ -231,6 +281,19 @@ export function ShellCheckout({
             <dd>{formatNumber(current.walletBalance)}</dd>
             <dt>부족</dt>
             <dd>{formatNumber(current.shortage)}</dd>
+            {recommended ? (
+              <>
+                {/* TODO(PD 문구): 항목 이름 · 단위 */}
+                <dt>추천 충전</dt>
+                <dd>
+                  {formatNumber(recommended.price.amount)}{" "}
+                  {recommended.price.currency}
+                </dd>
+                {/* TODO(PD 문구): 항목 이름 · 단위 */}
+                <dt>받는 수</dt>
+                <dd>{formatNumber(recommended.creditedAmount)}</dd>
+              </>
+            ) : null}
           </dl>
           {notice === "requoted" ? (
             // TODO(PD 문구)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import type { FortuneSelection } from "@/lib/ports/fortune";
+import type { TopUpProduct } from "@/lib/ports/topUp";
 import { createFakeFortunePort } from "./fortune";
 import { createFakeWallet } from "./wallet";
 
@@ -143,5 +144,85 @@ describe("가짜 운세 구매 포트 (MOCK-PORT)", () => {
     expect(result.status).toBe("FAILED");
     expect(result.refunded).toBe(true);
     expect(wallet.balance()).toBe(100);
+  });
+
+  describe("추천 충전 상품 — 가짜 서버가 BE-A 규칙으로 계산 (P-06 · MOCK-PORT)", () => {
+    // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다. 잔액 1 이면 부족분은 12 (상품 가격 13 − 1).
+    const topUp = (
+      code: string,
+      price: number,
+      credited: number,
+      active = true,
+    ): TopUpProduct => ({
+      code,
+      price: { currency: "KRW", amount: price },
+      paidAmount: credited,
+      bonusAmount: 0,
+      creditedAmount: credited,
+      active,
+    });
+
+    async function recommendedFor(
+      topUpProducts: readonly TopUpProduct[],
+      balance = 1,
+    ) {
+      const port = createFakeFortunePort({
+        wallet: createFakeWallet(balance),
+        topUpProducts,
+      });
+      const { selection } = await selectionFor(port);
+      return port.createQuote(selection);
+    }
+
+    it("a. 부족분을 채우는 활성 상품이 여럿이면 가격이 가장 낮은 것 (배열 첫 번째가 아니어도)", async () => {
+      const quote = await recommendedFor([
+        topUp("EXPENSIVE", 900, 50),
+        topUp("CHEAP", 300, 12),
+        topUp("MIDDLE", 500, 20),
+      ]);
+      expect(quote.shortage).toBe(12);
+      expect(quote.recommendedTopUp).toBe("CHEAP");
+    });
+
+    it("b. 가격이 같으면 code 사전순 앞", async () => {
+      const quote = await recommendedFor([
+        topUp("B_SAME", 300, 30),
+        topUp("A_SAME", 300, 20),
+        topUp("C_SAME", 300, 12),
+      ]);
+      expect(quote.recommendedTopUp).toBe("A_SAME");
+    });
+
+    it("c. 비활성 상품은 충분하고 가장 싸도 추천하지 않는다", async () => {
+      const quote = await recommendedFor([
+        topUp("INACTIVE_CHEAPEST", 100, 99, false),
+        topUp("ACTIVE", 700, 12),
+      ]);
+      expect(quote.recommendedTopUp).toBe("ACTIVE");
+    });
+
+    it("d. 부족분을 채우는 상품이 없으면 부족한데도 추천은 null", async () => {
+      const quote = await recommendedFor([
+        topUp("TOO_SMALL", 100, 11),
+        topUp("INACTIVE_BIG", 200, 99, false),
+      ]);
+      expect(quote.shortage).toBeGreaterThan(0);
+      expect(quote.recommendedTopUp).toBeNull();
+    });
+
+    it("e. 잔액이 충분하면 추천은 null 이고 구매 후 잔액은 숫자", async () => {
+      const quote = await recommendedFor([topUp("ANY", 100, 99)], 100);
+      expect(quote.shortage).toBe(0);
+      expect(quote.recommendedTopUp).toBeNull();
+      expect(quote.balanceAfter).toBe(87);
+    });
+
+    it("f. 없는 quoteId 로 getQuote 하면 404 RESOURCE_NOT_FOUND", async () => {
+      const port = createFakeFortunePort();
+      const error = await port.getQuote("missing").catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as ApiError).status).toBe(404);
+      expect(codeOf(error)).toBe("RESOURCE_NOT_FOUND");
+    });
   });
 });

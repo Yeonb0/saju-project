@@ -29,7 +29,7 @@ export type FakeTopUpScenario = (typeof FAKE_TOP_UP_SCENARIOS)[number];
 // 숫자를 일부러 실제와 다르게 둔 것은, 화면이 값을 하드코딩하면 테스트에서 바로 드러나게 하려는 것이다.
 // 비활성 상품은 화면이 고를 수 없게 막는지 확인하는 용도다.
 // creditedAmount 는 가짜 서버 데이터라 유료 + 보너스를 미리 계산해 적는다.
-const FIXTURE_PRODUCTS: readonly TopUpProduct[] = [
+export const FIXTURE_TOP_UP_PRODUCTS: readonly TopUpProduct[] = [
   {
     code: "FIXTURE_TOP_UP_A",
     price: { currency: "KRW", amount: 1111 },
@@ -141,7 +141,7 @@ export function createFakeTopUpPort(
     },
 
     async listTopUpProducts() {
-      return FIXTURE_PRODUCTS;
+      return FIXTURE_TOP_UP_PRODUCTS;
     },
 
     async createOrder(input, idempotencyKey) {
@@ -153,7 +153,7 @@ export function createFakeTopUpPort(
         }
         return stored.order;
       }
-      const product = FIXTURE_PRODUCTS.find(
+      const product = FIXTURE_TOP_UP_PRODUCTS.find(
         (p) => p.code === input.productCode,
       );
       if (!product) throw fail(404, "PRODUCT_NOT_FOUND");

@@ -11,6 +11,8 @@ import type {
   FortuneType,
   ReadingPurchaseResult,
 } from "@/lib/ports/fortune";
+import type { TopUpProduct } from "@/lib/ports/topUp";
+import { FIXTURE_TOP_UP_PRODUCTS } from "./topUp";
 import { createFakeWallet, type FakeWallet } from "./wallet";
 
 export const FAKE_FORTUNE_SCENARIOS = [
@@ -63,6 +65,8 @@ export function createFakeFortunePort(
   options: {
     scenario?: FakeFortuneScenario;
     wallet?: FakeWallet;
+    // 추천 충전 상품 계산에 쓰는 가짜 충전 상품 목록 (기본: src/mocks/topUp.ts 픽스처)
+    topUpProducts?: readonly TopUpProduct[];
     now?: () => number;
     // 구매가 끝나면 결과(reading)를 만든다 — 가짜 결과 포트와 이어 줄 때 넘긴다
     onFulfilled?: (
@@ -74,6 +78,7 @@ export function createFakeFortunePort(
   const scenario = options.scenario ?? "fulfilled";
   const wallet = options.wallet ?? createFakeWallet();
   const now = options.now ?? Date.now;
+  const topUpProducts = options.topUpProducts ?? FIXTURE_TOP_UP_PRODUCTS;
   const quotes = new Map<string, StoredQuote>();
   const purchases = new Map<string, StoredPurchase>();
   const processingSent = new Set<string>();
@@ -87,6 +92,19 @@ export function createFakeFortunePort(
     if (!found) throw fail(404, "PRODUCT_NOT_FOUND");
     if (!found.active) throw fail(422, "PRODUCT_NOT_AVAILABLE");
     return found;
+  }
+
+  // 가짜 서버가 BE-A 규칙으로 계산한다 (P-06 · MOCK-PORT, FE_COMPATIBILITY.md · QuoteFundingService):
+  // 부족할 때만, 활성 충전 상품 중 creditedAmount(보너스 포함) >= 부족분인 것 가운데
+  // 가격이 가장 낮은 것(같으면 code 사전순 앞). 후보가 없으면 null — 부족한데 null 일 수 있다.
+  function recommendTopUp(shortage: number): string | null {
+    if (shortage === 0) return null;
+    const candidates = topUpProducts
+      .filter((t) => t.active && t.creditedAmount >= shortage)
+      .sort(
+        (a, b) => a.price.amount - b.price.amount || (a.code < b.code ? -1 : 1),
+      );
+    return candidates[0]?.code ?? null;
   }
 
   function makeQuote(selection: FortuneSelection): FortuneQuote {
@@ -103,15 +121,15 @@ export function createFakeFortunePort(
       // 가짜 서버가 계산해 준다 — 화면은 이 값만 표시한다 (P-09)
       balanceAfter: shortage === 0 ? balance - p.price.amount : null,
       shortage,
-      // 픽스처 — 가짜 충전 상품 코드 (src/mocks/topUp.ts)
-      recommendedTopUp: shortage === 0 ? null : "FIXTURE_TOP_UP_A",
+      recommendedTopUp: recommendTopUp(shortage),
       expiresAt: new Date(now() + QUOTE_TTL_MS).toISOString(),
     };
   }
 
   function findQuote(quoteId: string) {
     const stored = quotes.get(quoteId);
-    if (!stored) throw fail(404, "QUOTE_NOT_FOUND");
+    // 근거: FE_COMPATIBILITY.md "missing/other-user quotes return RESOURCE_NOT_FOUND"
+    if (!stored) throw fail(404, "RESOURCE_NOT_FOUND");
     if (stored.expired || Date.parse(stored.quote.expiresAt) <= now()) {
       stored.expired = true;
       throw fail(409, "QUOTE_EXPIRED");

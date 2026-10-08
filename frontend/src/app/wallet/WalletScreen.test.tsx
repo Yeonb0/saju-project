@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import { makeQueryClient } from "@/lib/queryClient";
-import { createFakeTopUpPort } from "@/mocks/topUp";
+import { createFakeTopUpPort, FIXTURE_TOP_UP_PRODUCTS } from "@/mocks/topUp";
 import { WalletScreen } from "./WalletScreen";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -108,6 +108,37 @@ describe("WalletScreen (PAY-01)", () => {
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
     expect(createOrder).toHaveBeenCalledTimes(1);
+  });
+
+  describe("판매 중인 충전 상품이 없을 때 (BE-A: PG 준비 전 비활성)", () => {
+    const portWith = (products: typeof FIXTURE_TOP_UP_PRODUCTS) => {
+      const port = createFakeTopUpPort();
+      vi.spyOn(port, "listTopUpProducts").mockResolvedValue(products);
+      return port;
+    };
+    const NOTICE = "판매 중인 충전 상품이 없습니다";
+
+    it("n. 전부 비활성이면 안내만 보이고 라디오 없음 · 결제 버튼 disabled", async () => {
+      setup(
+        portWith(FIXTURE_TOP_UP_PRODUCTS.map((p) => ({ ...p, active: false }))),
+      );
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      expect(screen.queryAllByRole("radio")).toHaveLength(0);
+      expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+    });
+
+    it("o. 빈 배열이어도 같은 안내", async () => {
+      setup(portWith([]));
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      expect(screen.queryAllByRole("radio")).toHaveLength(0);
+      expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+    });
+
+    it("p. 활성 + 비활성이 섞여 있으면 안내 없이 기존 동작", async () => {
+      setup();
+      expect(await screen.findAllByRole("radio")).toHaveLength(7);
+      expect(screen.queryByText(NOTICE)).toBeNull();
+    });
   });
 
   it("진짜 모드인데 구현이 없으면 조용히 넘어가지 않고 오류 화면으로 던진다", async () => {
