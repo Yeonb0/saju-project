@@ -105,6 +105,37 @@ class GeneralReadingApiTest {
     }
 
     @Test
+    void categoryEndpointsReturnCategorySpecificNamedFields() throws Exception {
+        String overallId = categoryPurchase("overall", "OVERALL_FLOW", false,
+                "currentFlow", "relationships", "studyAndWork", "wealthFlow", "condition", "luckyPoint");
+        String loveId = categoryPurchase("love", "CURRENT_RELATIONSHIP", false,
+                "currentFlow", "goodPeriod", "caution", "actionTip");
+        String wealthId = categoryPurchase("wealth", "OVERALL_WEALTH", false,
+                "wealthFlow", "income", "spendingCaution", "goodPeriod", "actionTip");
+        String compatibilityId = categoryPurchase("compatibility", "OVERALL_MATCH", true,
+                "matchStrength", "matchConflict", "communication", "relationshipTip");
+        String sinsalId = categoryPurchase("sinsal", "OVERALL_SINSAL", false,
+                "specialStars", "balancingGuide", "missingElement");
+
+        mvc.perform(get("/api/v1/readings/love/{id}", loveId).with(user(userId.toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.meta.questionKey").value("CURRENT_RELATIONSHIP"))
+                .andExpect(jsonPath("$.data.goodPeriod.content").isString())
+                .andExpect(jsonPath("$.data.sections").doesNotExist());
+        mvc.perform(get("/api/v1/readings/love").with(user(userId.toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(loveId))
+                .andExpect(jsonPath("$.data.items[0].summary.content").isString());
+        mvc.perform(get("/api/v1/readings/love/{id}", compatibilityId).with(user(userId.toString())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("READING_NOT_FOUND"));
+
+        org.assertj.core.api.Assertions.assertThat(List.of(overallId, loveId, wealthId, compatibilityId, sinsalId))
+                .doesNotHaveDuplicates();
+    }
+
+    @Test
     void rejectsQuestionFromAnotherFortuneAndIncompleteCompatibility() throws Exception {
         mvc.perform(post("/api/v1/quotes/fortune").with(user(userId.toString())).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -196,6 +227,43 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.questionKey").value(questionKey))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(sections))
                 .andExpect(jsonPath("$.data.reading.talisman").doesNotExist());
+    }
+
+    private String categoryPurchase(String category, String questionKey, boolean compatibility,
+                                    String... expectedFields) throws Exception {
+        String extra = compatibility ? """
+                ,"counterpartPersonId":"%s","relationType":"LOVER"
+                """.formatted(counterpartId).strip() : "";
+        String quoteRequest = """
+                {"personId":"%s","productOption":"READING_ONLY","questionKey":"%s"%s}
+                """.formatted(personId, questionKey, extra);
+        String quoteResponse = mvc.perform(post("/api/v1/quotes/fortune/{category}", category)
+                        .with(user(userId.toString())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(quoteRequest))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.productCode").value(category.toUpperCase() + "_READING_ONLY"))
+                .andExpect(jsonPath("$.data.questionKey").value(questionKey))
+                .andReturn().getResponse().getContentAsString();
+        UUID categoryQuoteId = UUID.fromString(JsonPath.read(quoteResponse, "$.data.quoteId"));
+        String purchaseRequest = quoteRequest.substring(0, quoteRequest.length() - 2)
+                + ",\"quoteId\":\"" + categoryQuoteId + "\"}";
+        var action = mvc.perform(post("/api/v1/reading-purchases/{category}", category)
+                        .with(user(userId.toString())).with(csrf())
+                        .header("Idempotency-Key", "category-" + category)
+                        .contentType(MediaType.APPLICATION_JSON).content(purchaseRequest))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.reading.meta.questionKey").value(questionKey))
+                .andExpect(jsonPath("$.data.reading.summary.content").isString())
+                .andExpect(jsonPath("$.data.reading.sections").doesNotExist());
+        for (String field : expectedFields) {
+            action.andExpect(jsonPath("$.data.reading." + field + ".content").isString());
+        }
+        if (compatibility) {
+            action.andExpect(jsonPath("$.data.reading.counterpart.personId").value(counterpartId.toString()))
+                    .andExpect(jsonPath("$.data.reading.counterpart.relationType").value("LOVER"));
+        }
+        String response = action.andReturn().getResponse().getContentAsString();
+        return JsonPath.read(response, "$.data.readingId");
     }
 
     private String purchase(String type, String questionKey) throws Exception {
