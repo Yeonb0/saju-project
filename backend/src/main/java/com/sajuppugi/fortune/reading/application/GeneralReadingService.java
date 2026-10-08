@@ -23,7 +23,7 @@ import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
 import com.sajuppugi.fortune.reading.domain.RelationType;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
-import com.sajuppugi.fortune.talisman.application.SuneungTalismanPort;
+import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateTalisman;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -42,28 +42,28 @@ public class GeneralReadingService {
     private final CatalogUseCase catalog;
     private final ObjectProvider<WalletPurchasePort> walletProvider;
     private final ObjectProvider<ReadingSubjectPort> subjectProvider;
-    private final ObjectProvider<SuneungTalismanPort> talismanProvider;
     private final SajuCalculationUseCase calculation;
     private final ReadingGenerationService generation;
     private final SuneungPurchaseClaimService claims;
     private final ReadingRepository readings;
+    private final BundledReadingFulfillmentService bundledFulfillment;
     private final ReadingQuoteContext quoteContext;
     private final Clock clock;
 
     public GeneralReadingService(CatalogUseCase catalog, ObjectProvider<WalletPurchasePort> walletProvider,
                                  ObjectProvider<ReadingSubjectPort> subjectProvider,
-                                 ObjectProvider<SuneungTalismanPort> talismanProvider,
                                  SajuCalculationUseCase calculation, ReadingGenerationService generation,
                                  SuneungPurchaseClaimService claims, ReadingRepository readings,
+                                 BundledReadingFulfillmentService bundledFulfillment,
                                  ReadingQuoteContext quoteContext, Clock clock) {
         this.catalog = catalog;
         this.walletProvider = walletProvider;
         this.subjectProvider = subjectProvider;
-        this.talismanProvider = talismanProvider;
         this.calculation = calculation;
         this.generation = generation;
         this.claims = claims;
         this.readings = readings;
+        this.bundledFulfillment = bundledFulfillment;
         this.quoteContext = quoteContext;
         this.clock = clock;
     }
@@ -118,16 +118,18 @@ public class GeneralReadingService {
                     value(relationType), policy.allowedSections(), missingFields,
                     GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion()));
             UUID readingId = UUID.randomUUID();
-            SuneungTalismanPort.TalismanFulfillment talisman = option == ProductOption.READING_WITH_TALISMAN
-                    ? createTalisman(userId, readingId, facts, policy.contentVersion()) : null;
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     fortuneType, option, personId, subjects.primary().displayName(), counterpartPersonId,
                     subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
                     questionKey, null, generated.response(), generated.calculationVersion(),
                     generated.generationVersion(), generated.contentVersion(), generated.generationMode(),
-                    talisman == null ? null : talisman.talismanId(), talisman == null ? null : talisman.status().name(),
-                    clock.instant());
-            readings.fulfill(purchase, reading);
+                    null, null, clock.instant());
+            if (option == ProductOption.READING_WITH_TALISMAN) {
+                reading = bundledFulfillment.fulfill(purchase, reading, new CreateTalisman(
+                        userId, readingId, fortuneType, facts, policy.contentVersion()));
+            } else {
+                readings.fulfill(purchase, reading);
+            }
             return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
         } catch (RuntimeException failure) {
             readings.markFailed(purchase.id());
@@ -198,14 +200,6 @@ public class GeneralReadingService {
                     "counterpart.twelveStages.hour"));
         }
         return List.copyOf(missing);
-    }
-
-    private SuneungTalismanPort.TalismanFulfillment createTalisman(
-            UUID userId, UUID readingId, CalculationFacts facts, String contentVersion) {
-        SuneungTalismanPort talismans = required(talismanProvider.getIfAvailable());
-        SuneungTalismanPort.TalismanFulfillment talisman = talismans.create(userId, readingId, facts, contentVersion);
-        if (talisman == null) throw new IllegalStateException("Talisman fulfillment returned no result");
-        return talisman;
     }
 
     private void compensate(WalletPurchasePort wallet, UUID transactionId, IdempotencyKey key,

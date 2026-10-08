@@ -102,6 +102,6 @@ cd backend
 - 시험일: 2026-11-19, 판매 종료: 2026-11-18 23:59:59 KST
 - 상품 코드: `SUNEUNG_READING_WITH_TALISMAN`
 
-견적 context는 인물·상품·시험일을 묶어 다른 인물에 재사용할 수 없다. 같은 견적의 재요청은 최초 구매를 반환하고 지갑과 Liner를 다시 호출하지 않는다. 번들 부적은 `SuneungTalismanPort`가 `PENDING` 또는 `READY` fulfillment를 반환해야 구매가 완료된다. Liner 실패는 검증된 fallback으로 정상 완료하고, fallback을 포함한 결과 생성·부적 fulfillment 최종 실패와 차감 금액 불일치는 원 거래를 보상하고 구매를 `REFUNDED`로 기록한다.
+견적 context는 인물·상품·시험일을 묶어 다른 인물에 재사용할 수 없다. 같은 견적의 재요청은 최초 구매를 반환하고 지갑과 Liner를 다시 호출하지 않는다. 번들 부적은 `TalismanFulfillmentPort`가 `PENDING` 또는 `READY` fulfillment를 반환해야 구매가 완료된다. Liner 실패는 검증된 fallback으로 정상 완료하고, fallback을 포함한 결과 생성·부적 fulfillment 최종 실패와 차감 금액 불일치는 원 거래를 보상하고 구매를 `REFUNDED`로 기록한다.
 
-현재 실제 구매 실행에는 BE-A의 `WalletPurchasePort` 구현과 수능 상품 seed, BE-B 인물 모듈의 `ReadingSubjectPort`, 부적 모듈의 `SuneungTalismanPort` 구현이 필요하다. 의존성이 준비되지 않은 운영 요청은 유료 콘텐츠를 우회 제공하지 않고 `READING_FULFILLMENT_UNAVAILABLE`로 실패한다.
+현재 실제 구매 실행에는 BE-A의 `WalletPurchasePort` 구현과 수능 상품 seed, BE-B 인물 모듈의 `ReadingSubjectPort`가 필요하다. 부적 메타데이터와 소유권은 `TalismanFulfillmentPort`의 기본 구현이 저장한다. 다른 의존성이 준비되지 않은 운영 요청은 유료 콘텐츠를 우회 제공하지 않고 `READING_FULFILLMENT_UNAVAILABLE`로 실패한다.

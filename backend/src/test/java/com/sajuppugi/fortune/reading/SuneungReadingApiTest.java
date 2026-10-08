@@ -21,9 +21,11 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
+import com.sajuppugi.fortune.talisman.domain.Talisman.Status;
+import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort;
+import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.TalismanFulfillment;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
 import com.sajuppugi.wallet.domain.WalletBalance;
-import com.sajuppugi.fortune.talisman.application.SuneungTalismanPort;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -57,7 +59,7 @@ class SuneungReadingApiTest {
     @MockitoBean WalletPurchasePort wallet;
     @MockitoBean ReadingSubjectPort subjects;
     @MockitoBean LinerProvider liner;
-    @MockitoBean SuneungTalismanPort talismans;
+    @MockitoBean TalismanFulfillmentPort talismans;
 
     private UUID userId;
     private UUID otherUserId;
@@ -89,8 +91,7 @@ class SuneungReadingApiTest {
         quoteId = issueQuote(userId, personId);
         when(wallet.debit(eq(userId), eq(quoteId), any())).thenReturn(
                 new WalletPurchasePort.DebitResult(UUID.randomUUID(), 15, new WalletBalance(20, 5)));
-        when(talismans.create(eq(userId), any(), any(), eq("suneung-2026-v1"))).thenReturn(
-                new SuneungTalismanPort.TalismanFulfillment(UUID.randomUUID(), SuneungTalismanPort.Status.PENDING));
+        when(talismans.create(any())).thenReturn(new TalismanFulfillment(UUID.randomUUID(), Status.PENDING));
     }
 
     @Test
@@ -186,7 +187,7 @@ class SuneungReadingApiTest {
     @Test
     void talismanFulfillmentFailureAlsoCompensatesPurchase() throws Exception {
         doThrow(new IllegalStateException("image pipeline unavailable")).when(talismans)
-                .create(eq(userId), any(), any(), eq("suneung-2026-v1"));
+                .create(any());
         when(wallet.compensate(any(), eq("READING_GENERATION_FAILED"), any())).thenReturn(
                 new WalletPurchasePort.CompensationResult(UUID.randomUUID(), UUID.randomUUID(), new WalletBalance(35, 5)));
 

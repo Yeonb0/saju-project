@@ -1,6 +1,7 @@
 package com.sajuppugi.fortune.reading;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -19,7 +20,9 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
-import com.sajuppugi.fortune.talisman.application.SuneungTalismanPort;
+import com.sajuppugi.fortune.talisman.domain.Talisman.Status;
+import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort;
+import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.TalismanFulfillment;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
 import com.sajuppugi.wallet.domain.WalletBalance;
 import java.time.Clock;
@@ -52,7 +55,7 @@ class GeneralReadingApiTest {
     @MockitoBean WalletPurchasePort wallet;
     @MockitoBean ReadingSubjectPort subjects;
     @MockitoBean LinerProvider liner;
-    @MockitoBean SuneungTalismanPort talismans;
+    @MockitoBean TalismanFulfillmentPort talismans;
 
     private UUID userId;
     private UUID otherUserId;
@@ -80,8 +83,7 @@ class GeneralReadingApiTest {
                     Integer.class, debitQuoteId);
             return new WalletPurchasePort.DebitResult(UUID.randomUUID(), amount, new WalletBalance(30, 5));
         });
-        when(talismans.create(eq(userId), any(), any(), any())).thenReturn(
-                new SuneungTalismanPort.TalismanFulfillment(UUID.randomUUID(), SuneungTalismanPort.Status.PENDING));
+        when(talismans.create(any())).thenReturn(new TalismanFulfillment(UUID.randomUUID(), Status.PENDING));
     }
 
     @Test
@@ -178,7 +180,9 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.productOption").value("READING_WITH_TALISMAN"))
                 .andExpect(jsonPath("$.data.reading.talisman.id").isString())
                 .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"));
-        verify(talismans).create(eq(userId), any(), any(), eq("love-2026.10.08"));
+        verify(talismans).create(argThat(command -> command.ownerUserId().equals(userId)
+                && command.fortuneType().name().equals("LOVE")
+                && command.contentVersion().equals("love-2026.10.08")));
     }
 
     @Test

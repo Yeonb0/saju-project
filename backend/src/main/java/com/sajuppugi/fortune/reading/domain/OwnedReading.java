@@ -40,5 +40,15 @@ public record OwnedReading(
                 contentVersion, generationMode, talismanId, talismanStatus, createdAt);
     }
 
+    public OwnedReading withTalisman(UUID newTalismanId, String newTalismanStatus) {
+        if (talismanId != null || talismanStatus != null) {
+            throw new IllegalStateException("Reading already has a talisman");
+        }
+        return new OwnedReading(id, resultId, ownerUserId, purchaseId, fortuneType, productOption,
+                subjectPersonId, subjectDisplayName, counterpartPersonId, counterpartDisplayName,
+                relationType, questionKey, eventDate, sections, calculationVersion, generationVersion,
+                contentVersion, generationMode, newTalismanId, newTalismanStatus, createdAt);
+    }
+
     public enum ProductOption { READING_ONLY, READING_WITH_TALISMAN }
 }
