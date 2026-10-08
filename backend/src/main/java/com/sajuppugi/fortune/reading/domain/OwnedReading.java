@@ -19,6 +19,8 @@ public record OwnedReading(
         String calculationVersion,
         String generationVersion,
         String contentVersion,
+        UUID talismanId,
+        String talismanStatus,
         Instant createdAt) {
 
     public enum ProductOption { READING_ONLY, READING_WITH_TALISMAN }

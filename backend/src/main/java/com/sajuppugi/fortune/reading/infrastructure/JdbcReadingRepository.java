@@ -64,11 +64,13 @@ public class JdbcReadingRepository implements ReadingRepository {
         jdbc.update("""
                 INSERT INTO readings (id, reading_result_id, owner_user_id, purchase_id, fortune_type,
                 product_option, subject_display_name, event_date, public_snapshot, calculation_version,
-                generation_version, content_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                generation_version, content_version, talisman_id, talisman_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, reading.id(), reading.resultId(), reading.ownerUserId(), reading.purchaseId(),
                 reading.fortuneType().name(), reading.productOption().name(), reading.subjectDisplayName(),
                 reading.eventDate(), json(reading.sections()), reading.calculationVersion(),
-                reading.generationVersion(), reading.contentVersion(), Timestamp.from(reading.createdAt()));
+                reading.generationVersion(), reading.contentVersion(), reading.talismanId(), reading.talismanStatus(),
+                Timestamp.from(reading.createdAt()));
         requireOne(jdbc.update("""
                 UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?
                 WHERE id = ? AND status = 'GENERATING'
@@ -111,7 +113,8 @@ public class JdbcReadingRepository implements ReadingRepository {
                     rs.getString("subject_display_name"), rs.getObject("event_date", java.time.LocalDate.class),
                     mapper.readValue(rs.getString("public_snapshot"), LinerResponse.class),
                     rs.getString("calculation_version"), rs.getString("generation_version"),
-                    rs.getString("content_version"), instant(rs, "created_at"));
+                    rs.getString("content_version"), rs.getObject("talisman_id", UUID.class),
+                    rs.getString("talisman_status"), instant(rs, "created_at"));
         } catch (JsonProcessingException exception) {
             throw new SQLException("Invalid reading snapshot", exception);
         }

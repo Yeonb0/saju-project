@@ -23,6 +23,7 @@ import com.sajuppugi.fortune.generation.port.LinerProvider;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
 import com.sajuppugi.wallet.domain.WalletBalance;
+import com.sajuppugi.fortune.talisman.application.SuneungTalismanPort;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,6 +57,7 @@ class SuneungReadingApiTest {
     @MockitoBean WalletPurchasePort wallet;
     @MockitoBean ReadingSubjectPort subjects;
     @MockitoBean LinerProvider liner;
+    @MockitoBean SuneungTalismanPort talismans;
 
     private UUID userId;
     private UUID otherUserId;
@@ -87,6 +89,8 @@ class SuneungReadingApiTest {
         quoteId = issueQuote(userId, personId);
         when(wallet.debit(eq(userId), eq(quoteId), any())).thenReturn(
                 new WalletPurchasePort.DebitResult(UUID.randomUUID(), 15, new WalletBalance(20, 5)));
+        when(talismans.create(eq(userId), any(), any(), eq("suneung-2026-v1"))).thenReturn(
+                new SuneungTalismanPort.TalismanFulfillment(UUID.randomUUID(), SuneungTalismanPort.Status.PENDING));
     }
 
     @Test
@@ -105,6 +109,8 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.event.type").value("CSAT"))
                 .andExpect(jsonPath("$.data.reading.event.date").value("2026-11-19"))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(8))
+                .andExpect(jsonPath("$.data.reading.talisman.id").isString())
+                .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(userId.toString()))))
                 .andReturn().getResponse().getContentAsString();
 
@@ -167,6 +173,23 @@ class SuneungReadingApiTest {
 
         verify(liner, times(0)).generate(any());
         verify(wallet).compensate(eq(transactionId), eq("READING_DEBIT_MISMATCH"), any());
+        assertThatStatus("REFUNDED");
+    }
+
+    @Test
+    void talismanFulfillmentFailureAlsoCompensatesPurchase() throws Exception {
+        doThrow(new IllegalStateException("image pipeline unavailable")).when(talismans)
+                .create(eq(userId), any(), any(), eq("suneung-2026-v1"));
+        when(wallet.compensate(any(), eq("READING_GENERATION_FAILED"), any())).thenReturn(
+                new WalletPurchasePort.CompensationResult(UUID.randomUUID(), UUID.randomUUID(), new WalletBalance(35, 5)));
+
+        mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
+                        .header("Idempotency-Key", "talisman-failure-key")
+                        .contentType(MediaType.APPLICATION_JSON).content(body()))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("READING_GENERATION_FAILED"));
+
+        verify(wallet).compensate(any(), eq("READING_GENERATION_FAILED"), any());
         assertThatStatus("REFUNDED");
     }
 

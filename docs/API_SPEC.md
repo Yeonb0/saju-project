@@ -479,13 +479,15 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "contentVersion": "love-2026.10.20",
   "charged": { "currency": "TURTLE_SHELL", "amount": 55 },
   "balance": 45,
-  "talisman": { "id": "uuid", "status": "PENDING" }
+  "reading": {
+    "talisman": { "id": "uuid", "status": "PENDING" }
+  }
 }
 ```
 
 - 계산 실패, Liner 호출 실패 또는 Liner 응답 검증 실패가 서버 재시도 후에도 해소되지 않으면 구매는 `FAILED`, 차감은 역분개하고 `refunded=true`를 반환한다.
 - 동일한 `Idempotency-Key` 또는 `generationKey`의 재요청은 외부 호출을 중복 실행하지 않고 진행 중 상태나 최초 완료 결과를 반환한다.
-- 부적 상태 처리 방식은 `TBD(F-06)`다.
+- 부적 fulfillment는 `PENDING` 또는 `READY`를 반환하며, 부적 생성 시작 자체가 실패하면 구매를 완료하지 않고 등껍질을 복구한다. 비동기 완료 방식은 `TBD(F-06)` 확정에 따라 확장한다.
 
 ### `GET /readings`
 

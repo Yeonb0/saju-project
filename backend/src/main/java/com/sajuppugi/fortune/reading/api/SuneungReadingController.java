@@ -88,14 +88,17 @@ public class SuneungReadingController {
     public record ReadingResponse(UUID id, String fortuneType, String productOption, String subjectDisplayName,
                                   Event event, List<GeneratedSection> sections, String calculationVersion,
                                   String generationVersion, String contentVersion, Instant createdAt,
-                                  List<String> disclaimers) {
+                                  List<String> disclaimers, Talisman talisman) {
         static ReadingResponse from(OwnedReading reading) {
             return new ReadingResponse(reading.id(), reading.fortuneType().name(), reading.productOption().name(),
                     reading.subjectDisplayName(), new Event("CSAT", reading.eventDate()),
                     reading.sections().sections(), reading.calculationVersion(), reading.generationVersion(),
-                    reading.contentVersion(), reading.createdAt(), List.of("FOR_ENTERTAINMENT"));
+                    reading.contentVersion(), reading.createdAt(), List.of("FOR_ENTERTAINMENT"),
+                    new Talisman(reading.talismanId(), reading.talismanStatus()));
         }
     }
 
     public record Event(String type, LocalDate date) {}
+
+    public record Talisman(UUID id, String status) {}
 }

@@ -19,6 +19,7 @@ import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
+import com.sajuppugi.fortune.talisman.application.SuneungTalismanPort;
 import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -36,6 +37,7 @@ public class SuneungReadingService {
     private final CatalogUseCase catalog;
     private final ObjectProvider<WalletPurchasePort> walletProvider;
     private final ObjectProvider<ReadingSubjectPort> subjectProvider;
+    private final ObjectProvider<SuneungTalismanPort> talismanProvider;
     private final SajuCalculationUseCase calculation;
     private final ReadingGenerationService generation;
     private final SuneungPurchaseClaimService claims;
@@ -45,12 +47,14 @@ public class SuneungReadingService {
 
     public SuneungReadingService(CatalogUseCase catalog, ObjectProvider<WalletPurchasePort> walletProvider,
                                  ObjectProvider<ReadingSubjectPort> subjectProvider,
+                                 ObjectProvider<SuneungTalismanPort> talismanProvider,
                                  SajuCalculationUseCase calculation, ReadingGenerationService generation,
                                  SuneungPurchaseClaimService claims, ReadingRepository readings,
                                  SuneungQuoteContext quoteContext, Clock clock) {
         this.catalog = catalog;
         this.walletProvider = walletProvider;
         this.subjectProvider = subjectProvider;
+        this.talismanProvider = talismanProvider;
         this.calculation = calculation;
         this.generation = generation;
         this.claims = claims;
@@ -62,6 +66,7 @@ public class SuneungReadingService {
     public PurchaseResult purchase(UUID userId, UUID quoteId, UUID personId, IdempotencyKey key) {
         WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
         ReadingSubjectPort subjects = required(subjectProvider.getIfAvailable());
+        SuneungTalismanPort talismans = required(talismanProvider.getIfAvailable());
         ReadingSubjectPort.OwnedSubject subject = Optional.ofNullable(subjects.getOwnedSubject(userId, personId))
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         PurchaseQuote quote = validateQuote(userId, quoteId, personId);
@@ -95,10 +100,15 @@ public class SuneungReadingService {
                     SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
                     subject.birthInput().birthTimeUnknown() ? List.of("pillars.hour", "tenGods.hour", "twelveStages.hour") : List.of(),
                     SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION));
-            OwnedReading reading = new OwnedReading(UUID.randomUUID(), generated.resultId(), userId, purchase.id(),
+            UUID readingId = UUID.randomUUID();
+            SuneungTalismanPort.TalismanFulfillment talisman = talismans.create(
+                    userId, readingId, facts, SuneungEventPolicy.CONTENT_VERSION);
+            if (talisman == null) throw new IllegalStateException("Talisman fulfillment returned no result");
+            OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, subject.displayName(),
                     SuneungEventPolicy.EXAM_DATE, generated.response(), generated.calculationVersion(),
-                    generated.generationVersion(), generated.contentVersion(), clock.instant());
+                    generated.generationVersion(), generated.contentVersion(), talisman.talismanId(),
+                    talisman.status().name(), clock.instant());
             readings.fulfill(purchase, reading);
             return completed(reading, debit.balance().balance(), false);
         } catch (RuntimeException generationFailure) {
