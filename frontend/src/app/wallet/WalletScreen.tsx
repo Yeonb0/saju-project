@@ -7,15 +7,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
 import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
 import { loginHref } from "@/lib/auth/returnTo";
-import { getPaymentLauncher, getTopUpPort } from "@/lib/ports";
+import { getFortunePort, getPaymentLauncher, getTopUpPort } from "@/lib/ports";
+import type { FortunePort } from "@/lib/ports/fortune";
 import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
 import type { TopUpPort } from "@/lib/ports/topUp";
+import { loadPurchaseSelection } from "@/lib/purchase/restore";
 
 type Intent = { productCode: string; key: string };
 
@@ -24,11 +26,13 @@ const formatNumber = (value: number) => value.toLocaleString("ko-KR");
 export function WalletScreen({
   port,
   launcher,
+  fortunePort,
 }: {
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 진짜 구현이 없으면 던져 오류 화면으로 간다.
   // 포트는 렌더 중이 아니라 요청할 때 고른다: 빌드의 정적 렌더에서 진짜 모드 오류로 빌드가 멈추지 않게.
   port?: TopUpPort;
   launcher?: PaymentLauncher;
+  fortunePort?: FortunePort;
 }) {
   const router = useRouter();
   const topUp = () => port ?? getTopUpPort();
@@ -44,6 +48,42 @@ export function WalletScreen({
   });
 
   const [selected, setSelected] = useState<string | null>(null);
+
+  // 잔액 부족 팝업에서 왔으면 저장된 구매 선택의 견적 ID 를 읽는다 (PURCHASE-RESTORE).
+  // /wallet 은 정적 프리렌더라 렌더 중에 sessionStorage 를 읽지 않는다 — 하이드레이션 불일치.
+  // 저장값은 지우지 않는다: 충전 후 앞 화면 복귀에 쓴다 (TopUpSuccess).
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  useEffect(() => {
+    setSavedQuoteId(loadPurchaseSelection()?.quoteId ?? null);
+  }, []);
+
+  const quote = useQuery({
+    queryKey: ["fortuneQuote", savedQuoteId],
+    queryFn: () =>
+      (fortunePort ?? getFortunePort()).getQuote(savedQuoteId ?? ""),
+    enabled: savedQuoteId !== null,
+    // 견적은 매번 서버 값을 새로 받는다 — 만료는 재시도로 낫지 않는다
+    retry: false,
+  });
+  const quoteErrorKind = quote.error ? classifyApiError(quote.error) : null;
+  // 만료 · 없는 견적 — 복귀한 앞 화면이 새 견적을 받는다 (Q-07)
+  const quoteGone =
+    quoteErrorKind === "quote_expired" || quoteErrorKind === "not_found";
+
+  // 부족 값은 서버 견적의 짝 그대로 (P-09) — 화면에서 계산하지 않는다
+  const shortageQuote =
+    quote.data && quote.data.shortage > 0 ? quote.data : null;
+
+  // 추천 충전 상품은 서버 값 (P-06). 사용자가 아직 고르지 않았을 때 한 번만 미리 고른다
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (preselected.current || selected !== null || !shortageQuote) return;
+    const code = shortageQuote.recommendedTopUp;
+    if (code === null) return;
+    if (!products.data?.some((p) => p.code === code && p.active)) return;
+    preselected.current = true;
+    setSelected(code);
+  }, [selected, shortageQuote, products.data]);
   // 구매 의도 하나에 키 하나 — 실패 후 다시 눌러도 같은 상품이면 같은 키 (I-05)
   const intent = useRef<Intent | null>(null);
   // 같은 틱의 두 번째 탭은 렌더 전이라 isPending 이 아직 false 다 — ref 로 한 번 더 막는다
@@ -61,6 +101,7 @@ export function WalletScreen({
 
   // 시끄럽게 실패: 조회 실패와 계약 위반은 오류 화면(error.tsx)으로
   if (wallet.error) throw wallet.error;
+  if (quote.error && !quoteGone) throw quote.error;
   if (products.error) throw products.error;
   if (order.error instanceof ApiContractError) throw order.error;
 
@@ -101,11 +142,28 @@ export function WalletScreen({
         </div>
       }
     >
-      <div className="mt-[53px] ml-[31px] text-[20px] leading-[normal]">
-        <p>
+      {shortageQuote ? (
+        // 잔액 부족 팝업에서 온 경우 (PAY-02 · FORT-04, LAYOUT-FIGMA 240:98 · 244:237)
+        <div
+          data-slot="shortage"
+          className="mt-[40px] text-center text-[20px] leading-[27px]"
+        >
           {/* TODO(PD 문구) */}
-          보유 {wallet.data ? formatNumber(wallet.data.balance) : null}
-        </p>
+          <p>보유 {formatNumber(shortageQuote.walletBalance)}</p>
+          {/* TODO(PD 문구) */}
+          <p>부족 {formatNumber(shortageQuote.shortage)}</p>
+        </div>
+      ) : null}
+
+      <div
+        className={`${shortageQuote ? "mt-[0px]" : "mt-[53px]"} ml-[31px] text-[20px] leading-[normal]`}
+      >
+        {shortageQuote ? null : (
+          <p>
+            {/* TODO(PD 문구) */}
+            보유 {wallet.data ? formatNumber(wallet.data.balance) : null}
+          </p>
+        )}
 
         {products.data && !products.data.some((p) => p.active) ? (
           // BE-A 충전 상품은 PG 준비 전 비활성이라 목록이 비거나 전부 비활성일 수 있다 (FE_COMPATIBILITY.md)
