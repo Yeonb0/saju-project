@@ -6,42 +6,50 @@
 
 ## 현재 상태
 
-- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** 으로 FE 가 할 수 있는 화면 흐름을 끝내는 중. 10/8 부터 **최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA)** — 글꼴 · 손그림 프레임 · 캐릭터 · 에셋 · 색 토큰 · 와이어 문구는 계속 보류. 코드는 Claude Code, 웹 대화는 명세 · 검토 (CODE-BY-CC). **위험: BE 스테이징 · HTTP 업무 API · OpenAPI 없음, 제공일 재산정 중 (R-06) — FE 목표 10/12 · 심사 요청 10/14 는 BE 일정에 달렸다**. 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
-- **마지막으로 끝낸 작업** (10/6 ~ 10/8, `boyeon` `aaa196e`):
-  - 10/6 새벽 Claude Code 세션(사용자)이 웹 대화 검토 없이 8커밋 push · draft PR #13 생성 — 10/7 사후 검토로 유지 결정: 차감 확인 · 잔액 부족 팝업(`3d939c4`), 구매 선택 복원 연결(`c83ae3e`), 준비물 체크 저장(`04bcb28`), ReadingViewer · 결과 재열람(`16e56aa`), PersonCard(`0e5cb37`), 생성 대기 · 실패 안내(`57ceedd`), `screens.ts` 화면 ID 전환(`4ce2e6a`), Vitest node/jsdom 분리(`39c750d`)
-  - `main` BE-A PR #14(`a064ea6`) 를 `boyeon` 에 병합(`a47e428`) — 상품 · 견적 · 지갑 조회 내부 구현, HTTP 없음 (`backend/docs/FE_COMPATIBILITY.md`)
-  - 잔액 부족 팝업에 서버 추천 충전 상품(P-06), 가짜 추천을 BE-A 규칙으로, 견적 401 로그인 안내, `/wallet` 판매 상품 없음 (`6526d3c`)
-  - PG-4 `/about` 틀 — 활성 충전 상품만 서버 값, 소개 · 제공 기간 · 환불 요약 자리 (`7aba2e1`)
-  - CSAT-01 `/suneung` — 진행 → 차감 확인 팝업 → 결과, 충전 후 복귀 (`80a9a0b`). 이제 로그인 → 본인 정보 → 수능운 → 잔액 부족 → 충전 → 복귀 → 구매 → 결과가 가짜로 끝까지 이어진다
-  - 와이어 배치 — 공통 헤더 · Card · Button `cta` · PersonCard · CSAT-01 (`84cb468`), 로그인 · 충전 (`bfb7de1`), 정보 입력 (`1504fe1`), 푸터 · 차감 팝업 · `/about` (`9234cc3`), 결과 카드 · 결제 복귀 (`573d578`)
-  - MY-01 `/me` — 계정 · 로그아웃 · 저장된 사람들 · 약관 링크 (`8141672`), 로그아웃 후 `/` 로 (`71296ad`)
-  - 가짜 조작판 (MOCK-PANEL, `aaa196e`) — Vercel 미리보기에서 버튼으로 시나리오 전환. 웹 대화가 로그아웃 상태 → 로그인 · 잔액 100 · 생성 실패로 바꿔 확인
-  - 웹 대화가 원격 코드를 직접 띄워 화면을 찍어 확인 — 로그인 → 정보 → 수능운 → 잔액 부족 → 충전 → 복귀 → 구매 → 결과 → 마이페이지 로그아웃까지 가짜로 끝까지 동작 (10/8)
-  - PR #13 `main` 병합 (`c4c2088`, 10/8 15:27, 사용자 — `eef00a0` 까지 포함), 팀원별 요청을 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 로 정리 (claude.ai 문서 — 사용자가 공유)
-- **화면 현황 (10/8, 최종 와이어 49개 기준)**: 동작 + 배치 11 (HOME-01 · 02, CSAT-01 · 03 ~ 06, PAY-01, MY-01, 차감 · 부족 팝업), 부분 5 (CSAT-02 · FORT-05 로딩, PAY-02 · FORT-04, HOME-04, FORT-06 · 07 재열람), 커밋 대기 HOME-03 · HOME-04 (24단계), 지금 가능 FORT-01 ~ 03 · MATCH-01 ~ 03 · TODAY-01 · 02, 규칙으로 막음 20 (GIFT-01 ~ 05 · RECV-* · FORT-08 · 09 · CSAT-07 · TALBOX — "선물 · 부적은 OpenAPI 전 가짜 포트로도 만들지 않는다", 풀지 여부는 사용자 판단), 팀 결정 대기 4 (GIFT-06 ~ 08 · MY-02)
+- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** 으로 FE 가 할 수 있는 화면 흐름을 끝내는 중. 최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA) — 글꼴 · 손그림 프레임 · 캐릭터 · 에셋 · 색 토큰 · 와이어 문구는 계속 보류. 코드는 Claude Code, 웹 대화는 명세 · 검토 · 화면 대조 (CODE-BY-CC · SCREEN-CHECK). **위험: BE 스테이징 · HTTP 업무 API · OpenAPI 없음, 제공일 재산정 중 (R-06) — FE 목표 10/12 · 심사 요청 10/14 는 BE 일정에 달렸다**. 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
+- **일정 위치 (10/9)**: FE 가짜 범위는 팀 답 · 규칙에 막히지 않은 화면을 모두 끝냈다. 남은 FE 작업 대부분은 BE OpenAPI · 스테이징(진짜 연결), 팀 답(Q-25 · Q-26 · Q-31 · Q-05), 디자인 에셋(10/10 1차)에 달려 있다
+- **마지막으로 끝낸 작업** (10/8 저녁 ~ 10/9 아침, `boyeon` `36d4284`): 전부 웹 대화가 원격 코드를 띄워 402×874 로 와이어와 대조
+  - HOME-03 홈 · HOME-04 사이드 메뉴 (`8c16730`, 메뉴 `TODO(D-10)` 해소), 메뉴 줄 높이 보정 (`ce4bf89`)
+  - FORT-01 일반 운세 정보 확인 `/fortune/[type]` (`d7f988b`) — 4종, 모르는 type 은 404
+  - FORT-02 · FORT-03 질문 `/fortune/[type]/questions` (`74a753e`) — 질문 자리만(Q-26 · F-04), 옵션 버튼 2개 → 차감 확인 팝업, 충전 후 같은 대상으로 복귀, 없는 인물은 FORT-01 로 되돌림 (클라이언트에서 `notFound()` 금지 — Next 16 문서)
+  - 가짜 세션 시나리오 `signed_in_with_other` (`45828ff`) — 본인 + 저장된 타인 1명, 조작판에 자동 추가
+  - MATCH-01 · 02 궁합 사람 선택 (`1f6150e`) — 첫 칸 본인 고정(Q-26, 와이어와 다름 → Q-23 l), 둘째 칸 저장된 타인 · 새로 입력 링크(MY-02 대기)
+  - MATCH-03 궁합 질문 (`ddeb780`) — 질문 화면에 상대 ID(견적 `counterpartPersonId` · 복귀 경로 · 복원 검사), 잘못된 두 사람은 MATCH-01 로
+  - PAY-02 · FORT-04 잔액 부족 충전 (`7c9b186`) — 저장된 견적으로 보유 · 부족 표시, 서버 추천 충전 상품 미리 선택
+  - FORT-05 · CSAT-02 분석 로딩 (`36d4284`) — 구매 대기 동안 차감 팝업을 전체 화면으로(Modal `layout="screen"`)
+  - 이로써 **유료 운세 5종 · 수능운이 정보 확인(또는 사람 선택) → 질문 → 차감 팝업 → 잔액 부족 → 충전 → 복귀 → 분석 로딩 → 결과까지 가짜로 끝까지 이어진다**. 테스트 58 파일 · 452 개
+- **화면 현황 (10/9, 최종 와이어 기준)**
+  - 동작 + 배치: HOME-01 · 02 · 03 · 04, FORT-01 · 02 · 03 · 04 · 05, MATCH-01 · 02 · 03, CSAT-01 · 02 · 03 ~ 06, PAY-01 · 02, MY-01, (팝업) 등껍질 차감 확인 · 잔액 부족
+  - 부분: FORT-06 · 07 결과 — ReadingViewer 로 재열람은 되지만 와이어 배치(요약 상자 · 소제목 밖 카드 · 저장 · 공유 · 부적 확인하기)는 막힘: 요약 섹션 구분 Q-05, 공유 G-11, 부적 규칙
+  - 팀 답 대기로 보류: **TODAY-01 · 02 오늘의 운세 (Q-31 — API_SPEC 7장이 X-01 · X-02 와 반대, 10/8 사용자 결정으로 넘김)**, GIFT-06 ~ 08 · MY-02 (팀 결정)
+  - 규칙으로 막음 20: GIFT-01 ~ 05 · RECV-* · FORT-08 · 09 · CSAT-07 · TALBOX — "선물 · 부적은 OpenAPI 전 가짜 포트로도 만들지 않는다" (풀지 여부는 사용자 판단 = 선택지 B)
 - **다음 작업**
-  1. (FE) 24단계 HOME-03 홈 · HOME-04 메뉴 — 구현 · 검사 끝, **커밋 대기** (사용자 PC 작업 트리: page.tsx · HomeScreen.tsx/.test · navigation.ts/.test · AppShell.tsx/.test). 커밋 후 웹 대화가 화면 대조. 홈은 헤더가 없어 ≡ 메뉴가 없다(와이어대로 — 오른쪽 위는 마이페이지 아이콘)
-  2. (FE, A 계속) FORT-01 일반 운세 정보 확인(`/fortune/[type]`, CSAT-01 과 같은 틀) → FORT-02 · 03 · MATCH-03 질문(옵션 버튼 → 차감 팝업, 질문 선택지는 Q-26 자리) → MATCH-01 · 02 궁합 사람 선택 → TODAY-01 · 02 오늘의 운세(가짜 포트, X-02 항목)
-  3. (사용자) PR #13 은 병합됨 (`c4c2088`). 다음 `main` 반영은 A 화면이 모인 뒤 새 PR. Vercel Preview 에 `NEXT_PUBLIC_API_MODE=mock` 설정 끝(10/8), 미리보기 주소 `saju-project-git-boyeon-yeonb0s-projects.vercel.app` 팀 공유
-  4. (사용자 → 팀) 공유 문서 2개 전달 — "뿌기사주 팀 요청 자료 (FE)"(BE-A · BE-B · PD), "뿌기사주 PD 화면 제작 요청서 (FE)"(PD). 급한 것: **Q-25**(10/8 기한) · **R-08** · **R-06**
-  5. (사용자) `.env.example` 에 `NEXT_PUBLIC_API_MODE` · `NEXT_PUBLIC_MOCK_SESSION_SCENARIO` · `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO` · `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO` 빈 줄 추가 · 커밋
-  6. (FE) 진짜 연결 — OpenAPI 수령 후 `adapters/`(세션 · 인물 · 충전 · 운세 · 결과), 토스 SDK 결제창(R-09). Q-25 답이 오면 충전 결제 수단 · 동의 · 안내 (심사 요청 전 확정 필수)
-- **`main` 배포 주의 (PR #13 병합으로 지금 해당)**: `main` 배포(가짜 모드 금지)에서 `/login` · `/onboarding` · `/wallet` · `/about` · `/suneung` · `/me` 가 "진짜 구현 없음" 오류 화면 (의도된 시끄러운 실패). 진짜 adapter 전까지 팀 확인은 `boyeon` 미리보기 주소로만 한다
+  1. (사용자) Vercel 미리보기(`boyeon`)에서 새 흐름 실기기 확인 — Android Chrome · 카카오톡 인앱 (iOS 는 R-03). 궁합은 조작판 세션 `signed_in_with_other`
+  2. (사용자) `boyeon` → `main` PR — A 화면이 모였다. `main` 배포는 가짜 금지라 새 경로도 "진짜 구현 없음" 오류 화면 (아래 주의)
+  3. (사용자 → 팀) 급한 답: **Q-25 결제 수단(기한 10/8 지남, 심사 요청 전 필수)** · **R-08 명의** · **R-06 BE 일정 · OpenAPI** · R-01 토스 상담(10/10) · **Q-31 오늘의 운세 계약(BE-B, 신규)** · Q-26 선택지 · Q-05 결과 섹션(요약 구분) · Q-23 l(궁합 첫 칸)
+  4. (사용자) `.env.example` 에 `NEXT_PUBLIC_API_MODE` · `NEXT_PUBLIC_MOCK_SESSION_SCENARIO` · `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO` · `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO` 빈 줄 추가 · 커밋
+  5. (사용자 판단) 선택지 B — 선물 · 부적 화면을 가짜 포트로 먼저 만들지. 풀면 GIFT · RECV · FORT-07 부적 만들기 · FORT-08 · 09 · CSAT-07 · TALBOX 가 열린다
+  6. (FE) 진짜 연결 — OpenAPI 수령 후 `adapters/`(세션 · 인물 · 충전 · 운세 · 결과), 토스 SDK 결제창(R-09). Q-25 답이 오면 충전 결제 수단 · 동의 · 안내
+- **`main` 배포 주의**: `main` 배포(가짜 모드 금지)에서 `/login` · `/onboarding` · `/wallet` · `/about` · `/suneung` · `/me` · `/fortune/*` 가 "진짜 구현 없음" 오류 화면 (의도된 시끄러운 실패). 진짜 adapter 전까지 팀 확인은 `boyeon` 미리보기 주소로만 한다
 - **보류 (재개 조건)**
-  - 디자인 — 글꼴(FONT-HOLD · D-02), 손그림 프레임(D-03 · Q-15), 캐릭터(D-06 · T-01 · R-02), 아이콘 에셋, 색 토큰(D-01), 사이드 메뉴 운세 목록(`TODO(D-10)`): PG 심사 요청 후. 배치(LAYOUT-FIGMA)는 진행
+  - 디자인 — 글꼴(FONT-HOLD · D-02), 손그림 프레임(D-03 · Q-15), 캐릭터(D-06 · T-01 · R-02 — 로딩 · 카드 · 결과의 캐릭터 자리만 있음), 아이콘 에셋, 색 토큰(D-01): PG 심사 요청 후. 배치(LAYOUT-FIGMA)는 진행
+  - 오늘의 운세 TODAY-01 · 02 — Q-31 (BE-B 계약) 후
+  - 결과 FORT-06 · 07 와이어 배치 — Q-05(요약 섹션) · G-11(공유) · 부적 규칙
+  - 질문 화면 입력 — 연애 상태 · 관계 선택지(Q-26), 고민 입력(F-04 확정 전 결과 미반영 — 입력 칸 없음)
   - 팀 확정 전이라 만들지 않는 것 (v0.3 ⚠️): 여러 명 선물(GIFT-06 ~ 08), 발송 실패 링크 직접 공유(GIFT-05), 네이버 · 구글 로그인(A-01), 고민 입력의 결과 반영(F-04). 충전 결제 수단 · 동의 체크 · 안내 문구는 Q-25 전까지
-  - 타인 정보 입력(MY-02) — 권한 확인 문구 PD 후. 본인 재저장 · 중복 경고는 BE-B. 본인 수정 경로 Q-29
+  - 타인 정보 입력(MY-02 · 궁합 상대 새로 입력) — 권한 확인 문구 PD 후. 본인 재저장 · 중복 경고는 BE-B. 본인 수정 경로 Q-29
   - 오행분석 값(CSAT-01 · FORT-01) — API 대기 (Q-30). 결과 고지 문구 — PD (F-08, 지금은 코드 원문이 보인다)
-  - OAuth 취소 · 오류 복귀 — BE-B 콜백 확정 후. 로그아웃 UI — MY-01
+  - OAuth 취소 · 오류 복귀 — BE-B 콜백 확정 후
   - `/pay/success` 로그인 필요 링크의 `returnTo` — 진짜 세션 연결 때 (`TODO(PG-2)`)
-  - 선물 위저드 · 선물 결제 · 부적 화면 — OpenAPI 대기 (Q-17 · Q-20), 가짜 포트로도 만들지 않는다
+  - 선물 위저드 · 선물 결제 · 부적 화면 — OpenAPI 대기 (Q-17 · Q-20), 가짜 포트로도 만들지 않는다 (선택지 B)
   - iOS Safari 실기기 — iPhone 확보 후 (R-03). Sentry 소스맵 — Phase 7
 - **막힌 점 · 전달할 것**
-  - 팀에 받을 것: 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 에 팀원별 · 날짜순으로 정리. 세부는 `TEAM-QUESTIONS.md` (Q-17 · Q-18 · Q-19 · Q-20 · Q-21 · Q-22 · Q-23 d ~ g · Q-24 · Q-25 · Q-26 · Q-28 · Q-29 · Q-30, R-01 · R-03 ~ R-09)
-  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17 · Q-28): `API_SPEC.md` 6장 50,000원 82 · 582 → 80 · 580, 견적 필드 · `productName`, 운세 상품 메타데이터 · 정가, 충전 `processing`, CSRF, 선물 주문 · `delivery`, 판매 종료 code, 내역 유형 이름
-  - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired, 비우면 fulfilled). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로. `.env.example` 반영은 사용자가 직접(아직 안 함)
+  - 팀에 받을 것: 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 에 팀원별 · 날짜순으로 정리. 세부는 `TEAM-QUESTIONS.md` (Q-17 · Q-18 · Q-19 · Q-20 · Q-21 · Q-22 · Q-23 d ~ g · l · Q-24 · Q-25 · Q-26 · Q-28 · Q-29 · Q-30 · Q-31, R-01 · R-03 ~ R-09). 공유 문서에 Q-31 · Q-23 l 을 더해야 한다
+  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17 · Q-28 · Q-31): `API_SPEC.md` 6장 50,000원 82 · 582 → 80 · 580, 견적 필드 · `productName`, 운세 상품 메타데이터 · 정가, 충전 `processing`, CSRF, 선물 주문 · `delivery`, 판매 종료 code, 내역 유형 이름, **7장 오늘의 운세(인증 · 요청 본문 · 운세 지수)**
+  - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person · signed_in_with_other, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired, 비우면 fulfilled). 미리보기에서는 왼쪽 아래 "가짜" 조작판이 우선 (MOCK-PANEL). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로
   - Vercel "Automatically expose System Environment Variables" 켜짐(10/4) — 운영 mock 차단 · Sentry 키 검사가 기댄다
-  - `pnpm test` — `39c750d` 로 순수 로직은 node 환경, 보통 25 ~ 100초. 10/8 에 두 번 "Failed to start forks worker"(워커 시작 시간 초과, 한 번은 6041초) — 단언 실패는 없고 재실행 통과. PC 부하 탓으로 보이며, 또 나면 `maxWorkers` 를 더 줄이거나 `pool: "threads"` 를 검토
+  - `pnpm test` — 보통 30 ~ 100초. 10/8 에 두 번 "Failed to start forks worker"(워커 시작 시간 초과) — 단언 실패는 없고 재실행 통과. 10/8 저녁 이후 재발 없음. 또 나면 `maxWorkers` 를 더 줄이거나 `pool: "threads"` 를 검토
+  - 명세 정확도 (웹 대화 자체 점검): 10/8 ~ 10/9 에 "이 조건을 빼면 이 테스트가 실패해야 한다" 요구가 세 번 성립하지 않았다(t2 · e · M3 — 다른 조건이 이미 막음). 이제 웹 대화가 작업 공간에서 직접 조건을 빼 돌려 확인한다
   - PD 에게 받은 것 (저장소 밖): 선물 재발송 안내 문구, 충전 환불정책 초안 `refund-policy-draft.md`(확정 전 코드 반영 금지)
   - 유저 플로우: FigJam `dd8IamO1coU9vpa4P7AgMi`(v1, 10/4). 와이어 배치 값은 웹 대화가 Figma 에서 읽어 지시문에 숫자로 넘긴다
   - (PD 전달) 개인정보처리방침 국외 이전 고지 — PostHog(US) · Sentry(지역 확인 필요)
@@ -74,6 +82,10 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| TODAY-HOLD | 오늘의 운세(TODAY-01 · 02)는 넘긴다 — API_SPEC 7장 `POST /daily-fortunes` 초안(인증 불필요 · 요청에 생년정보 · 운세 지수 없음)이 X-01 · X-02(로그인 + 저장된 본인 · 운세 지수)와 반대라 가짜 포트 모양을 정할 수 없다. BE-B 계약(Q-31) 후 재개 | 2026-10-08 | 사용자 |
+| MATCH-SELF | 궁합 사람 선택(MATCH-01 · 02)의 첫 칸은 본인 고정, 둘째 칸만 고른다 — 와이어는 두 칸 모두 빈 칸이지만 Q-26 팀 답(v0.3 "궁합은 본인 + 상대")을 따른다 (FIGMA-FINAL). 와이어와의 차이는 Q-23 l | 2026-10-08 | FE |
+| CLIENT-REDIRECT | 클라이언트 화면에서 대상이 잘못됐을 때(옛 링크 · 지운 인물 · 잘못된 두 사람)는 `notFound()` 를 부르지 않고 앞 화면으로 `router.replace` 1회 (ref 가드). 근거: Next 16 문서 — `notFound()` 는 서버 컴포넌트 · 서버 함수 · 라우트 핸들러에서만. 정상 사용에서도 생기는 경우라 `error.tsx` 로 던지지 않는다. 쿼리 자체가 없거나 모양이 틀리면 서버 page.tsx 의 `notFound()` | 2026-10-08 | FE |
+| SCREEN-CHECK | 웹 대화가 원격 `boyeon` 을 작업 공간에 받아 가짜 모드로 띄우고(`pnpm dev -p 3100`) Playwright 402×874 로 찍어 와이어 좌표와 대조한다. 커밋 전 검토 때는 Claude Code 보고의 diff 를 작업 공간에 적용해 같은 확인 + "조건을 빼면 실패해야 하는 테스트" 를 직접 돌린다. 사용자에게 스크린샷을 요구하지 않는다 (NO-SCREENSHOT) | 2026-10-08 | 사용자 |
 | MOCK-PANEL | 가짜 모드(`NEXT_PUBLIC_API_MODE=mock`)에서만 화면 왼쪽 아래 "가짜" 버튼으로 세션 · 충전 결과 · 운세 구매 결과 · 시작 잔액(0 · 7 · 100)을 고르고 바로 가기로 이동한다. 우선순위 저장값 → 환경 변수 → 기본값. 저장은 localStorage `mockOverrides` — 가짜 모드 개발 도구라 브라우저 저장소 규칙의 예외, 진짜 모드 · 운영에서는 읽지도 그리지도 않는다. 목적: Vercel 미리보기 하나로 팀원이 모든 흐름을 확인 (`aaa196e`) | 2026-10-08 | 사용자 |
 | LAYOUT-FIGMA | PG-FIRST 를 일부 푼다 — 최종 와이어(`195:91`)의 글자 크기 · 굵기 · 위치 · 간격과 상자(크기 · 테두리 · 모서리 · 와이어 회색)를 화면에 넣는다. 값은 웹 대화가 Figma 에서 읽어 지시문에 숫자로 넘긴다(FIGMA-WEB-ONLY). 계속 넣지 않는 것: 글꼴(FONT-HOLD), 손그림 프레임, 캐릭터 · 아이콘 · 이미지 에셋(자리만 둔다), 색 토큰 확정(와이어 회색은 `TODO(PD 토큰 v0)`), 와이어 문구(지금 자리표시 유지). 공통: 헤더 64px · 제목 30px, Card 와이어 카드, Button `cta` 327×69, AppShell `header` 옵션 | 2026-10-08 | 사용자 |
 | CODE-BY-CC 예외 기록 | 10/6 새벽 사용자의 Claude Code 세션이 웹 대화 검토 없이 8커밋을 `boyeon` 에 push 하고 draft PR #13 을 만들었다(커밋 메시지에 지정하지 않은 줄 포함). 10/7 사후 검토로 유지. 10/8 은 속도를 위해 CSAT-01 · 배치 1차를 커밋 후 원격 검토로 처리했다 — 둘 다 문제 없음. 기본은 계속 커밋 전 검토 (형식 B → C) | 2026-10-08 | FE |
@@ -121,6 +133,7 @@
 
 ## 세션 로그
 
+- 2026-10-08 (밤) ~ 10-09 (아침) · HOME-03 · 04 커밋 · 메뉴 줄 높이(`8c16730` · `ce4bf89`), FORT-01(`d7f988b`), FORT-02 · 03(`74a753e`), 가짜 시나리오 `signed_in_with_other`(`45828ff`), MATCH-01 · 02(`1f6150e`), MATCH-03(`ddeb780`), PAY-02 · FORT-04(`7c9b186`), FORT-05 · CSAT-02(`36d4284`) — 매 단계 작업 공간 재현 · 화면 대조. 오늘의 운세는 Q-31 로 넘김(TODAY-HOLD). 결정 MATCH-SELF · CLIENT-REDIRECT · SCREEN-CHECK. TEAM-QUESTIONS Q-31 · Q-23 l.
 - 2026-10-08 (저녁) · 가짜 조작판(`aaa196e`, MOCK-PANEL) → Vercel Preview 가짜 모드 설정 · 팀 공유 가능. 화면 현황 49개 대조, PD 화면 제작 요청서 작성. HOME-03 · HOME-04 구현(24단계, 커밋 대기). PR #13 `main` 병합(`c4c2088`).
 - 2026-10-08 (오후) · 와이어 배치 계속(`1504fe1` · `9234cc3` · `573d578`), MY-01(`8141672` · `71296ad`). 웹 대화가 원격 코드를 직접 띄워 화면 대조 시작 — 로그아웃 후 `/login` 으로 가던 문제를 화면에서 찾아 고침.
 - 2026-10-07 ~ 10-08 · `main` BE-A PR #14 병합(`a47e428`) · FE_COMPATIBILITY 대조, 10/6 커밋 8개 사후 검토(유지). 잔액 부족 추천 충전 · 가짜 추천 BE-A 규칙 · 판매 상품 없음(`6526d3c`), `/about` 틀(`7aba2e1`), CSAT-01(`80a9a0b`), 와이어 배치 1차(`84cb468` · `bfb7de1`, LAYOUT-FIGMA). PR #13 본문 갱신. 팀 요청 자료 공유 문서 작성, TEAM-QUESTIONS Q-28 ~ Q-30.
