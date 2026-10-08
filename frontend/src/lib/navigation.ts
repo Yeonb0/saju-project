@@ -14,6 +14,11 @@ export const FORTUNE_SLUGS = [
 export type FortuneSlug = (typeof FORTUNE_SLUGS)[number];
 export type FortunePath = `/fortune/${FortuneSlug}`;
 
+// 대소문자 구분, 변환 없음 — FORTUNE_SLUGS 에 정확히 있는 값만 true
+export function isFortuneSlug(value: string): value is FortuneSlug {
+  return (FORTUNE_SLUGS as readonly string[]).includes(value);
+}
+
 export const FORTUNE_LABELS: Record<FortuneSlug, string> = {
   love: "애정운",
   wealth: "재물운",

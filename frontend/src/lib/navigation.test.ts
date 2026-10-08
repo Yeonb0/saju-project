@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isMenuGroup, MENU } from "./navigation";
+import { isFortuneSlug, isMenuGroup, MENU } from "./navigation";
 import { ROUTES } from "./screens";
 
 describe("사이드 메뉴 항목", () => {
@@ -36,5 +36,22 @@ describe("사이드 메뉴 항목", () => {
       ],
       ["이벤트 운세", [["수능운", "/suneung"]]],
     ]);
+  });
+});
+
+describe("isFortuneSlug (FORT-01)", () => {
+  it("j. 5개 slug 만 true 이고 대소문자 · 공백 · 다른 값은 false", () => {
+    for (const slug of [
+      "love",
+      "wealth",
+      "overall",
+      "sinsal",
+      "compatibility",
+    ]) {
+      expect(isFortuneSlug(slug), slug).toBe(true);
+    }
+    for (const value of ["SUNEUNG", "suneung", "", "Love", "love "]) {
+      expect(isFortuneSlug(value), JSON.stringify(value)).toBe(false);
+    }
   });
 });
