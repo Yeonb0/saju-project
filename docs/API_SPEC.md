@@ -298,27 +298,39 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 - 비활성 상품은 구매할 수 없다.
 - 선물 상품 원화 가격은 `TBD(P-03A)`가 확정된 뒤 등록한다.
 
-### `POST /quotes/fortune`
+### `POST /quotes/fortune/{category}`
 
 선택한 상품·인물·옵션의 서버 견적을 반환한다.
 
-일반 유료 운세 요청:
+`category`는 `overall`, `love`, `wealth`, `compatibility`, `sinsal` 중 하나다. 각 값은 독립된 OpenAPI operation과 요청 스키마를 갖는다.
+
+종합운·애정운·재물운·신살 요청:
 
 ```json
 {
   "personId": "uuid",
-  "fortuneType": "LOVE",
   "productOption": "READING_ONLY",
-  "questionKey": "CURRENT_RELATIONSHIP",
-  "counterpartPersonId": null,
-  "relationType": null
+  "questionKey": "CURRENT_RELATIONSHIP"
 }
 ```
 
-- `counterpartPersonId`, `relationType`은 `COMPATIBILITY`에서만 필수이며 본인과 상대는 달라야 한다.
+궁합 요청은 `counterpartPersonId`, `relationType`이 추가로 필수이며 본인과 상대는 달라야 한다.
+
+```json
+{
+  "personId": "uuid",
+  "counterpartPersonId": "uuid",
+  "relationType": "LOVER",
+  "productOption": "READING_ONLY",
+  "questionKey": "OVERALL_MATCH"
+}
+```
+
 - 일반 운세 `READING_ONLY`는 등껍질 10개, `READING_WITH_TALISMAN`은 15개다.
 
-수능운 요청(기존 호환 계약):
+응답은 `quoteId`, `productCode`, `productOption`, `questionKey`, `charged`, `expiresAt`을 반환한다.
+
+수능운은 기존 `POST /quotes/fortune` 계약을 유지한다.
 
 ```json
 { "personId": "uuid" }
@@ -469,7 +481,7 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 응답은 원국 네 기둥, 일간, 오행 분포, 십성, 12운성, 합·충·형·파·해와 `calculationVersion`을 반환한다. 시간 미상인 경우 시주와 시주 기반 값은 `null`이다. 절기 경계일에 시간이 미상이면 `BIRTH_TIME_REQUIRED_AT_TERM`을 반환한다.
 
-### `POST /reading-purchases`
+### `POST /reading-purchases/{category}`
 
 - 인증·CSRF·`Idempotency-Key` 필요
 - 잔액 차감은 이 명령 내부에서 수행한다.
@@ -478,15 +490,12 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 {
   "quoteId": "uuid",
   "personId": "uuid",
-  "fortuneType": "LOVE",
   "productOption": "READING_ONLY",
-  "questionKey": "CURRENT_RELATIONSHIP",
-  "counterpartPersonId": null,
-  "relationType": null
+  "questionKey": "CURRENT_RELATIONSHIP"
 }
 ```
 
-수능운은 기존 계약인 `quoteId`, `personId`만 전송한다. 일반 운세는 견적 발급 때 사용한 나머지 필드를 동일하게 전송해야 한다.
+견적 발급 때 사용한 필드를 동일하게 전송해야 한다. 궁합은 견적과 마찬가지로 `counterpartPersonId`, `relationType`이 필수다. 수능운은 기존 `POST /reading-purchases` 계약을 유지한다.
 
 | fortuneType | 허용 questionKey | 생성 section 순서 |
 |---|---|---|
@@ -495,6 +504,16 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 | `WEALTH` | `OVERALL_WEALTH`, `INCOME`, `SPENDING`, `INVESTMENT`, `CAREER_FINANCE` | `SUMMARY`, `WEALTH_FLOW`, `INCOME`, `SPENDING_CAUTION`, `GOOD_PERIOD`, `ACTION_TIP`, `MISSING_ELEMENT` |
 | `COMPATIBILITY` | `OVERALL_MATCH`, `COMMUNICATION`, `CONFLICT`, `LONG_TERM_POTENTIAL` | `SUMMARY`, `MATCH_STRENGTH`, `MATCH_CONFLICT`, `COMMUNICATION`, `RELATIONSHIP_TIP`, `MISSING_ELEMENT` |
 | `SINSAL` | `OVERALL_SINSAL`, `RELATIONSHIPS`, `WORK_AND_STUDY`, `WEALTH` | `SUMMARY`, `SPECIAL_STARS`, `BALANCING_SPECIAL_STARS`, `MISSING_ELEMENT` |
+
+각 상세 API는 내부 section 배열을 그대로 노출하지 않고 다음과 같은 고정 필드로 변환한다.
+
+| category | 맞춤 결과 필드 (`meta`, `summary` 제외) |
+|---|---|
+| `overall` | `currentFlow`, `relationships`, `studyAndWork`, `wealthFlow`, `condition`, `luckyPoint`, `missingElement` |
+| `love` | `currentFlow`, `goodPeriod`, `caution`, `actionTip`, `missingElement` |
+| `wealth` | `wealthFlow`, `income`, `spendingCaution`, `goodPeriod`, `actionTip`, `missingElement` |
+| `compatibility` | `counterpart`, `matchStrength`, `matchConflict`, `communication`, `relationshipTip`, `missingElement` |
+| `sinsal` | `specialStars`, `balancingGuide`, `missingElement` |
 
 성공 `201`:
 
@@ -509,7 +528,21 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "charged": { "currency": "TURTLE_SHELL", "amount": 10 },
   "balance": 40,
   "reading": {
-    "talisman": { "id": "uuid", "status": "PENDING" }
+    "meta": {
+      "id": "uuid",
+      "productOption": "READING_ONLY",
+      "subjectDisplayName": "민지",
+      "questionKey": "CURRENT_RELATIONSHIP",
+      "generationMode": "LINER",
+      "disclaimers": ["FOR_ENTERTAINMENT"],
+      "talisman": null
+    },
+    "summary": { "content": "...", "sourceFactKeys": ["dayMaster.hanja"] },
+    "currentFlow": { "content": "...", "sourceFactKeys": ["fiveElements.counts.WOOD"] },
+    "goodPeriod": { "content": "...", "sourceFactKeys": ["luck.annual[0].year"] },
+    "caution": { "content": "...", "sourceFactKeys": ["relations.values[0].type"] },
+    "actionTip": { "content": "...", "sourceFactKeys": ["dayMaster.element"] },
+    "missingElement": { "content": "...", "sourceFactKeys": ["fiveElements.missing[0]"] }
   }
 }
 ```
@@ -518,10 +551,11 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 - 동일한 `Idempotency-Key` 또는 `generationKey`의 재요청은 외부 호출을 중복 실행하지 않고 진행 중 상태나 최초 완료 결과를 반환한다.
 - 부적 fulfillment는 `PENDING` 또는 `READY`를 반환하며, 부적 생성 시작 자체가 실패하면 구매를 완료하지 않고 등껍질을 복구한다. 비동기 완료 방식은 `TBD(F-06)` 확정에 따라 확장한다.
 
-### `GET /readings`
+### `GET /readings/{category}`
 
 - 본인 구매 결과 목록, cursor pagination
-- Query: `fortuneType`, `personId`, `cursor`, `size` (기본 20, 최대 50)
+- Query: `personId`, `cursor`, `size` (기본 20, 최대 50)
+- URL의 카테고리에 해당하는 결과만 반환하므로 별도 `fortuneType` 필터는 받지 않는다.
 - 정렬: `createdAt DESC`, 동일 시각에는 `id DESC`
 
 ```json
@@ -529,7 +563,6 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "items": [
     {
       "id": "uuid",
-      "fortuneType": "LOVE",
       "productOption": "READING_ONLY",
       "subjectDisplayName": "민지",
       "counterpartDisplayName": null,
@@ -543,37 +576,37 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 }
 ```
 
-### `GET /readings/{readingId}`
+### `GET /readings/{category}/{readingId}`
 
 ```json
 {
-  "id": "uuid",
-  "fortuneType": "COMPATIBILITY",
-  "productOption": "READING_ONLY",
-  "subjectDisplayName": "민지",
+  "meta": {
+    "id": "uuid",
+    "productOption": "READING_ONLY",
+    "subjectDisplayName": "민지",
+    "questionKey": "OVERALL_MATCH",
+    "calculationVersion": "manse-2026.10-v1",
+    "generationVersion": "liner-general-reading-v1",
+    "contentVersion": "compatibility-2026.10.08",
+    "generationMode": "LINER",
+    "createdAt": "2026-10-08T00:00:00Z",
+    "disclaimers": ["FOR_ENTERTAINMENT"],
+    "talisman": null
+  },
   "counterpart": { "personId": "uuid", "displayName": "서준", "relationType": "LOVER" },
-  "questionKey": "OVERALL_MATCH",
-  "event": null,
-  "sections": [
-    {
-      "key": "SUMMARY",
-      "content": "...",
-      "sourceFactKeys": ["dayMaster.hanja", "counterpart.dayMaster.hanja"]
-    }
-  ],
-  "calculationVersion": "manse-2026.10-v1",
-  "generationVersion": "liner-general-reading-v1",
-  "contentVersion": "compatibility-2026.10.08",
-  "generationMode": "LINER",
-  "createdAt": "2026-10-08T00:00:00Z",
-  "disclaimers": ["FOR_ENTERTAINMENT"],
-  "talisman": null
+  "summary": { "content": "...", "sourceFactKeys": ["dayMaster.hanja"] },
+  "matchStrength": { "content": "...", "sourceFactKeys": ["counterpart.dayMaster.hanja"] },
+  "matchConflict": { "content": "...", "sourceFactKeys": ["relations.values[0].type"] },
+  "communication": { "content": "...", "sourceFactKeys": ["dayMaster.element"] },
+  "relationshipTip": { "content": "...", "sourceFactKeys": ["counterpart.fiveElements.missing[0]"] },
+  "missingElement": { "content": "...", "sourceFactKeys": ["fiveElements.missing[0]"] }
 }
 ```
 
 - 계산 원국·내부 시드·원본 생년정보는 필요한 범위를 넘어 노출하지 않는다.
 - 상세 결과는 소유자만 조회할 수 있으며 다른 사용자의 ID도 `READING_NOT_FOUND`로 숨긴다.
-- 궁합 이외 결과의 `counterpart`는 `null`, 수능운 이외 결과의 `event`는 `null`이다.
+- 다른 카테고리 경로로 결과를 요청해도 `READING_NOT_FOUND`를 반환한다.
+- 기존 `GET /readings`, `GET /readings/{readingId}`는 수능운과 이전 클라이언트의 마이그레이션 호환용으로 유지한다.
 
 ### `POST /readings/{readingId}/shares`
 

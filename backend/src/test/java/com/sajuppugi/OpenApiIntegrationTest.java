@@ -24,6 +24,11 @@ class OpenApiIntegrationTest {
                 .andExpect(jsonPath("$.info.title").value("뿌기사주 API"))
                 .andExpect(jsonPath("$.info.version").value("v1"))
                 .andExpect(jsonPath("$.paths['/api/v1/fortune/basic']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/quotes/fortune/overall'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/reading-purchases/love'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/readings/wealth'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/readings/compatibility/{readingId}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/readings/sinsal/{readingId}'].get").exists())
                 .andExpect(jsonPath("$.paths['/actuator/health']").doesNotExist())
                 .andExpect(jsonPath("$.components.securitySchemes.sessionCookie.name").value("JSESSIONID"))
                 .andExpect(jsonPath("$.components.securitySchemes.csrfHeader.name").value("X-CSRF-Token"));
