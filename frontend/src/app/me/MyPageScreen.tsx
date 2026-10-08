@@ -4,7 +4,7 @@
 // MY-01 마이페이지 (docs/FRONTEND.md 3장). 근거: A-02 · A-03 (로그인 가드는 page.tsx 의 RequireSession), PG-2 (로그아웃),
 // PURCHASE-RESTORE (로그아웃 때 구매 선택을 지운다 — logout()), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다),
 // LAYOUT-FIGMA (MY-01 195:145 — 배치는 와이어 값). 내 운세 기록 · 충전 내역 · 회원탈퇴는 경로 · API 가 없어 만들지 않는다.
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
@@ -30,7 +30,6 @@ export function MyPageScreen({
   personPort?: PersonPort;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const session = useQuery({
     queryKey: SESSION_QUERY_KEY,
@@ -44,8 +43,8 @@ export function MyPageScreen({
   const leave = useMutation({
     mutationFn: () => logout(sessionPort ?? getSessionPort()),
     onSuccess: () => {
+      // 세션 캐시는 무효화하지 않는다 — 무효화하면 이동 전에 RequireSession 이 로그아웃 상태를 보고 /login 으로 보낸다. RequireSession 은 들어올 때마다 새로 받은 세션만 믿는다
       router.replace("/");
-      queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
     },
     onError: (error) => {
       // 이미 로그아웃 상태면 그대로 처음 화면으로 (message 문자열은 보지 않는다)

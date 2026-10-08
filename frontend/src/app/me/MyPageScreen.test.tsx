@@ -123,6 +123,8 @@ describe("MyPageScreen (MY-01)", () => {
     expect(router.replace).toHaveBeenCalledTimes(1);
     expect(logoutSpy).toHaveBeenCalledTimes(1);
     expect(loadPurchaseSelection()).toBeNull();
+    // 가드가 /login 으로 먼저 보내지 않았다 — 이동은 처음 화면 하나뿐
+    expect(router.replace.mock.calls.every(([to]) => to === "/")).toBe(true);
   });
 
   it("d. 같은 틱에 두 번 눌러도 로그아웃은 한 번", async () => {
