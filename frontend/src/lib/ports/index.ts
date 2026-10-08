@@ -3,6 +3,7 @@
 // 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
 // 모르는 값은 기본값으로 덮지 않고 던진다.
+// 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
 import {
   createFakeAccount,
   FAKE_SESSION_SCENARIOS,
@@ -14,6 +15,7 @@ import {
   FAKE_FORTUNE_SCENARIOS,
   type FakeFortuneScenario,
 } from "@/mocks/fortune";
+import { readMockOverrides } from "@/mocks/overrides";
 import { createFakePaymentLauncher } from "@/mocks/paymentLauncher";
 import { createFakePersonPort } from "@/mocks/person";
 import { createFakeReadings, type FakeReadings } from "@/mocks/reading";
@@ -72,7 +74,8 @@ export function selectPaymentLauncher(
 let fakeWallet: FakeWallet | null = null;
 
 function getFakeWallet(): FakeWallet {
-  fakeWallet ??= createFakeWallet();
+  // 시작 잔액: 패널 저장값, 없으면 기본 픽스처 (MOCK-PANEL)
+  fakeWallet ??= createFakeWallet(readMockOverrides().balance);
   return fakeWallet;
 }
 
@@ -82,7 +85,7 @@ let topUpPort: TopUpPort | null = null;
 export function getTopUpPort(): TopUpPort {
   topUpPort ??= selectTopUpPort(
     API_MODE,
-    process.env.NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO,
+    readMockOverrides().topUp ?? process.env.NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO,
     getFakeWallet(),
   );
   return topUpPort;
@@ -133,7 +136,8 @@ let fortunePort: FortunePort | null = null;
 export function getFortunePort(): FortunePort {
   fortunePort ??= selectFortunePort(
     API_MODE,
-    process.env.NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO,
+    readMockOverrides().fortune ??
+      process.env.NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO,
     getFakeWallet(),
     getFakeReadings(),
   );
@@ -188,7 +192,10 @@ let fakeAccount: FakeAccount | null = null;
 
 function getFakeAccount(): FakeAccount {
   fakeAccount ??= createFakeAccount(
-    resolveSessionScenario(process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO),
+    resolveSessionScenario(
+      readMockOverrides().session ??
+        process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO,
+    ),
   );
   return fakeAccount;
 }
@@ -199,7 +206,8 @@ let sessionPort: SessionPort | null = null;
 export function getSessionPort(): SessionPort {
   sessionPort ??= selectSessionPort(
     API_MODE,
-    process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO,
+    readMockOverrides().session ??
+      process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO,
     getFakeAccount(),
   );
   return sessionPort;

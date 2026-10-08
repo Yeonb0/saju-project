@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+// MOCK-PANEL 저장값(localStorage)을 읽는 경로를 확인하는 테스트가 있어 jsdom 에서 돈다 (vitest.config.mts — .ts 는 기본 node).
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakeAccount } from "@/mocks/account";
 import { createFakeReadings } from "@/mocks/reading";
 import { createFakeWallet } from "@/mocks/wallet";
@@ -111,5 +113,58 @@ describe("결과 포트 선택 (MOCK-PORT)", () => {
       result.readingId,
     );
     expect(reading.fortuneType).toBe("SUNEUNG");
+  });
+});
+
+// MOCK-PANEL: 가짜 모드에서 저장값 → 환경 변수 → 기본값 순서로 고른다.
+// API_MODE 는 모듈 상수라 모드를 "mock" 으로 바꾼 채 index 를 새로 불러온다 (싱글턴도 새로 만들어진다).
+describe("MOCK-PANEL 저장값 우선순위", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.unstubAllEnvs();
+    vi.doUnmock("@/lib/ports/mode");
+    vi.resetModules();
+  });
+
+  async function loadMockPorts() {
+    vi.resetModules();
+    vi.doMock("@/lib/ports/mode", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("./mode")>()),
+      API_MODE: "mock",
+    }));
+    return import("./index");
+  }
+
+  it("e. 저장값이 환경 변수보다 우선하고, 저장값이 없으면 환경 변수를 쓴다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MOCK_SESSION_SCENARIO", "signed_in");
+    localStorage.setItem(
+      "mockOverrides",
+      JSON.stringify({ v: 1, session: "signed_out" }),
+    );
+    const withStored = await loadMockPorts();
+    await expect(withStored.getSessionPort().getSession()).resolves.toEqual({
+      status: "signed_out",
+    });
+
+    localStorage.clear();
+    const withEnvOnly = await loadMockPorts();
+    await expect(
+      withEnvOnly.getSessionPort().getSession(),
+    ).resolves.toMatchObject({ status: "signed_in" });
+  });
+
+  it("f. 저장값 balance 100 이면 가짜 지갑 시작 잔액이 100", async () => {
+    localStorage.setItem(
+      "mockOverrides",
+      JSON.stringify({ v: 1, balance: 100 }),
+    );
+    const ports = await loadMockPorts();
+    const quote = await ports.getFortunePort().createQuote({
+      // 픽스처일 뿐이며 실제 상품 · 사용자와 무관하다
+      productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
+      personId: "66666666-6666-4666-8666-666666666666",
+      counterpartPersonId: null,
+    });
+    expect(quote.walletBalance).toBe(100);
   });
 });
