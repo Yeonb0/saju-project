@@ -92,10 +92,11 @@ public class GeneralReadingService {
         if (purchase.status() == Status.FULFILLED) {
             OwnedReading reading = readings.findOwnedReading(userId, purchase.readingId())
                     .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND));
-            return completed(reading, null, true);
+            return completed(reading, null, true, quote.productSnapshot().price());
         }
         if (purchase.status() != Status.CREATED) {
-            return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true);
+            return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true,
+                    quote.productSnapshot().price());
         }
 
         WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
@@ -127,7 +128,7 @@ public class GeneralReadingService {
                     talisman == null ? null : talisman.talismanId(), talisman == null ? null : talisman.status().name(),
                     clock.instant());
             readings.fulfill(purchase, reading);
-            return completed(reading, debit.balance().balance(), false);
+            return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
         } catch (RuntimeException failure) {
             readings.markFailed(purchase.id());
             try {
@@ -222,8 +223,8 @@ public class GeneralReadingService {
         return value == null ? null : value.toString();
     }
 
-    private PurchaseResult completed(OwnedReading reading, Integer balance, boolean reused) {
-        return new PurchaseResult(reading.purchaseId(), reading.id(), Status.FULFILLED, reading, balance, reused);
+    private PurchaseResult completed(OwnedReading reading, Integer balance, boolean reused, Price charged) {
+        return new PurchaseResult(reading.purchaseId(), reading.id(), Status.FULFILLED, reading, balance, reused, charged);
     }
 
     private record Subjects(ReadingSubjectPort.OwnedSubject primary, ReadingSubjectPort.OwnedSubject counterpart) {}

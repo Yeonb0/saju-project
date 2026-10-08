@@ -47,4 +47,33 @@ class DeterministicReadingFallbackTest {
         assertThat(response.sections()).allSatisfy(section ->
                 assertThat(section.sourceFactKeys()).contains("dayMaster.hangul", "fiveElements.counts.WATER"));
     }
+
+    @Test
+    void rendersCompatibilityFromBothSafeProfilesWithoutExamCopy() throws Exception {
+        JsonNode facts = mapper.readTree("""
+                {
+                  "dayMaster": {"hangul": "갑", "element": "WOOD"},
+                  "fiveElements": {"counts": {"WOOD": 3, "FIRE": 2, "EARTH": 1, "METAL": 1, "WATER": 1}},
+                  "counterpart": {
+                    "dayMaster": {"hangul": "정", "element": "FIRE"},
+                    "fiveElements": {"counts": {"WOOD": 1, "FIRE": 3, "EARTH": 2, "METAL": 1, "WATER": 1}}
+                  }
+                }
+                """);
+        List<SectionKey> sections = List.of(SectionKey.SUMMARY, SectionKey.MATCH_STRENGTH,
+                SectionKey.MATCH_CONFLICT, SectionKey.COMMUNICATION, SectionKey.RELATIONSHIP_TIP);
+        LinerRequest request = new LinerRequest("key", "calc-v1", "gen-v1", FortuneType.COMPATIBILITY,
+                LocalDate.of(2026, 10, 8), "OVERALL_MATCH", "LOVER", facts, List.of(), sections);
+
+        LinerResponse response = new DeterministicReadingFallback().generate(request);
+
+        assertThatCode(() -> new LinerResponseValidator(mapper).validate(request, response))
+                .doesNotThrowAnyException();
+        assertThat(response.sections().get(0).content()).contains("상대의 정 일간", "관계의 결론")
+                .doesNotContain("시험 준비", "합격 여부");
+        assertThat(response.sections().get(1).content()).contains("목 기운과 화 기운");
+        assertThat(response.sections().get(3).content()).contains("갑 일간과 정 일간");
+        assertThat(response.sections()).allSatisfy(section -> assertThat(section.sourceFactKeys())
+                .contains("dayMaster.hangul", "counterpart.dayMaster.hangul"));
+    }
 }

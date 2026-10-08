@@ -19,6 +19,7 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
+import com.sajuppugi.fortune.talisman.application.SuneungTalismanPort;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
 import com.sajuppugi.wallet.domain.WalletBalance;
 import java.time.Clock;
@@ -51,6 +52,7 @@ class GeneralReadingApiTest {
     @MockitoBean WalletPurchasePort wallet;
     @MockitoBean ReadingSubjectPort subjects;
     @MockitoBean LinerProvider liner;
+    @MockitoBean SuneungTalismanPort talismans;
 
     private UUID userId;
     private UUID otherUserId;
@@ -72,8 +74,14 @@ class GeneralReadingApiTest {
         when(subjects.getOwnedSubject(userId, counterpartId)).thenReturn(subject(counterpartId, "서준", 1997, 8, 9));
         when(liner.name()).thenReturn("test-liner");
         when(liner.generate(any())).thenAnswer(invocation -> valid(invocation.getArgument(0)));
-        when(wallet.debit(eq(userId), any(), any())).thenAnswer(ignored ->
-                new WalletPurchasePort.DebitResult(UUID.randomUUID(), 10, new WalletBalance(30, 5)));
+        when(wallet.debit(eq(userId), any(), any())).thenAnswer(invocation -> {
+            UUID debitQuoteId = invocation.getArgument(1, UUID.class);
+            int amount = jdbc.queryForObject("SELECT price_amount FROM purchase_quotes WHERE id = ?",
+                    Integer.class, debitQuoteId);
+            return new WalletPurchasePort.DebitResult(UUID.randomUUID(), amount, new WalletBalance(30, 5));
+        });
+        when(talismans.create(eq(userId), any(), any(), any())).thenReturn(
+                new SuneungTalismanPort.TalismanFulfillment(UUID.randomUUID(), SuneungTalismanPort.Status.PENDING));
     }
 
     @Test
@@ -127,6 +135,22 @@ class GeneralReadingApiTest {
     }
 
     @Test
+    void purchasesTalismanBundleAtCatalogPrice() throws Exception {
+        String request = body("LOVE", "CURRENT_RELATIONSHIP", false)
+                .replace("READING_ONLY", "READING_WITH_TALISMAN");
+        UUID quoteId = issueQuote(request, "LOVE_READING_WITH_TALISMAN", 15);
+        mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
+                        .header("Idempotency-Key", "love-with-talisman")
+                        .contentType(MediaType.APPLICATION_JSON).content(withQuote(request, quoteId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.charged.amount").value(15))
+                .andExpect(jsonPath("$.data.reading.productOption").value("READING_WITH_TALISMAN"))
+                .andExpect(jsonPath("$.data.reading.talisman.id").isString())
+                .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"));
+        verify(talismans).create(eq(userId), any(), any(), eq("love-2026.10.08"));
+    }
+
+    @Test
     void listsWithFiltersAndCursorAndProtectsDetailOwnership() throws Exception {
         String firstId = purchase("LOVE", "CURRENT_RELATIONSHIP");
         purchase("WEALTH", "OVERALL_WEALTH");
@@ -164,6 +188,10 @@ class GeneralReadingApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content(withQuote(request, quoteId)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.balance").value(35))
+                .andExpect(jsonPath("$.data.charged.currency").value("TURTLE_SHELL"))
+                .andExpect(jsonPath("$.data.charged.amount").value(10))
+                .andExpect(jsonPath("$.data.calculationVersion").value("manse-2026.10-v1"))
+                .andExpect(jsonPath("$.data.generationVersion").value("liner-general-reading-v1"))
                 .andExpect(jsonPath("$.data.reading.fortuneType").value(type))
                 .andExpect(jsonPath("$.data.reading.questionKey").value(questionKey))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(sections))
@@ -181,11 +209,15 @@ class GeneralReadingApiTest {
     }
 
     private UUID issueQuote(String body, String productCode) throws Exception {
+        return issueQuote(body, productCode, 10);
+    }
+
+    private UUID issueQuote(String body, String productCode, int amount) throws Exception {
         String response = mvc.perform(post("/api/v1/quotes/fortune").with(user(userId.toString())).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.productCode").value(productCode))
-                .andExpect(jsonPath("$.data.amount").value(10))
+                .andExpect(jsonPath("$.data.amount").value(amount))
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(JsonPath.read(response, "$.data.quoteId"));
     }

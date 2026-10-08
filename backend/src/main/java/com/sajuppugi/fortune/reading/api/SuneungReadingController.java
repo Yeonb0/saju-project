@@ -51,12 +51,16 @@ public class SuneungReadingController {
             Authentication authentication,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody PurchaseRequest request) {
-        PurchaseResult result = request.fortuneType() == null
-                ? service.purchase(userId(authentication), request.quoteId(), request.personId(),
-                        new IdempotencyKey(idempotencyKey))
-                : generalService.purchase(userId(authentication), request.quoteId(), request.fortuneType(),
-                        request.productOption(), request.personId(), request.counterpartPersonId(),
-                        request.relationType(), request.questionKey(), new IdempotencyKey(idempotencyKey));
+        PurchaseResult result;
+        if (request.fortuneType() == null) {
+            if (!request.isLegacySuneung()) throw new ApiException(ErrorCode.INVALID_REQUEST);
+            result = service.purchase(userId(authentication), request.quoteId(), request.personId(),
+                    new IdempotencyKey(idempotencyKey));
+        } else {
+            result = generalService.purchase(userId(authentication), request.quoteId(), request.fortuneType(),
+                    request.productOption(), request.personId(), request.counterpartPersonId(),
+                    request.relationType(), request.questionKey(), new IdempotencyKey(idempotencyKey));
+        }
         HttpStatus status = result.status() == com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status.FULFILLED
                 ? HttpStatus.CREATED : HttpStatus.ACCEPTED;
         return ResponseEntity.status(status).body(ApiResponse.of(PurchaseResponse.from(result)));
@@ -65,6 +69,9 @@ public class SuneungReadingController {
     @PostMapping("/quotes/fortune")
     public ResponseEntity<ApiResponse<QuoteResponse>> quote(
             Authentication authentication, @Valid @RequestBody QuoteRequest request) {
+        if (request.fortuneType() == null && !request.isLegacySuneung()) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST);
+        }
         PurchaseQuote quote = request.fortuneType() == null
                 ? service.issueQuote(userId(authentication), request.personId())
                 : generalService.issueQuote(userId(authentication), request.fortuneType(), request.productOption(),
@@ -103,21 +110,37 @@ public class SuneungReadingController {
 
     public record PurchaseRequest(@NotNull UUID quoteId, @NotNull UUID personId,
                                   FortuneType fortuneType, ProductOption productOption, String questionKey,
-                                  UUID counterpartPersonId, RelationType relationType) {}
+                                  UUID counterpartPersonId, RelationType relationType) {
+        boolean isLegacySuneung() {
+            return productOption == null && questionKey == null && counterpartPersonId == null && relationType == null;
+        }
+    }
 
     public record QuoteRequest(@NotNull UUID personId, FortuneType fortuneType, ProductOption productOption,
-                               String questionKey, UUID counterpartPersonId, RelationType relationType) {}
+                               String questionKey, UUID counterpartPersonId, RelationType relationType) {
+        boolean isLegacySuneung() {
+            return productOption == null && questionKey == null && counterpartPersonId == null && relationType == null;
+        }
+    }
 
     public record QuoteResponse(UUID quoteId, String productCode, String currency, int amount,
                                 Instant expiresAt, Event event) {}
 
-    public record PurchaseResponse(UUID purchaseId, UUID readingId, String status, Integer balance,
-                                   boolean reused, ReadingResponse reading) {
+    public record PurchaseResponse(UUID purchaseId, UUID readingId, String status,
+                                   String calculationVersion, String generationVersion, String contentVersion,
+                                   Charged charged, Integer balance, boolean reused, ReadingResponse reading) {
         static PurchaseResponse from(PurchaseResult result) {
             return new PurchaseResponse(result.purchaseId(), result.readingId(), result.status().name(),
+                    result.reading() == null ? null : result.reading().calculationVersion(),
+                    result.reading() == null ? null : result.reading().generationVersion(),
+                    result.reading() == null ? null : result.reading().contentVersion(),
+                    result.charged() == null ? null : new Charged(
+                            result.charged().currency().name(), result.charged().amount()),
                     result.balance(), result.reused(), result.reading() == null ? null : ReadingResponse.from(result.reading()));
         }
     }
+
+    public record Charged(String currency, int amount) {}
 
     public record ReadingResponse(UUID id, String fortuneType, String productOption, String subjectDisplayName,
                                   Counterpart counterpart, String questionKey, Event event,

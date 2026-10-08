@@ -302,7 +302,23 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 선택한 상품·인물·옵션의 서버 견적을 반환한다.
 
-현재 구현된 수능운 요청:
+일반 유료 운세 요청:
+
+```json
+{
+  "personId": "uuid",
+  "fortuneType": "LOVE",
+  "productOption": "READING_ONLY",
+  "questionKey": "CURRENT_RELATIONSHIP",
+  "counterpartPersonId": null,
+  "relationType": null
+}
+```
+
+- `counterpartPersonId`, `relationType`은 `COMPATIBILITY`에서만 필수이며 본인과 상대는 달라야 한다.
+- 일반 운세 `READING_ONLY`는 등껍질 10개, `READING_WITH_TALISMAN`은 15개다.
+
+수능운 요청(기존 호환 계약):
 
 ```json
 { "personId": "uuid" }
@@ -319,8 +335,8 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 }
 ```
 
-- 견적의 context fingerprint는 `personId + productCode + eventDate`로 서버가 생성한다.
-- 구매 시 동일 fingerprint를 다시 확인하므로 다른 인물용 견적을 재사용할 수 없다.
+- 일반 운세의 견적 fingerprint에는 운세·옵션·인물·질문·궁합 상대와 관계가 모두 포함된다.
+- 구매 시 동일 fingerprint를 다시 확인하므로 입력을 바꿔 견적을 재사용할 수 없다.
 
 ## 6. 지갑·충전
 
@@ -461,11 +477,24 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 ```json
 {
   "quoteId": "uuid",
-  "personId": "uuid"
+  "personId": "uuid",
+  "fortuneType": "LOVE",
+  "productOption": "READING_ONLY",
+  "questionKey": "CURRENT_RELATIONSHIP",
+  "counterpartPersonId": null,
+  "relationType": null
 }
 ```
 
-현재 구현 범위는 수능운 `SUNEUNG_READING_WITH_TALISMAN`이다. 일반 운세와 궁합의 추가 입력 계약은 후속 확장한다.
+수능운은 기존 계약인 `quoteId`, `personId`만 전송한다. 일반 운세는 견적 발급 때 사용한 나머지 필드를 동일하게 전송해야 한다.
+
+| fortuneType | 허용 questionKey | 생성 section 순서 |
+|---|---|---|
+| `OVERALL` | `OVERALL_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH`, `CONDITION` | `SUMMARY`, `CURRENT_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH_FLOW`, `CONDITION`, `LUCKY_POINT`, `MISSING_ELEMENT` |
+| `LOVE` | `CURRENT_RELATIONSHIP`, `NEW_RELATIONSHIP`, `RECONCILIATION`, `MARRIAGE` | `SUMMARY`, `CURRENT_FLOW`, `GOOD_PERIOD`, `CAUTION`, `ACTION_TIP`, `MISSING_ELEMENT` |
+| `WEALTH` | `OVERALL_WEALTH`, `INCOME`, `SPENDING`, `INVESTMENT`, `CAREER_FINANCE` | `SUMMARY`, `WEALTH_FLOW`, `INCOME`, `SPENDING_CAUTION`, `GOOD_PERIOD`, `ACTION_TIP`, `MISSING_ELEMENT` |
+| `COMPATIBILITY` | `OVERALL_MATCH`, `COMMUNICATION`, `CONFLICT`, `LONG_TERM_POTENTIAL` | `SUMMARY`, `MATCH_STRENGTH`, `MATCH_CONFLICT`, `COMMUNICATION`, `RELATIONSHIP_TIP`, `MISSING_ELEMENT` |
+| `SINSAL` | `OVERALL_SINSAL`, `RELATIONSHIPS`, `WORK_AND_STUDY`, `WEALTH` | `SUMMARY`, `SPECIAL_STARS`, `BALANCING_SPECIAL_STARS`, `MISSING_ELEMENT` |
 
 성공 `201`:
 
@@ -475,84 +504,76 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "readingId": "uuid",
   "status": "FULFILLED",
   "calculationVersion": "manse-1.0.0",
-  "generationVersion": "liner-reading-v1",
-  "contentVersion": "love-2026.10.20",
-  "charged": { "currency": "TURTLE_SHELL", "amount": 55 },
-  "balance": 45,
+  "generationVersion": "liner-general-reading-v1",
+  "contentVersion": "love-2026.10.08",
+  "charged": { "currency": "TURTLE_SHELL", "amount": 10 },
+  "balance": 40,
   "reading": {
     "talisman": { "id": "uuid", "status": "PENDING" }
   }
 }
 ```
 
-- 계산 실패, Liner 호출 실패 또는 Liner 응답 검증 실패가 서버 재시도 후에도 해소되지 않으면 구매는 `FAILED`, 차감은 역분개하고 `refunded=true`를 반환한다.
+- Liner 호출 또는 응답 검증이 3회 실패하면 같은 허용 섹션의 결정론적 fallback 문구를 저장한다. fallback까지 실패하면 구매를 실패 처리하고 차감을 역분개한다.
 - 동일한 `Idempotency-Key` 또는 `generationKey`의 재요청은 외부 호출을 중복 실행하지 않고 진행 중 상태나 최초 완료 결과를 반환한다.
 - 부적 fulfillment는 `PENDING` 또는 `READY`를 반환하며, 부적 생성 시작 자체가 실패하면 구매를 완료하지 않고 등껍질을 복구한다. 비동기 완료 방식은 `TBD(F-06)` 확정에 따라 확장한다.
 
 ### `GET /readings`
 
 - 본인 구매 결과 목록, cursor pagination
-- 필터: `fortuneType`, `personId`
+- Query: `fortuneType`, `personId`, `cursor`, `size` (기본 20, 최대 50)
+- 정렬: `createdAt DESC`, 동일 시각에는 `id DESC`
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "fortuneType": "LOVE",
+      "productOption": "READING_ONLY",
+      "subjectDisplayName": "민지",
+      "counterpartDisplayName": null,
+      "questionKey": "CURRENT_RELATIONSHIP",
+      "generationMode": "LINER",
+      "createdAt": "2026-10-08T00:00:00Z"
+    }
+  ],
+  "nextCursor": null,
+  "hasNext": false
+}
+```
 
 ### `GET /readings/{readingId}`
 
 ```json
 {
   "id": "uuid",
-  "fortuneType": "SUNEUNG",
-  "productOption": "READING_WITH_TALISMAN",
-  "personSnapshot": { "displayName": "민지", "birthTimeUnknown": false },
-  "event": { "type": "SUNEUNG", "date": "2026-11-19" },
+  "fortuneType": "COMPATIBILITY",
+  "productOption": "READING_ONLY",
+  "subjectDisplayName": "민지",
+  "counterpart": { "personId": "uuid", "displayName": "서준", "relationType": "LOVER" },
+  "questionKey": "OVERALL_MATCH",
+  "event": null,
   "sections": [
     {
       "key": "SUMMARY",
-      "type": "TEXT",
-      "title": "한줄 요약",
-      "content": "..."
-    },
-    {
-      "key": "PERIODS",
-      "type": "PERIOD_GUIDANCE",
-      "title": "교시별 흐름",
-      "items": [
-        { "label": "1교시", "guidance": "...", "focusPoint": "..." }
-      ]
-    },
-    {
-      "key": "MEAL",
-      "type": "FOOD_RECOMMENDATION",
-      "title": "도시락·간식",
-      "primary": { "name": "...", "reason": "..." },
-      "alternatives": [{ "name": "...", "reason": "..." }]
-    },
-    {
-      "key": "PREPARATION",
-      "type": "CHECKLIST",
-      "title": "준비물",
-      "items": [
-        { "id": "admission-ticket", "label": "수험표", "personalized": false },
-        { "id": "lucky-item", "label": "초록색 손수건", "personalized": true }
-      ]
+      "content": "...",
+      "sourceFactKeys": ["dayMaster.hanja", "counterpart.dayMaster.hanja"]
     }
   ],
-  "calculationVersion": "manse-1.0.0",
-  "generationVersion": "liner-reading-v1",
-  "contentVersion": "suneung-2026.10.20",
-  "createdAt": "2026-10-20T01:02:03Z",
-  "disclaimers": ["FOR_ENTERTAINMENT", "BIRTH_TIME_LIMITED"],
-  "share": {
-    "title": "뿌기가 전하는 나의 수능운",
-    "description": "재미로 보는 운세 결과를 확인해 보세요.",
-    "imageUrl": "https://cdn.../share-card.webp",
-    "webUrl": "https://service.example/share/opaque-id"
-  }
+  "calculationVersion": "manse-2026.10-v1",
+  "generationVersion": "liner-general-reading-v1",
+  "contentVersion": "compatibility-2026.10.08",
+  "generationMode": "LINER",
+  "createdAt": "2026-10-08T00:00:00Z",
+  "disclaimers": ["FOR_ENTERTAINMENT"],
+  "talisman": null
 }
 ```
 
 - 계산 원국·내부 시드·원본 생년정보는 필요한 범위를 넘어 노출하지 않는다.
-- 체크 여부는 클라이언트 로컬 상태이며 API의 결과 스냅샷에는 저장하지 않는다.
-- `share`는 카카오톡 공유하기에 사용하는 개인정보 없는 공개용 메타데이터다. 소유자 전용 reading URL이나 생년정보를 포함하지 않으며 결과 공유 범위는 `TBD(G-11)`에 따른다.
-- `TBD(F-09)`: 오행분석을 노출하면 별도 구조화 섹션 타입을 추가한다.
+- 상세 결과는 소유자만 조회할 수 있으며 다른 사용자의 ID도 `READING_NOT_FOUND`로 숨긴다.
+- 궁합 이외 결과의 `counterpart`는 `null`, 수능운 이외 결과의 `event`는 `null`이다.
 
 ### `POST /readings/{readingId}/shares`
 

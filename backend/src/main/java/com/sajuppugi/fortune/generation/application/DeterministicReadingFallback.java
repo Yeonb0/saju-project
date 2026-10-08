@@ -24,21 +24,25 @@ public class DeterministicReadingFallback {
     }
 
     public LinerResponse generate(LinerRequest request) {
-        Profile profile = profile(request.facts());
+        Profile profile = profile(request.facts(), "");
+        Profile counterpart = request.facts().has("counterpart")
+                ? profile(request.facts(), "/counterpart") : null;
+        List<String> evidence = counterpart == null ? CORE_FACTS : java.util.stream.Stream.concat(
+                CORE_FACTS.stream(), CORE_FACTS.stream().map(path -> "counterpart." + path)).toList();
         List<GeneratedSection> sections = request.allowedSections().stream()
-                .map(key -> new GeneratedSection(key, content(key, profile), CORE_FACTS))
+                .map(key -> new GeneratedSection(key, content(key, request.fortuneType(), profile, counterpart), evidence))
                 .toList();
         return new LinerResponse(sections, List.of());
     }
 
-    private Profile profile(JsonNode facts) {
-        String dayMaster = requiredText(facts, "/dayMaster/hangul");
-        String element = requiredText(facts, "/dayMaster/element");
-        int wood = requiredInt(facts, "/fiveElements/counts/WOOD");
-        int fire = requiredInt(facts, "/fiveElements/counts/FIRE");
-        int earth = requiredInt(facts, "/fiveElements/counts/EARTH");
-        int metal = requiredInt(facts, "/fiveElements/counts/METAL");
-        int water = requiredInt(facts, "/fiveElements/counts/WATER");
+    private Profile profile(JsonNode facts, String prefix) {
+        String dayMaster = requiredText(facts, prefix + "/dayMaster/hangul");
+        String element = requiredText(facts, prefix + "/dayMaster/element");
+        int wood = requiredInt(facts, prefix + "/fiveElements/counts/WOOD");
+        int fire = requiredInt(facts, prefix + "/fiveElements/counts/FIRE");
+        int earth = requiredInt(facts, prefix + "/fiveElements/counts/EARTH");
+        int metal = requiredInt(facts, prefix + "/fiveElements/counts/METAL");
+        int water = requiredInt(facts, prefix + "/fiveElements/counts/WATER");
         int[] values = {wood, fire, earth, metal, water};
         String[] keys = {"WOOD", "FIRE", "EARTH", "METAL", "WATER"};
         int max = 0;
@@ -51,12 +55,12 @@ public class DeterministicReadingFallback {
                 wood, fire, earth, metal, water);
     }
 
-    private String content(SectionKey key, Profile p) {
+    private String content(SectionKey key, com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType type,
+                           Profile p, Profile counterpart) {
         String distribution = "목 %d·화 %d·토 %d·금 %d·수 %d".formatted(
                 p.wood, p.fire, p.earth, p.metal, p.water);
         return switch (key) {
-            case SUMMARY -> "%s 일간은 %s의 성향을 기준점으로 봅니다. 오행 분포는 %s이며, 가장 많이 드러난 %s의 장점은 살리고 상대적으로 적은 %s의 역할은 생활 루틴으로 보완하는 해석입니다. 이 결과는 합격 여부를 단정하는 예측이 아니라 시험 준비 리듬을 점검하기 위한 참고 정보예요."
-                    .formatted(p.dayMaster, p.dayElement, distribution, p.strong, p.weak);
+            case SUMMARY -> summary(type, p, counterpart, distribution);
             case EXAM_DAY -> "시험 당일에는 %s의 추진력이 한 방향으로 몰리지 않도록 문제를 읽는 순서를 고정해 보세요. ① 수험번호와 선택과목 확인, ② 쉬운 문항 우선 표시, ③ 종료 10분 전 답안지 재확인의 세 단계가 좋습니다. 막히는 문제는 표시 후 넘기고, 한 교시의 체감을 다음 교시 판단으로 이어 가지 않는 편이 안전합니다."
                     .formatted(p.strong);
             case EXAM_PERIODS -> "초반에는 호흡과 시험지 전체 구성을 확인하고, 중반에는 %s 일간의 집중력을 한 문제씩 사용하는 흐름이 어울립니다. 후반에는 새 풀이를 벌이기보다 표시한 문항과 답안 밀림을 확인하세요. %s 기운이 강한 분포일수록 속도를 내기 쉬우므로 교시마다 ‘읽기-풀이-검산’ 시간을 미리 나누는 방식이 도움이 됩니다."
@@ -89,17 +93,44 @@ public class DeterministicReadingFallback {
                     .formatted(p.strong);
             case LUCKY_POINT -> "행운 요소는 결과를 보장하는 물건이 아니라 루틴을 떠올리는 표식으로만 활용하세요. 상대적으로 적은 %s을 연상시키는 색이나 메모를 ‘한 번 더 확인하기’ 신호로 정할 수 있습니다."
                     .formatted(p.weak);
-            case MATCH_STRENGTH -> "서로의 강점은 성향을 단정하는 대신 실제로 잘 맞았던 상황에서 확인하세요. %s의 분명함은 역할을 정할 때 활용하고, 기대와 마감 기준을 말로 합의하는 것이 중요합니다."
-                    .formatted(p.strong);
-            case MATCH_CONFLICT -> "갈등 가능성은 정해진 사건이 아닙니다. %s의 기운이 강하게 표현될 때 속도 차이가 생길 수 있으니, 결론 전에 상대의 말을 한 문장으로 요약해 확인해 보세요."
-                    .formatted(p.strong);
-            case COMMUNICATION -> "%s 일간의 기준을 전달할 때는 평가보다 관찰-느낌-요청 순서가 좋습니다. 한 번에 한 주제를 다루고 답변 시간을 남기는 방식이 오해를 줄이는 데 유용합니다."
-                    .formatted(p.dayMaster);
+            case MATCH_STRENGTH -> "두 사람의 중심인 %s 기운과 %s 기운은 서로의 성향을 확정하는 표지가 아니라 강점을 나눠 볼 출발점입니다. 실제로 잘 맞았던 상황을 돌아보고 역할과 기대 수준을 말로 합의해 보세요."
+                    .formatted(p.dayElement, counterpartElement(counterpart));
+            case MATCH_CONFLICT -> "갈등 가능성은 정해진 사건이 아닙니다. 한쪽의 %s과 다른 쪽의 %s이 강하게 표현될 때 속도 차이가 생길 수 있으니, 결론 전에 상대의 말을 한 문장으로 요약해 확인해 보세요."
+                    .formatted(p.strong, counterpartStrong(counterpart));
+            case COMMUNICATION -> "%s 일간과 %s 일간이 기준을 나눌 때는 평가보다 관찰-느낌-요청 순서가 좋습니다. 한 번에 한 주제를 다루고 답변 시간을 남기는 방식이 오해를 줄이는 데 유용합니다."
+                    .formatted(p.dayMaster, counterpartDayMaster(counterpart));
             case RELATIONSHIP_TIP -> "관계의 결과를 운세로 확정하지 말고 연락 빈도, 약속 이행, 경계 존중처럼 관찰 가능한 행동을 기준으로 판단하세요. %s의 보완점은 질문하고 확인하는 습관으로 채울 수 있습니다."
                     .formatted(p.weak);
             case SPECIAL_STARS, BALANCING_SPECIAL_STARS -> "특수한 명리 표지는 성격이나 사건을 확정하는 진단이 아닙니다. %s 일간과 전체 오행 분포(%s)를 함께 보는 참고 신호로만 사용하고, 실제 선택은 현재 상황과 행동을 기준으로 하세요."
                     .formatted(p.dayMaster, distribution);
         };
+    }
+
+    private String summary(com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType type,
+                           Profile p, Profile counterpart, String distribution) {
+        String base = "%s 일간은 %s의 성향을 기준점으로 봅니다. 오행 분포는 %s이며, 강한 %s은 장점으로 쓰고 상대적으로 적은 %s은 생활 습관으로 보완해 보세요."
+                .formatted(p.dayMaster, p.dayElement, distribution, p.strong, p.weak);
+        return switch (type) {
+            case SUNEUNG -> base + " 합격 여부를 단정하는 예측이 아니라 시험 준비 리듬을 점검하기 위한 참고 정보예요.";
+            case OVERALL -> base + " 관계·일·재물·컨디션의 현재 조건을 함께 살피는 참고 정보로 활용하세요.";
+            case LOVE -> base + " 관계의 결과를 미리 정하기보다 감정과 행동을 차분히 확인하는 참고 정보로 활용하세요.";
+            case WEALTH -> base + " 수익을 보장하는 예측이 아니며 실제 예산과 계약 조건을 우선해 판단해야 합니다.";
+            case COMPATIBILITY -> base + " 상대의 %s 일간과 %s 중심 분포도 함께 보되, 관계의 결론은 두 사람의 대화와 행동으로 판단하세요."
+                    .formatted(counterpartDayMaster(counterpart), counterpartStrong(counterpart));
+            case SINSAL -> base + " 신살은 사건이나 성격을 확정하지 않으며 장점과 주의 습관을 살펴보는 전통적 참고 표지입니다.";
+        };
+    }
+
+    private String counterpartDayMaster(Profile counterpart) {
+        return counterpart == null ? "상대" : counterpart.dayMaster;
+    }
+
+    private String counterpartElement(Profile counterpart) {
+        return counterpart == null ? "상대 기운" : counterpart.dayElement;
+    }
+
+    private String counterpartStrong(Profile counterpart) {
+        return counterpart == null ? "상대 기운" : counterpart.strong;
     }
 
     private String requiredText(JsonNode facts, String pointer) {

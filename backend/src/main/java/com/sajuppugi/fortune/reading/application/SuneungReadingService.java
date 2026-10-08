@@ -80,10 +80,12 @@ public class SuneungReadingService {
         ReadingPurchase purchase = claims.claim(userId, quoteId, quote.productSnapshot().id(), personId);
         if (purchase.status() == Status.FULFILLED) {
             return completed(readings.findOwnedReading(userId, purchase.readingId())
-                    .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND)), null, true);
+                    .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND)), null, true,
+                    quote.productSnapshot().price());
         }
         if (purchase.status() != Status.CREATED) {
-            return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true);
+            return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true,
+                    quote.productSnapshot().price());
         }
 
         WalletPurchasePort.DebitResult debit = wallet.debit(userId, quoteId, key);
@@ -111,7 +113,7 @@ public class SuneungReadingService {
                     generated.generationVersion(), generated.contentVersion(), generated.generationMode(), talisman.talismanId(),
                     talisman.status().name(), clock.instant());
             readings.fulfill(purchase, reading);
-            return completed(reading, debit.balance().balance(), false);
+            return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
         } catch (RuntimeException generationFailure) {
             readings.markFailed(purchase.id());
             try {
@@ -171,10 +173,10 @@ public class SuneungReadingService {
         readings.markRefunded(purchaseId);
     }
 
-    private PurchaseResult completed(OwnedReading reading, Integer balance, boolean reused) {
-        return new PurchaseResult(reading.purchaseId(), reading.id(), Status.FULFILLED, reading, balance, reused);
+    private PurchaseResult completed(OwnedReading reading, Integer balance, boolean reused, Price charged) {
+        return new PurchaseResult(reading.purchaseId(), reading.id(), Status.FULFILLED, reading, balance, reused, charged);
     }
 
     public record PurchaseResult(UUID purchaseId, UUID readingId, Status status,
-                                 OwnedReading reading, Integer balance, boolean reused) {}
+                                 OwnedReading reading, Integer balance, boolean reused, Price charged) {}
 }
