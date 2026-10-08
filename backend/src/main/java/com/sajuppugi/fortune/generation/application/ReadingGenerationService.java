@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.sajuppugi.fortune.generation.application.LinerResponseValidator.InvalidGenerationException;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedReading;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationCommand;
+import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationMode;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.generation.port.GenerationSnapshotStore;
@@ -23,16 +24,18 @@ public class ReadingGenerationService {
     private final LinerFactProjector projector;
     private final GenerationKeyFactory keys;
     private final LinerResponseValidator validator;
+    private final DeterministicReadingFallback fallback;
     private final ConcurrentHashMap<String, Object> localLocks = new ConcurrentHashMap<>();
 
     public ReadingGenerationService(LinerProvider provider, GenerationSnapshotStore snapshots,
                                     LinerFactProjector projector, GenerationKeyFactory keys,
-                                    LinerResponseValidator validator) {
+                                    LinerResponseValidator validator, DeterministicReadingFallback fallback) {
         this.provider = provider;
         this.snapshots = snapshots;
         this.projector = projector;
         this.keys = keys;
         this.validator = validator;
+        this.fallback = fallback;
     }
 
     public GeneratedReading generate(GenerationCommand command) {
@@ -69,26 +72,43 @@ public class ReadingGenerationService {
         RuntimeException lastProviderFailure = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             long started = System.nanoTime();
+            LinerResponse response;
             try {
-                LinerResponse response = provider.generate(request);
+                response = provider.generate(request);
                 validator.validate(request, response);
-                snapshots.recordAttempt(request.generationKey(), attempt, provider.name(), inputHash,
-                        "SUCCEEDED", elapsedMillis(started), null);
-                return snapshots.saveSucceeded(request, response, contentVersion);
             } catch (InvalidGenerationException exception) {
                 lastValidation = exception;
                 snapshots.recordAttempt(request.generationKey(), attempt, provider.name(), inputHash,
                         "VALIDATION_FAILED", elapsedMillis(started), exception.code());
+                continue;
             } catch (RuntimeException exception) {
                 lastProviderFailure = exception;
                 snapshots.recordAttempt(request.generationKey(), attempt, provider.name(), inputHash,
                         "PROVIDER_FAILED", elapsedMillis(started), "LINER_PROVIDER_FAILED");
+                continue;
             }
+            snapshots.recordAttempt(request.generationKey(), attempt, provider.name(), inputHash,
+                    "SUCCEEDED", elapsedMillis(started), null);
+            return snapshots.saveSucceeded(request, response, contentVersion, GenerationMode.LINER);
         }
-        String code = lastValidation != null ? lastValidation.code() : "LINER_PROVIDER_FAILED";
-        snapshots.markFailed(request.generationKey(), code);
-        if (lastValidation != null) throw lastValidation;
-        throw new GenerationFailedException(code, lastProviderFailure);
+        long started = System.nanoTime();
+        LinerResponse response;
+        try {
+            response = fallback.generate(request);
+            validator.validate(request, response);
+        } catch (RuntimeException fallbackFailure) {
+            snapshots.recordAttempt(request.generationKey(), MAX_ATTEMPTS + 1, fallback.name(), inputHash,
+                    "FALLBACK_FAILED", elapsedMillis(started), "FALLBACK_GENERATION_FAILED");
+            String code = "FALLBACK_GENERATION_FAILED";
+            snapshots.markFailed(request.generationKey(), code);
+            GenerationFailedException failure = new GenerationFailedException(code, fallbackFailure);
+            if (lastValidation != null) failure.addSuppressed(lastValidation);
+            if (lastProviderFailure != null) failure.addSuppressed(lastProviderFailure);
+            throw failure;
+        }
+        snapshots.recordAttempt(request.generationKey(), MAX_ATTEMPTS + 1, fallback.name(), inputHash,
+                "FALLBACK_SUCCEEDED", elapsedMillis(started), null);
+        return snapshots.saveSucceeded(request, response, contentVersion, GenerationMode.FALLBACK);
     }
 
     private long elapsedMillis(long started) {
@@ -97,7 +117,8 @@ public class ReadingGenerationService {
 
     private GeneratedReading reused(GeneratedReading cached) {
         return new GeneratedReading(cached.resultId(), cached.generationKey(), cached.fortuneType(), cached.response(),
-                cached.calculationVersion(), cached.generationVersion(), cached.contentVersion(), true);
+                cached.calculationVersion(), cached.generationVersion(), cached.contentVersion(),
+                cached.generationMode(), true);
     }
 
     public static class GenerationInProgressException extends RuntimeException {

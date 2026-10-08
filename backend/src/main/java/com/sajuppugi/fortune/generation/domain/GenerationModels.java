@@ -12,6 +12,8 @@ public final class GenerationModels {
 
     public enum FortuneType { OVERALL, LOVE, WEALTH, COMPATIBILITY, SINSAL, SUNEUNG }
 
+    public enum GenerationMode { LINER, FALLBACK }
+
     public enum SectionKey {
         SUMMARY, CURRENT_FLOW, GOOD_PERIOD, CAUTION, ACTION_TIP,
         RELATIONSHIPS, STUDY_AND_WORK, WEALTH_FLOW, CONDITION, LUCKY_POINT,
@@ -79,5 +81,6 @@ public final class GenerationModels {
             String calculationVersion,
             String generationVersion,
             String contentVersion,
+            GenerationMode generationMode,
             boolean reused) {}
 }

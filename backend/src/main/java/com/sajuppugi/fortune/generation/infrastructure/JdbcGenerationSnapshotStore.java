@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedReading;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
+import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationMode;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.generation.port.GenerationSnapshotStore;
@@ -58,11 +59,13 @@ public class JdbcGenerationSnapshotStore implements GenerationSnapshotStore {
     }
 
     @Override
-    public GeneratedReading saveSucceeded(LinerRequest request, LinerResponse response, String contentVersion) {
+    public GeneratedReading saveSucceeded(LinerRequest request, LinerResponse response, String contentVersion,
+                                          GenerationMode generationMode) {
         int updated = jdbc.update("""
                 UPDATE reading_results SET sections_json = ?, status = 'SUCCEEDED', failure_code = NULL,
-                lease_until = NULL, completed_at = ? WHERE generation_key = ? AND status = 'GENERATING'
-                """, json(response), Timestamp.from(clock.instant()), request.generationKey());
+                generation_mode = ?, lease_until = NULL, completed_at = ?
+                WHERE generation_key = ? AND status = 'GENERATING'
+                """, json(response), generationMode.name(), Timestamp.from(clock.instant()), request.generationKey());
         if (updated != 1) throw new IllegalStateException("Generation claim was lost before saving");
         return findSucceeded(request.generationKey()).orElseThrow();
     }
@@ -93,7 +96,7 @@ public class JdbcGenerationSnapshotStore implements GenerationSnapshotStore {
                     FortuneType.valueOf(rs.getString("fortune_type")),
                     mapper.readValue(rs.getString("sections_json"), LinerResponse.class),
                     rs.getString("calculation_version"), rs.getString("generation_version"),
-                    rs.getString("content_version"), false);
+                    rs.getString("content_version"), GenerationMode.valueOf(rs.getString("generation_mode")), false);
         } catch (JsonProcessingException exception) {
             throw new SQLException("Invalid stored generation JSON", exception);
         }

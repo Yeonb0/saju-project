@@ -1,12 +1,14 @@
 package com.sajuppugi.fortune.generation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
 import com.sajuppugi.fortune.calculation.infrastructure.DeterministicSajuEngine;
 import com.sajuppugi.fortune.generation.application.GenerationKeyFactory;
+import com.sajuppugi.fortune.generation.application.DeterministicReadingFallback;
 import com.sajuppugi.fortune.generation.application.LinerFactProjector;
 import com.sajuppugi.fortune.generation.application.LinerResponseValidator;
 import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
@@ -62,13 +64,64 @@ class ReadingGenerationServiceTest {
         GeneratedReading reading = service(provider, store).generate(command());
 
         assertThat(reading.response().sections()).hasSize(1);
+        assertThat(reading.generationMode()).isEqualTo(GenerationMode.LINER);
         assertThat(calls).hasValue(3);
         assertThat(store.attempts).isEqualTo(3);
     }
 
+    @Test
+    void usesValidatedDeterministicFallbackAfterThreeProviderFailures() {
+        MemoryStore store = new MemoryStore();
+        AtomicInteger calls = new AtomicInteger();
+        LinerProvider provider = provider(request -> {
+            calls.incrementAndGet();
+            throw new IllegalStateException("provider unavailable");
+        });
+
+        GeneratedReading reading = service(provider, store).generate(command());
+
+        assertThat(reading.generationMode()).isEqualTo(GenerationMode.FALLBACK);
+        assertThat(reading.response().sections()).singleElement()
+                .satisfies(section -> {
+                    assertThat(section.key()).isEqualTo(SectionKey.SUMMARY);
+                    assertThat(section.content()).contains("오행 분포", "합격 여부를 단정하는 예측이 아니라");
+                    assertThat(section.sourceFactKeys()).contains("dayMaster.element", "fiveElements.counts.WOOD");
+                });
+        assertThat(calls).hasValue(3);
+        assertThat(store.attempts).isEqualTo(4);
+        assertThat(store.lastAttemptStatus).isEqualTo("FALLBACK_SUCCEEDED");
+    }
+
+    @Test
+    void marksGenerationFailedOnlyWhenProviderAndFallbackBothFail() {
+        MemoryStore store = new MemoryStore();
+        LinerProvider provider = provider(request -> {
+            throw new IllegalStateException("provider unavailable");
+        });
+        DeterministicReadingFallback brokenFallback = new DeterministicReadingFallback() {
+            @Override
+            public LinerResponse generate(LinerRequest request) {
+                throw new IllegalStateException("fallback unavailable");
+            }
+        };
+
+        assertThatThrownBy(() -> service(provider, store, brokenFallback).generate(command()))
+                .isInstanceOf(ReadingGenerationService.GenerationFailedException.class)
+                .hasMessage("FALLBACK_GENERATION_FAILED");
+        assertThat(store.attempts).isEqualTo(4);
+        assertThat(store.lastAttemptStatus).isEqualTo("FALLBACK_FAILED");
+        assertThat(store.failureCode).isEqualTo("FALLBACK_GENERATION_FAILED");
+    }
+
     private ReadingGenerationService service(LinerProvider provider, GenerationSnapshotStore store) {
+        return service(provider, store, new DeterministicReadingFallback());
+    }
+
+    private ReadingGenerationService service(LinerProvider provider, GenerationSnapshotStore store,
+                                             DeterministicReadingFallback fallback) {
         return new ReadingGenerationService(provider, store, new LinerFactProjector(mapper),
-                new GenerationKeyFactory(mapper), new LinerResponseValidator(mapper));
+                new GenerationKeyFactory(mapper), new LinerResponseValidator(mapper),
+                fallback);
     }
 
     private GenerationCommand command() {
@@ -95,6 +148,8 @@ class ReadingGenerationServiceTest {
         private GeneratedReading reading;
         private boolean claimed;
         private int attempts;
+        private String lastAttemptStatus;
+        private String failureCode;
 
         public synchronized Optional<GeneratedReading> findSucceeded(String key) {
             return Optional.ofNullable(reading);
@@ -104,13 +159,20 @@ class ReadingGenerationServiceTest {
             claimed = true;
             return true;
         }
-        public synchronized GeneratedReading saveSucceeded(LinerRequest request, LinerResponse response, String contentVersion) {
+        public synchronized GeneratedReading saveSucceeded(LinerRequest request, LinerResponse response,
+                                                           String contentVersion, GenerationMode generationMode) {
             reading = new GeneratedReading(UUID.randomUUID(), request.generationKey(), request.fortuneType(), response,
-                    request.calculationVersion(), request.generationVersion(), contentVersion, false);
+                    request.calculationVersion(), request.generationVersion(), contentVersion, generationMode, false);
             return reading;
         }
         public synchronized void recordAttempt(String key, int attempt, String provider, String inputHash,
-                                               String status, long latencyMs, String errorCode) { attempts++; }
-        public void markFailed(String key, String failureCode) { claimed = false; }
+                                               String status, long latencyMs, String errorCode) {
+            attempts++;
+            lastAttemptStatus = status;
+        }
+        public void markFailed(String key, String failureCode) {
+            claimed = false;
+            this.failureCode = failureCode;
+        }
     }
 }

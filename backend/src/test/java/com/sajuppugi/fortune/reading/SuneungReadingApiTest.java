@@ -109,6 +109,7 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.event.type").value("CSAT"))
                 .andExpect(jsonPath("$.data.reading.event.date").value("2026-11-19"))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(8))
+                .andExpect(jsonPath("$.data.reading.generationMode").value("LINER"))
                 .andExpect(jsonPath("$.data.reading.talisman.id").isString())
                 .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(userId.toString()))))
@@ -141,20 +142,26 @@ class SuneungReadingApiTest {
     }
 
     @Test
-    void generationFailureCompensatesWalletAndMarksPurchaseRefunded() throws Exception {
+    void linerFailureReturnsDetailedFallbackWithoutRefundingPurchase() throws Exception {
         doThrow(new IllegalStateException("provider unavailable")).when(liner).generate(any());
-        when(wallet.compensate(any(), eq("READING_GENERATION_FAILED"), any())).thenReturn(
-                new WalletPurchasePort.CompensationResult(UUID.randomUUID(), UUID.randomUUID(), new WalletBalance(35, 5)));
 
         mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
                         .header("Idempotency-Key", "failed-key")
                         .contentType(MediaType.APPLICATION_JSON).content(body()))
-                .andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.code").value("READING_GENERATION_FAILED"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("FULFILLED"))
+                .andExpect(jsonPath("$.data.reading.generationMode").value("FALLBACK"))
+                .andExpect(jsonPath("$.data.reading.sections.length()").value(8))
+                .andExpect(jsonPath("$.data.reading.sections[0].content").value(
+                        org.hamcrest.Matchers.containsString("합격 여부를 단정하는 예측이 아니라")))
+                .andExpect(jsonPath("$.data.reading.sections[1].content").value(
+                        org.hamcrest.Matchers.containsString("수험번호와 선택과목 확인")))
+                .andExpect(jsonPath("$.data.reading.sections[6].content").value(
+                        org.hamcrest.Matchers.containsString("4초 들이마시고 6초 내쉬는 호흡")));
 
         verify(liner, times(3)).generate(any());
-        verify(wallet).compensate(any(), eq("READING_GENERATION_FAILED"), any());
-        assertThatStatus("REFUNDED");
+        verify(wallet, times(0)).compensate(any(), any(), any());
+        assertThatStatus("FULFILLED");
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.sajuppugi.fortune.reading.domain;
 
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
+import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationMode;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ public record OwnedReading(
         String calculationVersion,
         String generationVersion,
         String contentVersion,
+        GenerationMode generationMode,
         UUID talismanId,
         String talismanStatus,
         Instant createdAt) {

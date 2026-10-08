@@ -107,7 +107,7 @@ public class SuneungReadingService {
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, subject.displayName(),
                     SuneungEventPolicy.EXAM_DATE, generated.response(), generated.calculationVersion(),
-                    generated.generationVersion(), generated.contentVersion(), talisman.talismanId(),
+                    generated.generationVersion(), generated.contentVersion(), generated.generationMode(), talisman.talismanId(),
                     talisman.status().name(), clock.instant());
             readings.fulfill(purchase, reading);
             return completed(reading, debit.balance().balance(), false);
