@@ -69,17 +69,23 @@ public class DeterministicSajuEngine implements SajuCalculationUseCase {
 
     private CalendarDates convert(BirthInput input) {
         KoreanLunarCalendar calendar = KoreanLunarCalendar.getInstance();
-        boolean valid;
-        if (input.calendarType() == BirthInput.CalendarType.LUNAR) {
-            valid = calendar.setLunarDate(input.birthDate().getYear(), input.birthDate().getMonthValue(), input.birthDate().getDayOfMonth(), input.leapMonth());
-        } else {
-            valid = calendar.setSolarDate(input.birthDate().getYear(), input.birthDate().getMonthValue(), input.birthDate().getDayOfMonth());
+        // KoreanLunarCalendar exposes one mutable singleton. Keep its set/read sequence atomic so
+        // concurrent requests cannot observe another request's converted date.
+        synchronized (calendar) {
+            boolean valid;
+            if (input.calendarType() == BirthInput.CalendarType.LUNAR) {
+                valid = calendar.setLunarDate(input.birthDate().getYear(), input.birthDate().getMonthValue(),
+                        input.birthDate().getDayOfMonth(), input.leapMonth());
+            } else {
+                valid = calendar.setSolarDate(input.birthDate().getYear(), input.birthDate().getMonthValue(),
+                        input.birthDate().getDayOfMonth());
+            }
+            if (!valid) throw new IllegalArgumentException("Unsupported or invalid Korean calendar date");
+            return new CalendarDates(
+                    LocalDate.of(calendar.getSolarYear(), calendar.getSolarMonth(), calendar.getSolarDay()),
+                    LocalDate.of(calendar.getLunarYear(), calendar.getLunarMonth(), calendar.getLunarDay()),
+                    calendar.isIntercalation());
         }
-        if (!valid) throw new IllegalArgumentException("Unsupported or invalid Korean calendar date");
-        return new CalendarDates(
-                LocalDate.of(calendar.getSolarYear(), calendar.getSolarMonth(), calendar.getSolarDay()),
-                LocalDate.of(calendar.getLunarYear(), calendar.getLunarMonth(), calendar.getLunarDay()),
-                calendar.isIntercalation());
     }
 
     private Solar solar(LocalDateTime dateTime) {

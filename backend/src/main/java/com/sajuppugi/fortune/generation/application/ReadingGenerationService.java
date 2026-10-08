@@ -59,18 +59,19 @@ public class ReadingGenerationService {
                     if (cached != null) return reused(cached);
                     throw new GenerationInProgressException(generationKey);
                 }
-                return invokeWithRetry(request, command.contentVersion());
+                return invokeWithRetry(request, command.contentVersion(), snapshots.nextAttemptNumber(generationKey));
             }
         } finally {
             localLocks.remove(generationKey, lock);
         }
     }
 
-    private GeneratedReading invokeWithRetry(LinerRequest request, String contentVersion) {
+    private GeneratedReading invokeWithRetry(LinerRequest request, String contentVersion, int firstAttempt) {
         String inputHash = keys.hashInput(request);
         InvalidGenerationException lastValidation = null;
         RuntimeException lastProviderFailure = null;
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        for (int index = 0; index < MAX_ATTEMPTS; index++) {
+            int attempt = firstAttempt + index;
             long started = System.nanoTime();
             LinerResponse response;
             try {
@@ -97,7 +98,7 @@ public class ReadingGenerationService {
             response = fallback.generate(request);
             validator.validate(request, response);
         } catch (RuntimeException fallbackFailure) {
-            snapshots.recordAttempt(request.generationKey(), MAX_ATTEMPTS + 1, fallback.name(), inputHash,
+            snapshots.recordAttempt(request.generationKey(), firstAttempt + MAX_ATTEMPTS, fallback.name(), inputHash,
                     "FALLBACK_FAILED", elapsedMillis(started), "FALLBACK_GENERATION_FAILED");
             String code = "FALLBACK_GENERATION_FAILED";
             snapshots.markFailed(request.generationKey(), code);
@@ -106,7 +107,7 @@ public class ReadingGenerationService {
             if (lastProviderFailure != null) failure.addSuppressed(lastProviderFailure);
             throw failure;
         }
-        snapshots.recordAttempt(request.generationKey(), MAX_ATTEMPTS + 1, fallback.name(), inputHash,
+        snapshots.recordAttempt(request.generationKey(), firstAttempt + MAX_ATTEMPTS, fallback.name(), inputHash,
                 "FALLBACK_SUCCEEDED", elapsedMillis(started), null);
         return snapshots.saveSucceeded(request, response, contentVersion, GenerationMode.FALLBACK);
     }

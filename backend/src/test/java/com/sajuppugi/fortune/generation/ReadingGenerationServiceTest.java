@@ -159,6 +159,9 @@ class ReadingGenerationServiceTest {
             claimed = true;
             return true;
         }
+        public synchronized int nextAttemptNumber(String key) {
+            return attempts + 1;
+        }
         public synchronized GeneratedReading saveSucceeded(LinerRequest request, LinerResponse response,
                                                            String contentVersion, GenerationMode generationMode) {
             reading = new GeneratedReading(UUID.randomUUID(), request.generationKey(), request.fortuneType(), response,

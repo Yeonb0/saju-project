@@ -59,6 +59,18 @@ public class JdbcGenerationSnapshotStore implements GenerationSnapshotStore {
     }
 
     @Override
+    public int nextAttemptNumber(String generationKey) {
+        Integer next = jdbc.queryForObject("""
+                SELECT COALESCE(MAX(a.attempt_no), 0) + 1
+                FROM reading_results r
+                LEFT JOIN generation_attempts a ON a.reading_result_id = r.id
+                WHERE r.generation_key = ?
+                """, Integer.class, generationKey);
+        if (next == null) throw new IllegalStateException("Generation claim does not exist");
+        return next;
+    }
+
+    @Override
     public GeneratedReading saveSucceeded(LinerRequest request, LinerResponse response, String contentVersion,
                                           GenerationMode generationMode) {
         int updated = jdbc.update("""

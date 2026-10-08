@@ -81,6 +81,12 @@ public class LinerResponseValidator {
         if (!accounted.equals(allowed)) {
             throw new InvalidGenerationException("LINER_SECTION_INVALID", "every allowed section must be returned or omitted");
         }
+        Set<SectionKey> required = new HashSet<>();
+        if (allowed.contains(SectionKey.SUMMARY)) required.add(SectionKey.SUMMARY);
+        if (allowed.contains(SectionKey.MISSING_ELEMENT)) required.add(SectionKey.MISSING_ELEMENT);
+        if (seen.isEmpty() || !seen.containsAll(required)) {
+            throw new InvalidGenerationException("LINER_SECTION_INVALID", "required sections cannot be omitted");
+        }
     }
 
     Set<String> factPaths(JsonNode facts) {

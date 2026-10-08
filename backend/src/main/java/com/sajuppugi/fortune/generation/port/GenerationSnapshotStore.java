@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface GenerationSnapshotStore {
     Optional<GeneratedReading> findSucceeded(String generationKey);
     boolean tryClaim(LinerRequest request, String contentVersion, Duration lease);
+    int nextAttemptNumber(String generationKey);
     GeneratedReading saveSucceeded(LinerRequest request, LinerResponse response, String contentVersion,
                                    GenerationMode generationMode);
     void recordAttempt(String generationKey, int attempt, String provider, String inputHash,

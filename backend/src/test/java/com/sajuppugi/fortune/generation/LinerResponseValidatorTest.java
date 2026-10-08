@@ -47,4 +47,14 @@ class LinerResponseValidatorTest {
                 .extracting(exception -> ((InvalidGenerationException) exception).code())
                 .isEqualTo("LINER_FORBIDDEN_EXPRESSION");
     }
+
+    @Test
+    void rejectsAnEmptyPaidResultAndOmittedRequiredSections() {
+        LinerResponse empty = new LinerResponse(List.of(), List.of(SectionKey.SUMMARY));
+
+        assertThatThrownBy(() -> validator.validate(request, empty))
+                .isInstanceOf(InvalidGenerationException.class)
+                .extracting(exception -> ((InvalidGenerationException) exception).code())
+                .isEqualTo("LINER_SCHEMA_INVALID");
+    }
 }

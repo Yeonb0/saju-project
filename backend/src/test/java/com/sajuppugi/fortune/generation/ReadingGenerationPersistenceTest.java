@@ -56,6 +56,26 @@ class ReadingGenerationPersistenceTest {
         assertThat(first.contentVersion()).isEqualTo("content-v1");
     }
 
+    @Test
+    void continuesAttemptNumbersWhenAFailedGenerationIsRetried() {
+        CalculationFacts facts = new DeterministicSajuEngine().calculate(
+                new BirthInput(LocalDate.of(2001, 7, 9), LocalTime.of(9, 10), false,
+                        CalendarType.SOLAR, false, Gender.MALE), CalculationPolicy.CURRENT);
+        GenerationCommand command = command(UUID.randomUUID(), facts);
+        GeneratedReading first = service.generate(command);
+        jdbc.update("""
+                UPDATE reading_results SET status = 'FAILED', sections_json = NULL,
+                failure_code = 'TEST_FAILURE', lease_until = NULL WHERE id = ?
+                """, first.resultId());
+
+        GeneratedReading retried = service.generate(command);
+
+        assertThat(retried.resultId()).isEqualTo(first.resultId());
+        assertThat(jdbc.queryForList("""
+                SELECT attempt_no FROM generation_attempts WHERE reading_result_id = ? ORDER BY attempt_no
+                """, Integer.class, first.resultId())).containsExactly(1, 2);
+    }
+
     private GenerationCommand command(UUID userId, CalculationFacts facts) {
         return new GenerationCommand(userId, FortuneType.SUNEUNG, LocalDate.of(2026, 11, 19),
                 "EXAM_FOCUS", facts, List.of(SectionKey.SUMMARY, SectionKey.EXAM_DAY), List.of(),

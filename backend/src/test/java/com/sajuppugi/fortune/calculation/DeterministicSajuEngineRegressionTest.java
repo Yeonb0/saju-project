@@ -11,6 +11,10 @@ import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
 import com.sajuppugi.fortune.calculation.infrastructure.DeterministicSajuEngine;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -68,6 +72,34 @@ class DeterministicSajuEngineRegressionTest {
 
         assertThatThrownBy(() -> engine.calculate(input, CalculationPolicy.CURRENT))
                 .isInstanceOf(DeterministicSajuEngine.UnsupportedUnknownBirthTimeException.class);
+    }
+
+    @Test
+    void convertsDatesConsistentlyUnderConcurrentRequests() throws Exception {
+        List<BirthInput> inputs = List.of(
+                new BirthInput(LocalDate.of(2020, 4, 15), LocalTime.NOON, false,
+                        CalendarType.LUNAR, false, Gender.FEMALE),
+                new BirthInput(LocalDate.of(2020, 4, 15), LocalTime.NOON, false,
+                        CalendarType.LUNAR, true, Gender.FEMALE),
+                new BirthInput(LocalDate.of(1997, 8, 9), LocalTime.NOON, false,
+                        CalendarType.SOLAR, false, Gender.MALE),
+                new BirthInput(LocalDate.of(2008, 3, 12), LocalTime.NOON, false,
+                        CalendarType.SOLAR, false, Gender.FEMALE));
+        List<CalculationFacts.CalendarDates> expected = inputs.stream()
+                .map(input -> engine.calculate(input, CalculationPolicy.CURRENT).calendarDates()).toList();
+        List<Callable<CalculationFacts.CalendarDates>> tasks = new ArrayList<>();
+        for (int round = 0; round < 50; round++) {
+            for (BirthInput input : inputs) {
+                tasks.add(() -> engine.calculate(input, CalculationPolicy.CURRENT).calendarDates());
+            }
+        }
+
+        try (var executor = Executors.newFixedThreadPool(16)) {
+            var results = executor.invokeAll(tasks);
+            for (int index = 0; index < results.size(); index++) {
+                assertThat(results.get(index).get()).isEqualTo(expected.get(index % inputs.size()));
+            }
+        }
     }
 
     private CalculationFacts calculate(String date, String time, CalendarType type, boolean leap, Gender gender) {
