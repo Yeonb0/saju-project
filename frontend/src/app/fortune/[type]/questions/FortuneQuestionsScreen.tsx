@@ -1,7 +1,8 @@
 "use client";
 
 // "use client" 이유: 인물 · 상품 조회(TanStack Query), 옵션 선택과 팝업 열림 상태, 충전 후 복귀(sessionStorage), 화면 이동(useRouter)은 브라우저에서 한다.
-// FORT-02 · FORT-03 유료 운세 질문 + 옵션 선택 (docs/FRONTEND.md 3장, Figma 195:611 · 248:956 · 195:620 · 245:240).
+// FORT-02 · FORT-03 · MATCH-03 유료 운세 질문 + 옵션 선택 (docs/FRONTEND.md 3장, Figma 195:611 · 248:956 · 248:849 · 195:620 · 245:240).
+// 궁합(MATCH-03)은 본인 + 상대 (Q-26) — 상대 ID 를 견적 · 복원 · 복귀 경로에 넣는다.
 // 근거: CHECKOUT-POPUP (차감 확인은 이 화면 안 Modal), P-03 (옵션 둘: 부적 포함 / 사주만), P-09 (가격 · 등껍질 수량은 이 화면에서 표시하지 않는다 — 팝업이 서버 견적으로 보인다),
 // PURCHASE-RESTORE (충전 후 복귀하면 선택을 되살리고 저장한 견적을 재확인), F-07 (판매 판단은 서버 active 기준), Q-26 · F-04 (질문 입력은 확정 전이라 자리만),
 // A-02 · A-03 (로그인 가드는 page.tsx 의 RequireSession), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다), LAYOUT-FIGMA. 디자인 요소 없음 (PG-FIRST).
@@ -48,13 +49,16 @@ function onlyActive(
 export function FortuneQuestionsScreen({
   slug,
   personId,
+  counterpartId,
   personPort,
   fortunePort,
   topUpPort,
 }: {
-  slug: Exclude<FortuneSlug, "compatibility">;
-  // FORT-01 이 쿼리로 넘긴 인물 ID — ID 만 받는다 (생년정보 · 이름 금지)
+  slug: FortuneSlug;
+  // FORT-01 · MATCH-01 이 쿼리로 넘긴 인물 ID — ID 만 받는다 (생년정보 · 이름 금지)
   personId: string;
+  // 궁합만 상대가 있다 (Q-26: 본인 + 상대). 다른 운세는 null
+  counterpartId: string | null;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다 (MOCK-PORT).
   personPort?: PersonPort;
   fortunePort?: FortunePort;
@@ -62,6 +66,7 @@ export function FortuneQuestionsScreen({
 }) {
   const router = useRouter();
   const fortuneType = FORTUNE_TYPE_OF_SLUG[slug];
+  const isCompat = slug === "compatibility";
 
   const people = useQuery({
     queryKey: ["people"],
@@ -80,19 +85,37 @@ export function FortuneQuestionsScreen({
   const redirected = useRef(false);
 
   // 충전 후 돌아와도 같은 대상이 오도록 쿼리를 포함한다
-  const returnPath = `/fortune/${slug}/questions?personId=${encodeURIComponent(personId)}`;
+  const returnPath =
+    isCompat && counterpartId !== null
+      ? `/fortune/compatibility/questions?personId=${encodeURIComponent(personId)}&counterpartId=${encodeURIComponent(counterpartId)}`
+      : `/fortune/${slug}/questions?personId=${encodeURIComponent(personId)}`;
+  // 견적 · 복원에 쓰는 상대 ID (궁합만)
+  const counterpartPersonId = isCompat ? counterpartId : null;
 
   const person = people.data?.find((p) => p.personId === personId) ?? null;
-  // 옛 링크 · 지운 인물 — 인물 목록은 왔는데 대상이 없다
-  const personMissing = people.data !== undefined && person === null;
+  const counterpart =
+    isCompat && counterpartId !== null
+      ? (people.data?.find((p) => p.personId === counterpartId) ?? null)
+      : null;
+  // 잘못된 대상 — 인물 목록은 왔는데 (1) 대상이 없다 (2) 궁합인데 첫 사람이 본인이 아니다
+  // (3) 궁합인데 상대가 없다 (4) 궁합인데 상대가 본인이거나 첫 사람과 같다
+  const targetInvalid =
+    people.data !== undefined &&
+    (person === null ||
+      (isCompat &&
+        (!person.isSelf ||
+          counterpart === null ||
+          counterpart.isSelf ||
+          counterpart.personId === personId)));
 
-  // 옛 링크 · 지운 인물 — FORT-01 로 돌아가 대상을 다시 고른다. 오류 화면으로 던지지 않는다(정상 사용에서도 생기는 경우).
+  // 옛 링크 · 지운 인물 — 앞 화면(FORT-01, 궁합은 MATCH-01)으로 돌아가 대상을 다시 고른다.
+  // 오류 화면으로 던지지 않는다(정상 사용에서도 생기는 경우).
   // notFound() 는 서버 컴포넌트 · 서버 함수 · 라우트 핸들러에서만 부른다 (next 문서 04-functions/not-found.md)
   useEffect(() => {
-    if (!personMissing || redirected.current) return;
+    if (!targetInvalid || redirected.current) return;
     redirected.current = true;
     router.replace(`/fortune/${slug}`);
-  }, [personMissing, router, slug]);
+  }, [targetInvalid, router, slug]);
 
   // 판매 판단은 서버 active 만 본다 (F-07). 새 enum 값(UNKNOWN)은 무시한다
   const list = products.data ?? null;
@@ -102,7 +125,7 @@ export function FortuneQuestionsScreen({
   // 충전 후 복귀 (PURCHASE-RESTORE): 인물 · 상품이 모두 온 뒤 한 번만 읽는다
   useEffect(() => {
     if (restored.current || !people.data || !products.data) return;
-    if (personMissing) return;
+    if (targetInvalid) return;
     restored.current = true;
     const saved = loadPurchaseSelection();
     // 다른 화면의 저장값은 건드리지 않는다
@@ -110,6 +133,7 @@ export function FortuneQuestionsScreen({
     const codes = [talisman?.code, readingOnly?.code];
     if (
       saved.selection.personId !== personId ||
+      saved.selection.counterpartPersonId !== counterpartPersonId ||
       !codes.includes(saved.selection.productCode)
     ) {
       clearPurchaseSelection();
@@ -121,9 +145,10 @@ export function FortuneQuestionsScreen({
   }, [
     people.data,
     products.data,
-    personMissing,
+    targetInvalid,
     returnPath,
     personId,
+    counterpartPersonId,
     talisman,
     readingOnly,
   ]);
@@ -131,6 +156,10 @@ export function FortuneQuestionsScreen({
   // 시끄럽게 실패: 조회 실패 · 계약과 다른 데이터는 오류 화면(error.tsx)으로
   if (people.error) throw people.error;
   if (products.error) throw products.error;
+  if (!isCompat && counterpartId !== null) {
+    // 페이지가 막는 경우 — 궁합이 아닌데 상대가 왔다 (계약 위반)
+    throw new Error("궁합이 아닌 운세에 상대 ID 가 왔다");
+  }
   if (list?.some((p) => p.fortuneType !== fortuneType)) {
     throw new Error("다른 운세 종류의 상품이 섞여 왔다");
   }
@@ -145,8 +174,15 @@ export function FortuneQuestionsScreen({
       : chosen.option === "READING_WITH_TALISMAN"
         ? TALISMAN_LABEL
         : READING_ONLY_LABEL;
+  // 첫 질문(연애 상태 · 관계)이 있는 운세
+  const hasFirstQuestion = slug === "love" || isCompat;
   const soldOut = list !== null && talisman === null && readingOnly === null;
-  const ready = person !== null && list !== null && !soldOut;
+  const ready = person !== null && !targetInvalid && list !== null && !soldOut;
+  // TODO(PD 문구): 두 사람 표시
+  const targetName =
+    isCompat && person && counterpart
+      ? `${person.name} · ${counterpart.name}`
+      : (person?.name ?? "");
 
   function choose(product: FortuneProduct) {
     setChosenCode(product.code);
@@ -157,7 +193,7 @@ export function FortuneQuestionsScreen({
     // TODO(PD 문구)
     <AppShell
       title={FORTUNE_LABELS[slug]}
-      // 앞 화면(FORT-01)으로
+      // 앞 화면(FORT-01, 궁합은 MATCH-01)으로
       backHref={`/fortune/${slug}`}
       cta={
         ready ? (
@@ -179,14 +215,16 @@ export function FortuneQuestionsScreen({
         ) : null
       }
     >
-      {personMissing ? null : (
+      {targetInvalid ? null : (
         <>
           {/* LAYOUT-FIGMA: 질문 자리 — 입력 칸이 아니라 aria-hidden 회색 상자 */}
-          {slug === "love" ? (
+          {hasFirstQuestion ? (
             <>
               {/* TODO(PD 문구) */}
-              <p className={`mt-[59px] ml-[37px] ${LABEL_CLASS}`}>연애 상태</p>
-              {/* TODO(Q-26): 선택지 목록 · 서버 키 대기 */}
+              <p className={`mt-[59px] ml-[37px] ${LABEL_CLASS}`}>
+                {isCompat ? "관계" : "연애 상태"}
+              </p>
+              {/* TODO(Q-26): 선택지 목록 · 서버 키 대기 — 연애 상태(love) · 관계(compatibility) */}
               <div
                 aria-hidden
                 className={`mt-[22px] ml-[37px] h-[57px] w-[335px] ${BOX_CLASS}`}
@@ -205,7 +243,7 @@ export function FortuneQuestionsScreen({
           {/* TODO(F-04 · Q-26): 고민 입력 — 결과 미반영 기준, 확정 전 입력 칸 없음 */}
           <div
             aria-hidden
-            className={`mt-[22px] ${slug === "love" ? "ml-[37px]" : "ml-[42px]"} h-[125px] w-[335px] ${BOX_CLASS}`}
+            className={`mt-[22px] ${hasFirstQuestion ? "ml-[37px]" : "ml-[42px]"} h-[125px] w-[335px] ${BOX_CLASS}`}
           />
 
           {soldOut ? (
@@ -213,7 +251,7 @@ export function FortuneQuestionsScreen({
             <p>지금은 구매할 수 없습니다</p>
           ) : null}
 
-          {person && chosen ? (
+          {person && chosen && !targetInvalid ? (
             <ShellCheckout
               open={checkoutOpen}
               onOpenChange={(next) => {
@@ -223,9 +261,9 @@ export function FortuneQuestionsScreen({
               selection={{
                 productCode: chosen.code,
                 personId,
-                counterpartPersonId: null,
+                counterpartPersonId,
               }}
-              targetName={person.name}
+              targetName={targetName}
               optionLabel={chosenLabel}
               resumeQuoteId={resumeQuoteId}
               returnPath={returnPath}

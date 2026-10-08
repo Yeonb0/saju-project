@@ -66,8 +66,9 @@ function ports() {
 }
 
 type Injected = {
-  slug?: "love" | "wealth" | "overall" | "sinsal";
+  slug?: "love" | "wealth" | "overall" | "sinsal" | "compatibility";
   personId?: string;
+  counterpartId?: string | null;
   personPort?: PersonPort;
   fortunePort?: FortunePort;
 };
@@ -83,6 +84,7 @@ function setup(overrides: Injected = {}) {
       <FortuneQuestionsScreen
         slug={overrides.slug ?? "love"}
         personId={overrides.personId ?? SELF_ID}
+        counterpartId={overrides.counterpartId ?? null}
         personPort={overrides.personPort ?? base.personPort}
         fortunePort={fortunePort}
         topUpPort={base.topUpPort}
@@ -118,6 +120,7 @@ async function expectThrown(overrides: Injected = {}) {
         <FortuneQuestionsScreen
           slug={overrides.slug ?? "love"}
           personId={overrides.personId ?? SELF_ID}
+          counterpartId={overrides.counterpartId ?? null}
           personPort={
             "personPort" in overrides ? overrides.personPort : base.personPort
           }
@@ -387,5 +390,163 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     expect(body).not.toContain("등껍질");
     expect(body).not.toMatch(/\d/);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  describe("궁합 MATCH-03 (본인 + 상대, Q-26)", () => {
+    const COMPAT_TALISMAN = "FIXTURE_COMPATIBILITY_READING_WITH_TALISMAN";
+    const compatPath = (personId: string, counterpartId: string) =>
+      `/fortune/compatibility/questions?personId=${personId}&counterpartId=${counterpartId}`;
+
+    it("r. 제목 궁합 · 관계 / 알고 싶은 부분 라벨 · 버튼 둘, 부적 포함을 누르면 두 사람 ID 로 견적 요청하고 팝업에 두 이름", async () => {
+      const user = userEvent.setup();
+      const { createQuote } = setup({
+        slug: "compatibility",
+        counterpartId: OTHER.personId,
+      });
+      expect(
+        await screen.findByRole("heading", { level: 1, name: "궁합" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("관계")).toBeInTheDocument();
+      expect(screen.getByText("알고 싶은 부분")).toBeInTheDocument();
+      expect(screen.queryByText("연애 상태")).toBeNull();
+      const buttons = await ctaButtons();
+      expect(buttons.map((b) => b.textContent)).toEqual([
+        TALISMAN_LABEL,
+        ONLY_LABEL,
+      ]);
+      await user.click(buttons[0]);
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        await within(dialog).findByText(`${SELF_NAME} · ${OTHER.name}`),
+      ).toBeInTheDocument();
+      await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
+      expect(createQuote).toHaveBeenCalledWith({
+        productCode: COMPAT_TALISMAN,
+        personId: SELF_ID,
+        counterpartPersonId: OTHER.personId,
+      });
+    });
+
+    it("s. 상대가 목록에 없으면 MATCH-01 로 replace 한 번, 버튼 · 견적 없음", async () => {
+      replaceAllowed = true;
+      const { createQuote } = setup({
+        slug: "compatibility",
+        counterpartId: "no-such-person",
+      });
+      await waitFor(() => expect(router.replace).toHaveBeenCalledTimes(1));
+      expect(router.replace).toHaveBeenCalledWith("/fortune/compatibility");
+      expect(screen.queryByRole("button", { name: TALISMAN_LABEL })).toBeNull();
+      expect(createQuote).not.toHaveBeenCalled();
+    });
+
+    it("t. 상대가 본인(counterpartId === personId)이면 MATCH-01 로 replace", async () => {
+      replaceAllowed = true;
+      const { createQuote } = setup({
+        slug: "compatibility",
+        counterpartId: SELF_ID,
+      });
+      await waitFor(() => expect(router.replace).toHaveBeenCalledTimes(1));
+      expect(router.replace).toHaveBeenCalledWith("/fortune/compatibility");
+      expect(createQuote).not.toHaveBeenCalled();
+    });
+
+    it("t2. 첫 사람이 타인이고 상대가 본인이어도 MATCH-01 로 replace (첫 사람은 본인이어야 한다)", async () => {
+      replaceAllowed = true;
+      const { createQuote } = setup({
+        slug: "compatibility",
+        personId: OTHER.personId,
+        counterpartId: SELF_ID,
+      });
+      await waitFor(() => expect(router.replace).toHaveBeenCalledTimes(1));
+      expect(router.replace).toHaveBeenCalledWith("/fortune/compatibility");
+      expect(screen.queryByRole("button", { name: TALISMAN_LABEL })).toBeNull();
+      expect(createQuote).not.toHaveBeenCalled();
+    });
+
+    it("t3. 첫 사람도 상대도 타인이면(둘 다 본인이 아님) MATCH-01 로 replace — 첫 사람이 본인이어야 한다는 조건만 걸린다", async () => {
+      replaceAllowed = true;
+      const OTHER2 = {
+        personId: "88888888-8888-4888-8888-888888888888",
+        isSelf: false,
+        name: "FIXTURE OTHER2",
+      };
+      const account = createFakeAccount("signed_in");
+      account.addOther({ ...OTHER });
+      account.addOther({ ...OTHER2 });
+      const { createQuote } = setup({
+        slug: "compatibility",
+        personId: OTHER.personId,
+        counterpartId: OTHER2.personId,
+        personPort: createFakePersonPort(account),
+      });
+      await waitFor(() => expect(router.replace).toHaveBeenCalledTimes(1));
+      expect(router.replace).toHaveBeenCalledWith("/fortune/compatibility");
+      expect(screen.queryByRole("button", { name: TALISMAN_LABEL })).toBeNull();
+      expect(createQuote).not.toHaveBeenCalled();
+    });
+
+    it("u. 복원: 같은 returnPath · personId · counterpartPersonId · 활성 code 면 팝업이 저절로 열리고 저장한 견적을 재확인한다", async () => {
+      const { fortunePort, personPort } = ports();
+      const quote = await fortunePort.createQuote({
+        productCode: COMPAT_TALISMAN,
+        personId: SELF_ID,
+        counterpartPersonId: OTHER.personId,
+      });
+      savePurchaseSelection({
+        returnPath: compatPath(SELF_ID, OTHER.personId),
+        quoteId: quote.quoteId,
+        selection: {
+          productCode: COMPAT_TALISMAN,
+          personId: SELF_ID,
+          counterpartPersonId: OTHER.personId,
+        },
+      });
+      const { createQuote, getQuote } = setup({
+        slug: "compatibility",
+        counterpartId: OTHER.personId,
+        fortunePort,
+        personPort,
+      });
+      const dialog = await screen.findByRole("dialog");
+      await within(dialog).findByRole("button", { name: "사용하기" });
+      expect(getQuote).toHaveBeenCalledWith(quote.quoteId);
+      expect(createQuote).not.toHaveBeenCalled();
+    });
+
+    it("v. 복원: 같은 returnPath 인데 저장한 counterpartPersonId 가 다른 ID 면 팝업이 열리지 않고 저장값이 지워진다", async () => {
+      savePurchaseSelection({
+        returnPath: compatPath(SELF_ID, OTHER.personId),
+        quoteId: "fixture-quote",
+        selection: {
+          productCode: COMPAT_TALISMAN,
+          personId: SELF_ID,
+          counterpartPersonId: "another-person",
+        },
+      });
+      setup({ slug: "compatibility", counterpartId: OTHER.personId });
+      await ctaButtons();
+      await waitFor(() => expect(loadPurchaseSelection()).toBeNull());
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("w. 복원: love 에서 저장한 counterpartPersonId 가 null 이 아니면 팝업이 열리지 않고 저장값이 지워진다", async () => {
+      savePurchaseSelection({
+        returnPath: `/fortune/love/questions?personId=${SELF_ID}`,
+        quoteId: "fixture-quote",
+        selection: {
+          productCode: TALISMAN,
+          personId: SELF_ID,
+          counterpartPersonId: OTHER.personId,
+        },
+      });
+      setup();
+      await ctaButtons();
+      await waitFor(() => expect(loadPurchaseSelection()).toBeNull());
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("x. 궁합이 아닌 운세(love)에 counterpartId 가 오면 던진다", async () => {
+      const caught = await expectThrown({ counterpartId: OTHER.personId });
+      expect(String(caught)).toContain("상대 ID");
+    });
   });
 });

@@ -28,15 +28,13 @@ export const FORTUNE_LABELS: Record<FortuneSlug, string> = {
   compatibility: "궁합",
 };
 
-// slug → 운세 종류 (상품 조회용). 근거: API_SPEC 2장 초안 enum. 궁합은 사람 선택(MATCH-01 · 02) 단계라 뺀다
-export const FORTUNE_TYPE_OF_SLUG: Record<
-  Exclude<FortuneSlug, "compatibility">,
-  FortuneType
-> = {
+// slug → 운세 종류 (상품 조회용). 근거: API_SPEC 2장 초안 enum
+export const FORTUNE_TYPE_OF_SLUG: Record<FortuneSlug, FortuneType> = {
   love: "LOVE",
   wealth: "WEALTH",
   overall: "OVERALL",
   sinsal: "SINSAL",
+  compatibility: "COMPATIBILITY",
 };
 
 export type MenuLink = { label: string; href: RoutePath | FortunePath };

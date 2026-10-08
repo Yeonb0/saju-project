@@ -62,13 +62,14 @@ describe("isFortuneSlug (FORT-01)", () => {
 });
 
 describe("FORTUNE_TYPE_OF_SLUG (FORT-02 · 03)", () => {
-  it("q. 4개 slug 를 LOVE · WEALTH · OVERALL · SINSAL 로 정확히 옮긴다", () => {
+  it("q. 5개 slug 를 LOVE · WEALTH · OVERALL · SINSAL · COMPATIBILITY 로 정확히 옮긴다", () => {
     expect(FORTUNE_TYPE_OF_SLUG).toEqual({
       love: "LOVE",
       wealth: "WEALTH",
       overall: "OVERALL",
       sinsal: "SINSAL",
+      compatibility: "COMPATIBILITY",
     });
-    expect(Object.keys(FORTUNE_TYPE_OF_SLUG)).toHaveLength(4);
+    expect(Object.keys(FORTUNE_TYPE_OF_SLUG)).toHaveLength(5);
   });
 });
