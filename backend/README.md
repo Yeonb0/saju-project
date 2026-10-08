@@ -90,6 +90,13 @@ bash ./gradlew clean check bootJar
 | `DB_USERNAME` | DB 사용자 |
 | `DB_PASSWORD` | DB 비밀번호 |
 | `PORT` | HTTP 포트, 기본 8080 |
+| `LINER_API_KEY` | Liner 서버 API 키. 클라이언트·Git·로그에 노출 금지 |
+| `LINER_MODEL` | Liner 모델 ID, 기본 `liner-mark` |
+| `LINER_BASE_URL` | 기본 `https://platform.liner.com/api/v1` |
+| `LINER_CONNECT_TIMEOUT` | 연결 제한시간, 기본 `3s` |
+| `LINER_READ_TIMEOUT` | 응답 제한시간, 기본 `30s` |
+| `LINER_MAX_OUTPUT_TOKENS` | 구조화 결과 최대 토큰, 기본 `4000` |
+| `LINER_REASONING_EFFORT` | `none|low|medium|high|max`, 기본 `low` |
 
 `staging`과 `production`에는 개발 DB 기본값이 없다. 세 DB 환경변수를 배포 환경에서 제공해야 한다. `postgresql://...` 연결 문자열을 그대로 `DB_URL`에 넣지 말고 JDBC 형식과 분리된 계정값을 사용한다.
 
@@ -101,7 +108,7 @@ $env:DB_PASSWORD = '<configured-password>'
 .\gradlew.bat bootRun
 ```
 
-운영 환경에서는 배포 플랫폼의 비밀 환경변수 설정을 사용한다. 토스/OAuth/Liner/R2 키는 아직 필요하지 않으며 구현 전 임의 값을 추가하지 않는다.
+로컬 프로필은 프로젝트의 `backend/.env`를 선택적으로 읽는다. 이 파일은 Git에서 제외되며 `LINER_API_KEY=...` 형식으로 저장한다. staging·production은 실제 Liner 어댑터가 기본이고 키가 없으면 시작에 실패한다. 운영 키는 반드시 배포 플랫폼의 비밀 환경변수로 등록하며 토스/OAuth/R2 키도 소스나 로그에 기록하지 않는다.
 
 ## DB 마이그레이션과 패키지
 

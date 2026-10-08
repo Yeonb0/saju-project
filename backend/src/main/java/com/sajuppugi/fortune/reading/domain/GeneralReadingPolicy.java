@@ -15,7 +15,7 @@ import java.util.Set;
  * Keys are deliberately stable API identifiers rather than display copy.
  */
 public final class GeneralReadingPolicy {
-    public static final String GENERATION_VERSION = "liner-general-reading-v1";
+    public static final String GENERATION_VERSION = "liner-general-reading-v2";
     private static final Map<FortuneType, Definition> DEFINITIONS = definitions();
 
     private GeneralReadingPolicy() {}

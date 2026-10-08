@@ -222,7 +222,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.charged.currency").value("TURTLE_SHELL"))
                 .andExpect(jsonPath("$.data.charged.amount").value(10))
                 .andExpect(jsonPath("$.data.calculationVersion").value("manse-2026.10-v1"))
-                .andExpect(jsonPath("$.data.generationVersion").value("liner-general-reading-v1"))
+                .andExpect(jsonPath("$.data.generationVersion").value("liner-general-reading-v2"))
                 .andExpect(jsonPath("$.data.reading.fortuneType").value(type))
                 .andExpect(jsonPath("$.data.reading.questionKey").value(questionKey))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(sections))

@@ -4,3 +4,7 @@ spring:
       on-profile: production
 
 # No development credentials or public API documentation in production.
+
+app:
+  liner:
+    adapter: ${LINER_ADAPTER:api}
