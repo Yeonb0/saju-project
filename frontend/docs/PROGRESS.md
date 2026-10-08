@@ -17,16 +17,16 @@
   - MY-01 `/me` — 계정 · 로그아웃 · 저장된 사람들 · 약관 링크 (`8141672`), 로그아웃 후 `/` 로 (`71296ad`)
   - 가짜 조작판 (MOCK-PANEL, `aaa196e`) — Vercel 미리보기에서 버튼으로 시나리오 전환. 웹 대화가 로그아웃 상태 → 로그인 · 잔액 100 · 생성 실패로 바꿔 확인
   - 웹 대화가 원격 코드를 직접 띄워 화면을 찍어 확인 — 로그인 → 정보 → 수능운 → 잔액 부족 → 충전 → 복귀 → 구매 → 결과 → 마이페이지 로그아웃까지 가짜로 끝까지 동작 (10/8)
-  - PR #13 제목 · 본문 갱신 (draft 유지), 팀원별 요청을 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 로 정리 (claude.ai 문서 — 사용자가 공유)
+  - PR #13 `main` 병합 (`c4c2088`, 10/8 15:27, 사용자 — `eef00a0` 까지 포함), 팀원별 요청을 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 로 정리 (claude.ai 문서 — 사용자가 공유)
 - **화면 현황 (10/8, 최종 와이어 49개 기준)**: 동작 + 배치 11 (HOME-01 · 02, CSAT-01 · 03 ~ 06, PAY-01, MY-01, 차감 · 부족 팝업), 부분 5 (CSAT-02 · FORT-05 로딩, PAY-02 · FORT-04, HOME-04, FORT-06 · 07 재열람), 커밋 대기 HOME-03 · HOME-04 (24단계), 지금 가능 FORT-01 ~ 03 · MATCH-01 ~ 03 · TODAY-01 · 02, 규칙으로 막음 20 (GIFT-01 ~ 05 · RECV-* · FORT-08 · 09 · CSAT-07 · TALBOX — "선물 · 부적은 OpenAPI 전 가짜 포트로도 만들지 않는다", 풀지 여부는 사용자 판단), 팀 결정 대기 4 (GIFT-06 ~ 08 · MY-02)
 - **다음 작업**
   1. (FE) 24단계 HOME-03 홈 · HOME-04 메뉴 — 구현 · 검사 끝, **커밋 대기** (사용자 PC 작업 트리: page.tsx · HomeScreen.tsx/.test · navigation.ts/.test · AppShell.tsx/.test). 커밋 후 웹 대화가 화면 대조. 홈은 헤더가 없어 ≡ 메뉴가 없다(와이어대로 — 오른쪽 위는 마이페이지 아이콘)
   2. (FE, A 계속) FORT-01 일반 운세 정보 확인(`/fortune/[type]`, CSAT-01 과 같은 틀) → FORT-02 · 03 · MATCH-03 질문(옵션 버튼 → 차감 팝업, 질문 선택지는 Q-26 자리) → MATCH-01 · 02 궁합 사람 선택 → TODAY-01 · 02 오늘의 운세(가짜 포트, X-02 항목)
-  3. (사용자) PR #13 ready → 머지 판단. Vercel Preview 에 `NEXT_PUBLIC_API_MODE=mock` 설정 끝(10/8), 미리보기 주소 `saju-project-git-boyeon-yeonb0s-projects.vercel.app` 팀 공유
+  3. (사용자) PR #13 은 병합됨 (`c4c2088`). 다음 `main` 반영은 A 화면이 모인 뒤 새 PR. Vercel Preview 에 `NEXT_PUBLIC_API_MODE=mock` 설정 끝(10/8), 미리보기 주소 `saju-project-git-boyeon-yeonb0s-projects.vercel.app` 팀 공유
   4. (사용자 → 팀) 공유 문서 2개 전달 — "뿌기사주 팀 요청 자료 (FE)"(BE-A · BE-B · PD), "뿌기사주 PD 화면 제작 요청서 (FE)"(PD). 급한 것: **Q-25**(10/8 기한) · **R-08** · **R-06**
   5. (사용자) `.env.example` 에 `NEXT_PUBLIC_API_MODE` · `NEXT_PUBLIC_MOCK_SESSION_SCENARIO` · `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO` · `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO` 빈 줄 추가 · 커밋
   6. (FE) 진짜 연결 — OpenAPI 수령 후 `adapters/`(세션 · 인물 · 충전 · 운세 · 결과), 토스 SDK 결제창(R-09). Q-25 답이 오면 충전 결제 수단 · 동의 · 안내 (심사 요청 전 확정 필수)
-- **`main` PR 주의**: 머지하면 `main` 배포(가짜 모드 금지)에서 `/login` · `/onboarding` · `/wallet` · `/about` · `/suneung` · `/me` 가 "진짜 구현 없음" 오류 화면 (의도된 시끄러운 실패). 진짜 adapter 전까지 그 화면을 남에게 보여 주지 않는다
+- **`main` 배포 주의 (PR #13 병합으로 지금 해당)**: `main` 배포(가짜 모드 금지)에서 `/login` · `/onboarding` · `/wallet` · `/about` · `/suneung` · `/me` 가 "진짜 구현 없음" 오류 화면 (의도된 시끄러운 실패). 진짜 adapter 전까지 팀 확인은 `boyeon` 미리보기 주소로만 한다
 - **보류 (재개 조건)**
   - 디자인 — 글꼴(FONT-HOLD · D-02), 손그림 프레임(D-03 · Q-15), 캐릭터(D-06 · T-01 · R-02), 아이콘 에셋, 색 토큰(D-01), 사이드 메뉴 운세 목록(`TODO(D-10)`): PG 심사 요청 후. 배치(LAYOUT-FIGMA)는 진행
   - 팀 확정 전이라 만들지 않는 것 (v0.3 ⚠️): 여러 명 선물(GIFT-06 ~ 08), 발송 실패 링크 직접 공유(GIFT-05), 네이버 · 구글 로그인(A-01), 고민 입력의 결과 반영(F-04). 충전 결제 수단 · 동의 체크 · 안내 문구는 Q-25 전까지
@@ -121,7 +121,7 @@
 
 ## 세션 로그
 
-- 2026-10-08 (저녁) · 가짜 조작판(`aaa196e`, MOCK-PANEL) → Vercel Preview 가짜 모드 설정 · 팀 공유 가능. 화면 현황 49개 대조, PD 화면 제작 요청서 작성. HOME-03 · HOME-04 구현(24단계, 커밋 대기).
+- 2026-10-08 (저녁) · 가짜 조작판(`aaa196e`, MOCK-PANEL) → Vercel Preview 가짜 모드 설정 · 팀 공유 가능. 화면 현황 49개 대조, PD 화면 제작 요청서 작성. HOME-03 · HOME-04 구현(24단계, 커밋 대기). PR #13 `main` 병합(`c4c2088`).
 - 2026-10-08 (오후) · 와이어 배치 계속(`1504fe1` · `9234cc3` · `573d578`), MY-01(`8141672` · `71296ad`). 웹 대화가 원격 코드를 직접 띄워 화면 대조 시작 — 로그아웃 후 `/login` 으로 가던 문제를 화면에서 찾아 고침.
 - 2026-10-07 ~ 10-08 · `main` BE-A PR #14 병합(`a47e428`) · FE_COMPATIBILITY 대조, 10/6 커밋 8개 사후 검토(유지). 잔액 부족 추천 충전 · 가짜 추천 BE-A 규칙 · 판매 상품 없음(`6526d3c`), `/about` 틀(`7aba2e1`), CSAT-01(`80a9a0b`), 와이어 배치 1차(`84cb468` · `bfb7de1`, LAYOUT-FIGMA). PR #13 본문 갱신. 팀 요청 자료 공유 문서 작성, TEAM-QUESTIONS Q-28 ~ Q-30.
 - 2026-10-04 ~ 10-05 · MOCK-PORT 로 PG-1 · PG-2 · PG-3 가짜 범위와 Phase 3 본인 입력 진행 — API 코어(`ffe1080`), 충전 포트 · 화면(`e0ce4dd` · `03f01fa` · `816b130`), returnTo · 세션 · 로그인 가드 · `/login`(`728e9fb` · `84b5390`), 인물 포트 · PersonForm · `/onboarding`(`75b774c` · `8f94cde`), PersonForm 검증 규칙(`1a7fe39`), 테스트 시간 초과 완화(`ebb16b0`). 결정 MOCK-PORT(`fe549f4`) · CODE-BY-CC. PR #12 병합(`47e2055`). 로컬 충전 시나리오 6종 확인.
