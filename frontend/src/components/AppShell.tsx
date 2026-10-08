@@ -31,20 +31,28 @@ export function AppShell({ title, backHref, cta, children }: AppShellProps) {
       className={`mx-auto flex min-h-dvh w-full flex-col pt-[env(safe-area-inset-top)] ${COLOR_BG} ${COLOR_TEXT} ${cta ? "" : "pb-[env(safe-area-inset-bottom)]"}`}
       style={{ maxWidth: COLUMN_WIDTH }}
     >
-      <header className="grid h-14 grid-cols-[1fr_auto_1fr] items-center">
+      {/* LAYOUT-FIGMA (195:203~206): 헤더 64px, 위 여백 29px — 제목 줄이 y 29~64, 세 칸은 그 줄 안에서 세로 가운데 */}
+      <header className="grid h-[64px] grid-cols-[1fr_auto_1fr] items-center pt-[29px]">
         <div className="pl-[20px]">
           {backHref ? (
             // history.back 이 아니라 링크로 간다: 카카오톡 링크로 바로 들어오면 돌아갈 기록이 없다.
-            // TODO(PD 아이콘): 텍스트 글리프 임시
-            <Link href={backHref} aria-label="뒤로">
+            // TODO(PD 아이콘): 텍스트 글리프 임시 (상자 34×34 만 와이어에 맞춘다)
+            <Link
+              href={backHref}
+              aria-label="뒤로"
+              className="flex h-[34px] w-[34px] items-center justify-center"
+            >
               ‹
             </Link>
           ) : null}
         </div>
-        <h1>{title}</h1>
+        <h1 className="text-[30px] leading-[normal]">{title}</h1>
         <div className="flex justify-end pr-[30px]">
           <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
-            <Dialog.Trigger aria-label="메뉴 열기">
+            <Dialog.Trigger
+              aria-label="메뉴 열기"
+              className="flex h-[24px] w-[24px] items-center justify-center"
+            >
               {/* TODO(PD 아이콘): 텍스트 글리프 임시 */}≡
             </Dialog.Trigger>
             <Dialog.Portal>

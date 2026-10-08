@@ -59,4 +59,19 @@ describe("PersonCard", () => {
     expect(onSelect).toHaveBeenCalledWith(OTHER);
     expect(screen.queryByText("저장된 사용자")).toBeNull();
   });
+
+  it("불러오기 버튼은 카드(data-frame=card) 밖에 있다 (LAYOUT-FIGMA)", () => {
+    const { container } = render(
+      <PersonCard person={SELF} people={[SELF, OTHER]} onSelect={vi.fn()} />,
+    );
+    const load = screen.getByRole("button", {
+      name: "저장된 다른 사용자 불러오기",
+    });
+    const card = container.querySelector('[data-frame="card"]');
+    expect(card).not.toBeNull();
+    expect(card?.contains(load)).toBe(false);
+    // 카드 안에는 이름 · 수정이 남아 있다
+    expect(card?.textContent).toContain("본인 픽스처");
+    expect(card?.textContent).toContain("수정");
+  });
 });

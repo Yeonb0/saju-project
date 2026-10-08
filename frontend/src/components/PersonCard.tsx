@@ -23,25 +23,45 @@ export function PersonCard({
 }) {
   const [open, setOpen] = useState(false);
 
+  // 크기 · 위치는 최종 와이어(LAYOUT-FIGMA, CSAT-01 195:208): 카드 351×115 이상, 카드 왼쪽 위가 원점
   return (
-    <Card>
-      <p>
-        {person.name}
-        {person.isSelf ? (
-          // TODO(PD 문구)
-          <span> (본인)</span>
-        ) : null}
-      </p>
-      {/* MY-02 수정 (/me/people/[id]) — 수정 화면은 Phase 3 체크박스. TODO(PD 문구) */}
-      <Link href={`/me/people/${encodeURIComponent(person.personId)}`}>
-        수정
-      </Link>
+    <>
+      <Card className="mx-auto flex min-h-[115px] w-[351px]">
+        <div className="ml-[29px] mt-[19px] flex w-[49px] flex-none flex-col items-center self-start">
+          {/* TODO(캐릭터): 띠 동물 · 뿌기 — PG 심사 후 */}
+          <div aria-hidden data-slot="avatar" className="h-[57px] w-[49px]" />
+          {person.isSelf ? (
+            // TODO(PD 문구)
+            <span className="whitespace-nowrap text-[17px] font-semibold">
+              (본인)
+            </span>
+          ) : null}
+        </div>
+        {/* TODO(BE-B): 인물 요약에 생년 표시 필드 없음 */}
+        <p className="ml-[33px] mt-[23px] self-start text-[17px] font-medium leading-[24px]">
+          {person.name}
+        </p>
+        {/* MY-02 수정 (/me/people/[id]) — 수정 화면은 Phase 3 체크박스. TODO(PD 문구) */}
+        <Link
+          href={`/me/people/${encodeURIComponent(person.personId)}`}
+          className="mr-[15px] mb-[13px] ml-auto self-end text-[17px] font-semibold"
+        >
+          수정
+        </Link>
+      </Card>
       {people.length > 1 ? (
         <>
-          <Button onClick={() => setOpen(true)}>
-            {/* TODO(PD 문구) */}
-            저장된 다른 사용자 불러오기
-          </Button>
+          {/* 카드 밖 글자 버튼 — 카드 바로 아래 15px, 오른쪽 끝을 카드 오른쪽 끝에 맞춘다 */}
+          <div className="mx-auto mt-[15px] flex w-[351px] justify-end">
+            <button
+              type="button"
+              className="text-[17px] font-semibold"
+              onClick={() => setOpen(true)}
+            >
+              {/* TODO(PD 문구) */}
+              저장된 다른 사용자 불러오기
+            </button>
+          </div>
           {/* TODO(PD 문구): 제목 */}
           <BottomSheet open={open} onOpenChange={setOpen} title="저장된 사용자">
             <ul>
@@ -66,6 +86,6 @@ export function PersonCard({
           </BottomSheet>
         </>
       ) : null}
-    </Card>
+    </>
   );
 }

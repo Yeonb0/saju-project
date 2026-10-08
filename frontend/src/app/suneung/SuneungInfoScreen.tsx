@@ -104,31 +104,45 @@ export function SuneungInfoScreen({
       backHref="/"
       cta={
         soldOut ? null : (
-          <Button
-            onClick={() => setCheckoutOpen(true)}
-            disabled={person === null || product === null}
-          >
-            {/* TODO(PD 문구) */}
-            진행
-          </Button>
+          // 하단 CTA(195:216): 가운데, 아래 여백 39px (safe-area 는 AppShell 이 더한다)
+          <div className="flex justify-center pb-[39px]">
+            <Button
+              variant="cta"
+              onClick={() => setCheckoutOpen(true)}
+              disabled={person === null || product === null}
+            >
+              {/* TODO(PD 문구) */}
+              진행
+            </Button>
+          </div>
         )
       }
     >
+      {/* LAYOUT-FIGMA (195:207 · 218~223): 위치 · 글자는 와이어 값 */}
       {/* TODO(PD 문구) */}
-      <p>정보 확인</p>
+      <p className="mt-[58px] text-center text-[20px] font-semibold">
+        정보 확인
+      </p>
 
       {person && people.data ? (
-        <PersonCard
-          person={person}
-          people={people.data}
-          onSelect={(next) => setSelectedId(next.personId)}
-        />
+        <div className="mt-[38px]">
+          <PersonCard
+            person={person}
+            people={people.data}
+            onSelect={(next) => setSelectedId(next.personId)}
+          />
+        </div>
       ) : null}
 
-      <section data-slot="five-elements">
+      <section data-slot="five-elements" className="mt-[38px] ml-[37px]">
         {/* TODO(PD 문구) */}
-        <h2>오행분석</h2>
-        {/* TODO(F-09 · BE-B): 결제 전 오행분석 데이터 API 없음 */}
+        <h2 className="text-[20px] font-semibold">오행분석</h2>
+        {/* TODO(F-09 · BE-B): 오행분석 값 자리 — 데이터 API 없음 */}
+        <div aria-hidden className="mt-[19px] flex flex-col gap-[28px]">
+          {[0, 1, 2, 3, 4].map((slot) => (
+            <div key={slot} className="h-[31px] w-[327px] bg-[#d9d9d9]" />
+          ))}
+        </div>
       </section>
 
       {soldOut ? (
