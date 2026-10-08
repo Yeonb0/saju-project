@@ -71,6 +71,11 @@ export function OnboardingScreen({
     <AppShell title="정보 입력" backHref="/">
       {state === undefined || alreadyHasPerson ? null : (
         <>
+          {/* TODO(PD 문구) */}
+          <p
+            data-slot="person-intro"
+            className="mt-[59px] ml-[37px] min-h-[24px] text-[20px] font-semibold"
+          />
           <PersonForm
             submitting={save.isPending}
             // mutate 는 던지지 않는다 — 오류는 save.error 로 화면에 보이고, 제출은 onSettled 에서 끝난다

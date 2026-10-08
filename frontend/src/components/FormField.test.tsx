@@ -12,6 +12,17 @@ const setup = (props: { hint?: string; error?: string } = {}) =>
   );
 
 describe("FormField", () => {
+  it("className 을 넘기면 바깥 요소에 붙는다 (LAYOUT-FIGMA)", () => {
+    render(
+      <FormField id="name" label="이름" className="mt-[20px]">
+        {(field) => <input {...field} />}
+      </FormField>,
+    );
+    const outer = screen.getByLabelText("이름").parentElement?.parentElement;
+    expect(outer).toHaveClass("mt-[20px]");
+    expect(outer?.contains(screen.getByText("이름"))).toBe(true);
+  });
+
   it("getByLabelText 로 입력이 잡힌다", () => {
     setup();
     expect(screen.getByLabelText("이름")).toBeInTheDocument();

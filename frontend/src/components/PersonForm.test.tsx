@@ -28,6 +28,25 @@ const field = {
 };
 
 describe("PersonForm (본인)", () => {
+  it('달력 legend 는 눈에 안 보여도 radio 그룹 이름 "달력" 으로 찾는다 (LAYOUT-FIGMA)', () => {
+    setup();
+    const group = screen.getByRole("group", { name: "달력" });
+    expect(group).toContainElement(field.solar());
+    expect(group).toContainElement(field.lunar());
+    expect(screen.getByText("달력")).toHaveClass("sr-only");
+  });
+
+  it("저장하기 버튼은 form 안에 있고 type=submit (LAYOUT-FIGMA)", () => {
+    const { container } = render(
+      <PersonForm onSubmit={vi.fn()} today={TODAY} />,
+    );
+    const form = container.querySelector("form");
+    expect(form).not.toBeNull();
+    const submit = screen.getByRole("button", { name: "저장하기" });
+    expect(form).toContainElement(submit);
+    expect(submit).toHaveAttribute("type", "submit");
+  });
+
   it("이름 → 생년월일 → 양력 · 음력 → 태어난 시간 → 시간 모름 → 성별 → 저장하기 순서로 그린다", () => {
     setup();
     const order = [
