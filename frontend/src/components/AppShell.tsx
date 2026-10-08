@@ -20,7 +20,8 @@ type AppShellProps = {
 
 // TODO(PD 토큰 v0): 아래 색은 Tailwind 기본 중립색 임시값
 const COLOR_TEXT = "text-neutral-900";
-const COLOR_TEXT_MUTED = "text-neutral-400";
+// TODO(PD 토큰 v0): 와이어 임시값 — 그룹 라벨 색 (HOME-04, 195:647)
+const COLOR_TEXT_MUTED = "text-[#787878]";
 const COLOR_BG = "bg-white";
 // TODO(PD 토큰 v0): 사이드 패널 배경 — Figma 와이어 값(52:174). 덮개(흰색 70%)와 구분돼 패널 위치를 확인할 수 있게
 const COLOR_PANEL_BG = "bg-[#d9d9d9]";
@@ -86,25 +87,28 @@ export function AppShell({
                         {/* TODO(PD 아이콘): 텍스트 글리프 임시 */}×
                       </Dialog.Close>
                     </div>
-                    <nav className="flex flex-col items-end gap-[31px] text-[20px]">
+                    {/* HOME-04 (LAYOUT-FIGMA): 첫 항목이 패널 위에서 104px(닫기 줄 56px + 48px), 항목 사이 28px */}
+                    <nav className="mt-[48px] flex flex-col items-end gap-y-[28px] text-[20px] font-semibold">
                       {MENU.map((entry) =>
                         isMenuGroup(entry) ? (
                           <div
                             key={entry.label}
-                            className="flex flex-col items-end gap-[31px]"
+                            className="flex flex-col items-end"
                           >
                             <span className={COLOR_TEXT_MUTED}>
                               {entry.label}
                             </span>
-                            {entry.items.map((item) => (
-                              <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => setMenuOpen(false)}
-                              >
-                                {item.label}
-                              </Link>
-                            ))}
+                            <div className="mt-[14px] flex flex-col items-end gap-y-[12px] text-[17px] font-semibold">
+                              {entry.items.map((item) => (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  onClick={() => setMenuOpen(false)}
+                                >
+                                  {item.label}
+                                </Link>
+                              ))}
+                            </div>
                           </div>
                         ) : (
                           <Link
