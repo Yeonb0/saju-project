@@ -7,19 +7,21 @@
 ## 현재 상태
 
 - **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** 으로 FE 가 할 수 있는 화면 흐름을 끝내는 중. 10/8 부터 **최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA)** — 글꼴 · 손그림 프레임 · 캐릭터 · 에셋 · 색 토큰 · 와이어 문구는 계속 보류. 코드는 Claude Code, 웹 대화는 명세 · 검토 (CODE-BY-CC). **위험: BE 스테이징 · HTTP 업무 API · OpenAPI 없음, 제공일 재산정 중 (R-06) — FE 목표 10/12 · 심사 요청 10/14 는 BE 일정에 달렸다**. 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
-- **마지막으로 끝낸 작업** (10/6 ~ 10/8, `boyeon` `bfb7de1` + HOME-02 배치 커밋 대기):
+- **마지막으로 끝낸 작업** (10/6 ~ 10/8, `boyeon` `71296ad`):
   - 10/6 새벽 Claude Code 세션(사용자)이 웹 대화 검토 없이 8커밋 push · draft PR #13 생성 — 10/7 사후 검토로 유지 결정: 차감 확인 · 잔액 부족 팝업(`3d939c4`), 구매 선택 복원 연결(`c83ae3e`), 준비물 체크 저장(`04bcb28`), ReadingViewer · 결과 재열람(`16e56aa`), PersonCard(`0e5cb37`), 생성 대기 · 실패 안내(`57ceedd`), `screens.ts` 화면 ID 전환(`4ce2e6a`), Vitest node/jsdom 분리(`39c750d`)
   - `main` BE-A PR #14(`a064ea6`) 를 `boyeon` 에 병합(`a47e428`) — 상품 · 견적 · 지갑 조회 내부 구현, HTTP 없음 (`backend/docs/FE_COMPATIBILITY.md`)
   - 잔액 부족 팝업에 서버 추천 충전 상품(P-06), 가짜 추천을 BE-A 규칙으로, 견적 401 로그인 안내, `/wallet` 판매 상품 없음 (`6526d3c`)
   - PG-4 `/about` 틀 — 활성 충전 상품만 서버 값, 소개 · 제공 기간 · 환불 요약 자리 (`7aba2e1`)
   - CSAT-01 `/suneung` — 진행 → 차감 확인 팝업 → 결과, 충전 후 복귀 (`80a9a0b`). 이제 로그인 → 본인 정보 → 수능운 → 잔액 부족 → 충전 → 복귀 → 구매 → 결과가 가짜로 끝까지 이어진다
-  - 와이어 배치 1차 — 공통 헤더 · Card · Button `cta` · PersonCard · CSAT-01 (`84cb468`), 로그인 · 충전 (`bfb7de1`). HOME-02 정보 입력 배치는 구현 · 검사 끝, 커밋 대기
+  - 와이어 배치 — 공통 헤더 · Card · Button `cta` · PersonCard · CSAT-01 (`84cb468`), 로그인 · 충전 (`bfb7de1`), 정보 입력 (`1504fe1`), 푸터 · 차감 팝업 · `/about` (`9234cc3`), 결과 카드 · 결제 복귀 (`573d578`)
+  - MY-01 `/me` — 계정 · 로그아웃 · 저장된 사람들 · 약관 링크 (`8141672`), 로그아웃 후 `/` 로 (`71296ad`)
+  - 웹 대화가 원격 코드를 직접 띄워 화면을 찍어 확인 — 로그인 → 정보 → 수능운 → 잔액 부족 → 충전 → 복귀 → 구매 → 결과 → 마이페이지 로그아웃까지 가짜로 끝까지 동작 (10/8)
   - PR #13 제목 · 본문 갱신 (draft 유지), 팀원별 요청을 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 로 정리 (claude.ai 문서 — 사용자가 공유)
 - **다음 작업**
-  1. (FE) HOME-02 배치 커밋 → 원격 검토
+  1. (FE) PR #13 ready → 머지 판단 (사용자)
   2. (사용자) 로컬 확인 — `frontend/.env.local` 에 `NEXT_PUBLIC_API_MODE=mock` · `NEXT_PUBLIC_MOCK_SESSION_SCENARIO=signed_in` 을 넣고 `pnpm dev` 재시작 → `/suneung` 진행 → 부족 → 충전 → 복귀 → 결과. 10/8 "signed_in 인데 로그인 화면" 은 env 파일 위치 · 이름 · 재시작 확인 중
   3. (사용자 → 팀) 팀 요청 자료 공유. 오늘 기한 **Q-25**(PD · BE-A), 지금 **R-08** · **R-06**
-  4. (FE, 가짜 구현 · 배치) MY-01 `/me` 최소 틀(저장 인물 · 로그아웃 · 충전 · 약관 링크), 남은 화면 배치는 그 화면을 만들 때
+  4. (FE, 가짜 구현) 남은 것은 팀 답에 걸린다 — 일반 운세 질문(Q-26), 다른 사람 추가(권한 확인 문구), 충전 결제 수단(Q-25), 오행분석(Q-30). 남은 화면 배치는 그 화면을 만들 때
   5. (FE) PR #13 — 문서 커밋 후 ready → 머지. 머지하면 `main` 배포에서 `/login` · `/onboarding` · `/wallet` · `/about` · `/suneung` 이 "진짜 구현 없음" 오류 화면 (의도된 시끄러운 실패)
   6. (FE) 진짜 연결 — OpenAPI 수령 후 `adapters/`(세션 · 인물 · 충전 · 운세 · 결과), 토스 SDK 결제창(R-09)
   7. (FE) Q-25 답이 오면 충전 화면 결제 수단 · 동의 · 안내 (심사 요청 전 확정 필수)
@@ -38,7 +40,7 @@
   - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17 · Q-28): `API_SPEC.md` 6장 50,000원 82 · 582 → 80 · 580, 견적 필드 · `productName`, 운세 상품 메타데이터 · 정가, 충전 `processing`, CSRF, 선물 주문 · `delivery`, 판매 종료 code, 내역 유형 이름
   - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired, 비우면 fulfilled). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로. `.env.example` 반영은 사용자가 직접(아직 안 함)
   - Vercel "Automatically expose System Environment Variables" 켜짐(10/4) — 운영 mock 차단 · Sentry 키 검사가 기댄다
-  - `pnpm test` — `39c750d` 로 순수 로직은 node 환경, 실행 30 ~ 50초. 실패하면 그 회차 구간을 받고 1회 재실행
+  - `pnpm test` — `39c750d` 로 순수 로직은 node 환경, 보통 25 ~ 100초. 10/8 에 두 번 "Failed to start forks worker"(워커 시작 시간 초과, 한 번은 6041초) — 단언 실패는 없고 재실행 통과. PC 부하 탓으로 보이며, 또 나면 `maxWorkers` 를 더 줄이거나 `pool: "threads"` 를 검토
   - PD 에게 받은 것 (저장소 밖): 선물 재발송 안내 문구, 충전 환불정책 초안 `refund-policy-draft.md`(확정 전 코드 반영 금지)
   - 유저 플로우: FigJam `dd8IamO1coU9vpa4P7AgMi`(v1, 10/4). 와이어 배치 값은 웹 대화가 Figma 에서 읽어 지시문에 숫자로 넘긴다
   - (PD 전달) 개인정보처리방침 국외 이전 고지 — PostHog(US) · Sentry(지역 확인 필요)
@@ -117,6 +119,7 @@
 
 ## 세션 로그
 
+- 2026-10-08 (오후) · 와이어 배치 계속(`1504fe1` · `9234cc3` · `573d578`), MY-01(`8141672` · `71296ad`). 웹 대화가 원격 코드를 직접 띄워 화면 대조 시작 — 로그아웃 후 `/login` 으로 가던 문제를 화면에서 찾아 고침.
 - 2026-10-07 ~ 10-08 · `main` BE-A PR #14 병합(`a47e428`) · FE_COMPATIBILITY 대조, 10/6 커밋 8개 사후 검토(유지). 잔액 부족 추천 충전 · 가짜 추천 BE-A 규칙 · 판매 상품 없음(`6526d3c`), `/about` 틀(`7aba2e1`), CSAT-01(`80a9a0b`), 와이어 배치 1차(`84cb468` · `bfb7de1`, LAYOUT-FIGMA). PR #13 본문 갱신. 팀 요청 자료 공유 문서 작성, TEAM-QUESTIONS Q-28 ~ Q-30.
 - 2026-10-04 ~ 10-05 · MOCK-PORT 로 PG-1 · PG-2 · PG-3 가짜 범위와 Phase 3 본인 입력 진행 — API 코어(`ffe1080`), 충전 포트 · 화면(`e0ce4dd` · `03f01fa` · `816b130`), returnTo · 세션 · 로그인 가드 · `/login`(`728e9fb` · `84b5390`), 인물 포트 · PersonForm · `/onboarding`(`75b774c` · `8f94cde`), PersonForm 검증 규칙(`1a7fe39`), 테스트 시간 초과 완화(`ebb16b0`). 결정 MOCK-PORT(`fe549f4`) · CODE-BY-CC. PR #12 병합(`47e2055`). 로컬 충전 시나리오 6종 확인.
 - 2026-10-04 · 기능 명세서 v0.3 팀 문서 반영(3차 `9fb9d21`, 병합 `d396cce`) — Q-23 b · c · h · i · j · k 해결(j: 서비스명 뿌기사주), Q-27 해결. 라우트: `/wallet` · `/share/[shareId]` 추가(`078662d`), Checkout 3개 삭제(`b9a95ea` · CHECKOUT-POPUP). 유저 플로우 FigJam v1 조회(새 충돌 없음). FE 문서 v2.5 · 지침 갱신.

@@ -218,7 +218,9 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 - [ ] (FE) 사이드 메뉴 운세 목록 정리(일반 5종 + 수능운, `navigation.ts` 의 `TODO(D-10)` 취업운 제거) — **보류 (PG-FIRST)**
 - [ ] (FE) 최종 와이어 배치 — 글자 크기 · 굵기 · 위치 · 간격 · 상자(테두리 · 모서리 · 와이어 회색) (LAYOUT-FIGMA, 10/8). 글꼴 · 손그림 프레임 · 캐릭터 · 아이콘 에셋 · 색 토큰 · 와이어 문구는 계속 넣지 않는다
   - [x] (FE) 공통 헤더(64px · 제목 30px) · Card · Button `cta`(327×69) · PersonCard · CSAT-01 (`84cb468`), AppShell `header` 옵션 · HOME-01 로그인 · PAY-01 충전 (`bfb7de1`)
-  - [ ] (FE) HOME-02 정보 입력 (구현 · 검사 끝, 커밋 대기), 나머지 화면은 그 화면을 만들 때 같이
+  - [x] (FE) HOME-02 정보 입력 (`1504fe1`), 사업자 정보 푸터 · 등껍질 차감 팝업 · `/about` (`9234cc3`), 결과 카드 · 결제 복귀 화면 · 팝업 줄바꿈 (`573d578`), MY-01 (`8141672`)
+  - [ ] (FE) 나머지 화면은 그 화면을 만들 때 같이. 결과 카드 넘기기(›)는 동작 변경이라 하지 않음 — 원하면 별도 체크박스
+  - 확인 방식: 웹 대화가 원격 코드를 받아 가짜 구현으로 띄우고 402×874 화면을 찍어 와이어와 대조한다 (10/8 부터)
 
 ---
 
@@ -243,6 +245,7 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
   - 진행: Idempotency-Key 헬퍼 완료 (`353d9b8`, 10/3) — `src/lib/api/idempotency.ts`: 구매 의도당 무작위 UUID 키 하나 + 생성 시점에 본문 직렬화 고정, 충전 승인은 주문 ID(UUID)를 키로 (CONFIRM-KEY, BE-A 확인 Q-17). 남은 것: openapi-fetch 클라이언트 · 공통 응답 / 오류 code 처리 · CSRF 재시도 · API 경로 가리기 (OpenAPI 대기)
 - [ ] (FE) **PG-2 카카오 로그인 · 세션** — `/login`(HOME-01, 카카오 먼저 — 네이버 · 구글은 A-01 부분 확정, BE-B 지원 · 개발 범위 확정 후). 로그인 직후 본인 정보가 없으면 `/onboarding`(A-03), 비로그인으로 홈 기능을 누르면 로그인(A-02) → `GET /api/v1/auth/kakao/authorize?returnTo=`(내부 경로만), `GET /session`, 로그인 필요 화면 가드 + 원 경로 복귀, OAuth 취소 · 세션 만료 처리, 로그아웃(`POST /auth/logout`, CSRF), 로그아웃 시 구매 선택 `sessionStorage` 삭제 (PURCHASE-RESTORE). 선행: PG-1, BE-B OAuth · 세션 · CSRF, 카카오 리다이렉트 URI (R-04)
   - [x] (FE) 가짜 구현 범위 — `safeReturnTo`(내부 경로만 · 로그인/온보딩 고리 · `/api` 차단), 세션 포트 · 가짜 세션 시나리오 4종 (`728e9fb`), 로그인 가드 `RequireSession`(새로 받은 세션으로만 판단) · `/login` 카카오 버튼 · `/wallet` 연결 (`84b5390`)
+  - [x] (FE) 로그아웃 UI — MY-01 (`8141672`), 로그아웃 후 처음 화면 (`71296ad`, 세션 캐시를 무효화하면 가드가 `/login` 으로 먼저 보낸다)
   - [ ] (FE) 진짜 세션 adapter(`GET /session` · `GET /me` · 카카오 authorize 이동 · 로그아웃) · OAuth 취소 · 세션 만료 처리 — BE-B · OpenAPI · R-04 후
 - [ ] (FE) **PG-3 충전 결제 플로우** — 충전 화면 `/wallet`(PAY-01 · PAY-02 · FORT-04, 결제 수단 · 동의 체크는 Q-25 전까지 정하지 않는다)(잔액 `GET /wallet` · 충전 상품 `GET /products?category=TOP_UP`, 서버 값만) → 주문 생성(`POST /top-up-orders`, 구매 의도당 `Idempotency-Key` 하나) → 토스 결제창(SDK v2) → `/pay/success` 에서 PG 복귀 쿼리를 그대로 `POST /top-up-orders/{orderId}/confirm` → **주문 `CREDITED` 일 때만 충전 완료 · 잔액(서버 값) 표시**. `PAID` · `processing: true` 는 처리 중, 결과가 불명확하면 `GET /top-up-orders/{orderId}` 를 2초 간격 최대 30초 조회 → 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼, 새 결제 · 새 키로 유도하지 않음 (TOPUP-DONE). `/pay/fail` · 결제 취소 처리. 선행: PG-2, `/wallet` 라우트(Q-01 — 팀 문서 PR `cc60ab3` 병합), BE-A 충전 API(R-06 재산정), `processing` 계약(Q-17), 결제 수단 구성(Q-25), 토스 테스트 클라이언트 키(R-09) · SDK 설치(사용자)
   - [x] (FE) 가짜 구현 범위 — 충전 포트 · 가짜 서버 시나리오 6종 · 승인 확인 흐름(`e0ce4dd`), `/wallet` · `/pay/success` · `/pay/fail` 화면(`03f01fa`), 가짜 상품 구성 판매 6 + 비활성 1(`816b130`). 로컬 시나리오 6종 확인 (10/4)
@@ -352,6 +355,7 @@ PG 심사 요청 후 디자인 보류 항목(Phase 1)을 여기서 재개한다.
 - [ ] (FE) 디자인 보류 항목 재개 (Phase 1 의 보류 5개)
 - [ ] (FE) 일반 운세 5종: 정보 확인 · 선택형 질문(관심 항목, 자유 메모는 결과 미반영 표시 — 입력 형태 Q-26) · 궁합 사람 선택(MATCH, Q-26) · 등껍질 차감 · 결과 (신살은 F-03 부분)
 - [ ] (FE) 마이페이지 · 홈 · 오늘의 운세 · 부적 창고 (위 표 순서)
+  - [x] (FE) MY-01 가짜 구현 범위 — 계정 닉네임 · 로그아웃 · 저장된 사람들 · 추가 링크 · 약관 링크 (`8141672` · `71296ad`). 내 운세 기록 · 충전 사용 내역 · 탈퇴는 API · 경로 · A-08 대기
 - [ ] (FE) 공유 랜딩 `/share/[shareId]` — 캐릭터 · 결과 요약 카드 · "나도 보러 가기" CTA, 상세 결과 · 생년정보 · 메시지 미노출 (Q-10 PD 답, FUNCTIONAL_SPEC 2장 반영 · G-11 대기)
 
 **완료 기준**: 순위 1~3 완료 + 실기기 1회 완주. 4~6 은 10/26 18:00 에 끝나지 않으면 대체안.
