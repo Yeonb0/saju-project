@@ -42,6 +42,15 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
     expect(startLogin).toHaveBeenCalledWith("/wallet", expect.any(Function));
   });
 
+  it("서비스명 h1 은 뿌기사주 하나이고, 헤더(banner)는 없다 (LAYOUT-FIGMA)", () => {
+    setup("signed_out");
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 1, name: "뿌기사주" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("banner")).toBeNull();
+  });
+
   it("같은 틱에 두 번 눌러도 로그인은 한 번", async () => {
     const { startLogin } = setup("signed_out");
     const button = screen.getByRole("button", { name: "카카오로 시작하기" });

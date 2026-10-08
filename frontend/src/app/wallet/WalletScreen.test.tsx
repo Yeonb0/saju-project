@@ -36,6 +36,33 @@ describe("WalletScreen (PAY-01)", () => {
     expect(screen.getByText(/1,111 KRW/)).toBeInTheDocument();
   });
 
+  it("상품을 고르면 주문 내용 상자에 그 상품의 서버 가격이 보이고, 고르기 전에는 비어 있다 (LAYOUT-FIGMA)", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <WalletScreen
+          port={createFakeTopUpPort()}
+          launcher={{ requestPayment: vi.fn(async () => {}) }}
+        />
+      </QueryClientProvider>,
+    );
+    const radios = await screen.findAllByRole("radio");
+    const box = container.querySelector('[data-slot="order-total"]');
+    expect(box).not.toBeNull();
+    expect(box?.textContent).toBe("");
+    // 둘째 상품: 2,222 KRW (src/mocks/topUp.ts 픽스처)
+    await user.click(radios[1]);
+    expect(box?.textContent).toBe("2,222 KRW");
+  });
+
+  it("결제하기 버튼은 하단 CTA 영역 안에 있다 (LAYOUT-FIGMA)", async () => {
+    setup();
+    await screen.findAllByRole("radio");
+    expect(screen.getByTestId("app-cta")).toContainElement(
+      screen.getByRole("button", { name: "결제하기" }),
+    );
+  });
+
   it("상품을 고르기 전에는 결제할 수 없다", async () => {
     setup();
     await screen.findAllByRole("radio");
