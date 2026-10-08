@@ -6,6 +6,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -147,6 +148,25 @@ class SuneungReadingApiTest {
 
         verify(liner, times(3)).generate(any());
         verify(wallet).compensate(any(), eq("READING_GENERATION_FAILED"), any());
+        assertThatStatus("REFUNDED");
+    }
+
+    @Test
+    void compensatesAndRejectsUnexpectedDebitAmount() throws Exception {
+        UUID transactionId = UUID.randomUUID();
+        doReturn(new WalletPurchasePort.DebitResult(transactionId, 14, new WalletBalance(20, 5)))
+                .when(wallet).debit(eq(userId), eq(quoteId), any());
+        when(wallet.compensate(eq(transactionId), eq("READING_DEBIT_MISMATCH"), any())).thenReturn(
+                new WalletPurchasePort.CompensationResult(UUID.randomUUID(), transactionId, new WalletBalance(34, 5)));
+
+        mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
+                        .header("Idempotency-Key", "mismatch-key")
+                        .contentType(MediaType.APPLICATION_JSON).content(body()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("PURCHASE_DEBIT_MISMATCH"));
+
+        verify(liner, times(0)).generate(any());
+        verify(wallet).compensate(eq(transactionId), eq("READING_DEBIT_MISMATCH"), any());
         assertThatStatus("REFUNDED");
     }
 

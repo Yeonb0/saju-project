@@ -302,16 +302,25 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 선택한 상품·인물·옵션의 서버 견적을 반환한다.
 
+현재 구현된 수능운 요청:
+
+```json
+{ "personId": "uuid" }
+```
+
 ```json
 {
+  "quoteId": "uuid",
   "productCode": "SUNEUNG_READING_WITH_TALISMAN",
-  "price": { "currency": "TURTLE_SHELL", "amount": 55 },
-  "walletBalance": 50,
-  "shortage": 5,
-  "recommendedTopUp": "TURTLE_SHELL_10",
+  "currency": "TURTLE_SHELL",
+  "amount": 15,
+  "event": { "type": "CSAT", "date": "2026-11-19" },
   "expiresAt": "2026-10-01T03:10:00Z"
 }
 ```
+
+- 견적의 context fingerprint는 `personId + productCode + eventDate`로 서버가 생성한다.
+- 구매 시 동일 fingerprint를 다시 확인하므로 다른 인물용 견적을 재사용할 수 없다.
 
 ## 6. 지갑·충전
 
@@ -451,15 +460,12 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 ```json
 {
-  "productCode": "LOVE_READING_WITH_TALISMAN",
-  "personId": "uuid",
-  "interestKey": "NEW_RELATIONSHIP",
-  "memo": "새로운 인연",
-  "talismanType": "RELATIONSHIP"
+  "quoteId": "uuid",
+  "personId": "uuid"
 }
 ```
 
-궁합은 `personId`, `counterpartPersonId`, `relation`을 사용한다.
+현재 구현 범위는 수능운 `SUNEUNG_READING_WITH_TALISMAN`이다. 일반 운세와 궁합의 추가 입력 계약은 후속 확장한다.
 
 성공 `201`:
 

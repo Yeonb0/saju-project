@@ -43,3 +43,15 @@ cd backend
 ```
 
 회귀 테스트는 참고 구현에서 두 종류 이상의 역법 구현으로 교차검증한 1901~2048년 50개 기준 케이스, 입춘 분 경계, 한국 윤달, 시간 미상, 생성 동시성·재시도·근거 검증을 포함한다.
+
+## 수능운 구매 API
+
+- `POST /api/v1/quotes/fortune`: 소유 인물 확인 후 수능운 견적 발급
+- `POST /api/v1/reading-purchases`: 견적 검증, 지갑 차감, 계산·생성, 결과 소유권 부여
+- `GET /api/v1/readings/{readingId}`: `owner_user_id`가 일치하는 결과만 반환
+- 시험일: 2026-11-19, 판매 종료: 2026-11-18 23:59:59 KST
+- 상품 코드: `SUNEUNG_READING_WITH_TALISMAN`
+
+견적 context는 인물·상품·시험일을 묶어 다른 인물에 재사용할 수 없다. 같은 견적의 재요청은 최초 구매를 반환하고 지갑과 Liner를 다시 호출하지 않는다. 생성 최종 실패와 차감 금액 불일치는 원 거래를 보상하고 구매를 `REFUNDED`로 기록한다.
+
+현재 실제 구매 실행에는 BE-A의 `WalletPurchasePort` 구현과 수능 상품 seed, BE-B 인물 모듈의 `ReadingSubjectPort` 구현이 필요하다. 의존성이 준비되지 않은 운영 요청은 유료 콘텐츠를 우회 제공하지 않고 `READING_FULFILLMENT_UNAVAILABLE`로 실패한다.

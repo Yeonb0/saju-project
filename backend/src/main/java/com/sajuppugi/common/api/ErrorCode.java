@@ -12,6 +12,7 @@ public enum ErrorCode {
     READING_NOT_FOUND(HttpStatus.NOT_FOUND, "운세 결과를 찾을 수 없습니다."),
     READING_FULFILLMENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "운세 구매 준비 중입니다. 잠시 후 다시 시도해 주세요."),
     READING_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "운세 생성에 실패했습니다. 사용한 등껍질은 복구됩니다."),
+    PURCHASE_DEBIT_MISMATCH(HttpStatus.INTERNAL_SERVER_ERROR, "구매 처리 중 금액 검증에 실패했습니다."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 정보를 찾을 수 없습니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
     PRODUCT_NOT_AVAILABLE(HttpStatus.UNPROCESSABLE_ENTITY, "현재 구매할 수 없는 상품입니다."),
