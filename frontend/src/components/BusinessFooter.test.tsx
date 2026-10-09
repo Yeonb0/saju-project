@@ -71,4 +71,75 @@ describe("BusinessFooter", () => {
       "/refund",
     );
   });
+
+  it("u. 항목 이름(dt)이 와이어 순서대로 나온다", () => {
+    const { container } = render(<BusinessFooter info={INFO} />);
+    expect(
+      Array.from(container.querySelectorAll("dt")).map((d) => d.textContent),
+    ).toEqual([
+      "상호",
+      "대표자",
+      "사업자등록번호",
+      "통신판매업 신고번호",
+      "사업장 주소",
+      "유선번호",
+      "전자우편주소",
+      "호스팅 제공자",
+    ]);
+  });
+
+  it("v. 상호 · 대표자와 유선번호 · 전자우편주소는 각각 한 줄에 있고 사업자등록번호는 다른 줄이다", () => {
+    render(<BusinessFooter info={INFO} />);
+    const rowOf = (label: string) =>
+      screen.getByText(label).parentElement?.parentElement;
+    expect(rowOf("상호")).toBe(rowOf("대표자"));
+    expect(rowOf("유선번호")).toBe(rowOf("전자우편주소"));
+    expect(rowOf("사업자등록번호")).not.toBe(rowOf("상호"));
+    expect(rowOf("사업자등록번호")).not.toBe(rowOf("유선번호"));
+  });
+
+  it("w. 개인정보처리방침만 font-bold 다 (PD 메모 302:179)", () => {
+    render(<BusinessFooter info={INFO} />);
+    expect(screen.getByRole("link", { name: "개인정보처리방침" })).toHaveClass(
+      "font-bold",
+    );
+    expect(screen.getByRole("link", { name: "이용약관" })).not.toHaveClass(
+      "font-bold",
+    );
+    expect(screen.getByRole("link", { name: "환불정책" })).not.toHaveClass(
+      "font-bold",
+    );
+  });
+
+  it("x. 링크 줄이 사업자 정보보다 앞에 있고 구분자는 aria-hidden 이다", () => {
+    const { container } = render(<BusinessFooter info={INFO} />);
+    const nav = screen.getByRole("navigation", { name: "약관" });
+    const dl = container.querySelector("dl");
+    expect(dl).not.toBeNull();
+    expect(
+      nav.compareDocumentPosition(dl as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const bars = Array.from(nav.querySelectorAll("span")).filter(
+      (el) => el.textContent === "|",
+    );
+    expect(bars).toHaveLength(2);
+    for (const bar of bars) expect(bar).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getAllByRole("link").map((l) => l.textContent)).toEqual([
+      "이용약관",
+      "개인정보처리방침",
+      "환불정책",
+    ]);
+  });
+
+  it("y. 저작권 줄이 사업자 정보 뒤에 있다", () => {
+    const { container } = render(<BusinessFooter info={INFO} />);
+    const dl = container.querySelector("dl");
+    const copyright = screen.getByText("© 뿌기사주");
+    expect(dl).not.toBeNull();
+    expect(
+      (dl as Node).compareDocumentPosition(copyright) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });
