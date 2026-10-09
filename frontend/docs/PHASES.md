@@ -3,7 +3,7 @@
 > **FE 개인 작업 문서다. 팀 합의 문서가 아니다.** 일정 · Phase · 담당 표기는 FE 가 작업 순서를 잡으려고 세운 계획이다 (DOCS-FE-OWN).
 > **결정 기준은 GitHub 의 팀 문서다** — 루트 [`docs/PENDING_DECISIONS.md`](../../docs/PENDING_DECISIONS.md) (DOCS-GITHUB). 결정은 팀 ID(P- · F- · G- · A- · S- · T- · X- · O- · D- · I-)로 부른다. 옛 FE 결정 번호 D-01 ~ D-16 은 닫았고 기록에서만 "구 D-xx" 로 부른다 (7장, DECISION-IDS).
 > 팀 문서끼리 어긋나거나 정의가 빈 곳은 [`TEAM-QUESTIONS.md`](TEAM-QUESTIONS.md) (Q-xx · R-xx). BE 일정은 [`backend/docs/BACKEND_ROLE_SPLIT.md`](../../backend/docs/BACKEND_ROLE_SPLIT.md) 9장.
-> 작성: 2026-09-26 (토) · 상태: **v2.5** (2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
+> 작성: 2026-09-26 (토) · 상태: **v2.7** (2026-10-08 와이어 배치 LAYOUT-FIGMA · BE-A PR #14 · 2026-10-05 MOCK-PORT 진행 · 2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
 > 변경: 2026-09-26 — 프론트엔드 스택 확정(3-1), 손그림 테두리 `border-image`(4장), 서비스명 「뿌기사주」(구 D-11), FE 전용 내용은 `FRONTEND.md` 로 분리
 > 변경: 2026-09-30 — 용어 복원(DOCS-RESTORE), FE 브랜치 `boyeon`(BRANCH), Phase 0 · 1 체크박스, 글꼴 보류(FONT-HOLD), 라우트 오류 · 404 화면, `frontend/docs/` 로 이동(DOCS-FE-OWN)
 > 변경: 2026-10-03 — **v2**: 공용 문서(PR #5) 반영. 구 D-xx 닫고 팀 ID 로 전환(DECISION-IDS). **PG 심사 트랙 신설 · 최우선 — 백엔드 연결과 결제 플로우만, 디자인 요소 배제 (PG-FIRST)**. Phase 2 를 PG 트랙에 흡수. 운세 6종(일반 5 + 수능운), 선물 단건 · 원화 결제 · 알림톡, 충전 상품 6종(P-02 변경). 결과 뷰어 ReadingViewer 하나(VIEWER), 손그림체(STYLE-HAND). (10/1 에 만든 v1 은 배치하지 않고 이 판으로 대체)
@@ -12,6 +12,8 @@
 > 변경: 2026-10-03 — **v2.3 PD 추가 답변 · 팀 문서 2차 반영 (DOCS-TEAM-PR)**: FE 가 팀 문서를 고쳐 PR(`cc60ab3` — PENDING_DECISIONS · FUNCTIONAL_SPEC · PRD, `main` 병합 · PD 검토 대기). 가격 P-03 · P-03A(등껍질), 부적 자동생성 규칙 T-01, 신살 구성 F-03, 보너스 유효기간 1년 P-04, BE-A 제안 결정(P-02A · P-05 · G-07 · G-09 · G-10) PD 동의, `/wallet` · `/share/[shareId]` 라우트. 상태 "반영 PR 대기" 추가(TEAM-QUESTIONS)
 > 변경: 2026-10-04 — **v2.4 최종 와이어프레임 (FIGMA-FINAL)**: Figma 페이지 `와이어프레임 최종`(node `195:91`)을 기준으로 1장 화면 목록을 새 화면 ID(HOME- · TODAY- · MY- · TALBOX- · FORT- · MATCH- · PAY- · GIFT- · RECV- · RECV-T- · CSAT-)로 다시 썼다. 구 번호 #1 ~ #40 은 1장 "구 #" 열에만 남긴다. 결제 확인이 화면에서 팝업으로, 충전 화면(PAY-01 · 02) · 궁합 사람 선택(MATCH) · `부적` 선물 수신(RECV-T) 추가. 와이어와 팀 결정이 부딪히는 곳은 Q-23 ~ Q-27 (해결 전에는 팀 문서를 따르고 와이어만의 부분은 만들지 않는다)
 > 변경: 2026-10-04 — **v2.5 기능 명세서 v0.3 반영**: 팀 문서 3차(`9fb9d21`, `main`) — 소셜 로그인 3종(A-01 부분) · 로그인 직후 정보 입력(A-03) · 오늘의 운세 로그인 필요(A-02 · X-01) · 관계 칩(A-07) · 부적 동물 12지 랜덤 · 창고 같은 동물(T-01 · T-06) · 오행분석 결제 전 노출(F-09). Checkout 경로 3개 삭제 → 앞 화면 팝업 (CHECKOUT-POPUP). 서비스명 뿌기사주. 유저 플로우 FigJam `dd8IamO1coU9vpa4P7AgMi`
+> 변경: 2026-10-05 — **v2.6 포트 + 가짜 구현 (MOCK-PORT) · 코드는 Claude Code (CODE-BY-CC)**: PG-1 · PG-2 · PG-3 · Phase 3 에 "가짜 구현 범위" 하위 체크박스를 두고 끝낸 것을 [x] 로 표시. 상위 체크박스는 진짜 구현 · 실기기 확인 후 [x]
+> 변경: 2026-10-08 — **v2.7 와이어 배치 (LAYOUT-FIGMA) · 가짜 구현 확장**: PG-FIRST 를 일부 풀어 최종 와이어의 글자 크기 · 굵기 · 위치 · 간격 · 상자를 넣는다(글꼴 · 손그림 프레임 · 캐릭터 · 에셋 · 색 토큰은 계속 보류). Phase 4 차감 확인 · 잔액 부족(추천 충전) · 생성 대기 · ReadingViewer · CSAT-01 가짜 범위, PG-4 `/about` 틀. `main` BE-A PR #14(상품 · 견적 · 지갑 조회 내부 구현, HTTP 없음) 병합
 > 기준 날짜: 출시 **10/31(토)** · 평가 기간 **10/31 ~ 11/21** · 수능 **11/19(목)** → 출시일은 **수능 D-19**
 > 디자인 소스: Figma `9zEtrqV4SoPbQzuworSNUj` / 페이지 **`와이어프레임 최종`(node `195:91`)** — FIGMA-FINAL. 옛 페이지 `와이어프레임`(node `17:2`)은 기록용
 
@@ -214,6 +216,11 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 - [ ] (FE) 폰트 적용 — **보류 (FONT-HOLD, D-02)**
 - [ ] (FE/캐릭터) 캐릭터 에셋 규격 + 뿌기 기본 포즈 — **보류 (PG-FIRST)**, Q-14 · R-02
 - [ ] (FE) 사이드 메뉴 운세 목록 정리(일반 5종 + 수능운, `navigation.ts` 의 `TODO(D-10)` 취업운 제거) — **보류 (PG-FIRST)**
+- [ ] (FE) 최종 와이어 배치 — 글자 크기 · 굵기 · 위치 · 간격 · 상자(테두리 · 모서리 · 와이어 회색) (LAYOUT-FIGMA, 10/8). 글꼴 · 손그림 프레임 · 캐릭터 · 아이콘 에셋 · 색 토큰 · 와이어 문구는 계속 넣지 않는다
+  - [x] (FE) 공통 헤더(64px · 제목 30px) · Card · Button `cta`(327×69) · PersonCard · CSAT-01 (`84cb468`), AppShell `header` 옵션 · HOME-01 로그인 · PAY-01 충전 (`bfb7de1`)
+  - [x] (FE) HOME-02 정보 입력 (`1504fe1`), 사업자 정보 푸터 · 등껍질 차감 팝업 · `/about` (`9234cc3`), 결과 카드 · 결제 복귀 화면 · 팝업 줄바꿈 (`573d578`), MY-01 (`8141672`)
+  - [ ] (FE) 나머지 화면은 그 화면을 만들 때 같이. 결과 카드 넘기기(›)는 동작 변경이라 하지 않음 — 원하면 별도 체크박스
+  - 확인 방식: 웹 대화가 원격 코드를 받아 가짜 구현으로 띄우고 402×874 화면을 찍어 와이어와 대조한다 (10/8 부터)
 
 ---
 
@@ -232,14 +239,23 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 
 **작업** (번호 = 의존 순서. 막힌 체크박스는 건너뛰고 풀린 것부터)
 - [ ] (FE) **PG-1 백엔드 연결 기반** — `/api` rewrites 를 스테이징에 연결(`API_PROXY_TARGET`), OpenAPI JSON → `pnpm api:types` → openapi-fetch 클라이언트, 공통 응답 `{data, traceId}` · 오류 `code` 처리(알 수 없는 code 는 status), `Idempotency-Key` 헬퍼(같은 명령의 재요청은 같은 키 · 같은 본문), CSRF — `GET /session` 의 `csrfToken` 을 `X-CSRF-Token` 으로, `403 CSRF_FAILED` 면 세션 1회 재조회 후 1회만 재시도 (Q-02 해결), API 경로 가리기(`maskUrl`). 선행: BE 스테이징 주소 · OpenAPI (R-06 · Q-18). BE 골격(`a605afa`)은 `main` 에 있으나 업무 API · 공개 OpenAPI 없음
+  - [x] (FE) API 코어 — 공통 응답 · 오류 껍데기 런타임 검사, `classifyApiError`(code 우선 · status), CSRF 1회 재시도(`CsrfSource`), 멱등 키 · 본문 고정, 포트 모드 선택 · 운영 mock 차단 (`ffe1080`, MOCK-PORT)
+  - [x] (FE) 테스트 간헐 시간 초과 완화 — 동시 워커 50% · 한도 15초 (`ebb16b0`)
+  - [ ] (FE) openapi-fetch 클라이언트 · 생성 타입 · `adapters/` — OpenAPI 수령 후 (R-06 · Q-18)
   - 진행: Idempotency-Key 헬퍼 완료 (`353d9b8`, 10/3) — `src/lib/api/idempotency.ts`: 구매 의도당 무작위 UUID 키 하나 + 생성 시점에 본문 직렬화 고정, 충전 승인은 주문 ID(UUID)를 키로 (CONFIRM-KEY, BE-A 확인 Q-17). 남은 것: openapi-fetch 클라이언트 · 공통 응답 / 오류 code 처리 · CSRF 재시도 · API 경로 가리기 (OpenAPI 대기)
 - [ ] (FE) **PG-2 카카오 로그인 · 세션** — `/login`(HOME-01, 카카오 먼저 — 네이버 · 구글은 A-01 부분 확정, BE-B 지원 · 개발 범위 확정 후). 로그인 직후 본인 정보가 없으면 `/onboarding`(A-03), 비로그인으로 홈 기능을 누르면 로그인(A-02) → `GET /api/v1/auth/kakao/authorize?returnTo=`(내부 경로만), `GET /session`, 로그인 필요 화면 가드 + 원 경로 복귀, OAuth 취소 · 세션 만료 처리, 로그아웃(`POST /auth/logout`, CSRF), 로그아웃 시 구매 선택 `sessionStorage` 삭제 (PURCHASE-RESTORE). 선행: PG-1, BE-B OAuth · 세션 · CSRF, 카카오 리다이렉트 URI (R-04)
+  - [x] (FE) 가짜 구현 범위 — `safeReturnTo`(내부 경로만 · 로그인/온보딩 고리 · `/api` 차단), 세션 포트 · 가짜 세션 시나리오 4종 (`728e9fb`), 로그인 가드 `RequireSession`(새로 받은 세션으로만 판단) · `/login` 카카오 버튼 · `/wallet` 연결 (`84b5390`)
+  - [x] (FE) 로그아웃 UI — MY-01 (`8141672`), 로그아웃 후 처음 화면 (`71296ad`, 세션 캐시를 무효화하면 가드가 `/login` 으로 먼저 보낸다)
+  - [ ] (FE) 진짜 세션 adapter(`GET /session` · `GET /me` · 카카오 authorize 이동 · 로그아웃) · OAuth 취소 · 세션 만료 처리 — BE-B · OpenAPI · R-04 후
 - [ ] (FE) **PG-3 충전 결제 플로우** — 충전 화면 `/wallet`(PAY-01 · PAY-02 · FORT-04, 결제 수단 · 동의 체크는 Q-25 전까지 정하지 않는다)(잔액 `GET /wallet` · 충전 상품 `GET /products?category=TOP_UP`, 서버 값만) → 주문 생성(`POST /top-up-orders`, 구매 의도당 `Idempotency-Key` 하나) → 토스 결제창(SDK v2) → `/pay/success` 에서 PG 복귀 쿼리를 그대로 `POST /top-up-orders/{orderId}/confirm` → **주문 `CREDITED` 일 때만 충전 완료 · 잔액(서버 값) 표시**. `PAID` · `processing: true` 는 처리 중, 결과가 불명확하면 `GET /top-up-orders/{orderId}` 를 2초 간격 최대 30초 조회 → 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼, 새 결제 · 새 키로 유도하지 않음 (TOPUP-DONE). `/pay/fail` · 결제 취소 처리. 선행: PG-2, `/wallet` 라우트(Q-01 — 팀 문서 PR `cc60ab3` 병합), BE-A 충전 API(R-06 재산정), `processing` 계약(Q-17), 결제 수단 구성(Q-25), 토스 테스트 클라이언트 키(R-09) · SDK 설치(사용자)
+  - [x] (FE) 가짜 구현 범위 — 충전 포트 · 가짜 서버 시나리오 6종 · 승인 확인 흐름(`e0ce4dd`), `/wallet` · `/pay/success` · `/pay/fail` 화면(`03f01fa`), 가짜 상품 구성 판매 6 + 비활성 1(`816b130`). 로컬 시나리오 6종 확인 (10/4)
+  - [x] (FE) 판매 상품 없음 안내 — 진짜 API 첫 연결 때 전부 비활성일 수 있음(BE-A FE_COMPATIBILITY) (`6526d3c`), 주문 내용 상자(고른 상품의 서버 가격) · 결제하기 하단 CTA (`bfb7de1`)
+  - [ ] (FE) 진짜 충전 adapter · 토스 SDK 결제창(R-09) · 결제 수단 · 동의(Q-25) · PURCHASE-RESTORE 복귀 · 실기기 3곳
 - [ ] (FE) **PG-4 심사 노출 요건 (스타일 없이)** — 사업자 정보 푸터(값은 한 파일, 사용자가 준 값만, 미정은 `TODO(O-01)`), `/about` 상품 소개(심사 상품의 이름 · 가격(서버 값) · 제공 내용 · 제공 기간 · 환불 요약 · 구매 진입), `/terms` · `/privacy` · `/refund` 본문(PD 원고 그대로). 선행: 사업자 정보(R-07 · R-08), 심사 상품 = 충전(R-01 부분 — 카테고리 · 제공기간은 토스 상담 대기), 충전 환불정책 문구(Q-21 — PD 초안 수령, 토스 상담 후 10/10 확정 원고. 확정 전에는 넣지 않는다), PD 원고
-  - 진행: 푸터 틀 완료 (`d42ba99` · `22f9712` · `4453ba9`, 10/3) — `src/lib/business.ts` 에 8개 항목(토스 심사 6 + 전자우편주소 · 호스팅 제공자), 값이 없으면 "(미정)", AppShell 하단 BusinessFooter + 약관 3종 링크. 남은 것: 값 8개 · 공정위 사업자정보 공개페이지 링크(R-07), `/about` · 약관 본문
+  - 진행: 푸터 틀 완료 (`d42ba99` · `22f9712` · `4453ba9`, 10/3) — `src/lib/business.ts` 에 8개 항목(토스 심사 6 + 전자우편주소 · 호스팅 제공자), 값이 없으면 "(미정)", AppShell 하단 BusinessFooter + 약관 3종 링크. `/about` 틀 완료 (`7aba2e1`, 10/8) — 로그인 불필요 · 정적, 활성 충전 상품만 서버 값 그대로, 소개 · 제공 기간 · 환불 요약은 자리만. 남은 것: 값 8개 · 공정위 사업자정보 공개페이지 링크(R-07), `/about` 원고(R-01 · P-04 · PD), 약관 3종 본문, `GET /products` 비로그인 호출 가능 여부(Q-28)
 - [ ] (FE) **PG-5 운영 도메인 실기기** — 로그인 → 충전 결제창 열림 · 카드사 노출 · 복귀를 Android Chrome · 카카오톡 인앱에서 확인 (iOS 는 R-03), 심사용 테스트 계정 경로 확인 (R-05)
 - [x] (BE-A · BE-B) BE 프로젝트 골격 — 공통 응답 · 오류 · traceId · 최소 보안 (`a605afa`, `main`, 10/3). 스테이징 · 업무 API 없음
-- [ ] (BE-A) 상품 · 견적 · 지갑 · 충전 주문 · 토스 승인 API (스테이징) — 제공일 재산정 중 (R-06). 도메인 타입 · 내부 계약 · 확정 정책 골격은 `main` `2c682e0` (10/4, `backend/docs/BACKEND_A_SCAFFOLD.md`) — 업무 API · DB · 토스 연동 없음
+- [ ] (BE-A) 상품 · 견적 · 지갑 · 충전 주문 · 토스 승인 API (스테이징) — 제공일 재산정 중 (R-06). 도메인 타입 · 내부 계약 · 확정 정책 골격은 `main` `2c682e0` (10/4, `backend/docs/BACKEND_A_SCAFFOLD.md`) — 업무 API · DB · 토스 연동 없음. → 10/6 PR #14(`a064ea6`): 상품 · 견적(30분) · 견적 잔액 계산(추천 충전) · 지갑 잔액 · 내역 조회를 DB · 서비스로 구현, 충전 상품 6종(50,000원 80 · 580) 비활성 등록 — HTTP API 없음 (`backend/docs/FE_COMPATIBILITY.md`)
 - [ ] (BE-B) 카카오 OAuth · 세션 · CSRF — 일정 재산정 중 (R-06)
 - [ ] (BE-A) 토스페이먼츠 가입 · 심사 요청 (10/14 전후)
 
@@ -266,8 +282,12 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 
 **작업**
 - [ ] (FE) PersonForm (React Hook Form + Zod): 이름/닉네임 · 양력/음력 · 윤달(음력일 때만) · 생년월일(1900-01-01~오늘 KST) · 시 · 분 또는 시간 모름 · 성별(남성/여성/선택하지 않음) · 관계(타인) · 타인 정보 권한 확인 (F-01 · A-04 ~ A-07, O-03). 오류는 `fieldErrors` 필드로 이동
+  - [x] (FE) 검증 규칙 `src/lib/person/schema.ts`(`1a7fe39`, 한 번 제출에 모든 오류 보정 `8f94cde`) · 본인 입력 폼 `src/components/PersonForm.tsx`(`8f94cde`) — 음력 30일 텍스트 입력, 윤달은 음력만
+  - [ ] (FE) 타인 입력(관계 · 타인 권한 확인 체크) — 권한 확인 문구 PD 확정 후 (MY-02)
 - [ ] (FE) 내 정보 저장(HOME-02) · 다른 사람 추가 · 수정(MY-02) — `POST/PATCH /people`, `409 PERSON_LIMIT_EXCEEDED` · 중복 경고 후 저장 허용
-- [ ] (FE) PersonCard + "저장된 다른 사용자 불러오기" (FORT-01 · CSAT-01 · MY-01 · MATCH-02). 관계 선택지는 A-07 (엄마 · 아빠 · 애인 · 직접 입력)
+  - [x] (FE) 가짜 구현 범위 — 인물 포트 · 가짜 계정 공유(`75b774c`), `/onboarding`(HOME-02 · A-03, 저장 후 returnTo, `8f94cde`)
+  - [ ] (FE) 진짜 인물 adapter, MY-02 추가 · 수정, 중복 경고 — BE-B · OpenAPI 후
+- [x] (FE) PersonCard + "저장된 다른 사용자 불러오기" (FORT-01 · CSAT-01 · MY-01 · MATCH-02) — `0e5cb37`, 배치 `84cb468`. 관계 표시(A-07)는 MY-02 후, 생년 표시는 인물 요약 필드 대기(BE-B), 본인 수정 경로는 Q-29
 - [ ] (BE-B) people API · 암호화 · 만세력 계산 (10/5~10/10 spike)
 
 **완료 기준**: 실기기에서 본인 · 타인 저장 · 수정, 10명 초과 거부, 시간 모름 저장.
@@ -280,11 +300,17 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 
 **작업**
 - [ ] (FE) 수능운 정보 확인(CSAT-01): 본인/저장 인물 선택. 시험 종류 · 시험일은 고르지 않는다 — `examType: CSAT`, 시험일 · 판매 종료(전날 23:59:59 KST, F-07)는 서버 값만 표시 (Q-04 해결). 마감 판단은 서버 상품 `active` · `saleEndsAt` 기준, 범위 밖은 `422 EVENT_DATE_NOT_ALLOWED`
+  - [x] (FE) 가짜 구현 범위 — 본인 기본 · 불러오기 · 진행 → 차감 확인 팝업 → 결과 이동, 충전 후 복귀, 활성 상품 0개는 판매 종료 · 2개 이상은 오류 (`80a9a0b`). 오행분석 값은 API 대기(F-09 · Q-30), 판매 종료 오류 code 는 Q-28
 - [ ] (FE) 등껍질 차감 확인 팝업 — 앞 화면 안 Modal (CHECKOUT-POPUP, 상품명 · 대상 · 옵션 · 보유 · 사용 · 구매 후 잔액): 서버 견적(`POST /quotes/fortune`)의 상품 · 대상 · 옵션 · 차감량 · 구매 후 잔액 표시, 단일 구매 명령(`POST /reading-purchases`, `Idempotency-Key`), 결제 버튼 위 고지(F-08)
+  - [x] (FE) 가짜 구현 범위 — 운세 구매 포트 · 가짜 견적 · 견적당 키 · 409 처리 (`3d939c4`), 견적 401 은 로그인 안내 (`6526d3c`). 고지 문구는 PD (F-08)
+  - [ ] (FE) 진짜 adapter — OpenAPI · 견적 필드(`productName` 등, Q-17 · Q-28)
 - [ ] (FE) 잔액 부족 모달: 견적의 `walletBalance` · `shortage` · `recommendedTopUp` 과 `409 INSUFFICIENT_BALANCE` 의 `details`(서버 값만) → `/wallet` 충전 → `CREDITED` 후 원래 화면으로 복귀. 구매 선택은 `sessionStorage`(인물 ID · 최소 선택값, 24시간)에서 복원하고 `GET /quotes/{quoteId}` 로 재확인 — `409 QUOTE_EXPIRED` 면 선택 유지 + 새 견적, 가격이 바뀌면 다시 확인받음 (P-06, Q-07 해결, PURCHASE-RESTORE)
+  - [x] (FE) 가짜 구현 범위 — 구매 선택 저장 · 충전 완료 후 이어 가기 · 로그아웃 삭제 (`3d939c4` · `c83ae3e`), 서버 추천 충전 상품 표시 · 가짜 추천을 BE-A 규칙으로 (`6526d3c`)
 - [ ] (FE) LoadingScene: 생성 대기 · 실패 시 환급 상태 안내 (`READING_GENERATION_FAILED`)
+  - [x] (FE) 가짜 구현 범위 — 구매 요청 동안 대기 장면, FAILED · 생성 실패 code 는 환급 안내 + 새 견적 (`57ceedd`). 캐릭터 연출은 디자인 재개 후
 - [ ] (FE) ReadingViewer: 섹션 배열 순서대로 타입별 렌더(`TEXT` · `PERIOD_GUIDANCE` · `FOOD_RECOMMENDATION` · `CHECKLIST` + Q-05 로 생길 타입), 알 수 없는 타입은 그 섹션만 건너뜀 + Sentry 경고, 고지(`disclaimers`), 재열람(`GET /readings/{id}`) — 섹션 키 · 타입 enum 은 BE-B OpenAPI (Q-05 부분)
-- [ ] (FE) 준비물 체크 상태 로컬 저장 (결과 스냅샷 불변)
+  - [x] (FE) 가짜 구현 범위 — 4타입 · 모르는 타입 건너뜀 + 경고 · 고지 코드 · 재열람 `/suneung/r` · `/fortune/r` (`16e56aa`). 고지 문구는 PD — 지금은 코드 원문이 보인다
+- [x] (FE) 준비물 체크 상태 로컬 저장 (결과 스냅샷 불변) — `04bcb28`
 - [ ] (FE) 부적 추가 구매(`POST /readings/{id}/talisman-purchases`) — 부적 선택 단계 없음 (T-01 자동생성, 부족한 기운 산출은 BE-B Q-19). 일반 운세 `사주` 구매자만 — 수능운은 부적 포함 단일 상품 (P-03)
 - [ ] (FE) TalismanViewer: 부적 상태(`PENDING/READY/FAILED`, F-06), 원본 저장(10분 signed URL, iOS 길게 눌러 저장 안내), 카카오톡 공유하기(서버 share 리소스, G-11)
 - [ ] (BE-B) 수능운 구매 · 결과 · 부적 · R2 (10/11~10/17)
@@ -305,7 +331,7 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 - [ ] (FE) 수신자 `/g/[token]`: 도착(RECV-01 · RECV-T-01) → 정보 입력(RECV-02 · RECV-T-02, PersonForm, 1회 후 잠김, `409 ALREADY_SUBMITTED`) → 결과(RECV-03 ~ 07 · RECV-T-03 ~ 04, ReadingViewer + 편지) · 만료 · 폐기 410 화면 · 변조 404. 안내 단계에서 결과를 미리 조회하지 않는다 (제공 개시 = 서버가 완성 콘텐츠를 처음 응답한 때, G-09 · Q-17)
 - [ ] (FE) `/g/[token]` OG: 수신자 · 보낸 사람 이름 노출 (Q-13 해결), 생년정보 · 메시지 금지 (G-08). 문구는 PD
 - [ ] (FE) 수신자 결과 하단 "다른 운세도 보러가기" CTA, 로그인 후 부적 claim(`POST /talismans/{id}/claim`)
-- [ ] (FE) `screens.ts` 화면 번호를 최종 와이어 화면 ID(HOME- · FORT- · CSAT- · GIFT- · RECV- 등)로 전환 — 구 #24 · #26 정리 포함 (FIGMA-FINAL)
+- [x] (FE) `screens.ts` 화면 번호를 최종 와이어 화면 ID(HOME- · FORT- · CSAT- · GIFT- · RECV- 등)로 전환 — 구 #24 · #26 정리 포함 (FIGMA-FINAL) — `4ce2e6a`
 - [ ] (BE-A) 선물 결제 · 토큰 · 알림톡 · 재발급 (10/18~10/23) · (BE-B) 수신 입력 · 결과 · claim
 
 **완료 기준**: 테스트 결제 → 알림톡 수신 → **다른 기기 · 비로그인 · 카카오톡 인앱** 에서 수신 흐름 완주. 토큰 1글자 변조 → 정보 미노출. 수신자 정보 재입력 차단.
@@ -329,6 +355,7 @@ PG 심사 요청 후 디자인 보류 항목(Phase 1)을 여기서 재개한다.
 - [ ] (FE) 디자인 보류 항목 재개 (Phase 1 의 보류 5개)
 - [ ] (FE) 일반 운세 5종: 정보 확인 · 선택형 질문(관심 항목, 자유 메모는 결과 미반영 표시 — 입력 형태 Q-26) · 궁합 사람 선택(MATCH, Q-26) · 등껍질 차감 · 결과 (신살은 F-03 부분)
 - [ ] (FE) 마이페이지 · 홈 · 오늘의 운세 · 부적 창고 (위 표 순서)
+  - [x] (FE) MY-01 가짜 구현 범위 — 계정 닉네임 · 로그아웃 · 저장된 사람들 · 추가 링크 · 약관 링크 (`8141672` · `71296ad`). 내 운세 기록 · 충전 사용 내역 · 탈퇴는 API · 경로 · A-08 대기
 - [ ] (FE) 공유 랜딩 `/share/[shareId]` — 캐릭터 · 결과 요약 카드 · "나도 보러 가기" CTA, 상세 결과 · 생년정보 · 메시지 미노출 (Q-10 PD 답, FUNCTIONAL_SPEC 2장 반영 · G-11 대기)
 
 **완료 기준**: 순위 1~3 완료 + 실기기 1회 완주. 4~6 은 10/26 18:00 에 끝나지 않으면 대체안.

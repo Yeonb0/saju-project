@@ -32,3 +32,9 @@ export function createOrderBoundCommand(
   }
   return Object.freeze({ key: orderId, body: JSON.stringify(payload) });
 }
+
+// 포트(MOCK-PORT) 호출용 키. 구매 의도 하나(버튼을 눌러 시작한 명령 하나)에 한 번만 만들고,
+// 재시도 · 새로고침에도 같은 키를 넘긴다. 요청 본문은 포트 구현이 같은 입력에서 같은 모양으로 만든다.
+export function createIdempotencyKey(): string {
+  return crypto.randomUUID();
+}

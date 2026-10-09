@@ -1,7 +1,12 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ROUTELESS_SCREENS, ROUTES, SCREENS } from "./screens";
+import {
+  NOT_BUILT_SCREENS,
+  ROUTELESS_SCREENS,
+  ROUTES,
+  SCREENS,
+} from "./screens";
 
 const APP_DIR = join(process.cwd(), "src", "app");
 
@@ -31,29 +36,39 @@ describe("screens · routes", () => {
     }
   });
 
-  it("ROUTES 가 가리키는 화면 번호가 모두 SCREENS 에 있다", () => {
+  it("화면 ID 는 최종 와이어 프레임 이름 형식이다 (FIGMA-FINAL)", () => {
+    for (const id of Object.keys(SCREENS)) {
+      expect(id).toMatch(
+        /^(HOME|TODAY|MY|TALBOX|FORT|MATCH|PAY|CSAT|GIFT|RECV|RECV-T)-\d{2}$/,
+      );
+    }
+  });
+
+  it("ROUTES 가 가리키는 화면 ID 가 모두 SCREENS 에 있다", () => {
     for (const [path, route] of Object.entries(ROUTES)) {
-      for (const no of route.screens) {
-        expect(no in SCREENS, `${path} #${no}`).toBe(true);
+      for (const id of route.screens) {
+        expect(id in SCREENS, `${path} ${id}`).toBe(true);
       }
     }
   });
 
-  it("라우트 없는 화면(5·40)을 뺀 모든 화면이 어느 경로에 들어 있다", () => {
-    const used = new Set<number>(
-      Object.values(ROUTES).flatMap((route) => [...route.screens]),
-    );
-    const routeless = new Set(Object.keys(ROUTELESS_SCREENS).map(Number));
-    for (let no = 1; no <= 40; no++) {
-      if (routeless.has(no)) continue;
-      expect(used.has(no), `#${no}`).toBe(true);
+  it("모든 화면은 경로 · 라우트 없는 화면 · 만들지 않는 화면 중 하나에 있다", () => {
+    const placed = new Set<string>([
+      ...Object.values(ROUTES).flatMap((route) => [...route.screens]),
+      ...Object.keys(ROUTELESS_SCREENS),
+      ...Object.keys(NOT_BUILT_SCREENS),
+    ]);
+    for (const id of Object.keys(SCREENS)) {
+      expect(placed.has(id), id).toBe(true);
     }
   });
 
-  it("SCREENS 에 1~40 이 빠짐없이 있다", () => {
-    const nos = Object.keys(SCREENS)
-      .map(Number)
-      .sort((a, b) => a - b);
-    expect(nos).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
+  it("만들지 않는 화면은 어느 경로에도 없다", () => {
+    const routed = new Set<string>(
+      Object.values(ROUTES).flatMap((route) => [...route.screens]),
+    );
+    for (const id of Object.keys(NOT_BUILT_SCREENS)) {
+      expect(routed.has(id), id).toBe(false);
+    }
   });
 });
