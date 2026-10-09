@@ -428,6 +428,17 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-09: Docker 삭제·재설치와 개발 DB 복원
+
+- 사용자 명시 승인으로 Docker 설정 추가 백업 후 공식 제거/같은 버전 재설치를 수행했다. 초기화 버튼이나 임의 registry 수정은 사용하지 않았다.
+- 적용: 6-6 개발 환경 복구, 6-7 데이터 파일 백업/복원/조회, 6-9 비밀 데이터 백업 미업로드. 실제 운영 플랫폼 복원 훈련은 아니다.
+- 기존 WSL 디스크 2개(약 9.7GB)를 압축 백업했고 압축 내용과 원본 SHA-256 일치를 확인했다. 설정 44개도 복사 후 해시 대조했다. 백업은 저장소 밖 상위 작업공간 docker-recovery-backup-20261009에 보존하며 Git/외부 업로드 대상이 아니다.
+- 같은 버전 설치만 재실행한 첫 시도는 최신 버전 판정으로 종료 코드 3이었다. 이후 승인된 공식 제거와 재설치는 각각 종료 코드 0, 복원 디스크 2개 해시 일치 확인. 원래 설정/CLI 문맥을 복원했고 이전 실행 파일은 복원하지 않았다.
+- docker desktop start 성공, Docker Desktop 4.94.0 / Linux Engine 29.8.2 응답 확인. 기존 PostgreSQL/MySQL 컨테이너와 두 DB 볼륨 목록을 확인했다.
+- backend-db-1 시작 후 비정상 종료 자동 복구 완료와 healthy를 확인했다. BEGIN READ ONLY 조회: sajuppugi DB/계정, Flyway 10건 모두 성공, products 16건, wallets/transactions 각 0건. 개발 DB에 신규 migration/업무 쓰기는 실행하지 않았다.
+- 다른 프로젝트 MySQL은 실행 상태만 확인했고 데이터 SQL은 수행하지 않았다. tmpfs 테스트 DB의 이전 임시 fixture는 영속 백업이 아니며 다음 전용 테스트에서 다시 구성한다.
+- 이 확인은 기존 개발 DB 복원 확인이다. 앞선 신규 HTTP binding의 PostgreSQL 테스트나 운영 배포를 대신하지 않는다. Docker 정상화로 해당 테스트를 다음 단계에서 재실행할 수 있다.
+
 ### 2026-10-09: A 공통 구매 HTTP 키/요청 연결
 
 - 사용자의 A 담당만 개발 요청에 따라 common/idempotency와 A 신규 migration/테스트/문서만 추가했다. B controller/service 및 FE 구현은 변경하지 않았다.
