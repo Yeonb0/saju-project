@@ -177,8 +177,11 @@ docker build -t sajuppugi-backend .
 운세 견적·구매·결과 및 오행분석 HTTP API와 Liner adapter가 있다. 견적 응답/재조회에는
 현재 잔액·부족분·추천을 포함하고 지갑 HTTP 조회는 유료·보너스 사용 가능 잔액을 반환한다.
 지갑 내부 차감·원장·원거래 복구 adapter를 추가했지만 기본 비활성이다.
-구매 중단/복구 worker, HTTP 멱등 계약, 실제 충전 지급, OAuth와 인물 저장소 adapter는 아직 미연결이다.
+확정 FAILED 구매의 복구 재처리와 기본 비활성 scheduler가 있다.
+DEBITED/GENERATING 중단 복구, HTTP 멱등 계약, 실제 충전 지급, OAuth와 인물 저장소 adapter는 아직 미연결이다.
 `WALLET_PURCHASES_ENABLED`는 기본 false이며 구매 복구 경로와 A/B 리뷰 완료 전 운영에서 켜지 않는다.
 상세 범위는 `docs/WALLET_PURCHASE_IMPLEMENTATION.md`를 참고한다.
+실제 PostgreSQL 자동 테스트 및 SQL 실습은 `docs/POSTGRESQL_TEST_GUIDE.md`를 참고한다.
+자동 복구 scheduler의 `WALLET_RECOVERY_ENABLED`도 기본 false다.
 경로의 인증/CSRF 요구는 유지하며 인물·지갑 구매 dependency 미연결은 실패로 응답한다.
 미정 정책을 임의로 확정하지 않는다. FE 질문별 구현 범위는 `docs/FE_REQUESTS_20261009.md`를 참고한다.

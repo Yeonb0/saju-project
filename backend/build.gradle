@@ -61,3 +61,20 @@ tasks.register('exportOpenApi', Test) {
     defaultCharacterEncoding = 'UTF-8'
     outputs.upToDateWhen { false }
 }
+
+tasks.register('walletDemo', Test) {
+    description = 'Retain a synthetic debit/refund example in the isolated local PostgreSQL test database.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.WalletPostgresDemoTest' }
+    systemProperty 'wallet.demo.path', file('build/wallet-demo.json').absolutePath
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+    doFirst {
+        if (System.getenv('TEST_DATABASE_URL') != 'jdbc:postgresql://localhost:55432/sajuppugi_test') {
+            throw new GradleException('walletDemo requires the isolated localhost:55432/sajuppugi_test database.')
+        }
+    }
+}

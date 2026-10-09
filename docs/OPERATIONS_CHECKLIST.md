@@ -477,3 +477,12 @@ LIMIT 20;
 - 반복 PostgreSQL 실행에서 기존 CatalogPersistenceTest의 전역 견적 개수 가정이 드러나 테스트 사용자 범위로 좁혔다. 다른 사용자 데이터가 존재해도 해당 거절 요청이 견적을 만들지 않았는지를 검사한다.
 - WALLET_PURCHASES_ENABLED/WALLET_RECOVERY_ENABLED는 모두 기본 false다. CREATED 차감 커밋 후 중단 및 DEBITED/GENERATING 재개·lease/fencing은 미완료이므로 운영 구매는 여전히 비활성 유지한다. 실제 인증/인물·HTTP 원본 키/본문 멱등성·PG·FE E2E도 미완료다.
 - 복구는 purchase -> wallet -> lot 잠금 순서이며 독립 지갑 트랜잭션에 추가 DB connection이 필요하다. 운영 활성화 전 pool 용량·worker 동시 수·잠금 대기·알림을 검증한다. 외부 Liner/PG 호출은 이 트랜잭션에 없다.
+- 복구 기능은 `063b483`으로 별도 로컬 커밋했다. H2에서도 전체 269건 중 통과 266, 제외 3, 실패/오류 0이며 `check bootJar exportOpenApi --rerun-tasks` 성공을 확인했다.
+
+### 2026-10-09: 직접 PostgreSQL 실습과 읽기 전용 확인
+
+- `walletDemo`는 명시 실행 시에만 전용 localhost:55432/sajuppugi_test에 가상 시작 지급분/원장을 만들고 실제 내부 차감·복구 명령을 호출한다. 실행 전 TEST_DATABASE_URL을 검사하고 테스트 Spring 연결도 해당 DB로 고정했다. 일반 test에서는 제외한다.
+- demo 1건 성공, 가상 잔액 20 -> 5 -> 20, 동일 구매 재전송의 추가 차감 없음, 확정 실패를 가정한 구매 상태 전이 및 복구 후 REFUNDED를 확인했다. 시작 TOP_UP은 fixture이고 실제 토스 승인은 아니다. 실제 Liner 생성도 호출하지 않았다.
+- `docs/sql/wallet-demo-inspect.sql`을 BEGIN READ ONLY에서 실행했다. 지갑 paid=20/bonus=0/version=2, lot remaining=20, 현재 사용 가능=20, TOP_UP +20/PURCHASE -15/REFUND +15 각 1건, 거래 총액=배분 합계, REFUND가 원차감 거래 참조, 구매 REFUNDED/recovery_attempts=1을 확인했다.
+- `build/wallet-demo.json`은 마지막 실습의 가상 ID/잔액만 기록하며 Git 제외 대상이다. 실행/접속/정리/pgAdmin/직접 SQL 방법은 `backend/docs/POSTGRESQL_TEST_GUIDE.md`에 기록했다.
+- 사용자가 바로 읽어볼 수 있도록 실습 테스트 컨테이너와 가상 행을 남겼다. 개발 DB는 건드리지 않았다. 컨테이너 down 시 임시 데이터가 사라지고 예제 lot은 약 1시간 뒤 만료된다. 다시 전체 테스트할 때는 test project만 down/up해 초기화한다.
