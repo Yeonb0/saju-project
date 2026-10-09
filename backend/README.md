@@ -63,6 +63,10 @@ Swagger UI는 API 명세에 맞춰 `JSESSIONID` 세션 쿠키와 상태 변경 �
 Swagger UI에서 쿠키 값을 직접 입력하지 않는다. 인증 및 CSRF 발급 API가 구현되기 전까지
 보호된 API의 `Try it out` 요청은 인증 오류가 정상이다.
 
+FE 타입 생성용 고정 OpenAPI 파일은 `docs/openapi/api-v1.json`이며 backend 폴더에서
+`./gradlew exportOpenApi` (Windows: `.\gradlew.bat exportOpenApi`)로 재생성한다.
+테스트 컨텍스트에서 실제 controller 문서를 내보내며 외부 Liner/PG를 호출하지 않는다.
+
 인증 구현 전에는 health와 local API 문서만 허용하고 나머지 요청은 거절한다. 폼/Basic 로그인과 기본 개발 사용자 로그인을 제공하지 않는다. CSRF 보호는 유지한다. 카카오 로그인, 세션, B가 결정한 CSRF 발급 계약은 후속 구현 대상이다.
 
 ## 테스트와 빌드
@@ -80,6 +84,32 @@ bash ./gradlew clean check bootJar
 - GitHub Backend CI는 PostgreSQL 서비스에서 테스트하고 실행 JAR를 빌드한다.
 - 테스트용 컨트롤러는 `src/test/`에만 있으며 실행 JAR에 포함되지 않는다.
 - 산출물: `build/libs/sajuppugi-backend-0.0.1-SNAPSHOT.jar`
+
+### 로컬 PostgreSQL 테스트 DB
+
+테스트에는 데이터 삭제가 포함된다. 개발/운영 DB에 테스트를 연결하지 않는다.
+`compose.test.yml`은 개발 DB와 별도 컨테이너/계정으로 `sajuppugi_test`를 만들고,
+localhost:55432에만 공개한다. tmpfs를 사용하므로 컨테이너 중지 시 테스트 데이터는 사라진다.
+개발 DB의 5432 포트와 postgres-data 볼륨은 변경하지 않는다.
+
+backend 폴더의 별도 PowerShell에서 실행한다. 테스트 환경변수는 이 터미널에만 적용된다.
+
+```powershell
+docker compose -p saju-tests -f compose.test.yml up -d --wait test-db
+$env:TEST_DATABASE_URL = 'jdbc:postgresql://localhost:55432/sajuppugi_test'
+$env:TEST_DATABASE_USERNAME = 'sajuppugi_test'
+$env:TEST_DATABASE_PASSWORD = 'local-test-only'
+Remove-Item Env:LINER_LIVE_TEST -ErrorAction SilentlyContinue
+.\gradlew.bat --no-daemon check bootJar --rerun-tasks
+```
+
+Flyway는 빈 테스트 DB에 프로젝트 migration을 적용한다. 기본 테스트의 Liner는 fake이며
+위 명령은 실제 Liner/결제 API를 호출하지 않는다. 종료와 환경변수 해제:
+
+```powershell
+docker compose -p saju-tests -f compose.test.yml down
+Remove-Item Env:TEST_DATABASE_URL, Env:TEST_DATABASE_USERNAME, Env:TEST_DATABASE_PASSWORD -ErrorAction SilentlyContinue
+```
 
 실제 Liner 응답을 확인하는 스모크 테스트는 기본 테스트에서 비활성화되어 있다. API 사용량이 발생하므로
 `LINER_API_KEY`를 환경변수나 `backend/.env`에 설정한 뒤 명시적으로 실행한다.
@@ -144,4 +174,11 @@ docker build -t sajuppugi-backend .
 - 실행 컨테이너는 비루트 사용자이며 플랫폼의 `PORT`를 사용한다.
 - 실제 배포 주소/계정은 아직 등록하지 않았다.
 
-아직 업무 HTTP API와 외부 서비스 연동은 없다. 상품·기본 견적은 실제 DB 저장·조회, 지갑은 잔액·거래 내역 조회까지 구현했다. 실제 차감·지급·복구는 아직 없으며, 인증 연동 전에는 기존 업무 API 차단을 유지한다. 미정 정책은 임의로 확정하지 않는다.
+운세 견적·구매·결과 및 오행분석 HTTP API와 Liner adapter가 있다. 견적 응답/재조회에는
+현재 잔액·부족분·추천을 포함하고 지갑 HTTP 조회는 유료·보너스 사용 가능 잔액을 반환한다.
+지갑 내부 차감·원장·원거래 복구 adapter를 추가했지만 기본 비활성이다.
+구매 중단/복구 worker, HTTP 멱등 계약, 실제 충전 지급, OAuth와 인물 저장소 adapter는 아직 미연결이다.
+`WALLET_PURCHASES_ENABLED`는 기본 false이며 구매 복구 경로와 A/B 리뷰 완료 전 운영에서 켜지 않는다.
+상세 범위는 `docs/WALLET_PURCHASE_IMPLEMENTATION.md`를 참고한다.
+경로의 인증/CSRF 요구는 유지하며 인물·지갑 구매 dependency 미연결은 실패로 응답한다.
+미정 정책을 임의로 확정하지 않는다. FE 질문별 구현 범위는 `docs/FE_REQUESTS_20261009.md`를 참고한다.
