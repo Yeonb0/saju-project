@@ -28,10 +28,12 @@ GET은 저장 가격·만료를 유지하고 현재 잔액·부족분·추천만
 - `POST /api/v1/fortune/basic`에 `{ "personId": "uuid" }` 입력을 추가했다. 소유자 문맥으로 ReadingSubjectPort를 조회해 서버에서 계산한다. 기존 원문 입력은 유지하되 두 입력을 함께 보내거나 입력이 불완전하면 400 VALIDATION_FAILED다.
 - 인물 adapter 미연결은 503 READING_FULFILLMENT_UNAVAILABLE, 타인/미존재는 404 RESOURCE_NOT_FOUND다. 저장된 절기 경계일 인물의 시간 미상도 422 BIRTH_TIME_REQUIRED_AT_TERM이다.
 - 결과 고정 필드 순서는 API_SPEC 8장의 생성 section 순서와 현재 category controller 매핑을 따른다. JSON 객체 키의 나열 순서에 의존하지 않고 FE가 카테고리별 명시적 순서로 매핑한다. summary를 요약 표시 후보로 사용하되 PD 제목·원고 확정은 별도다.
-- counterpart 외 결과 section 필드는 content/sourceFactKeys 구조다. 현재 controller는 누락된 section을 null로 매핑한다. 수능 상세의 sections 배열 계약은 유지했다.
+- 일반 결과 section 필드는 content/sourceFactKeys 구조이며 meta/counterpart는 별도다. 현재 controller는 누락된 section을 null로 매핑한다. 수능 상세는 배열이지만 실제 항목은 key/content/sourceFactKeys이고, FE의 PERIOD_GUIDANCE/FOOD_RECOMMENDATION/CHECKLIST 구조화 items와는 일치하지 않는다. B/FE 계약 확정이 필요하다.
 - relationType은 FAMILY/FRIEND/LOVER/CRUSH/WORK_SCHOOL/OTHER 계약 그대로다. 엄마/아빠 구분과 직접 입력 문구는 이 enum에 표현되지 않으므로 PD/B의 선택지 확정이 필요하다. 임의 입력 필드를 만들지 않았다.
 - 미연결 dependency의 503은 제공 준비가 안 됐다는 의미다. 앞으로 실제 지갑 adapter의 결과 불명까지 “차감 없음”으로 일반화하면 안 된다. 같은 구매 의도/quote와 Idempotency-Key를 유지하고 서버 상태를 확인한다.
-- PURCHASE_DEBIT_MISMATCH와 READING_GENERATION_FAILED는 보상 코드가 있지만 보상 자체가 실패할 수 있다. FE가 오류 code만으로 환급 완료를 선언하지 않는다. 영속 REFUNDED 상태 조회 및 보상 worker는 후속 구현이 필요하다.
+- PURCHASE_DEBIT_MISMATCH와 READING_GENERATION_FAILED는 보상 코드가 있지만 보상 자체가 실패할 수 있다. FE가 오류 code만으로 환급 완료를 선언해서는 안 된다. 후속 작업에서 FAILED 보상 worker를 추가했으나 기본 비활성이며 소유자 구매 상태 조회 HTTP는 아직 없다. 현재 FE는 생성 오류만으로 refunded=true를 만드는 코드가 있어 수정이 필요하다.
+
+PR 전 최신 점검에서 구매의 절기 시간 미상 예외가 basic의 BIRTH_TIME_REQUIRED_AT_TERM과 달리 UNSUPPORTED_CALENDAR_DATE로 변환되는 것도 확인했다. 상세 질문별 판정과 연결 문제는 `PRE_PR_INTEGRATION_REVIEW_20261009.md`를 참고한다.
 
 OpenAPI 산출물은 `docs/openapi/api-v1.json`이다. 실제 Spring controller와 springdoc에서 생성하며 local/test 프로필의 fake Liner를 사용한다. 이 export는 인증을 우회하는 실제 서버를 띄우지 않고 MockMvc로 문서를 조회한다.
 
