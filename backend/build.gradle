@@ -49,3 +49,15 @@ tasks.named('test') {
 tasks.named('jar') {
     enabled = false
 }
+
+tasks.register('exportOpenApi', Test) {
+    description = 'Export the local /api/v1 OpenAPI contract for frontend type generation.'
+    group = 'documentation'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.OpenApiIntegrationTest' }
+    systemProperty 'openapi.export.path', file('../docs/openapi/api-v1.json').absolutePath
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+}

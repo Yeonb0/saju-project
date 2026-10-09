@@ -24,6 +24,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(authorize -> {
             authorize.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
             authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
+            authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
             authorize.requestMatchers("/api/v1/quotes/fortune", "/api/v1/quotes/fortune/**",
                     "/api/v1/reading-purchases", "/api/v1/reading-purchases/**",
                     "/api/v1/readings/**").authenticated();

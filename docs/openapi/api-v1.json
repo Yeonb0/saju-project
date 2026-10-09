@@ -1,0 +1,2294 @@
+{
+  "components" : {
+    "schemas" : {
+      "ApiResponseBasicSajuResult" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/BasicSajuResult"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCategoryListResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CategoryListResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCategoryPurchaseResponseCompatibilityReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CategoryPurchaseResponseCompatibilityReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCategoryPurchaseResponseLoveReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CategoryPurchaseResponseLoveReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCategoryPurchaseResponseOverallReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CategoryPurchaseResponseOverallReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCategoryPurchaseResponseSinsalReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CategoryPurchaseResponseSinsalReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCategoryPurchaseResponseWealthReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CategoryPurchaseResponseWealthReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCategoryQuoteResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CategoryQuoteResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseCompatibilityReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CompatibilityReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseFundedQuoteResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FundedQuoteResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseLoveReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/LoveReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseOverallReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/OverallReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePurchaseResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PurchaseResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseReadingListResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ReadingListResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseSinsalReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SinsalReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseSuneungQuoteResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SuneungQuoteResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseWalletResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WalletResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseWealthReadingResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WealthReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "BasicSajuRequest" : {
+        "description" : "Supply personId only, or complete raw birth information; the two input forms are exclusive.",
+        "properties" : {
+          "birthDate" : {
+            "pattern" : "\\d{4}-\\d{2}-\\d{2}",
+            "type" : "string"
+          },
+          "birthTime" : {
+            "pattern" : "(?:[01]\\d|2[0-3]):[0-5]\\d",
+            "type" : "string"
+          },
+          "birthTimeUnknown" : {
+            "type" : "boolean"
+          },
+          "calendarType" : {
+            "enum" : [ "SOLAR", "LUNAR" ],
+            "type" : "string"
+          },
+          "gender" : {
+            "enum" : [ "MALE", "FEMALE", "UNSPECIFIED" ],
+            "type" : "string"
+          },
+          "leapMonth" : {
+            "type" : "boolean"
+          },
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "BasicSajuResult" : {
+        "properties" : {
+          "birthTimeKnown" : {
+            "type" : "boolean"
+          },
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "dayMaster" : {
+            "$ref" : "#/components/schemas/Stem"
+          },
+          "fiveElements" : {
+            "$ref" : "#/components/schemas/FiveElements"
+          },
+          "pillars" : {
+            "$ref" : "#/components/schemas/Pillars"
+          },
+          "relations" : {
+            "$ref" : "#/components/schemas/Relations"
+          },
+          "tenGods" : {
+            "$ref" : "#/components/schemas/TenGods"
+          },
+          "twelveStages" : {
+            "$ref" : "#/components/schemas/TwelveStages"
+          }
+        },
+        "type" : "object"
+      },
+      "Branch" : {
+        "properties" : {
+          "element" : {
+            "enum" : [ "WOOD", "FIRE", "EARTH", "METAL", "WATER" ],
+            "type" : "string"
+          },
+          "hangul" : {
+            "type" : "string"
+          },
+          "hanja" : {
+            "type" : "string"
+          },
+          "yinYang" : {
+            "enum" : [ "YANG", "YIN" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CategoryListResponse" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryReadingSummary"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CategoryPurchaseResponseCompatibilityReadingResponse" : {
+        "properties" : {
+          "balance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "purchaseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reading" : {
+            "$ref" : "#/components/schemas/CompatibilityReadingResponse"
+          },
+          "readingId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reused" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CategoryPurchaseResponseLoveReadingResponse" : {
+        "properties" : {
+          "balance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "purchaseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reading" : {
+            "$ref" : "#/components/schemas/LoveReadingResponse"
+          },
+          "readingId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reused" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CategoryPurchaseResponseOverallReadingResponse" : {
+        "properties" : {
+          "balance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "purchaseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reading" : {
+            "$ref" : "#/components/schemas/OverallReadingResponse"
+          },
+          "readingId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reused" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CategoryPurchaseResponseSinsalReadingResponse" : {
+        "properties" : {
+          "balance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "purchaseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reading" : {
+            "$ref" : "#/components/schemas/SinsalReadingResponse"
+          },
+          "readingId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reused" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CategoryPurchaseResponseWealthReadingResponse" : {
+        "properties" : {
+          "balance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "purchaseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reading" : {
+            "$ref" : "#/components/schemas/WealthReadingResponse"
+          },
+          "readingId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reused" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CategoryQuoteResponse" : {
+        "properties" : {
+          "balanceAfter" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "productCode" : {
+            "type" : "string"
+          },
+          "productOption" : {
+            "type" : "string"
+          },
+          "questionKey" : {
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recommendedTopUp" : {
+            "type" : [ "string", "null" ]
+          },
+          "shortage" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "walletBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "balanceAfter", "charged", "expiresAt", "productCode", "productOption", "questionKey", "quoteId", "recommendedTopUp", "shortage", "walletBalance" ],
+        "type" : "object"
+      },
+      "CategoryReadingSummary" : {
+        "properties" : {
+          "counterpartDisplayName" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "generationMode" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "type" : "string"
+          },
+          "questionKey" : {
+            "type" : "string"
+          },
+          "subjectDisplayName" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          }
+        },
+        "type" : "object"
+      },
+      "Charged" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "currency" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CompatibilityPurchaseRequest" : {
+        "properties" : {
+          "counterpartPersonId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "enum" : [ "READING_ONLY", "READING_WITH_TALISMAN" ],
+            "type" : "string"
+          },
+          "questionKey" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "relationType" : {
+            "enum" : [ "FAMILY", "FRIEND", "LOVER", "CRUSH", "WORK_SCHOOL", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "counterpartPersonId", "personId", "productOption", "questionKey", "quoteId", "relationType" ],
+        "type" : "object"
+      },
+      "CompatibilityQuoteRequest" : {
+        "properties" : {
+          "counterpartPersonId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "enum" : [ "READING_ONLY", "READING_WITH_TALISMAN" ],
+            "type" : "string"
+          },
+          "questionKey" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "relationType" : {
+            "enum" : [ "FAMILY", "FRIEND", "LOVER", "CRUSH", "WORK_SCHOOL", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "counterpartPersonId", "personId", "productOption", "questionKey", "relationType" ],
+        "type" : "object"
+      },
+      "CompatibilityReadingResponse" : {
+        "properties" : {
+          "communication" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "counterpart" : {
+            "$ref" : "#/components/schemas/Counterpart"
+          },
+          "matchConflict" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "matchStrength" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "meta" : {
+            "$ref" : "#/components/schemas/ReadingMeta"
+          },
+          "missingElement" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "relationshipTip" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          }
+        },
+        "type" : "object"
+      },
+      "Counterpart" : {
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "relationType" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Event" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FiveElements" : {
+        "properties" : {
+          "counts" : {
+            "additionalProperties" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "type" : "object"
+          },
+          "dominant" : {
+            "items" : {
+              "enum" : [ "WOOD", "FIRE", "EARTH", "METAL", "WATER" ],
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "missing" : {
+            "items" : {
+              "enum" : [ "WOOD", "FIRE", "EARTH", "METAL", "WATER" ],
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "FundedQuoteResponse" : {
+        "properties" : {
+          "balanceAfter" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "productCode" : {
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recommendedTopUp" : {
+            "type" : [ "string", "null" ]
+          },
+          "shortage" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "walletBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "balanceAfter", "charged", "expiresAt", "productCode", "quoteId", "recommendedTopUp", "shortage", "walletBalance" ],
+        "type" : "object"
+      },
+      "GeneratedSection" : {
+        "properties" : {
+          "content" : {
+            "type" : "string"
+          },
+          "key" : {
+            "enum" : [ "SUMMARY", "CURRENT_FLOW", "GOOD_PERIOD", "CAUTION", "ACTION_TIP", "RELATIONSHIPS", "STUDY_AND_WORK", "WEALTH_FLOW", "CONDITION", "LUCKY_POINT", "INCOME", "SPENDING_CAUTION", "MATCH_STRENGTH", "MATCH_CONFLICT", "COMMUNICATION", "RELATIONSHIP_TIP", "SPECIAL_STARS", "BALANCING_SPECIAL_STARS", "MISSING_ELEMENT", "EXAM_DAY", "EXAM_PERIODS", "FOCUS", "MEAL", "PREPARATION", "ANXIETY_MANAGEMENT" ],
+            "type" : "string"
+          },
+          "sourceFactKeys" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "LoveReadingResponse" : {
+        "properties" : {
+          "actionTip" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "caution" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "currentFlow" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "goodPeriod" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "meta" : {
+            "$ref" : "#/components/schemas/ReadingMeta"
+          },
+          "missingElement" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          }
+        },
+        "type" : "object"
+      },
+      "OverallReadingResponse" : {
+        "properties" : {
+          "condition" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "currentFlow" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "luckyPoint" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "meta" : {
+            "$ref" : "#/components/schemas/ReadingMeta"
+          },
+          "missingElement" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "relationships" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "studyAndWork" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "wealthFlow" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          }
+        },
+        "type" : "object"
+      },
+      "Pillar" : {
+        "properties" : {
+          "branch" : {
+            "$ref" : "#/components/schemas/Branch"
+          },
+          "display" : {
+            "type" : "string"
+          },
+          "stem" : {
+            "$ref" : "#/components/schemas/Stem"
+          }
+        },
+        "type" : "object"
+      },
+      "Pillars" : {
+        "properties" : {
+          "day" : {
+            "$ref" : "#/components/schemas/Pillar"
+          },
+          "hour" : {
+            "$ref" : "#/components/schemas/Pillar"
+          },
+          "month" : {
+            "$ref" : "#/components/schemas/Pillar"
+          },
+          "year" : {
+            "$ref" : "#/components/schemas/Pillar"
+          }
+        },
+        "type" : "object"
+      },
+      "PurchaseRequest" : {
+        "properties" : {
+          "counterpartPersonId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "fortuneType" : {
+            "enum" : [ "OVERALL", "LOVE", "WEALTH", "COMPATIBILITY", "SINSAL", "SUNEUNG" ],
+            "type" : "string"
+          },
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "enum" : [ "READING_ONLY", "READING_WITH_TALISMAN" ],
+            "type" : "string"
+          },
+          "questionKey" : {
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "relationType" : {
+            "enum" : [ "FAMILY", "FRIEND", "LOVER", "CRUSH", "WORK_SCHOOL", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "personId", "quoteId" ],
+        "type" : "object"
+      },
+      "PurchaseResponse" : {
+        "properties" : {
+          "balance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "purchaseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reading" : {
+            "$ref" : "#/components/schemas/ReadingResponse"
+          },
+          "readingId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reused" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "QuoteRequest" : {
+        "properties" : {
+          "counterpartPersonId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "fortuneType" : {
+            "enum" : [ "OVERALL", "LOVE", "WEALTH", "COMPATIBILITY", "SINSAL", "SUNEUNG" ],
+            "type" : "string"
+          },
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "enum" : [ "READING_ONLY", "READING_WITH_TALISMAN" ],
+            "type" : "string"
+          },
+          "questionKey" : {
+            "type" : "string"
+          },
+          "relationType" : {
+            "enum" : [ "FAMILY", "FRIEND", "LOVER", "CRUSH", "WORK_SCHOOL", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "personId" ],
+        "type" : "object"
+      },
+      "ReadingListResponse" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReadingSummary"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReadingMeta" : {
+        "properties" : {
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "disclaimers" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "generationMode" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "type" : "string"
+          },
+          "questionKey" : {
+            "type" : "string"
+          },
+          "subjectDisplayName" : {
+            "type" : "string"
+          },
+          "talisman" : {
+            "$ref" : "#/components/schemas/Talisman"
+          }
+        },
+        "type" : "object"
+      },
+      "ReadingResponse" : {
+        "properties" : {
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "counterpart" : {
+            "$ref" : "#/components/schemas/Counterpart"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "disclaimers" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "event" : {
+            "$ref" : "#/components/schemas/Event"
+          },
+          "fortuneType" : {
+            "type" : "string"
+          },
+          "generationMode" : {
+            "type" : "string"
+          },
+          "generationVersion" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "type" : "string"
+          },
+          "questionKey" : {
+            "type" : "string"
+          },
+          "sections" : {
+            "items" : {
+              "$ref" : "#/components/schemas/GeneratedSection"
+            },
+            "type" : "array"
+          },
+          "subjectDisplayName" : {
+            "type" : "string"
+          },
+          "talisman" : {
+            "$ref" : "#/components/schemas/Talisman"
+          }
+        },
+        "type" : "object"
+      },
+      "ReadingSummary" : {
+        "properties" : {
+          "counterpartDisplayName" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "fortuneType" : {
+            "type" : "string"
+          },
+          "generationMode" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "type" : "string"
+          },
+          "questionKey" : {
+            "type" : "string"
+          },
+          "subjectDisplayName" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Relation" : {
+        "properties" : {
+          "display" : {
+            "type" : "string"
+          },
+          "positions" : {
+            "items" : {
+              "enum" : [ "YEAR", "MONTH", "DAY", "HOUR" ],
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "type" : {
+            "enum" : [ "STEM_COMBINATION", "STEM_CLASH", "BRANCH_COMBINATION", "BRANCH_TRINE", "BRANCH_HALF_TRINE", "BRANCH_CLASH", "BRANCH_PUNISHMENT", "BRANCH_HARM", "BRANCH_DESTRUCTION" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Relations" : {
+        "properties" : {
+          "values" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Relation"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "SectionContent" : {
+        "properties" : {
+          "content" : {
+            "type" : "string"
+          },
+          "sourceFactKeys" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "SinsalReadingResponse" : {
+        "properties" : {
+          "balancingGuide" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "meta" : {
+            "$ref" : "#/components/schemas/ReadingMeta"
+          },
+          "missingElement" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "specialStars" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          }
+        },
+        "type" : "object"
+      },
+      "StandardPurchaseRequest" : {
+        "properties" : {
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "enum" : [ "READING_ONLY", "READING_WITH_TALISMAN" ],
+            "type" : "string"
+          },
+          "questionKey" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "personId", "productOption", "questionKey", "quoteId" ],
+        "type" : "object"
+      },
+      "StandardQuoteRequest" : {
+        "properties" : {
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "productOption" : {
+            "enum" : [ "READING_ONLY", "READING_WITH_TALISMAN" ],
+            "type" : "string"
+          },
+          "questionKey" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "personId", "productOption", "questionKey" ],
+        "type" : "object"
+      },
+      "Stem" : {
+        "properties" : {
+          "element" : {
+            "enum" : [ "WOOD", "FIRE", "EARTH", "METAL", "WATER" ],
+            "type" : "string"
+          },
+          "hangul" : {
+            "type" : "string"
+          },
+          "hanja" : {
+            "type" : "string"
+          },
+          "yinYang" : {
+            "enum" : [ "YANG", "YIN" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SuneungQuoteResponse" : {
+        "properties" : {
+          "balanceAfter" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "charged" : {
+            "$ref" : "#/components/schemas/Charged"
+          },
+          "event" : {
+            "$ref" : "#/components/schemas/Event"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "productCode" : {
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recommendedTopUp" : {
+            "type" : [ "string", "null" ]
+          },
+          "shortage" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "walletBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "balanceAfter", "charged", "event", "expiresAt", "productCode", "quoteId", "recommendedTopUp", "shortage", "walletBalance" ],
+        "type" : "object"
+      },
+      "Talisman" : {
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TenGodPosition" : {
+        "properties" : {
+          "branch" : {
+            "enum" : [ "DAY_MASTER", "FRIEND", "ROB_WEALTH", "EATING_GOD", "HURTING_OFFICER", "INDIRECT_WEALTH", "DIRECT_WEALTH", "SEVEN_KILLINGS", "DIRECT_OFFICER", "INDIRECT_RESOURCE", "DIRECT_RESOURCE" ],
+            "type" : "string"
+          },
+          "stem" : {
+            "enum" : [ "DAY_MASTER", "FRIEND", "ROB_WEALTH", "EATING_GOD", "HURTING_OFFICER", "INDIRECT_WEALTH", "DIRECT_WEALTH", "SEVEN_KILLINGS", "DIRECT_OFFICER", "INDIRECT_RESOURCE", "DIRECT_RESOURCE" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TenGods" : {
+        "properties" : {
+          "day" : {
+            "$ref" : "#/components/schemas/TenGodPosition"
+          },
+          "hour" : {
+            "$ref" : "#/components/schemas/TenGodPosition"
+          },
+          "month" : {
+            "$ref" : "#/components/schemas/TenGodPosition"
+          },
+          "year" : {
+            "$ref" : "#/components/schemas/TenGodPosition"
+          }
+        },
+        "type" : "object"
+      },
+      "TwelveStages" : {
+        "properties" : {
+          "day" : {
+            "enum" : [ "BIRTH", "BATH", "CROWN", "OFFICIAL", "PROSPERITY", "DECLINE", "SICKNESS", "DEATH", "TOMB", "EXTINCTION", "CONCEPTION", "NOURISHMENT" ],
+            "type" : "string"
+          },
+          "hour" : {
+            "enum" : [ "BIRTH", "BATH", "CROWN", "OFFICIAL", "PROSPERITY", "DECLINE", "SICKNESS", "DEATH", "TOMB", "EXTINCTION", "CONCEPTION", "NOURISHMENT" ],
+            "type" : "string"
+          },
+          "month" : {
+            "enum" : [ "BIRTH", "BATH", "CROWN", "OFFICIAL", "PROSPERITY", "DECLINE", "SICKNESS", "DEATH", "TOMB", "EXTINCTION", "CONCEPTION", "NOURISHMENT" ],
+            "type" : "string"
+          },
+          "year" : {
+            "enum" : [ "BIRTH", "BATH", "CROWN", "OFFICIAL", "PROSPERITY", "DECLINE", "SICKNESS", "DEATH", "TOMB", "EXTINCTION", "CONCEPTION", "NOURISHMENT" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "WalletResponse" : {
+        "properties" : {
+          "balance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "bonusBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "paidBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "balance", "bonusBalance", "currency", "paidBalance" ],
+        "type" : "object"
+      },
+      "WealthReadingResponse" : {
+        "properties" : {
+          "actionTip" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "goodPeriod" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "income" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "meta" : {
+            "$ref" : "#/components/schemas/ReadingMeta"
+          },
+          "missingElement" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "spendingCaution" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          },
+          "wealthFlow" : {
+            "$ref" : "#/components/schemas/SectionContent"
+          }
+        },
+        "type" : "object"
+      }
+    },
+    "securitySchemes" : {
+      "csrfHeader" : {
+        "description" : "세션 기반 상태 변경 요청에 필요한 CSRF 토큰",
+        "in" : "header",
+        "name" : "X-CSRF-Token",
+        "type" : "apiKey"
+      },
+      "sessionCookie" : {
+        "description" : "카카오 로그인 후 발급되는 HttpOnly 세션 쿠키",
+        "in" : "cookie",
+        "name" : "JSESSIONID",
+        "type" : "apiKey"
+      }
+    }
+  },
+  "info" : {
+    "description" : "뿌기사주 백엔드 API 문서",
+    "title" : "뿌기사주 API",
+    "version" : "v1"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/v1/fortune/basic" : {
+      "post" : {
+        "operationId" : "calculate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BasicSajuRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBasicSajuResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "basic-saju-controller" ]
+      }
+    },
+    "/api/v1/quotes/fortune" : {
+      "post" : {
+        "operationId" : "quote",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/QuoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSuneungQuoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "suneung-reading-controller" ]
+      }
+    },
+    "/api/v1/quotes/fortune/compatibility" : {
+      "post" : {
+        "operationId" : "quoteCompatibility",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CompatibilityQuoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryQuoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/quotes/fortune/love" : {
+      "post" : {
+        "operationId" : "quoteLove",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardQuoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryQuoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/quotes/fortune/overall" : {
+      "post" : {
+        "operationId" : "quoteOverall",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardQuoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryQuoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/quotes/fortune/sinsal" : {
+      "post" : {
+        "operationId" : "quoteSinsal",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardQuoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryQuoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/quotes/fortune/wealth" : {
+      "post" : {
+        "operationId" : "quoteWealth",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardQuoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryQuoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/quotes/{quoteId}" : {
+      "get" : {
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "quoteId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFundedQuoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "quote-controller" ]
+      }
+    },
+    "/api/v1/reading-purchases" : {
+      "post" : {
+        "operationId" : "purchase",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePurchaseResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "suneung-reading-controller" ]
+      }
+    },
+    "/api/v1/reading-purchases/compatibility" : {
+      "post" : {
+        "operationId" : "purchaseCompatibility",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CompatibilityPurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryPurchaseResponseCompatibilityReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/reading-purchases/love" : {
+      "post" : {
+        "operationId" : "purchaseLove",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardPurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryPurchaseResponseLoveReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/reading-purchases/overall" : {
+      "post" : {
+        "operationId" : "purchaseOverall",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardPurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryPurchaseResponseOverallReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/reading-purchases/sinsal" : {
+      "post" : {
+        "operationId" : "purchaseSinsal",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardPurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryPurchaseResponseSinsalReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/reading-purchases/wealth" : {
+      "post" : {
+        "operationId" : "purchaseWealth",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StandardPurchaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryPurchaseResponseWealthReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings" : {
+      "get" : {
+        "operationId" : "list",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "fortuneType",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "OVERALL", "LOVE", "WEALTH", "COMPATIBILITY", "SINSAL", "SUNEUNG" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "personId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseReadingListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "suneung-reading-controller" ]
+      }
+    },
+    "/api/v1/readings/compatibility" : {
+      "get" : {
+        "operationId" : "listCompatibility",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "personId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/compatibility/{readingId}" : {
+      "get" : {
+        "operationId" : "getCompatibility",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "readingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCompatibilityReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/love" : {
+      "get" : {
+        "operationId" : "listLove",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "personId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/love/{readingId}" : {
+      "get" : {
+        "operationId" : "getLove",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "readingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLoveReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/overall" : {
+      "get" : {
+        "operationId" : "listOverall",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "personId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/overall/{readingId}" : {
+      "get" : {
+        "operationId" : "getOverall",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "readingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOverallReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/sinsal" : {
+      "get" : {
+        "operationId" : "listSinsal",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "personId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/sinsal/{readingId}" : {
+      "get" : {
+        "operationId" : "getSinsal",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "readingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSinsalReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/wealth" : {
+      "get" : {
+        "operationId" : "listWealth",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "personId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCategoryListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/wealth/{readingId}" : {
+      "get" : {
+        "operationId" : "getWealth",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "readingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWealthReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "general-reading-category-controller" ]
+      }
+    },
+    "/api/v1/readings/{readingId}" : {
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "readingId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseReadingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "suneung-reading-controller" ]
+      }
+    },
+    "/api/v1/wallet" : {
+      "get" : {
+        "operationId" : "get",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWalletResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "wallet-controller" ]
+      }
+    }
+  },
+  "servers" : [ {
+    "description" : "Generated server url",
+    "url" : "http://localhost"
+  } ]
+}

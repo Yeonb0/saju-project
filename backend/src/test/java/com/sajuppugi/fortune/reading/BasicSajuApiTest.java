@@ -8,6 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import com.sajuppugi.fortune.calculation.domain.BirthInput;
+import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -21,6 +28,55 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class BasicSajuApiTest {
     @Autowired MockMvc mvc;
+    @MockitoBean ReadingSubjectPort subjects;
+
+    @Test
+    void calculatesFromOwnedPersonWithoutReturningBirthInformation() throws Exception {
+        UUID owner = UUID.randomUUID();
+        UUID person = UUID.randomUUID();
+        when(subjects.getOwnedSubject(owner, person)).thenReturn(new ReadingSubjectPort.OwnedSubject(person,
+                "private-name", new BirthInput(LocalDate.of(2004, 3, 15), LocalTime.of(14, 32), false,
+                        BirthInput.CalendarType.SOLAR, false, BirthInput.Gender.FEMALE)));
+        mvc.perform(post("/api/v1/fortune/basic").with(user(owner.toString())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"personId\":\"" + person + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pillars.day.display").value("계사"))
+                .andExpect(jsonPath("$.data.birthTimeKnown").value(true))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private-name"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("2004-03-15"))));
+        verify(subjects).getOwnedSubject(owner, person);
+    }
+
+    @Test
+    void unknownOrOtherPersonsAreNotDisclosed() throws Exception {
+        mvc.perform(post("/api/v1/fortune/basic").with(user(UUID.randomUUID().toString())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"personId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+    }
+
+    @Test
+    void personAndRawBirthInputCannotBeCombinedAndEmptyInputIsRejected() throws Exception {
+        for (String request : new String[] {"{}", "{\"personId\":\"" + UUID.randomUUID()
+                + "\",\"birthDate\":\"2004-03-15\"}", "{\"birthDate\":\"2004-03-15\"}"}) {
+            mvc.perform(post("/api/v1/fortune/basic").with(user(UUID.randomUUID().toString())).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON).content(request))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        }
+    }
+
+    @Test
+    void ownedPersonOnTermBoundaryStillRequiresBirthTime() throws Exception {
+        UUID owner = UUID.randomUUID();
+        UUID person = UUID.randomUUID();
+        when(subjects.getOwnedSubject(owner, person)).thenReturn(new ReadingSubjectPort.OwnedSubject(person, "test",
+                new BirthInput(LocalDate.of(2024, 2, 4), null, true, BirthInput.CalendarType.SOLAR,
+                        false, BirthInput.Gender.FEMALE)));
+        mvc.perform(post("/api/v1/fortune/basic").with(user(owner.toString())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"personId\":\"" + person + "\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("BIRTH_TIME_REQUIRED_AT_TERM"));
+    }
 
     @Test
     void calculatesBasicSajuForAuthenticatedUser() throws Exception {

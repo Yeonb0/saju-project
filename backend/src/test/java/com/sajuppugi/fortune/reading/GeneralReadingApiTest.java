@@ -289,7 +289,7 @@ class GeneralReadingApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.productCode").value(productCode))
-                .andExpect(jsonPath("$.data.amount").value(amount))
+                .andExpect(jsonPath("$.data.charged.amount").value(amount))
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(JsonPath.read(response, "$.data.quoteId"));
     }
