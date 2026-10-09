@@ -1,7 +1,7 @@
 "use client";
 
 // "use client" 이유: 세션 조회(TanStack Query) · 로그인 시작 · 화면 이동(useRouter)은 브라우저에서 한다.
-// HOME-01 · PG-2. 근거: A-01 (카카오만), A-02 (로그인 후 returnTo 로 복귀), A-03 (본인 정보 없으면 온보딩).
+// HOME-01 · PG-2. 근거: A-01 (소셜 로그인 3종 — PG 심사 요청까지 화면은 카카오만, LOGIN-3 개정), A-02 (로그인 후 returnTo 로 복귀), A-03 (본인 정보 없으면 온보딩).
 // 디자인 요소 없음 (PG-FIRST) — 기본 요소의 최소 레이아웃만.
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -10,7 +10,7 @@ import { AppShell } from "@/components/AppShell";
 import { SESSION_QUERY_KEY } from "@/lib/auth/RequireSession";
 import { onboardingHref } from "@/lib/auth/returnTo";
 import { getSessionPort } from "@/lib/ports";
-import type { SessionPort } from "@/lib/ports/session";
+import type { LoginProvider, SessionPort } from "@/lib/ports/session";
 
 export function LoginScreen({
   returnTo,
@@ -32,7 +32,8 @@ export function LoginScreen({
   });
 
   const login = useMutation({
-    mutationFn: () => session().startLogin(returnTo, (url) => router.push(url)),
+    mutationFn: (provider: LoginProvider) =>
+      session().startLogin(provider, returnTo, (url) => router.push(url)),
   });
   // 같은 틱의 두 번째 클릭은 렌더 전이라 isPending 이 아직 false 다 — ref 로 한 번 더 막는다
   const starting = useRef(false);
@@ -57,10 +58,10 @@ export function LoginScreen({
     router.replace(target);
   }, [target, router]);
 
-  function onStart() {
+  function onStart(provider: LoginProvider) {
     if (login.isPending || starting.current) return;
     starting.current = true;
-    login.mutate(undefined, {
+    login.mutate(provider, {
       onSettled: () => {
         starting.current = false;
       },
@@ -84,15 +85,20 @@ export function LoginScreen({
           data-slot="login-intro"
           className="mt-[14px] min-h-[24px] text-[20px]"
         />
-        {/* TODO(A-01): 네이버 · 구글 버튼 — BE-B 지원 · 개발 범위 확정 전이라 만들지 않는다 */}
+        {/* TODO(LOGIN-3): 네이버 · 구글 버튼 — PG 심사 요청 후 추가 (A-01). 배치는 와이어 195:774, 버튼 값 224:1087 · 195:781 */}
         {/* TODO(BE-B 콜백 동작): OAuth 취소 · 오류 쿼리 처리 — 콜백 동작 확정 전이라 만들지 않는다 */}
         {/* 카카오 로그인 버튼 색 (카카오 디자인 가이드) — TODO(PD 아이콘): 말풍선 심볼 */}
         <button
           type="button"
-          onClick={onStart}
+          onClick={() => onStart("KAKAO")}
           disabled={login.isPending}
-          className="mt-[29px] h-[56px] w-[368px] rounded-[10px] bg-[#fee502] text-center text-[20px] text-neutral-900 disabled:opacity-50"
+          className="mt-[29px] inline-flex h-[56px] w-[368px] items-center justify-center gap-[10px] rounded-[10px] bg-[#fee502] text-center text-[20px] text-neutral-900 disabled:opacity-50"
         >
+          <span
+            aria-hidden
+            data-slot="kakao-logo"
+            className="block h-[27px] w-[27px]"
+          />
           {/* TODO(PD 문구) */}
           카카오로 시작하기
         </button>
