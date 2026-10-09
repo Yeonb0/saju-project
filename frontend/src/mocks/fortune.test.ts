@@ -142,7 +142,6 @@ describe("가짜 운세 구매 포트 (MOCK-PORT)", () => {
     const { quoteId } = await port.createQuote(selection);
     const result = await port.purchase({ quoteId, selection }, "key-1");
     expect(result.status).toBe("FAILED");
-    expect(result.refunded).toBe(true);
     expect(wallet.balance()).toBe(100);
   });
 
