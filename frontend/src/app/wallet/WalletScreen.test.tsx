@@ -47,8 +47,37 @@ describe("WalletScreen (PAY-01)", () => {
     expect(screen.getByText(/1,111 KRW/)).toBeInTheDocument();
   });
 
-  it("상품을 고르면 주문 내용 상자에 그 상품의 서버 가격이 보이고, 고르기 전에는 비어 있다 (LAYOUT-FIGMA)", async () => {
+  it("상품을 고르기 전에는 모든 카드가 data-selected=false, 고르면 그 카드만 true (PD 메모 301:165)", async () => {
     const user = userEvent.setup();
+    setup();
+    const radios = await screen.findAllByRole("radio");
+    const cards = radios.map((r) => r.closest("label"));
+    for (const card of cards)
+      expect(card).toHaveAttribute("data-selected", "false");
+    await user.click(radios[1]);
+    for (const [i, card] of cards.entries()) {
+      expect(card).toHaveAttribute("data-selected", i === 1 ? "true" : "false");
+    }
+    expect(cards).toHaveLength(7);
+  });
+
+  it("k. 보너스 0 상품 카드에는 보너스 줄이 없고, 보너스 상품 카드는 서버 값 그대로 보인다", async () => {
+    setup();
+    const radios = await screen.findAllByRole("radio");
+    const [a, b] = FIXTURE_TOP_UP_PRODUCTS;
+    expect(a.bonusAmount).toBe(0);
+    expect(b.bonusAmount).toBeGreaterThan(0);
+    const fmt = (n: number) => n.toLocaleString("ko-KR");
+    expect(radios[0].closest("label")?.textContent).not.toContain("보너스");
+    const text = radios[1].closest("label")?.textContent ?? "";
+    expect(text).toContain(
+      `${fmt(b.paidAmount)} + 보너스 ${fmt(b.bonusAmount)}`,
+    );
+    expect(text).toContain(fmt(b.creditedAmount));
+    expect(text).toContain(`${fmt(b.price.amount)} ${b.price.currency}`);
+  });
+
+  it("l. 주문 내용 상자는 없고 안내 · 동의 자리가 하나씩 있으며 체크박스는 없다", async () => {
     const { container } = render(
       <QueryClientProvider client={makeQueryClient()}>
         <WalletScreen
@@ -57,13 +86,25 @@ describe("WalletScreen (PAY-01)", () => {
         />
       </QueryClientProvider>,
     );
-    const radios = await screen.findAllByRole("radio");
-    const box = container.querySelector('[data-slot="order-total"]');
-    expect(box).not.toBeNull();
-    expect(box?.textContent).toBe("");
-    // 둘째 상품: 2,222 KRW (src/mocks/topUp.ts 픽스처)
-    await user.click(radios[1]);
-    expect(box?.textContent).toBe("2,222 KRW");
+    await screen.findAllByRole("radio");
+    expect(container.querySelector('[data-slot="order-total"]')).toBeNull();
+    expect(
+      container.querySelectorAll('[data-slot="top-up-notice"]'),
+    ).toHaveLength(1);
+    expect(
+      container.querySelectorAll('[data-slot="top-up-agreement"]'),
+    ).toHaveLength(1);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("m. 동의 자리를 건드리지 않아도 상품을 고르면 결제하기가 켜지고 주문이 1회 나간다", async () => {
+    const user = userEvent.setup();
+    const { createOrder } = setup();
+    await user.click((await screen.findAllByRole("radio"))[1]);
+    const button = screen.getByRole("button", { name: "결제하기" });
+    expect(button).toBeEnabled();
+    await user.click(button);
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
   });
 
   it("결제하기 버튼은 하단 CTA 영역 안에 있다 (LAYOUT-FIGMA)", async () => {
@@ -258,21 +299,23 @@ describe("WalletScreen (PAY-01)", () => {
       expect(holdLines).toHaveLength(1);
     });
 
-    it("c. 견적의 추천 충전 상품이 미리 선택되고 주문 내용 상자에 서버 가격이 보인다", async () => {
+    it("c. 견적의 추천 충전 상품이 미리 선택되고 그 카드만 data-selected=true 다", async () => {
       const { fortune, quote } = await makeQuote();
       expect(quote.recommendedTopUp).not.toBeNull();
       saveFor(quote);
-      const { container } = renderWith(fortune);
+      renderWith(fortune);
       await waitFor(() =>
         expect(checkedCodes()).toEqual([quote.recommendedTopUp]),
       );
-      const list = await createFakeTopUpPort().listTopUpProducts();
-      const recommended = list.find((p) => p.code === quote.recommendedTopUp);
-      expect(recommended).toBeDefined();
-      const box = container.querySelector('[data-slot="order-total"]');
-      expect(box?.textContent).toBe(
-        `${recommended?.price.amount.toLocaleString("ko-KR")} ${recommended?.price.currency}`,
-      );
+      const cards = radios().map((r) => r.closest("label"));
+      const chosen = radios().findIndex((r) => r.checked);
+      expect(chosen).toBeGreaterThanOrEqual(0);
+      for (const [i, card] of cards.entries()) {
+        expect(card).toHaveAttribute(
+          "data-selected",
+          i === chosen ? "true" : "false",
+        );
+      }
     });
 
     it("d. 추천이 null 이면 아무것도 고르지 않는다", async () => {

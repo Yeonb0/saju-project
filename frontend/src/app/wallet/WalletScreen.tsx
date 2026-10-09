@@ -1,7 +1,7 @@
 "use client";
 
 // "use client" 이유: 포트 호출(TanStack Query)과 결제창 이동은 브라우저에서 한다.
-// PAY-01 등껍질 충전 · PG-3. 근거: TOPUP-DONE, I-05 (구매 의도당 키 하나), P-03 · P-09 (서버 값만 표시),
+// PAY-01 등껍질 충전 (수정안 301:128) · PG-3. 근거: TOPUP-DONE, I-05 (구매 의도당 키 하나), P-03 · P-09 (서버 값만 표시),
 // docs/FRONTEND.md 1-2 (MOCK-PORT). 디자인 요소 없음 (PG-FIRST) — 기본 HTML 요소의 최소 레이아웃만.
 // 로그인 가드는 page.tsx 의 RequireSession (PG-2 · A-02 · A-03).
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -120,15 +120,13 @@ export function WalletScreen({
 
   const errorKind = order.error ? classifyApiError(order.error) : null;
 
-  // 고른 상품의 서버 가격 그대로 (P-09) — 계산 없음
-  const chosen = products.data?.find((p) => p.code === selected) ?? null;
-
   return (
     // TODO(PD 문구): 제목
     <AppShell
       title="충전"
       backHref="/"
       // 결제 버튼은 하단 고정 CTA (LAYOUT-FIGMA, PAY-01 237:69): 가운데, 아래 여백 32px
+      // 결제 수단 칸 없음 — 결제하기 → 바로 결제창 (PD 수정안 301:128, Q-25 부분). 결제창 결제수단(method)은 TODO(Q-25 · BE-A 토스 계약). 와이어 CTA 는 327×60 — 공용 Button cta(327×69)는 디자인 시스템 적용 때 맞춘다
       cta={
         <div className="flex justify-center pb-[32px]">
           <Button
@@ -155,65 +153,75 @@ export function WalletScreen({
         </div>
       ) : null}
 
-      <div
-        className={`${shortageQuote ? "mt-[0px]" : "mt-[53px]"} ml-[31px] text-[20px] leading-[normal]`}
-      >
-        {shortageQuote ? null : (
-          <p>
-            {/* TODO(PD 문구) */}
-            보유 {wallet.data ? formatNumber(wallet.data.balance) : null}
-          </p>
-        )}
+      {shortageQuote ? null : (
+        // TODO(PD 토큰 v0): 와이어 임시값 (301:128)
+        <p className="mt-[18px] ml-[34px] text-[15px] leading-[18px] text-[#737373]">
+          {/* TODO(PD 문구) */}
+          보유 {wallet.data ? formatNumber(wallet.data.balance) : null}
+        </p>
+      )}
 
-        {products.data && !products.data.some((p) => p.active) ? (
-          // BE-A 충전 상품은 PG 준비 전 비활성이라 목록이 비거나 전부 비활성일 수 있다 (FE_COMPATIBILITY.md)
-          <p>
-            {/* TODO(PD 문구) */}
-            판매 중인 충전 상품이 없습니다
-          </p>
-        ) : products.data ? (
-          <fieldset>
-            {/* TODO(PD 문구) */}
-            <legend>충전 상품</legend>
-            {products.data.map((product) => (
-              <label key={product.code} className="block">
-                <input
-                  type="radio"
-                  name="topUpProduct"
-                  value={product.code}
-                  disabled={!product.active}
-                  checked={selected === product.code}
-                  onChange={() => setSelected(product.code)}
-                />{" "}
-                {/* 서버 값만 표시한다 (P-03 · P-09). TODO(PD 문구): 항목 이름 · 단위 */}
-                {formatNumber(product.price.amount)} {product.price.currency} ·
-                유료 {formatNumber(product.paidAmount)} · 보너스{" "}
-                {formatNumber(product.bonusAmount)} · 총{" "}
+      {products.data && !products.data.some((p) => p.active) ? (
+        // BE-A 충전 상품은 PG 준비 전 비활성이라 목록이 비거나 전부 비활성일 수 있다 (FE_COMPATIBILITY.md)
+        <p className="mt-[12px] ml-[34px]">
+          {/* TODO(PD 문구) */}
+          판매 중인 충전 상품이 없습니다
+        </p>
+      ) : products.data ? (
+        <fieldset className="mt-[12px] ml-[34px] flex w-[335px] flex-col gap-[8px]">
+          {/* TODO(PD 문구) */}
+          <legend className="sr-only">충전 상품</legend>
+          {products.data.map((product) => (
+            <label
+              key={product.code}
+              data-selected={selected === product.code ? "true" : "false"}
+              className={`flex h-[50px] items-center rounded-[8px] border border-black bg-white px-[16px] text-[17px] leading-[normal] data-[selected=true]:bg-[#d9d9d9] ${product.active ? "" : "opacity-50"}`}
+            >
+              <input
+                type="radio"
+                name="topUpProduct"
+                value={product.code}
+                disabled={!product.active}
+                checked={selected === product.code}
+                onChange={() => setSelected(product.code)}
+                className="sr-only"
+              />
+              {/* 서버 값만 표시한다 (P-03 · P-09) — 계산 없음. TODO(PD 문구): 단위 · 항목 이름 */}
+              <span className="w-[70px] font-bold">
                 {formatNumber(product.creditedAmount)}
-              </label>
-            ))}
-          </fieldset>
-        ) : null}
+              </span>
+              {product.bonusAmount > 0 ? (
+                <span className="text-[13px] text-[#737373]">
+                  {formatNumber(product.paidAmount)} + 보너스{" "}
+                  {formatNumber(product.bonusAmount)}
+                </span>
+              ) : null}
+              <span className="ml-auto font-bold">
+                {formatNumber(product.price.amount)} {product.price.currency}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      ) : null}
+
+      {/* TODO(Q-21 · PD 문구): 충전 안내 · 유효기간 · 환불 요약 · 환불정책 링크 — 원고 확정 전이라 비운다 (와이어 301:159 문구는 자리표시) */}
+      <div
+        data-slot="top-up-notice"
+        className="mt-[24px] ml-[34px] h-[170px] w-[335px] rounded-[8px] bg-[#f2f2f2]"
+      />
+
+      {/* TODO(Q-25 · Q-21): 결제 동의 체크 — 문구 · 필수 동작은 팀 확정 전이라 자리만 둔다. 결제하기를 막지 않는다 */}
+      <div
+        data-slot="top-up-agreement"
+        className="mt-[26px] ml-[37px] flex gap-[7px]"
+      >
+        <span
+          aria-hidden
+          data-slot="agreement-check"
+          className="block h-[24px] w-[24px]"
+        />
+        <span className="block min-h-[34px] w-[290px]" />
       </div>
-
-      <section className="mt-[64px] ml-[34px]">
-        {/* TODO(PD 문구) */}
-        <h2 className="text-[20px] font-semibold">주문 내용</h2>
-        {/* TODO(PD 토큰 v0): 와이어 임시값 (237:69) */}
-        <div
-          data-slot="order-total"
-          className="mt-[22px] flex h-[102px] w-[335px] items-end justify-end bg-[#d9d9d9] pr-[12px] pb-[15px]"
-        >
-          {chosen ? (
-            // 고른 상품의 서버 가격 그대로 (P-09) — 계산 없음. TODO(PD 문구): 항목 이름
-            <p className="text-[20px] font-semibold">
-              {formatNumber(chosen.price.amount)} {chosen.price.currency}
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      {/* TODO(Q-25): 결제 수단 · 동의 체크 자리 — 팀 확정 전이라 만들지 않는다 */}
 
       {errorKind === "login_required" || errorKind === "csrf_failed" ? (
         // 로그인 후 이 화면으로 복귀 (PG-2, safeReturnTo)
