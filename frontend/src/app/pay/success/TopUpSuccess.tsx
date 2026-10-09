@@ -4,11 +4,9 @@
 // /pay/success 충전 승인 확인 (PG-3). 근거: TOPUP-DONE — CREDITED 일 때만 완료 · 잔액 표시,
 // 처리 중 · 결과 불명확은 조회, 30초 초과는 확인 중 + 주문 확인 버튼. 새 결제 · 새 키로 유도하지 않는다.
 // 승인은 주문 하나에 한 번 — React StrictMode 의 이중 실행에도 inflight 로 한 번만 보낸다 (CONFIRM-KEY).
-// 디자인 요소 없음 (PG-FIRST).
+// 디자인 요소 없음 (PG-FIRST). 배치는 LAYOUT-FIGMA PAY-03 · 04 · 05.
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AppShell } from "@/components/AppShell";
-import { Button } from "@/components/Button";
 import {
   type ConfirmTopUpResult,
   confirmTopUp,
@@ -17,6 +15,11 @@ import {
 import { getTopUpPort } from "@/lib/ports";
 import type { PaymentReturn, TopUpPort } from "@/lib/ports/topUp";
 import { loadPurchaseSelection } from "@/lib/purchase/restore";
+import {
+  PAY_ACTION_PRIMARY,
+  PAY_ACTION_SECONDARY,
+  PayResultLayout,
+} from "../PayResultLayout";
 
 type View =
   | { kind: "confirming" }
@@ -83,44 +86,95 @@ export function TopUpSuccess({
       .then(setView, (error: unknown) => setView({ kind: "error", error }));
   }
 
-  return (
-    // TODO(PD 문구): 제목
-    <AppShell title="충전" backHref="/wallet">
-      {/* 본문 좌우 34px · 헤더 아래 32px · 요소 사이 16px · 16px (LAYOUT-FIGMA) */}
-      <div className="mx-[34px] mt-[32px] flex flex-col gap-y-[16px] text-[16px]">
-        {view.kind === "confirming" ? (
-          // TODO(PD 문구)
-          <output className="block">결제를 확인하고 있습니다</output>
-        ) : view.kind === "credited" ? (
+  if (view.kind === "confirming") {
+    // 처음엔 위쪽만 (PD 메모 301:189)
+    return (
+      <PayResultLayout
+        variant="waiting"
+        // TODO(PD 문구)
+        title={<output className="block">결제를 확인하고 있습니다</output>}
+      />
+    );
+  }
+
+  if (view.kind === "credited") {
+    return (
+      <PayResultLayout
+        variant="done"
+        // TODO(PD 문구)
+        title={<output className="block">충전이 완료되었습니다</output>}
+        // TODO(Q-17): 이번에 지급된 수량 — 승인 · 주문 응답에 필드가 생기면 서버 값만. 문구 TODO(PD 문구)
+        sub={<span data-slot="credited-amount" />}
+        box={
           <>
-            {/* TODO(PD 문구) */}
-            <output className="block">충전이 완료되었습니다</output>
-            {view.walletBalance !== null ? (
-              // 서버가 준 잔액만 표시한다 (P-09). TODO(PD 문구)
-              <p>보유 {view.walletBalance.toLocaleString("ko-KR")}</p>
-            ) : null}
+            <div className="flex items-end justify-between">
+              {/* TODO(PD 문구) */}
+              <span className="text-[15px] leading-[18px] text-[#737373]">
+                보유
+              </span>
+              {/* 서버가 준 잔액만 표시한다 (P-09) */}
+              <span
+                data-slot="wallet-balance"
+                className="text-[22px] leading-[26px] font-bold"
+              >
+                {view.walletBalance !== null
+                  ? view.walletBalance.toLocaleString("ko-KR")
+                  : null}
+              </span>
+            </div>
+            {/* TODO(Q-17): 유료 · 보너스 내역 — 지갑 응답에 필드가 생기면 서버 값만 */}
+            <p
+              data-slot="wallet-breakdown"
+              className="mt-[14px] min-h-[16px] text-[13px] leading-[16px] text-[#737373]"
+            />
+          </>
+        }
+        actions={
+          <>
             {resumePath !== null ? (
-              // 앞 화면이 저장한 선택으로 차감 확인 팝업을 다시 연다 (PURCHASE-RESTORE). TODO(PD 문구)
-              <Link href={resumePath} className="underline">
+              // 앞 화면이 저장한 선택으로 차감 확인 팝업을 다시 연다 (PURCHASE-RESTORE).
+              // TODO(PD 문구): 원래 구매에 맞는 문구(PD 메모 301:179)
+              <Link href={resumePath} className={PAY_ACTION_PRIMARY}>
                 이어서 하기
               </Link>
-            ) : (
-              // TODO(PD 문구)
-              <Link href="/wallet" className="underline">
-                확인
-              </Link>
-            )}
-          </>
-        ) : view.kind === "pending" ? (
-          <>
-            {/* TODO(PD 문구) — 새 결제를 권하지 않는다 (TOPUP-DONE) */}
-            <output className="block">결제 확인이 늦어지고 있습니다</output>
+            ) : null}
             {/* TODO(PD 문구) */}
-            <Button className="self-start" onClick={recheck}>
-              주문 확인
-            </Button>
+            <Link href="/" className={PAY_ACTION_SECONDARY}>
+              홈으로
+            </Link>
           </>
-        ) : view.kind === "login_required" ? (
+        }
+      />
+    );
+  }
+
+  if (view.kind === "pending") {
+    return (
+      <PayResultLayout
+        variant="waiting"
+        // TODO(PD 문구)
+        title={<output className="block">결제를 확인하고 있습니다</output>}
+        // TODO(PD 문구) — 새 결제를 권하지 않는다 (TOPUP-DONE)
+        box={<p>결제 확인이 늦어지고 있습니다</p>}
+        actions={
+          // TODO(PD 문구)
+          <button
+            type="button"
+            className={PAY_ACTION_PRIMARY}
+            onClick={recheck}
+          >
+            주문 확인
+          </button>
+        }
+      />
+    );
+  }
+
+  if (view.kind === "login_required") {
+    return (
+      <PayResultLayout
+        variant="waiting"
+        title={
           // TODO(PG-2): 로그인 후 이 주소로 복귀 (returnTo) — 같은 주문으로 다시 확인한다
           <p>
             {/* TODO(PD 문구) */}
@@ -128,17 +182,32 @@ export function TopUpSuccess({
               다시 로그인해 주세요
             </Link>
           </p>
-        ) : (
-          <>
-            {/* TODO(PD 문구): 실패 원인별 안내 */}
-            <p role="alert">충전이 완료되지 않았습니다</p>
-            {/* TODO(PD 문구) */}
-            <Link href="/wallet" className="underline">
-              충전으로 돌아가기
-            </Link>
-          </>
-        )}
-      </div>
-    </AppShell>
+        }
+      />
+    );
+  }
+
+  return (
+    <PayResultLayout
+      variant="failed"
+      // TODO(PD 문구)
+      title={<p role="alert">충전이 완료되지 않았습니다</p>}
+      // TODO(PD 문구 · Q-33): 원인별 안내 — 서버 · PG 원문은 쓰지 않는다
+      sub={null}
+      // TODO(PD 문구): 지급 · 청구 안내 — 원인별로 사실이 달라 확정 전 비운다
+      box={<p data-slot="pay-result-note" />}
+      actions={
+        <>
+          {/* TODO(PD 메모 301:201): 고른 상품 유지 — 저장 방식 미정이라 충전 화면 처음으로 간다. TODO(PD 문구) */}
+          <Link href="/wallet" className={PAY_ACTION_PRIMARY}>
+            충전으로 돌아가기
+          </Link>
+          {/* TODO(PD 문구) */}
+          <Link href="/" className={PAY_ACTION_SECONDARY}>
+            홈으로
+          </Link>
+        </>
+      }
+    />
   );
 }
