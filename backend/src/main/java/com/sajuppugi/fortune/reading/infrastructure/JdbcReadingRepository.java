@@ -114,7 +114,7 @@ public class JdbcReadingRepository implements ReadingRepository {
 
     @Override
     public void markRefunded(UUID purchaseId) {
-        requireOne(jdbc.update("UPDATE reading_purchases SET status = 'REFUNDED' WHERE id = ? AND status = 'FAILED'",
+        requireOne(jdbc.update("UPDATE reading_purchases SET status = 'REFUNDED' WHERE id = ? AND status IN ('FAILED', 'REFUNDED')",
                 purchaseId), "mark purchase refunded");
     }
 

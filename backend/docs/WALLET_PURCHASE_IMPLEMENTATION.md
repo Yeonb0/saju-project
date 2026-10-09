@@ -8,7 +8,8 @@
 4. Gift purchase/delivery, administrative refunds and ledger reconciliation.
 5. Authenticated FE integration, staging fault/load/restore exercises and release review.
 
-This change implements step 1. It does not finish the whole purchase workflow.
+Step 1 is implemented. Step 2 now includes bounded recovery of confirmed FAILED purchases,
+with a separately gated scheduler. It does not finish the whole purchase workflow.
 
 ## Activation boundary
 
@@ -58,9 +59,22 @@ read at validation time; concurrent administrator sale changes are not globally 
 The ledger and command receipts survive service instance replacement. If commit succeeded but its
 response was lost, a caller can safely replay the same debit or compensation.
 However, BE-B's purchase state and wallet debit are separate commits. No worker automatically
-recovers DEBITED/GENERATING/FAILED purchases yet. Wallet writes must remain disabled until that
-gap is closed. A killed process, stale worker completion, real generation failure and operational
+recovers CREATED purchases with a committed debit or DEBITED/GENERATING purchases yet.
+FAILED-only compensation is now implemented: it locks
+the failed purchase, verifies the original debit's owner/quote, reuses a committed reversal and updates
+REFUNDED. Retry attempts/time/error are durable, with bounded exponential backoff and an exhausted
+FAILED state for operator review. The scheduler requires both WALLET_PURCHASES_ENABLED and
+WALLET_RECOVERY_ENABLED; both are false by default. Wallet writes must remain disabled until the
+remaining gaps are closed. A killed process, stale worker completion, real generation failure and operational
 refund completion are not proven merely by the wallet transaction tests.
+
+Recovery lock order is failed purchase -> wallet -> lots. Wallet compensation uses an independent
+transaction, so an active recovery needs a second DB connection. Pool size and worker concurrency
+must account for that before activation. It never waits for Liner/PG under these locks.
+If wallet commit succeeds but the outer purchase-state transaction rolls back, the next attempt reuses
+the existing reversal. If the DB cannot persist the retry metadata, FAILED itself remains recoverable.
+Failures that exhaust retries are logged by purchase ID/error code; an alert integration and authorized
+operator retry API are not implemented. Do not resolve these by directly editing ledger rows.
 
 ## Verification
 

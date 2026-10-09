@@ -465,3 +465,15 @@ LIMIT 20;
 - 남은 위험: B 구매 상태 변경과 지갑은 별도 커밋이며 DEBITED/GENERATING/FAILED 자동 재개/복구 worker가 없다. B가 전달하는 키는 구매 ID 기반 내부 키여서 클라이언트 원본 키/본문 불일치 계약을 아직 보장하지 않는다. 영속 receipt 보존 정책, 운영 잠금 대기/재시도, 대사/알림, 실제 FE/PG E2E도 후속이다.
 - 다음 개발 순서는 `backend/docs/WALLET_PURCHASE_IMPLEMENTATION.md`에 기록했다. 운영 서버 배포와 실제 개발 DB 데이터 변경은 수행하지 않았다.
 - H2 기본 경로에서도 전체 257건 중 통과 255, 실패/오류 0, 제외 2를 확인했고 `check bootJar exportOpenApi --rerun-tasks`가 성공했다. H2에서 드러난 테스트 종료 정리의 자기참조 FK 삭제 순서는 복구 거래 -> 원거래 순으로 수정했다. OpenAPI export는 별도 task에서 실행됐다.
+
+### 2026-10-09: FAILED 구매 복구 재처리와 기능별 커밋
+
+- 기존 변경을 FE 계약(`25fb0e8`), 테스트 DB(`14a8297`), 지갑 차감/복구(`72b0541`)의 로컬 커밋으로 나눴다. 푸시/PR/배포는 하지 않았다. AGENTS에 검증 후 기능별 로컬 커밋 지침을 기록했다.
+- 적용 점검: 6-2 복구 원장/상태 일치, 6-4 재처리와 커밋 사이 중단 경계, 6-6 신규 migration/기본 비활성, 6-8 구매 ID/오류 코드 기반 운영 기록, 6-9 개인정보/키 미출력.
+- FAILED 구매만 잠그고 A의 소유자/견적/원거래 검증 port로 보상한다. 복구 원장은 독립 커밋되며 구매 상태 저장 실패 시 다음 실행에서 같은 역분개를 재사용한다. 즉시 보상과 worker가 겹친 REFUNDED 상태 갱신도 멱등 처리했다.
+- 신규 V202610091900은 재시도 횟수/다음 시각/오류 코드를 추가한다. PostgreSQL migration 12개 모두 성공 확인. 기본 총 5회 시도, 실패 시 30초부터 배수 backoff(최대 10분), 한도 초과는 FAILED로 남고 자동 재시도에서 제외된다. 운영 알림 연동과 관리자 재처리 API는 후속이다.
+- 분리 PostgreSQL 17.11 전체 `check bootJar --rerun-tasks` 성공: 작업트리 총 269건(직접 실습 opt-in 포함), 통과 266, 실패/오류 0, 제외 3. 제외는 실제 Liner, OpenAPI export, walletDemo다. 복구 테스트 11건 모두 통과했다.
+- 테스트는 독립 트랜잭션의 동시 worker, 커밋된 복구 후 상태 저장 예외, 복구 실패 후 재시도, 한도 초과, null 복구 응답 거절, 소유자/견적 연결 불일치, 후보 조회의 시각/상태/횟수 필터를 확인했다. scheduler poll은 테스트에서 명시적으로 호출했다. 실제 background 시간 경과나 OS 강제 종료/다중 프로세스 운영을 시험한 것은 아니다.
+- 반복 PostgreSQL 실행에서 기존 CatalogPersistenceTest의 전역 견적 개수 가정이 드러나 테스트 사용자 범위로 좁혔다. 다른 사용자 데이터가 존재해도 해당 거절 요청이 견적을 만들지 않았는지를 검사한다.
+- WALLET_PURCHASES_ENABLED/WALLET_RECOVERY_ENABLED는 모두 기본 false다. CREATED 차감 커밋 후 중단 및 DEBITED/GENERATING 재개·lease/fencing은 미완료이므로 운영 구매는 여전히 비활성 유지한다. 실제 인증/인물·HTTP 원본 키/본문 멱등성·PG·FE E2E도 미완료다.
+- 복구는 purchase -> wallet -> lot 잠금 순서이며 독립 지갑 트랜잭션에 추가 DB connection이 필요하다. 운영 활성화 전 pool 용량·worker 동시 수·잠금 대기·알림을 검증한다. 외부 Liner/PG 호출은 이 트랜잭션에 없다.

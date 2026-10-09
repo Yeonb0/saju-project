@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @ConditionalOnProperty(name = "app.wallet.purchases-enabled", havingValue = "true")
 @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 10)
-public class WalletPurchaseService implements WalletPurchasePort {
+public class WalletPurchaseService implements WalletPurchasePort, WalletPurchaseRecoveryPort {
     private final WalletRepository wallets;
     private final WalletPurchaseRepository purchases;
     private final CatalogUseCase catalog;
@@ -74,6 +74,16 @@ public class WalletPurchaseService implements WalletPurchasePort {
             purchases.saveCommand(userId, hash(key.value()), hash, receipt, clock.instant());
         }
         return new DebitResult(receipt.transaction().id(), -receipt.transaction().amount(), receipt.balance());
+    }
+
+    @Override
+    public CompensationResult compensatePurchase(UUID userId, UUID quoteId, UUID originalId,
+                                                String reasonCode, IdempotencyKey key) {
+        validate(userId, quoteId, key);
+        var debit = purchases.findDebit(userId, quoteId)
+                .filter(value -> value.transaction().id().equals(originalId))
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        return compensate(debit.transaction().id(), reasonCode, key);
     }
 
     @Override

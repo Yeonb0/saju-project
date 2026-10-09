@@ -34,6 +34,8 @@ The document's 2026-10-09 implementation assessment is historical. Check the cur
 
 ## Completion reporting
 
+- During ongoing A-part development, make local feature-sized commits after verification, using explicit paths and preserving unrelated edits. The user requested intermediate commits; this does not authorize push, PR creation, or deployment. Keep credentials and generated build/test output out of commits.
+
 Briefly state what changed, which checklist items applied, what was actually verified, and what remains unverified or blocked. Use measured evidence instead of inferring success from HTTP 200, green CI, or test counts. Do not claim a live deployment or production capacity was checked without observing it. Record important completed checks and remaining implementation gaps in the maintained document with date and code/environment context, without sensitive values.
 
 These instructions do not add a new permission gate. Continue authorized work, scale verification to risk, and preserve existing changes.
