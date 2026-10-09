@@ -13,6 +13,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +47,35 @@ public class JdbcTalismanRepository implements TalismanRepository {
         if (talisman.status() != Status.PENDING) {
             throw new IllegalArgumentException("Only pending talisman can be created");
         }
-        int inserted = jdbc.update("""
+        int inserted = isPostgres() ? insertPostgres(talisman) : insertH2(talisman);
+        if (inserted == 0) {
+            Talisman existing = findByReadingId(talisman.sourceReadingId()).orElseThrow();
+            if (!existing.ownerUserId().equals(talisman.ownerUserId())) {
+                throw new IllegalStateException("Reading is already linked to a different talisman owner");
+            }
+            return existing;
+        }
+        jdbc.update("""
+                INSERT INTO talisman_ownerships (talisman_id, owner_user_id, source, acquired_at)
+                VALUES (?, ?, 'PURCHASE', ?)
+                """, talisman.id(), talisman.ownerUserId(), Timestamp.from(talisman.createdAt()));
+        return talisman;
+    }
+
+    private int insertPostgres(Talisman talisman) {
+        return jdbc.update("""
+                INSERT INTO talismans (id, owner_user_id, source_reading_id, fortune_type, element,
+                    animal, phrase, description, content_version, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)
+                ON CONFLICT (source_reading_id) DO NOTHING
+                """, talisman.id(), talisman.ownerUserId(), talisman.sourceReadingId(),
+                talisman.fortuneType().name(), talisman.element().name(), talisman.animal().name(),
+                talisman.phrase(), talisman.description(), talisman.contentVersion(),
+                Timestamp.from(talisman.createdAt()));
+    }
+
+    private int insertH2(Talisman talisman) {
+        return jdbc.update("""
                 MERGE INTO talismans target
                 USING (VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
                     AS incoming (id, owner_user_id, source_reading_id, fortune_type, element, animal,
@@ -61,18 +90,11 @@ public class JdbcTalismanRepository implements TalismanRepository {
                 talisman.fortuneType().name(), talisman.element().name(), talisman.animal().name(),
                 talisman.phrase(), talisman.description(), talisman.contentVersion(),
                 Timestamp.from(talisman.createdAt()));
-        if (inserted == 0) {
-            Talisman existing = findByReadingId(talisman.sourceReadingId()).orElseThrow();
-            if (!existing.ownerUserId().equals(talisman.ownerUserId())) {
-                throw new IllegalStateException("Reading is already linked to a different talisman owner");
-            }
-            return existing;
-        }
-        jdbc.update("""
-                INSERT INTO talisman_ownerships (talisman_id, owner_user_id, source, acquired_at)
-                VALUES (?, ?, 'PURCHASE', ?)
-                """, talisman.id(), talisman.ownerUserId(), Timestamp.from(talisman.createdAt()));
-        return talisman;
+    }
+
+    private boolean isPostgres() {
+        return Boolean.TRUE.equals(jdbc.execute((ConnectionCallback<Boolean>) connection ->
+                "PostgreSQL".equals(connection.getMetaData().getDatabaseProductName())));
     }
 
     @Override
