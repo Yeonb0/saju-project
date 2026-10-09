@@ -10,6 +10,7 @@ import {
   type FakeAccount,
   type FakeSessionScenario,
 } from "@/mocks/account";
+import { createFakeBasicSajuPort } from "@/mocks/basicSaju";
 import {
   createFakeFortunePort,
   FAKE_FORTUNE_SCENARIOS,
@@ -26,6 +27,7 @@ import {
   type FakeTopUpScenario,
 } from "@/mocks/topUp";
 import { createFakeWallet, type FakeWallet } from "@/mocks/wallet";
+import type { BasicSajuPort } from "./basicSaju";
 import type { FortunePort } from "./fortune";
 import { API_MODE, type ApiMode } from "./mode";
 import type { PaymentLauncher } from "./paymentLauncher";
@@ -187,6 +189,14 @@ export function selectPersonPort(
   return createFakePersonPort(account);
 }
 
+export function selectBasicSajuPort(
+  mode: ApiMode,
+  account: FakeAccount,
+): BasicSajuPort {
+  if (mode !== "mock") return noRealYet("오행분석 포트");
+  return createFakeBasicSajuPort(account);
+}
+
 // 가짜 계정은 탭 하나에 하나 — 세션 · 인물 포트가 같은 계정을 본다
 let fakeAccount: FakeAccount | null = null;
 
@@ -218,4 +228,11 @@ let personPort: PersonPort | null = null;
 export function getPersonPort(): PersonPort {
   personPort ??= selectPersonPort(API_MODE, getFakeAccount());
   return personPort;
+}
+
+let basicSajuPort: BasicSajuPort | null = null;
+
+export function getBasicSajuPort(): BasicSajuPort {
+  basicSajuPort ??= selectBasicSajuPort(API_MODE, getFakeAccount());
+  return basicSajuPort;
 }
