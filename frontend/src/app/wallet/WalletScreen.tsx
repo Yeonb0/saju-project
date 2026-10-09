@@ -18,6 +18,7 @@ import type { FortunePort } from "@/lib/ports/fortune";
 import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import { loadPurchaseSelection } from "@/lib/purchase/restore";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 
 type Intent = { productCode: string; key: string };
 
@@ -39,7 +40,7 @@ export function WalletScreen({
   const pay = () => launcher ?? getPaymentLauncher((url) => router.push(url));
 
   const wallet = useQuery({
-    queryKey: ["wallet"],
+    queryKey: WALLET_QUERY_KEY,
     queryFn: () => topUp().getWallet(),
   });
   const products = useQuery({

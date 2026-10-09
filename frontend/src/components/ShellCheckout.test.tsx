@@ -16,6 +16,7 @@ import {
   savePurchaseSelection,
 } from "@/lib/purchase/restore";
 import { makeQueryClient } from "@/lib/queryClient";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 import {
   createFakeFortunePort,
   type FakeFortuneScenario,
@@ -60,8 +61,11 @@ function setup(
   const topUpPort = options.topUpPort ?? createFakeTopUpPort();
   const listTopUpProducts = vi.spyOn(topUpPort, "listTopUpProducts");
   const reportMismatch = vi.fn();
+  const client = makeQueryClient();
+  // 잔액 캐시를 심어 둔다 — 구매 뒤 무효화됐는지 본다 (픽스처일 뿐이며 실제 잔액과 무관하다)
+  client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
   render(
-    <QueryClientProvider client={makeQueryClient()}>
+    <QueryClientProvider client={client}>
       <ShellCheckout
         open
         onOpenChange={vi.fn()}
@@ -78,6 +82,7 @@ function setup(
     </QueryClientProvider>,
   );
   return {
+    client,
     wallet,
     port,
     purchase,
@@ -275,6 +280,40 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     await user.click(await useButton());
     expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
     expect(screen.queryByText("구매하지 못했습니다")).toBeNull();
+  });
+
+  it("d. 구매가 성공하면 잔액 조회가 무효화된다 (P-09 · Q-22)", async () => {
+    const user = userEvent.setup();
+    const { client, onPurchased } = setup();
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
+    await user.click(await useButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
+  });
+
+  it("e. 생성 실패(환급) 응답 뒤에도 잔액 조회가 무효화된다", async () => {
+    const user = userEvent.setup();
+    const { client } = setup({ scenario: "generation_failed" });
+    await user.click(await useButton());
+    await screen.findByText("결과를 만들지 못했습니다");
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
+  });
+
+  it("f. 409 INSUFFICIENT_BALANCE 오류 뒤에는 잔액 조회를 무효화하지 않는다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockRejectedValueOnce(
+      new ApiError({
+        status: 409,
+        code: "INSUFFICIENT_BALANCE",
+        traceId: null,
+      }),
+    );
+    const { client } = setup({ port });
+    await user.click(await useButton());
+    // 새 견적으로 다시 확인받는 안내가 뜰 때까지 기다린다
+    await screen.findByRole("alert");
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
   });
 
   it("구매 요청이 걸린 동안 생성 대기 장면", async () => {

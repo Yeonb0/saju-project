@@ -7,7 +7,7 @@ import * as Sentry from "@sentry/nextjs";
 // I-05 (구매 의도 = 견적 하나에 키 하나, 재시도에도 같은 키), PURCHASE-RESTORE (충전 가기 전 선택 저장 · 구매 성공 때 삭제),
 // COMMON 7장 (409 IDEMPOTENCY_REQUEST_PROCESSING 이면 버튼을 다시 열지 않고 같은 키로 상태 확인), F-08 (결제 버튼 위 고지).
 // 앞 화면(CSAT-01 · FORT-02 · 03 · MATCH-03 · FORT-07)이 띄운다. 디자인 요소 없음 (PG-FIRST).
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -33,6 +33,7 @@ import {
   generationFailureOfError,
   generationFailureOfResult,
 } from "@/lib/reading/generation";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
 
@@ -122,6 +123,7 @@ export function ShellCheckout({
   reportMismatch?: (productCode: string) => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const fortune = () => port ?? getFortunePort();
 
   // 0 이면 첫 견적(복귀면 재확인), 올라가면 새 견적
@@ -165,6 +167,8 @@ export function ShellCheckout({
     mutationFn: (next: Intent) =>
       fortune().purchase({ quoteId: next.quoteId, selection }, next.key),
     onSuccess: (result) => {
+      // 구매 요청이 끝났다 — 잔액은 서버에서 다시 받는다 (생성 실패 환급 포함, P-09 · Q-22: 클라이언트에서 차감 · 합산하지 않는다)
+      queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
       // 생성 실패는 팝업 안에서 환급 · 재시도 안내 (F-06 · COMMON 4.8)
       if (generationFailureOfResult(result)) return;
       clearPurchaseSelection();
