@@ -1,6 +1,9 @@
 package com.sajuppugi.fortune.reading.api;
 
 import com.sajuppugi.catalog.domain.PurchaseQuote;
+import com.sajuppugi.catalog.application.QuoteFundingService;
+import com.sajuppugi.catalog.api.QuoteController.FundedQuoteResponse;
+import io.swagger.v3.oas.annotations.media.Schema;
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ApiResponse;
 import com.sajuppugi.common.api.ErrorCode;
@@ -41,10 +44,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class GeneralReadingCategoryController {
     private final GeneralReadingService readings;
     private final ReadingQueryService queries;
+    private final QuoteFundingService funding;
 
-    public GeneralReadingCategoryController(GeneralReadingService readings, ReadingQueryService queries) {
+    public GeneralReadingCategoryController(GeneralReadingService readings, ReadingQueryService queries,
+                                            QuoteFundingService funding) {
         this.readings = readings;
         this.queries = queries;
+        this.funding = funding;
     }
 
     @PostMapping("/quotes/fortune/overall")
@@ -192,12 +198,15 @@ public class GeneralReadingCategoryController {
     private ResponseEntity<ApiResponse<CategoryQuoteResponse>> quote(
             Authentication authentication, FortuneType type, UUID personId, ProductOption option,
             String questionKey, UUID counterpartPersonId, RelationType relationType) {
-        PurchaseQuote quote = readings.issueQuote(userId(authentication), type, option, personId,
+        UUID userId = userId(authentication);
+        PurchaseQuote quote = readings.issueQuote(userId, type, option, personId,
                 counterpartPersonId, relationType, questionKey);
+        FundedQuoteResponse funded = FundedQuoteResponse.from(funding.get(userId, quote.id()));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(new CategoryQuoteResponse(
                 quote.id(), quote.productSnapshot().code(), option.name(), questionKey,
-                new Charged(quote.productSnapshot().price().currency().name(), quote.productSnapshot().price().amount()),
-                quote.expiresAt())));
+                new Charged(funded.charged().currency(), funded.charged().amount()),
+                quote.expiresAt(), funded.walletBalance(), funded.balanceAfter(),
+                funded.shortage(), funded.recommendedTopUp())));
     }
 
     private PurchaseResult purchase(Authentication authentication, String key, FortuneType type, UUID quoteId,
@@ -325,8 +334,12 @@ public class GeneralReadingCategoryController {
                                                 @NotNull ProductOption productOption,
                                                 @NotBlank String questionKey) {}
 
+    @Schema(requiredProperties = {"quoteId", "productCode", "productOption", "questionKey", "charged",
+            "expiresAt", "walletBalance", "balanceAfter", "shortage", "recommendedTopUp"})
     public record CategoryQuoteResponse(UUID quoteId, String productCode, String productOption,
-                                        String questionKey, Charged charged, Instant expiresAt) {}
+                                        String questionKey, Charged charged, Instant expiresAt,
+                                        int walletBalance, @Schema(types = {"integer", "null"}) Integer balanceAfter,
+                                        int shortage, @Schema(types = {"string", "null"}) String recommendedTopUp) {}
 
     public record CategoryPurchaseResponse<T>(UUID purchaseId, UUID readingId, String status,
                                                String calculationVersion, String generationVersion,

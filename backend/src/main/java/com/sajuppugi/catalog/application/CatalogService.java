@@ -67,4 +67,15 @@ public class CatalogService implements CatalogUseCase {
         }
         return quote;
     }
+
+    @Override
+    public PurchaseQuote getPayableQuote(UUID requesterUserId, UUID quoteId) {
+        PurchaseQuote quote = getQuote(requesterUserId, quoteId);
+        Product current = repository.findProductByCode(quote.productSnapshot().code())
+                .orElseThrow(() -> new ApiException(ErrorCode.PRODUCT_NOT_FOUND));
+        if (!current.id().equals(quote.productSnapshot().id()) || !current.isAvailableAt(clock.instant())) {
+            throw new ApiException(ErrorCode.PRODUCT_NOT_AVAILABLE);
+        }
+        return quote;
+    }
 }

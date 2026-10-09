@@ -4,6 +4,8 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식을 확인해 주세요."),
+    IDEMPOTENCY_KEY_REUSED(HttpStatus.CONFLICT, "같은 요청 키에 다른 요청을 사용할 수 없습니다."),
+    INSUFFICIENT_BALANCE(HttpStatus.CONFLICT, "등껍질이 부족합니다."),
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "목록 조회 위치를 확인해 주세요."),
     MALFORMED_JSON(HttpStatus.BAD_REQUEST, "JSON 요청 형식을 확인해 주세요."),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "입력값을 확인해 주세요."),

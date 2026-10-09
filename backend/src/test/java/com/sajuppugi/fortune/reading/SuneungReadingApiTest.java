@@ -290,7 +290,7 @@ class SuneungReadingApiTest {
                                 """.formatted(person)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.productCode").value("SUNEUNG_READING_WITH_TALISMAN"))
-                .andExpect(jsonPath("$.data.amount").value(15))
+                .andExpect(jsonPath("$.data.charged.amount").value(15))
                 .andExpect(jsonPath("$.data.event.date").value("2026-11-19"))
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(com.jayway.jsonpath.JsonPath.read(response, "$.data.quoteId"));

@@ -47,6 +47,14 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  wallet:
+    purchases-enabled: ${WALLET_PURCHASES_ENABLED:false}
+    recovery:
+      enabled: ${WALLET_RECOVERY_ENABLED:false}
+      max-attempts: 5
+      retry-delay: 30s
+      batch-size: 20
+      poll-delay: 30s
   liner:
     adapter: ${LINER_ADAPTER:fake}
     base-url: ${LINER_BASE_URL:https://platform.liner.com/api/v1}
