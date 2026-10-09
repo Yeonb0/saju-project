@@ -13,6 +13,33 @@
 
 ## 중복과 트랜잭션
 
+### 승인 요청 준비 (2026-10-10, 내부 기능)
+
+TopUpConfirmationService.prepare는 승인 외부 호출 이전의 요청 대응을 저장한다.
+주문 소유자와 주문 snapshot 원화 금액을 확인하고 PAYMENT_PENDING 주문에만 최초 intent를 만든다.
+V202610101000은 주문당 intent 한 건, 전체 주문에서 결제키 해시 unique,
+사용자+승인 요청키 해시 primary key와 주문 FK를 추가한다.
+원본 결제키/요청키는 저장하지 않으며 객체 문자열에서도 결제키 해시를 숨긴다.
+
+주문 잠금 -> 기존 요청/intent 확인 -> intent와 request 저장은 5초 제한 독립 트랜잭션 하나다.
+동일 주문+결제키는 원래 intent를 재사용하고, 새 요청키도 동일 intent를 참조한다.
+같은 사용자 요청키를 다른 주문/결제키로 바꾸면 IDEMPOTENCY_KEY_REUSED(409),
+주문의 결제키 변경 또는 다른 주문에서 같은 결제키 사용은 PAYMENT_CONFIRMATION_CONFLICT(409)다.
+저장 금액과 다르면 PAYMENT_AMOUNT_MISMATCH(409), 최초 승인 준비가 불가능한 주문 상태는
+PAYMENT_ORDER_NOT_CONFIRMABLE(409), 타인/없는 주문은 RESOURCE_NOT_FOUND(404)다.
+금액 검증을 먼저 하므로 기존 요청의 금액을 바꾼 경우에도 PAYMENT_AMOUNT_MISMATCH다.
+서로 다른 주문의 unique 경쟁에서 진 트랜잭션은 intent/request를 함께 롤백한다.
+요청키 충돌 판정은 실패 트랜잭션이 종료된 뒤 새 읽기 트랜잭션으로 한다.
+
+이미 저장한 intent는 주문 상태가 바뀐 뒤에도 조회/대사에 재사용할 수 있다.
+이 반환은 승인 실행 허가가 아니다. 후속 승인 실행은 현재 상태와 실행 점유를 별도로 검사해야 한다.
+이 단계는 주문 상태/지급분/원장/잔액을 바꾸지 않으며 confirm HTTP/worker/토스 호출은 추가하지 않는다.
+원본 결제키를 복원할 수 없으므로 아직 승인 전 중단을 자동 재호출하는 기능도 없다.
+후속 복구는 주문 ID로 PG 조회를 하고, 승인되지 않은 요청은 원래 FE 요청 재전송 또는
+별도로 설계한 안전한 실행 자료 보관을 통해 처리해야 한다. 키 대응만으로 자동 복구 완료를 주장하지 않는다.
+
+### 주문 생성
+
 top_up_orders의 사용자+키 SHA-256 unique가 동시 요청을 조정한다.
 동일 상품은 같은 주문 snapshot을 반환한다. 가격/판매 상태가 바뀐 후에도 이미 생성된 주문을 재사용한다.
 다른 상품은 409 IDEMPOTENCY_KEY_REUSED다. 키 scope는 충전 주문 생성이며 512자 제한이다.
@@ -56,6 +83,13 @@ FE의 실제 adapter와 B의 구매 중단 복구 합의는 별도 작업이다.
 A_B_PURCHASE_HANDOFF.md의 제안을 B와 확정한 다음 연결한다.
 
 ## 테스트
+
+TopUpConfirmationPersistenceTest는 실제 DB와 내부 승인 준비 서비스를 사용한다.
+금액/소유권/상태/입력 검증, 영속 재사용과 새 서비스 인스턴스 재사용, 해시 저장·문자열 마스킹,
+동일 주문 동시 요청, 동일 주문의 다른 결제키 경쟁, 서로 다른 주문의 요청키/결제키 경쟁,
+intent 저장 후 request 저장 실패의 전체 롤백과 정상 재시도를 확인한다.
+마지막 실패 주입은 실제 DB 트랜잭션 안에서 두 번째 INSERT에 예외를 발생시킨다.
+새 서비스 인스턴스 검증은 OS 프로세스 종료/재시작 실험을 대신하지 않는다.
 
 TopUpOrderApiTest는 실제 DB와 보안 필터/HTTP를 사용하며 CatalogUseCase만 테스트 상품으로 대체한다.
 snapshot/반복 요청/판매 종료 후 재전송, 키 충돌, 없는 상품, 소유권, 미인증/CSRF/UUID principal,

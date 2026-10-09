@@ -428,6 +428,17 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-10: A 충전 승인 요청의 영속 대응과 검증
+
+- 기준: codex/fe-handoff-notes, 충전 상품 조회 커밋 871c866 이후. 내부 TopUpConfirmationService.prepare와 V202610101000을 추가했다. HTTP confirm/실제 토스 승인/지갑 지급 구현은 아니다.
+- 적용: 6-1 주문 소유권/타인·없는 주문 동일 404, 6-2 짧은 독립 트랜잭션/주문 잠금/unique 경쟁/부분 저장 롤백, 6-3 원본 요청 대응과 승인 완료 구분, 6-4 영속 재사용과 자동 재개 미완료 구분, 6-6 추가형 migration/전용 PostgreSQL 테스트, 6-9 결제키·요청키 해시 저장과 객체 문자열 마스킹.
+- 저장 주문 금액과 일치하고 PAYMENT_PENDING인 주문에 최초 intent를 등록한다. 주문당 intent 한 건, 결제키 해시 전체 unique, 사용자+요청키 primary key가 동일 요청 재사용과 서로 다른 요청 충돌을 조정한다. intent와 request는 함께 커밋/롤백한다. 다른 주문의 unique 경쟁은 롤백 후 새 읽기 트랜잭션에서 요청키 충돌을 구분한다. 외부 호출/지갑 잠금은 없다.
+- 최초 PostgreSQL 신규 11건에서 반환 객체의 시간 정밀도 차이로 재사용 비교 4건이 실패했다. 저장 시각을 PostgreSQL 마이크로초 정밀도로 맞춘 뒤 11건 모두 통과했고, 추가 실패 주입/동일 주문 다른 결제키 경쟁을 포함한 최종 13건도 통과했다.
+- 최종 localhost:55432/sajuppugi_test의 PostgreSQL 17.11에서 check bootJar exportOpenApi --rerun-tasks 성공: XML 총 313, 통과 310, 실패/오류 0, 선택 제외 3(실제 Liner/OpenAPI opt-in/walletDemo). export task에서 OpenAPI 별도 실행 성공, bootJar 성공. 기본 H2에서는 신규 13건 모두 통과했다.
+- 신규 테스트는 금액/소유권/상태/입력 거절, 원본 intent/새 서비스 인스턴스 재사용, 해시/문자열 마스킹, 동일 주문 중복 및 다른 결제키 경쟁, 다른 주문의 요청키/결제키 경쟁, 두 번째 INSERT 실패 후 전체 롤백과 정상 재시도, 주문 PAYMENT_PENDING/지갑·원장 미변경을 확인했다. 실패 주입은 실제 DB 트랜잭션에서 수행했으며 OS 프로세스 강제 종료/다중 프로세스 실험은 아니다.
+- 읽기 전용 SQL로 전용 테스트 DB와 Flyway 15건 모두 success=true 및 신규 2개 테이블을 확인했다. 개발 DB는 수정하지 않았고 판매/구매/복구 기본 비활성은 유지한다. B/FE 코드 변경, push/PR/배포는 없다.
+- 제한: 저장 intent 반환은 현재 주문의 승인 실행 허가나 완료 증거가 아니다. 후속 실행에는 상태/점유 확인이 필요하다. 원본 결제키는 복원할 수 없으며 아직 실행 lease/재시도·조회 worker/중단 자동 재개는 없다. 다음은 토스 adapter의 승인·조회 및 결과 검증, 이후 원자적 지급과 복구 경로다. 이번에는 API 키 설정/실제 토스/실제 FE E2E/운영 부하를 시험하지 않았다.
+
 ### 2026-10-10: A 충전 상품 HTTP 조회와 테스트 연결 풀
 
 - 기준: codex/fe-handoff-notes, main 병합 이후 로컬 A 개발. GET /api/v1/products?category=TOP_UP을 추가했다. 로그인 없는 읽기 전용 조회이며 서버 가격/유료분/보너스분/총 지급량을 반환한다. 기본 비활성 상태에서는 items=[]다. 전체 FORTUNE/GIFT 카탈로그는 미구현이고 미지원 필터는 400이다.

@@ -5,6 +5,9 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식을 확인해 주세요."),
     IDEMPOTENCY_KEY_REUSED(HttpStatus.CONFLICT, "같은 요청 키에 다른 요청을 사용할 수 없습니다."),
+    PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "주문 금액과 결제 요청 금액이 다릅니다."),
+    PAYMENT_CONFIRMATION_CONFLICT(HttpStatus.CONFLICT, "기존 결제 확인 요청과 일치하지 않습니다."),
+    PAYMENT_ORDER_NOT_CONFIRMABLE(HttpStatus.CONFLICT, "현재 결제를 승인할 수 없는 주문입니다."),
     INSUFFICIENT_BALANCE(HttpStatus.CONFLICT, "등껍질이 부족합니다."),
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "목록 조회 위치를 확인해 주세요."),
     MALFORMED_JSON(HttpStatus.BAD_REQUEST, "JSON 요청 형식을 확인해 주세요."),
