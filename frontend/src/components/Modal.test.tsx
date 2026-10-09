@@ -34,4 +34,27 @@ describe("Modal", () => {
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("layout 을 주지 않으면 popup 배치다", () => {
+    render(
+      <Modal open onOpenChange={() => {}} title="제목">
+        내용
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog", { name: "제목" })).toHaveAttribute(
+      "data-layout",
+      "popup",
+    );
+  });
+
+  it("layout=screen 이면 제목은 sr-only 이고 dialog 이름은 그대로다", () => {
+    render(
+      <Modal open onOpenChange={() => {}} title="제목" layout="screen">
+        내용
+      </Modal>,
+    );
+    const dialog = screen.getByRole("dialog", { name: "제목" });
+    expect(dialog).toHaveAttribute("data-layout", "screen");
+    expect(screen.getByText("제목")).toHaveClass("sr-only");
+  });
 });

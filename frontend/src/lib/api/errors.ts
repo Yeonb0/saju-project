@@ -72,17 +72,20 @@ export type ApiErrorKind =
   | "not_found" // 404
   | "gone" // 410 — 상세 없이 만료 · 폐기 화면
   | "invalid_input" // 400 · 422 — 입력 · 상품 선택 화면으로
+  | "birth_time_required" // 422 BIRTH_TIME_REQUIRED_AT_TERM — 절기 경계일 시간 미상, 출생 시간 입력 안내 (API_SPEC 8장 · COMMON 4.4)
   | "rate_limited" // 429 — Retry-After 동안 CTA 비활성
   | "server" // 5xx — 일반 오류 안내 + traceId
   | "outcome_unknown" // 네트워크 — 결과 불명확, 같은 키로 재시도 또는 상태 조회
   | "unknown"; // 그 밖의 status
 
+// PURCHASE_DEBIT_MISMATCH(500) · READING_FULFILLMENT_UNAVAILABLE(503) 은 처리 방식 확인 전이라 status 로 "server" — TODO(Q-35)
 const KIND_BY_CODE: Readonly<Record<string, ApiErrorKind>> = {
   CSRF_FAILED: "csrf_failed",
   INSUFFICIENT_BALANCE: "insufficient_balance",
   IDEMPOTENCY_REQUEST_PROCESSING: "request_processing",
   QUOTE_EXPIRED: "quote_expired",
   PRICE_CHANGED: "price_changed",
+  BIRTH_TIME_REQUIRED_AT_TERM: "birth_time_required",
 };
 
 function kindByStatus(status: number): ApiErrorKind {

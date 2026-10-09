@@ -293,8 +293,35 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "결과를 만들고 있습니다",
     );
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-layout", "screen");
     release();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+  });
+
+  it("e. 생성 실패로 끝나면 dialog 배치가 popup 으로 돌아온다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    let fail: () => void = () => {};
+    vi.spyOn(port, "purchase").mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () =>
+            reject(
+              new ApiError({
+                status: 500,
+                code: "READING_GENERATION_FAILED",
+                traceId: null,
+              }),
+            );
+        }),
+    );
+    setup({ port });
+    await user.click(await useButton());
+    await screen.findByRole("status");
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-layout", "screen");
+    fail();
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-layout", "popup");
   });
 
   // 견적 값은 서버 모양 그대로 주입한다 (픽스처일 뿐이며 실제 가격 · 규칙과 무관)

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { kst } from "@/lib/date";
 import { createPersonSchema } from "@/lib/person/schema";
+import type { LoginProvider } from "@/lib/ports/session";
 import { createFakeAccount } from "./account";
 import { createFakePersonPort } from "./person";
 import { createFakeSessionPort } from "./session";
@@ -15,7 +16,7 @@ describe("가짜 세션 포트 (MOCK-PORT)", () => {
   it("signed_out: 로그인하면 복귀 경로로 한 번 보내고 본인 정보 있음", async () => {
     const port = createFakeSessionPort({ scenario: "signed_out" });
     const navigate = vi.fn();
-    await port.startLogin("/wallet", navigate);
+    await port.startLogin("KAKAO", "/wallet", navigate);
     expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith("/wallet");
     await expect(port.getSession()).resolves.toMatchObject({
@@ -27,7 +28,7 @@ describe("가짜 세션 포트 (MOCK-PORT)", () => {
   it("new_user: 로그인 후 본인 정보 없음", async () => {
     const port = createFakeSessionPort({ scenario: "new_user" });
     await expect(port.getSession()).resolves.toEqual({ status: "signed_out" });
-    await port.startLogin("/wallet", vi.fn());
+    await port.startLogin("KAKAO", "/wallet", vi.fn());
     await expect(port.getSession()).resolves.toMatchObject({
       status: "signed_in",
       hasPrimaryPerson: false,
@@ -48,8 +49,32 @@ describe("가짜 세션 포트 (MOCK-PORT)", () => {
   it("바깥 주소는 / 로 보낸다", async () => {
     const port = createFakeSessionPort();
     const navigate = vi.fn();
-    await port.startLogin("//evil.example", navigate);
+    await port.startLogin("KAKAO", "//evil.example", navigate);
     expect(navigate).toHaveBeenCalledWith("/");
+  });
+
+  it.each([
+    "NAVER",
+    "GOOGLE",
+  ] as const)("%s 로 로그인해도 로그인 상태가 되고 safeReturnTo 결과로 보낸다", async (provider) => {
+    const port = createFakeSessionPort({ scenario: "signed_out" });
+    const navigate = vi.fn();
+    await port.startLogin(provider, "//evil.example", navigate);
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/");
+    await expect(port.getSession()).resolves.toMatchObject({
+      status: "signed_in",
+    });
+  });
+
+  it("모르는 제공자면 던지고 로그인 상태가 되지 않는다", async () => {
+    const port = createFakeSessionPort({ scenario: "signed_out" });
+    const navigate = vi.fn();
+    await expect(
+      port.startLogin("APPLE" as LoginProvider, "/wallet", navigate),
+    ).rejects.toThrow();
+    expect(navigate).not.toHaveBeenCalled();
+    await expect(port.getSession()).resolves.toEqual({ status: "signed_out" });
   });
 
   it("logout 후 signed_out", async () => {
@@ -73,7 +98,7 @@ describe("가짜 계정 공유 (MOCK-PORT)", () => {
     const account = createFakeAccount("new_user");
     const session = createFakeSessionPort({ account });
     const people = createFakePersonPort(account);
-    await session.startLogin("/onboarding", vi.fn());
+    await session.startLogin("KAKAO", "/onboarding", vi.fn());
     await expect(session.getSession()).resolves.toMatchObject({
       hasPrimaryPerson: false,
     });
