@@ -10,7 +10,7 @@
 | 사용 등껍질 이름 통일 | `charged {currency, amount}` | FE는 수능의 최상위 currency/amount 대신 charged로 변경 |
 | 견적 재조회 | `GET /api/v1/quotes/{quoteId}` | FE adapter에서 충전 복귀 시 사용 |
 | 유료·보너스 지갑 잔액 | `GET /api/v1/wallet`에 paidBalance/bonusBalance/balance | 만료 예정 상세·원장 HTTP 목록은 후속 |
-| 충전 지급량 | 주문 도메인에 paidShells/bonusShells 스냅샷은 이미 존재 | 실제 주문·승인·지급 서비스와 HTTP 응답 구현 필요 |
+| 충전 지급량 | 주문 생성/소유자 GET에 paidShellAmount/bonusShellAmount/creditedShellAmount 예정량 구현 | 승인·실제 지급·지급 후 잔액은 후속 |
 | 500 상품 표 수정 | API_SPEC을 500+80=580으로 수정 | 실제 결제 준비 전 상품은 비활성 유지 |
 
 견적 공통 자금 필드는 `walletBalance`, `balanceAfter`, `shortage`, `recommendedTopUp`이다.
@@ -21,7 +21,7 @@ GET은 저장 가격·만료를 유지하고 현재 잔액·부족분·추천만
 
 타인/미존재 견적은 같은 404 RESOURCE_NOT_FOUND, 본인 만료는 409 QUOTE_EXPIRED다. 전체 경로는 인증 필요하며 견적 POST에는 CSRF가 유지된다. OAuth는 이번 작업으로 구현되지 않는다.
 
-충전 주문 응답은 지급 준비 전에도 스냅샷의 paidShellAmount/bonusShellAmount/creditedShellAmount를 표시할 수 있지만, 이는 예정 수량이다. 실제 지급 완료 표시와 walletBalance는 지급 트랜잭션 커밋 후 CREDITED에서만 사용한다. 현재는 TopUpUseCase 구현체가 없어 해당 HTTP 계약을 성공하는 임시 구현으로 제공하지 않았다.
+충전 주문 생성/소유자 GET은 스냅샷의 paidShellAmount/bonusShellAmount/creditedShellAmount를 제공하지만, 이는 예정 수량이다. 실제 지급 완료 표시와 walletBalance는 지급 트랜잭션 커밋 후 CREDITED에서만 사용한다. 현재 생성 상태는 PAYMENT_PENDING이며 승인/지급은 아직 없고 실제 잔액도 반환하지 않는다. 상세는 TOP_UP_IMPLEMENTATION.md다.
 
 ## Q-35: 오행분석·결과·오류·OpenAPI
 

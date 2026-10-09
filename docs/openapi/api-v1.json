@@ -122,6 +122,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseOrderResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/OrderResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseOverallReadingResponse" : {
         "properties" : {
           "data" : {
@@ -681,6 +692,17 @@
         },
         "type" : "object"
       },
+      "CreateRequest" : {
+        "properties" : {
+          "productCode" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "productCode" ],
+        "type" : "object"
+      },
       "Event" : {
         "properties" : {
           "date" : {
@@ -796,6 +818,45 @@
             "$ref" : "#/components/schemas/SectionContent"
           }
         },
+        "type" : "object"
+      },
+      "OrderResponse" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "bonusShellAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "creditedShellAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "orderName" : {
+            "type" : "string"
+          },
+          "paidShellAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "productCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "CREATED", "PAYMENT_PENDING", "PAID", "CREDITED", "FAILED", "CANCELED", "REFUNDED" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "bonusShellAmount", "creditedShellAmount", "currency", "orderId", "orderName", "paidShellAmount", "productCode", "status" ],
         "type" : "object"
       },
       "OverallReadingResponse" : {
@@ -2266,6 +2327,71 @@
           }
         },
         "tags" : [ "suneung-reading-controller" ]
+      }
+    },
+    "/api/v1/top-up-orders" : {
+      "post" : {
+        "operationId" : "createTopUpOrder",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 512,
+            "minLength" : 1,
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "tags" : [ "top-up-order-controller" ]
+      }
+    },
+    "/api/v1/top-up-orders/{orderId}" : {
+      "get" : {
+        "operationId" : "getTopUpOrder",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "top-up-order-controller" ]
       }
     },
     "/api/v1/wallet" : {

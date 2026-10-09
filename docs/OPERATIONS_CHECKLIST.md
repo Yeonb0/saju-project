@@ -428,6 +428,18 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-09: A 충전 주문 생성/조회와 B 합의안
+
+- A 단독 진행 범위로 충전 주문 생성/소유자 조회/지급 예정량 응답을 추가했다. 승인/실제 지급/토스 adapter/webhook은 아직 미구현이며 이번 단계는 결제 완료가 아니다. B/FE 코드와 구매 상태 머신은 변경하지 않았다.
+- 적용: 6-1 UUID principal/인증/CSRF/소유권, 6-2 주문 unique 경쟁과 atomic INSERT, 6-6 추가형 migration와 판매 비활성 유지, 6-9 키 해시/비밀값 미출력. 6-3 외부 승인 결과 불명과 6-4 승인 후 지급 재처리는 후속이다.
+- V202610092330 top_up_orders에 사용자+키 해시 unique와 서버 가격/유료·보너스 snapshot을 저장한다. 같은 키/상품은 기존 주문, 다른 상품은 409다. 동시 INSERT 실패는 독립 트랜잭션 롤백 후 새 읽기에서 승자를 찾는다. 상태는 PAYMENT_PENDING이며 원장/lot/잔액 변경과 외부 호출이 없다.
+- PostgreSQL 17.11 전용 localhost:55432/sajuppugi_test에서 check bootJar exportOpenApi --rerun-tasks 성공: 총 296, 통과 293, 실패/오류 0, 선택 제외 3. 신규 TopUpOrderApiTest 7건 모두 통과. SQL로 Flyway 14건 모두 성공 확인, OpenAPI의 생성/조회 두 경로 존재 확인.
+- 기본 H2에서도 check bootJar --rerun-tasks 성공: 총 296, 통과 293, 실패/오류 0, 제외 3. 외부 호출 opt-in은 실행하지 않았다.
+- 최종 OpenAPI annotation 보완 후 PostgreSQL 신규 7건/bootJar/exportOpenApi 재실행 성공. JSON에서 Idempotency-Key required=true/1~512자, 응답 필수 필드 9개, 고유 createTopUpOrder/getTopUpOrder operationId를 확인했다.
+- 신규 suite는 실제 DB/보안 필터/HTTP와 두 독립 동시 요청을 사용하며 CatalogUseCase는 테스트 상품으로 대체한다. 예정량/중복/키 충돌/판매 종료 후 재전송/사용자 격리/해시/인증/CSRF/소유권/원장 미변경을 확인했다. 실제 토스/실판매 상품/FE E2E/OS 강제 종료/운영은 미검증이다.
+- 첫 실행은 새 경로의 인증 matcher 누락으로 403을 발견해 보안을 유지하며 보완했다. 두 번째 전체 실행에서 기존 견적 fixture의 clock.instant 두 번 호출로 30분 제약이 깨지는 간헐 실패를 확인해 한 시각 기준으로 수정했다. 적용된 migration이나 업무 규칙은 완화하지 않았다.
+- B 합의 제안은 backend/docs/A_B_PURCHASE_HANDOFF.md에 정리했다. 구매 조회 담당/응답, 생성 lease/fencing과 CREATED/DEBITED/GENERATING 중단 재개, 원장 receipt 확인 후 환급 완료 판정은 미확정이다. 상세 A 구현/후속은 backend/docs/TOP_UP_IMPLEMENTATION.md. push/PR/배포 없음.
+
 ### 2026-10-09: 앱 실행 문제 조사와 Docker 복구 후 PostgreSQL 재검증
 
 - 사용자 요청 범위는 원인 조사와 기존 테스트 재실행이다. 파일 삭제/이동, Discord 복구, 시스템 설정 변경, 신규 기능 개발은 하지 않았다.

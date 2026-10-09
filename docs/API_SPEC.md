@@ -397,6 +397,11 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 ### `POST /top-up-orders`
 
 - 인증·CSRF·`Idempotency-Key` 필요
+- 로컬 구현: 주문 생성과 소유자 GET만 제공한다. 승인·지급·webhook은 아직 미구현이다.
+- 서버 판매 가능 상품의 가격/유료·보너스 수량을 주문에 저장한다. 같은 사용자/키/상품은
+  기존 주문 snapshot을 반환하며 같은 키/다른 상품은 409 IDEMPOTENCY_KEY_REUSED다.
+- 키는 비어 있지 않은 최대 512자이며 원본 대신 SHA-256을 저장한다. 키 범위는 충전 주문 생성이다.
+- PAYMENT_PENDING의 creditedShellAmount는 예정 수량이다. 실제 지급 완료나 현재 잔액이 아니다.
 
 ```json
 { "productCode": "TURTLE_SHELL_50" }
