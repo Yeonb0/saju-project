@@ -81,6 +81,15 @@ bash ./gradlew clean check bootJar
 - 테스트용 컨트롤러는 `src/test/`에만 있으며 실행 JAR에 포함되지 않는다.
 - 산출물: `build/libs/sajuppugi-backend-0.0.1-SNAPSHOT.jar`
 
+실제 Liner 응답을 확인하는 스모크 테스트는 기본 테스트에서 비활성화되어 있다. API 사용량이 발생하므로
+`LINER_API_KEY`를 환경변수나 `backend/.env`에 설정한 뒤 명시적으로 실행한다.
+
+```sh
+LINER_LIVE_TEST=true ./gradlew test \
+  --tests 'com.sajuppugi.fortune.generation.LinerLiveSmokeTest'
+jq . build/liner-live-response.json
+```
+
 ## 환경 설정
 
 | 변수 | 용도 |

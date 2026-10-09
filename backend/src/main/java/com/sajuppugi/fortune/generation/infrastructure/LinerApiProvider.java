@@ -11,6 +11,7 @@ import com.sajuppugi.fortune.generation.port.LinerProvider;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ClassPathResource;
@@ -100,11 +101,22 @@ public class LinerApiProvider implements LinerProvider {
 
     private JsonNode tailoredSchema(LinerRequest request) {
         ObjectNode schema = responseSchema.deepCopy();
+        removeUnsupportedSchemaKeywords(schema);
         ArrayNode allowed = mapper.createArrayNode();
         request.allowedSections().forEach(section -> allowed.add(section.name()));
         ((ObjectNode) schema.at("/properties/sections/items/properties/key")).set("enum", allowed.deepCopy());
         ((ObjectNode) schema.at("/properties/omittedSections/items")).set("enum", allowed.deepCopy());
         return schema;
+    }
+
+    private void removeUnsupportedSchemaKeywords(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode object = (ObjectNode) node;
+            object.remove(List.of("$schema", "$id", "title", "minItems", "minLength", "maxLength", "uniqueItems"));
+            object.elements().forEachRemaining(this::removeUnsupportedSchemaKeywords);
+        } else if (node.isArray()) {
+            node.elements().forEachRemaining(this::removeUnsupportedSchemaKeywords);
+        }
     }
 
     private LinerResponse parseResponse(JsonNode response) {

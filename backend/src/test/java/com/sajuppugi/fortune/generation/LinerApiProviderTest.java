@@ -86,6 +86,12 @@ class LinerApiProviderTest {
         assertThat(capturedBody.get().at("/text/format/strict").asBoolean()).isTrue();
         assertThat(capturedBody.get().at(
                 "/text/format/schema/properties/sections/items/properties/key/enum/0").asText()).isEqualTo("SUMMARY");
+        assertThat(capturedBody.get().at("/text/format/schema/$schema").isMissingNode()).isTrue();
+        assertThat(capturedBody.get().at("/text/format/schema/properties/sections/minItems").isMissingNode()).isTrue();
+        assertThat(capturedBody.get().at(
+                "/text/format/schema/properties/sections/items/properties/content/maxLength").isMissingNode()).isTrue();
+        assertThat(capturedBody.get().at(
+                "/text/format/schema/properties/omittedSections/uniqueItems").isMissingNode()).isTrue();
         assertThat(capturedBody.get().path("input").asText()).contains("dayMaster").doesNotContain("birthDate");
     }
 
