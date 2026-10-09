@@ -428,6 +428,16 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-10: FE 전달 답변과 병합 상태 정리
+
+- 10/9 사용자 승인으로 PR #17을 생성하고 최신 main/B의 merge-tree 충돌 없음, GitHub backend PostgreSQL CI 및 frontend lint/typecheck/test/build 성공을 확인한 뒤 main에 merge했다. 병합 커밋 f47b719, 검증 head 2c7c631. 구매/복구 기본 false 유지. 이전 항목의 push/PR 없음은 당시 작업 단계 기록이다.
+- 이번 문서 기준 원격 main f47b719, FE boyeon 0ab2472. main 코드/FE 개인 진행 문서와 사용자 제공 B 답변 2종을 대조했다. FE 개인 문서나 FE 코드는 수정하지 않았다.
+- backend/docs/FE_HANDOFF_20261010.md에 Q-34 구현, Q-35 B 답변/실제 코드, Q-33/Q-36 담당별 결정, FE 우선 반영 순서와 실연결 제약을 정리했다. Q-34.4 충전 예정량은 주문 API에 구현됐지만 승인/지급 완료 응답은 여전히 미구현이다.
+- B 답변의 일반 결과 순서/summary/궁합 enum 매핑을 반영했다. 수능 key→type만으로 FE 구조화 items가 생기지 않음을 구분했다. PURCHASE_DEBIT_MISMATCH의 정상 보상 후 반환 흐름과 READING_GENERATION_FAILED의 복구 실패 가능성을 분리하고 receipt/환급 상태 확인 후속을 명시했다.
+- 적용: 6-1 인증/CSRF/소유권 인계, 6-2 영속 주문/중복/예정량과 지급 구분, 6-4 중단 재개/환급 미확정, 6-6 병합과 서비스 활성화 분리, 6-9 민감정보 미포함. 법률/심사 판단은 재검증하지 않았다.
+- FE 주요 화면/목업은 상당수 구현됐지만 ports/index.ts의 real은 noRealYet이며 실제 adapter/결제/세션/인물/E2E는 대기다. boyeon의 추가 FE 변경도 목업/잔액 조회 보완이며 real adapter가 아니다. 완료율 숫자를 추정하지 않았다.
+- 이번에는 문서/코드/원격 대조만 수행했고 테스트 재실행이나 배포/추가 PR/push는 하지 않았다. 기존 테스트 기록과 CI 결과를 출처/시점과 함께 인계했다.
+
 ### 2026-10-09: A 충전 주문 생성/조회와 B 합의안
 
 - A 단독 진행 범위로 충전 주문 생성/소유자 조회/지급 예정량 응답을 추가했다. 승인/실제 지급/토스 adapter/webhook은 아직 미구현이며 이번 단계는 결제 완료가 아니다. B/FE 코드와 구매 상태 머신은 변경하지 않았다.
