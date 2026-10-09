@@ -1,5 +1,13 @@
 # Backend A / FE compatibility review
 
+## 2026-10-09 update
+
+The Q-34 funded quote POST/GET and wallet balance HTTP adapters are now implemented,
+and Q-35 adds owned personId basic-saju input and a reproducible OpenAPI export.
+See `FE_REQUESTS_20261009.md` and `../../docs/openapi/api-v1.json` for the current contract.
+Authentication/person adapters, real top-up crediting and wallet purchase writes remain unfinished.
+The review below records the earlier PR #14 scope, not the current endpoint inventory.
+
 Reviewed 2026-10-06 against `main` (47e2055) and FE work branch `boyeon` (39c750d).
 This change provides internal services and persistence, not production HTTP endpoints.
 It must not be treated as a completed FE API integration.

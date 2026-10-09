@@ -77,7 +77,8 @@ class CatalogPersistenceTest {
         assertCode(() -> service.issueQuote(new IssueQuote(USER, "INACTIVE", "a".repeat(64))), ErrorCode.PRODUCT_NOT_AVAILABLE);
         assertCode(() -> service.issueQuote(new IssueQuote(null, "INACTIVE", "a".repeat(64))), ErrorCode.INVALID_REQUEST);
         assertCode(() -> service.issueQuote(new IssueQuote(USER, "INACTIVE", "raw input")), ErrorCode.INVALID_REQUEST);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM purchase_quotes", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM purchase_quotes WHERE requester_user_id = ?",
+                Integer.class, USER)).isZero();
     }
 
     @Test

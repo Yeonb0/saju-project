@@ -16,6 +16,9 @@ public interface CatalogUseCase {
 
     PurchaseQuote getQuote(UUID requesterUserId, UUID quoteId);
 
+    /** New debit only: ownership, expiry and current sale availability; keeps quoted price. */
+    PurchaseQuote getPayableQuote(UUID requesterUserId, UUID quoteId);
+
     record IssueQuote(UUID requesterUserId, String productCode, String contextHash) {
     }
 }
