@@ -535,6 +535,13 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 견적 발급 때 사용한 필드를 동일하게 전송해야 한다. 궁합은 견적과 마찬가지로 `counterpartPersonId`, `relationType`이 필수다. 수능운은 기존 `POST /reading-purchases` 계약을 유지한다.
 
+현재 구매 HTTP 공통 경계는 사용자별 `Idempotency-Key`를 요청 경로와 파싱된 요청 내용에
+영속적으로 연결한다. 같은 키로 견적/선택/경로를 바꾸면 `409 IDEMPOTENCY_KEY_REUSED`다.
+같은 키·같은 요청은 기존 구매 처리로 전달한다. 이것만으로 최초 응답 재사용이나
+만료 후 완료 재조회, 중단 구매 재개까지 구현된 것은 아니다.
+키는 1~512자(공백만인 값 제외)이며 입력/인증/CSRF 검증을 통과한 요청에 적용한다.
+세부 범위와 보존/배포 제한은 `backend/docs/PURCHASE_REQUEST_BINDINGS.md`를 참고한다.
+
 | fortuneType | 허용 questionKey | 생성 section 순서 |
 |---|---|---|
 | `OVERALL` | `OVERALL_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH`, `CONDITION` | `SUMMARY`, `CURRENT_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH_FLOW`, `CONDITION`, `LUCKY_POINT`, `MISSING_ELEMENT` |

@@ -428,6 +428,17 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-09: A 공통 구매 HTTP 키/요청 연결
+
+- 사용자의 A 담당만 개발 요청에 따라 common/idempotency와 A 신규 migration/테스트/문서만 추가했다. B controller/service 및 FE 구현은 변경하지 않았다.
+- 적용: 6-1 인증/CSRF 이전 거절과 사용자 격리, 6-2 primary key 경쟁/독립 짧은 트랜잭션, 6-4 영속 요청 대응과 미완료 복구 구분, 6-6 추가형 migration/혼합 버전 제한, 6-9 원본 키/본문 미저장.
+- V202610092230 purchase_request_bindings에 사용자 ID와 키/요청 SHA-256 및 시각만 남긴다. 전체 6개 구매 POST 경로에서 같은 사용자/키로 다른 quote/선택/경로를 보내면 B 호출 전 409 IDEMPOTENCY_KEY_REUSED다. 동일 요청은 기존 B 흐름으로 진행한다.
+- DB duplicate insert의 롤백 후 새 읽기 트랜잭션에서 request_hash를 비교한다. 외부 호출 동안 connection/잠금을 유지하지 않는다. DTO 필수값 오류/미인증/CSRF 거절은 미저장, 업무 실패/503는 최초 의도를 유지한다.
+- 신규 테스트 20건(HTTP 14, binding 6) 모두 통과. 동시 동일 내용은 양쪽 허용/행 1건, 동시 다른 내용은 한쪽 충돌/행 1건, 새 서비스 인스턴스 재사용, 경로/선택 충돌, JSON 순서/null, 인증/CSRF/키/입력 거절, 업무 실패 후 재시도를 H2에서 검증했다. HTTP suite의 B service는 mock이다.
+- 전체 H2 check bootJar exportOpenApi --rerun-tasks 성공: 총 289, 통과 286, 실패/오류 0, 선택 제외 3. OpenAPI export 별도 실행 성공. 첫 신규 테스트 실행의 200/202 기대값 오류는 기존 처리 중 202 계약에 맞춰 수정 후 재검증했다.
+- 이번 PostgreSQL 검증은 수행하지 못했다. Docker Linux engine pipe가 없고 docker desktop start도 설치 registry/launcher를 찾지 못해 종료됐다. 기존 PostgreSQL 검증은 이 신규 migration/기능의 검증을 대신하지 않는다. Docker 정상화 후 전용 test DB에서 신규 suite/전체 suite를 재실행해야 한다.
+- 제한: 최초 HTTP 응답 replay/처리 lease/만료 후 완료 조회/CREATED-DEBITED-GENERATING 중단 재개는 미완료다. 요청 보존/삭제 기간과 속도 제한도 후속이다. 혼합 배포의 구 버전에는 이 보호가 없으므로 전 인스턴스 교체 전 보장을 주장하지 않는다. 지갑 구매/복구 기본 비활성 유지, push/PR/배포 없음. 상세는 backend/docs/PURCHASE_REQUEST_BINDINGS.md.
+
 ### 2026-10-09: PR 전 A/B/FE 연결과 최초 질문 재점검
 
 - fetch 후 main 381787b, B 원격 81410c3, FE 원격 0ab2472와 로컬 2b09ab7을 대조했다. B backend는 main과 같고 FE 추가 커밋은 목업 보완이다. push/PR/배포는 하지 않았다.

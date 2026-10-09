@@ -56,6 +56,11 @@ read at validation time; concurrent administrator sale changes are not globally 
 
 ## Durability versus recovery
 
+The common HTTP boundary now binds each actor's original purchase key to the typed request and
+route before calling BE-B. Changed bodies/routes with the same key return IDEMPOTENCY_KEY_REUSED.
+This is not a completed-response replay store or a generation lease. Same-body retries still use
+BE-B's existing purchase flow, including its expiry/recovery limitations. See PURCHASE_REQUEST_BINDINGS.md.
+
 The ledger and command receipts survive service instance replacement. If commit succeeded but its
 response was lost, a caller can safely replay the same debit or compensation.
 However, BE-B's purchase state and wallet debit are separate commits. No worker automatically
