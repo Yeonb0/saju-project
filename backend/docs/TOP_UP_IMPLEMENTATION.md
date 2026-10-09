@@ -49,14 +49,48 @@ DB 저장 직후 HTTP 응답이 유실돼도 동일 키 재시도로 저장된 �
 
 ## 후속 개발
 
-1. 저장 주문/사용자/금액과 paymentKey 대응 검증 및 승인 명령의 영속 중복 방지.
-2. 토스 서버 adapter와 승인 결과 불명 조회/재처리. timeout을 FAILED로 확정하지 않는다.
+### 토스 승인/조회 adapter (2026-10-10, 기본 비활성)
+
+TossPaymentProvider는 기존 RestClient 패턴으로 POST /v1/payments/confirm과
+GET /v1/payments/orders/{orderId}를 호출한다. 승인 요청에는 주문 ID 기준 고정 멱등키를 사용한다.
+adapter 자체는 DB 트랜잭션이나 지갑 잠금을 만들지 않고 자동 재시도도 하지 않는다.
+호출자가 영속 요청 대응/점유/기한을 확인해야 하며, 토스의 멱등키 보존 기간만으로 영구 중복 방지를 보장하지 않는다.
+
+200 응답도 주문 ID, paymentKey, NORMAL/KRW, 정수 금액을 검증한다. DONE은 승인 시각과
+잔여 취소 가능 금액까지 검증한다. 승인 호출 응답은 원래 결제키/금액과 일치해야 한다.
+조회 결과는 원본 결제키가 아닌 해시를 반환하므로 지급 경계에서 Result.approves(저장 intent)를
+반드시 다시 확인한다. 타 주문·결제키·금액을 조회한 결과로 지급하면 안 된다.
+
+READY/IN_PROGRESS/WAITING_FOR_DEPOSIT은 PENDING, 검증된 ABORTED/EXPIRED는 DECLINED,
+CANCELED는 CANCELED다. PARTIAL_CANCELED/알 수 없는 상태는 UNKNOWN으로 남긴다.
+시간 초과·HTTP 오류·잘못된 JSON·증거 누락/불일치·크기 초과 응답은 UNKNOWN이며 실패/지급 완료로 확정하지 않는다.
+provider 원문 오류/시크릿/원본 결제키를 반환·기록하지 않는다. HTTP 상태만 고정된 안전한 코드로 반환한다.
+HTTP redirect는 인증정보가 다른 주소로 전달되지 않도록 따라가지 않는다.
+현금 결제 취소는 아직 연결하지 않았으며 cancel은 UNKNOWN/TOSS_CANCEL_NOT_IMPLEMENTED이고 요청을 보내지 않는다.
+
+환경변수 예시는 backend/.env.example에 있다. TOSS_ADAPTER=disabled가 기본이다.
+TOSS_ADAPTER=api로 명시 활성화하려면 서버의 TOSS_SECRET_KEY에 test_gsk 계열 키가 필요하다.
+test_ck/test_sk/live 계열은 거절하고 production/prod 프로필에서는 이 테스트 adapter를 활성화할 수 없다.
+공식 HTTPS API 주소만 허용하며 루프백 HTTP 주소는 test 프로필의 단독 로컬 시험에서만 허용한다.
+staging/production 프로필과 함께 켠 test 프로필로 루프백을 허용하지 않는다.
+connect/read timeout 기본 3초/10초이며 0 이하 또는 60초 초과 설정은 거절한다.
+
+이 adapter 활성화만으로 confirm HTTP/worker/지갑 지급이 제공되지 않는다.
+현재 주문 상태 변경·승인 결과 영속화·실행 lease·대사 worker·원자적 지급은 후속이다.
+토스 merchant 설정/FE SDK/본인 상점의 실제 테스트 결제는 별도로 확인해야 한다.
+이번 검증은 가짜 키와 로컬 HTTP 서버로만 수행했고 실제 토스 API나 사용자 키를 사용하지 않았다.
+
+참고: [토스 코어 API](https://docs.tosspayments.com/reference),
+[인증과 멱등키](https://docs.tosspayments.com/reference/using-api/authorization).
+
+1. 내부 요청 대응은 구현했다. 후속 HTTP 승인 명령에는 실행 점유/상태/기한 검사와 결과 영속화를 연결한다.
+2. 토스 서버 adapter는 구현했다. 후속 결과 불명 조회/재처리 worker를 연결하고 timeout을 FAILED로 확정하지 않는다.
 3. 승인 확인 뒤 지급 lot/원장/잔액/주문 CREDITED를 한 짧은 트랜잭션으로 저장한다.
 4. 승인 성공 후 서버 중단, 지급 실패, 동시 재승인/worker/webhook의 중복 지급 방지를 PostgreSQL에서 검증한다.
 5. 테스트 키를 서버 환경으로 구성하고 실제 토스 테스트 승인/조회와 FE 연결을 별도로 검증한다.
 
 현재 confirm/webhook/cancel/refund는 제공하지 않으며 TopUpUseCase 전체 구현이 완료된 것은 아니다.
-토스 키나 실제 결제는 이번 단계에 사용하지 않았다. 지급 만료는 최신 확정 정책을 따라야 하며
+사용자 토스 키나 실제 토스 결제는 이번 단계에 사용하지 않았다. 지급 만료는 최신 확정 정책을 따라야 하며
 ERD의 이전 180일 설명을 그대로 구현하면 안 된다(PENDING_DECISIONS/PRD의 보너스 1년과 차이가 있다).
 요청/주문 기록 보존과 rate limit, 운영 알림도 후속이다.
 
@@ -83,6 +117,11 @@ FE의 실제 adapter와 B의 구매 중단 복구 합의는 별도 작업이다.
 A_B_PURCHASE_HANDOFF.md의 제안을 B와 확정한 다음 연결한다.
 
 ## 테스트
+
+TossPaymentProviderTest 37건은 가짜 시크릿과 로컬 HTTP 서버로 요청 본문/Basic 인증/고정 멱등키,
+응답 증거/상태/금액 검증, HTTP 오류/JSON 오류/크기 제한/redirect/timeout과 명시적 조회 복구를 확인한다.
+TossPaymentConfigurationTest 3건은 기본 비활성, 명시적 테스트 설정, 키 없는 활성화 실패를 확인한다.
+이 조회 복구는 adapter 수준의 수동 조회 시험이며 자동 worker나 실제 토스 승인 성공의 증거는 아니다.
 
 TopUpConfirmationPersistenceTest는 실제 DB와 내부 승인 준비 서비스를 사용한다.
 금액/소유권/상태/입력 검증, 영속 재사용과 새 서비스 인스턴스 재사용, 해시 저장·문자열 마스킹,

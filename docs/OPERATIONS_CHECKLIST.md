@@ -428,6 +428,18 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-10: A 토스 테스트 승인/조회 adapter, 기본 비활성
+
+- 기준: codex/fe-handoff-notes, 승인 요청 대응 커밋 4501b80 이후. 기존 RestClient 패턴의 TossPaymentProvider와 서버 환경 설정을 추가했다. 공식 승인 POST/주문 조회 GET과 Basic 인증·주문별 고정 멱등키를 사용하며 DB 트랜잭션/지갑 잠금/자동 재시도는 만들지 않는다.
+- 적용: 6-2 외부 호출과 DB 경계 분리, 6-3 결과 불명·지연·오류·응답 증거 검증/명시적 조회, 6-4 자동 작업 재개 미구현 구분, 6-6 기본 비활성/테스트 키 제한/운영 활성화 거절, 6-9 키·원문 오류·원본 결제키 미출력과 redirect 차단.
+- 승인 응답은 주문 ID/원래 결제키/NORMAL/KRW/정수 금액/DONE 승인 시각/잔여 금액을 확인한다. 조회 응답의 결제키는 해시만 반환하고 지급 전 Result.approves(저장 intent)로 주문·결제키·금액을 재검증해야 한다. 승인 준비의 결제키 입력도 공식 최대 200자로 제한했다.
+- PENDING/검증된 DECLINED/CANCELED와 UNKNOWN을 구분한다. HTTP 오류/timeout/JSON 오류/필수 증거 누락/불일치/과도한 크기/미지원 상태는 UNKNOWN이며 실패나 지급 완료로 확정하지 않는다. provider 메시지/몸체는 반환하지 않고 안전한 고정 코드만 사용한다. cancel은 UNKNOWN/TOSS_CANCEL_NOT_IMPLEMENTED로 반환하고 호출하지 않는다.
+- TOSS_ADAPTER 기본 disabled. 명시 api 활성화에는 test_gsk 계열 서버 키가 필요하며 누락/클라이언트 키/API 개별 키/live 키는 시작 단계에서 거절한다. production/prod에서는 테스트 adapter 활성화를 거절한다. 공식 HTTPS 주소만 허용하고 루프백은 test에서만 허용하되 staging/production 프로필과 혼합하면 거절한다. 설정 객체/결과 객체 문자열은 비밀값을 마스킹한다. 사용자 .env/키를 읽거나 수정하지 않았다.
+- 전용 PostgreSQL 17.11 localhost:55432/sajuppugi_test에서 check bootJar exportOpenApi --rerun-tasks 성공. 전체 XML 353건, 통과 350, 실패/오류 0, 선택 제외 3(실제 Liner/OpenAPI opt-in/walletDemo), export 별도 실행과 bootJar 성공. 이후 테스트에 timeout 뒤 명시적 조회 확인을 추가하고 두 신규 suite를 다시 실행해 40건(HTTP 37/설정 3) 모두 통과했다. 최종 추가는 테스트만 변경했다.
+- 신규 HTTP 시험은 가짜 키/로컬 HTTP 서버로만 수행했다. 본문/Basic 인증/고정 멱등키, 상태·증거·금액 검증, 400/401/404/409/429/500/503, 잘못된 JSON/응답 크기/redirect, read timeout 시 재승인 없음과 명시적 주문 조회의 APPROVED 확인, cancel 미호출을 검사했다. 실제 토스 승인 응답 유실이나 자동 worker 재개를 실험한 것이 아니다.
+- 읽기 전용 SQL로 테스트 DB/17.11, migration 15건 모두 성공, 활성 충전 상품 0건을 확인했다. 신규 migration/판매 활성화/지갑 지급/B 또는 FE 코드 변경은 없다. push/PR/배포는 하지 않았다.
+- 남음: 승인 실행 lease·상태/결과 영속화·재처리 대사, confirm HTTP, 승인 확인 후 원자적 lot/원장/잔액/CREDITED, webhook/현금 환불, 팀 상점 merchant/FE SDK 실제 테스트키 E2E와 운영 부하. adapter 활성화만으로 충전 완료를 제공하지 않는다. 공식 문서와 설정·한계는 backend/docs/TOP_UP_IMPLEMENTATION.md에 기록했다.
+
 ### 2026-10-10: A 충전 승인 요청의 영속 대응과 검증
 
 - 기준: codex/fe-handoff-notes, 충전 상품 조회 커밋 871c866 이후. 내부 TopUpConfirmationService.prepare와 V202610101000을 추가했다. HTTP confirm/실제 토스 승인/지갑 지급 구현은 아니다.

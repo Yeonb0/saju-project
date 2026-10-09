@@ -26,7 +26,8 @@ public class TopUpConfirmationService {
 
     /** Called before any provider request; does not call the provider or grant wallet lots. */
     public TopUpConfirmationIntent prepare(UUID user, UUID orderId, String paymentKey, int amount, String key) {
-        if (user == null || orderId == null || invalidKey(paymentKey) || invalidKey(key) || amount <= 0) {
+        if (user == null || orderId == null || invalidKey(paymentKey) || paymentKey.length() > 200
+                || invalidKey(key) || amount <= 0) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
         String keyHash = hash(key);

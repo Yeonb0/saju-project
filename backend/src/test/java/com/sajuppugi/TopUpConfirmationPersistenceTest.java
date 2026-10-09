@@ -130,6 +130,7 @@ class TopUpConfirmationPersistenceTest {
         assertError(() -> confirmations.prepare(null, order, "payment", 5000, "key"), ErrorCode.INVALID_REQUEST);
         assertError(() -> confirmations.prepare(user, null, "payment", 5000, "key"), ErrorCode.INVALID_REQUEST);
         assertError(() -> confirmations.prepare(user, order, "payment", 0, "key"), ErrorCode.INVALID_REQUEST);
+        assertError(() -> confirmations.prepare(user, order, "x".repeat(201), 5000, "key"), ErrorCode.INVALID_REQUEST);
         assertThat(countIntents()).isZero();
     }
 
