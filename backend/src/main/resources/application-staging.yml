@@ -4,3 +4,7 @@ spring:
       on-profile: staging
 
 # Database settings are mandatory in the shared application configuration.
+
+app:
+  liner:
+    adapter: ${LINER_ADAPTER:api}

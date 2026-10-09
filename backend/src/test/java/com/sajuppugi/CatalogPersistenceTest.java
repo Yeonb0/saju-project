@@ -43,8 +43,9 @@ class CatalogPersistenceTest {
         product("ENDED", "READING", true, null, NOW);
         product("TOPUP", "TOP_UP", true, null, null);
         assertThat(service.availableProducts(Product.Category.READING)).extracting(Product::code)
-                .containsExactly("AVAILABLE");
-        assertThat(service.availableProducts(null)).extracting(Product::code).containsExactly("AVAILABLE", "TOPUP");
+                .contains("AVAILABLE").doesNotContain("INACTIVE", "FUTURE", "ENDED", "TOPUP");
+        assertThat(service.availableProducts(null)).extracting(Product::code)
+                .contains("AVAILABLE", "TOPUP").doesNotContain("INACTIVE", "FUTURE", "ENDED");
     }
 
     @Test

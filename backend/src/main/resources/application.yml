@@ -45,3 +45,14 @@ springdoc:
 logging:
   pattern:
     level: '%5p [traceId=%X{traceId}]'
+
+app:
+  liner:
+    adapter: ${LINER_ADAPTER:fake}
+    base-url: ${LINER_BASE_URL:https://platform.liner.com/api/v1}
+    api-key: ${LINER_API_KEY:}
+    model: ${LINER_MODEL:liner-mark}
+    connect-timeout: ${LINER_CONNECT_TIMEOUT:3s}
+    read-timeout: ${LINER_READ_TIMEOUT:30s}
+    max-output-tokens: ${LINER_MAX_OUTPUT_TOKENS:4000}
+    reasoning-effort: ${LINER_REASONING_EFFORT:low}
