@@ -200,6 +200,7 @@ type FieldError = {
 | 422 | `UNSUPPORTED_BIRTH_DATA` | 엔진 지원 범위 밖의 생년·달력·시간 |
 | 422 | `THIRD_PARTY_AUTHORIZATION_REQUIRED` | 타인 정보 입력 권한 확인 누락 |
 | 422 | `COMPATIBILITY_PERSON_REQUIRED` | 궁합 상대 정보 누락 |
+| 422 | `BIRTH_TIME_REQUIRED_AT_TERM` | 절기 경계일에 출생 시간 미입력 |
 
 ### 4.5 상품·견적
 
@@ -244,6 +245,8 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 | HTTP | code | 의미 | 처리 |
 |---:|---|---|---|
 | 404 | `READING_NOT_FOUND` | 결과 없음 또는 소유권 없음 | 목록 복귀 |
+| 500 | `PURCHASE_DEBIT_MISMATCH` | 서버 견적과 실제 차감량 불일치 | 자동 보상 후 고객센터 안내 |
+| 503 | `READING_FULFILLMENT_UNAVAILABLE` | 지갑·인물 fulfillment 연동 준비 안 됨 | 이후 재시도 |
 | 409 | `READING_ALREADY_FULFILLED` | 이미 완성된 구매를 다시 생성 요청 | 기존 결과 반환 |
 | 422 | `CALCULATION_INPUT_UNSUPPORTED` | 계산 엔진이 입력 조합을 지원하지 않음 | 입력 수정 |
 | 500 | `CALCULATION_FAILED` | 결정론적 만세력 계산 실패 | 환급·운영 알림 |

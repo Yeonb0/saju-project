@@ -163,6 +163,7 @@ backend/src/main/java/.../sajuppugi/
 - 허용 section, 누락 field, `sourceFactKeys` 전달
 - JSON Schema, section 목록, 근거 경로, 금지 표현 검증
 - Liner가 미제공 명리 값을 추론하면 결과 폐기 후 제한 재시도
+- 제한 재시도 소진 시 계산 facts 기반 결정론적 안전 응답 생성 및 `LINER`/`FALLBACK` 모드 기록
 - `generationKey` 잠금, 최초 성공 snapshot 재사용, 중복 외부 호출 방지
 - `calculationVersion`, `generationVersion`, `contentVersion` 저장
 

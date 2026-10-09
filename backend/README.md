@@ -53,9 +53,15 @@ bash ./gradlew bootRun
 | `GET /actuator/health/liveness` | 프로세스 생존 확인 |
 | `GET /actuator/health/readiness` | DB를 포함한 서비스 준비 상태 |
 | `/v3/api-docs` | OpenAPI JSON, local 프로필에서만 공개 |
+| `/v3/api-docs/v1` | 프론트 타입 생성용 `/api/v1/**` OpenAPI JSON |
 | `/swagger-ui/index.html` | Swagger UI, local 프로필에서만 공개 |
 
-헬스 응답은 Actuator 기본 형식인 `{ "status": "UP" }`이며 업무 API의 응답 envelope와 구분한다. 아직 업무 endpoint는 없다.
+헬스 응답은 Actuator 기본 형식인 `{ "status": "UP" }`이며 업무 API의 응답 envelope와 구분한다.
+
+Swagger UI는 API 명세에 맞춰 `JSESSIONID` 세션 쿠키와 상태 변경 요청용
+`X-CSRF-Token` 보안 스키마를 표시한다. 브라우저가 `HttpOnly` 세션 쿠키를 자동으로 전송하므로
+Swagger UI에서 쿠키 값을 직접 입력하지 않는다. 인증 및 CSRF 발급 API가 구현되기 전까지
+보호된 API의 `Try it out` 요청은 인증 오류가 정상이다.
 
 인증 구현 전에는 health와 local API 문서만 허용하고 나머지 요청은 거절한다. 폼/Basic 로그인과 기본 개발 사용자 로그인을 제공하지 않는다. CSRF 보호는 유지한다. 카카오 로그인, 세션, B가 결정한 CSRF 발급 계약은 후속 구현 대상이다.
 
@@ -75,6 +81,17 @@ bash ./gradlew clean check bootJar
 - 테스트용 컨트롤러는 `src/test/`에만 있으며 실행 JAR에 포함되지 않는다.
 - 산출물: `build/libs/sajuppugi-backend-0.0.1-SNAPSHOT.jar`
 
+실제 Liner 응답을 확인하는 스모크 테스트는 기본 테스트에서 비활성화되어 있다. API 사용량이 발생하므로
+`LINER_API_KEY`를 환경변수나 `backend/.env`에 설정한 뒤 명시적으로 실행한다.
+
+```sh
+LINER_LIVE_TEST=true ./gradlew test --rerun-tasks \
+  --tests 'com.sajuppugi.fortune.generation.LinerLiveSmokeTest'
+jq . build/liner-live-response.json
+```
+
+`--rerun-tasks`를 생략하면 이전 실행 결과가 `UP-TO-DATE`로 재사용되어 실제 API를 호출하지 않을 수 있다.
+
 ## 환경 설정
 
 | 변수 | 용도 |
@@ -84,6 +101,13 @@ bash ./gradlew clean check bootJar
 | `DB_USERNAME` | DB 사용자 |
 | `DB_PASSWORD` | DB 비밀번호 |
 | `PORT` | HTTP 포트, 기본 8080 |
+| `LINER_API_KEY` | Liner 서버 API 키. 클라이언트·Git·로그에 노출 금지 |
+| `LINER_MODEL` | Liner 모델 ID, 기본 `liner-mark` |
+| `LINER_BASE_URL` | 기본 `https://platform.liner.com/api/v1` |
+| `LINER_CONNECT_TIMEOUT` | 연결 제한시간, 기본 `3s` |
+| `LINER_READ_TIMEOUT` | 응답 제한시간, 기본 `30s` |
+| `LINER_MAX_OUTPUT_TOKENS` | 구조화 결과 최대 토큰, 기본 `4000` |
+| `LINER_REASONING_EFFORT` | `none|low|medium|high|max`, 기본 `low` |
 
 `staging`과 `production`에는 개발 DB 기본값이 없다. 세 DB 환경변수를 배포 환경에서 제공해야 한다. `postgresql://...` 연결 문자열을 그대로 `DB_URL`에 넣지 말고 JDBC 형식과 분리된 계정값을 사용한다.
 
@@ -95,7 +119,7 @@ $env:DB_PASSWORD = '<configured-password>'
 .\gradlew.bat bootRun
 ```
 
-운영 환경에서는 배포 플랫폼의 비밀 환경변수 설정을 사용한다. 토스/OAuth/Liner/R2 키는 아직 필요하지 않으며 구현 전 임의 값을 추가하지 않는다.
+로컬 프로필은 프로젝트의 `backend/.env`를 선택적으로 읽는다. 이 파일은 Git에서 제외되며 `LINER_API_KEY=...` 형식으로 저장한다. staging·production은 실제 Liner 어댑터가 기본이고 키가 없으면 시작에 실패한다. 운영 키는 반드시 배포 플랫폼의 비밀 환경변수로 등록하며 토스/OAuth/R2 키도 소스나 로그에 기록하지 않는다.
 
 ## DB 마이그레이션과 패키지
 
