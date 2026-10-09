@@ -2,7 +2,7 @@
 
 // "use client" 이유: 인물 조회(TanStack Query), 대상 선택 상태, 화면 이동(useRouter)은 브라우저에서 한다.
 // FORT-01 유료 운세 정보 확인 (docs/FRONTEND.md 3장, Figma 195:180). 근거: A-02 · A-03 (로그인 가드는 page.tsx 의 RequireSession),
-// F-09 · Q-30 (오행분석은 결제 전 노출 — 데이터 API 없음), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다),
+// F-09 · Q-30 (오행분석은 결제 전 노출 — FiveElementsSection, 진짜 adapter 는 Q-35 · OpenAPI 후), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다),
 // LAYOUT-FIGMA (CSAT-01 과 같은 좌표). 디자인 요소 없음 (PG-FIRST).
 // 이 화면은 상품 조회 · 견적 · ShellCheckout · 구매 선택 복원(PURCHASE-RESTORE) · 가격 표시를 하지 않는다.
 // 차감 확인은 질문 화면(FORT-02 · 03)의 몫이다 (CHECKOUT-POPUP).
@@ -11,18 +11,23 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
+import { FiveElementsSection } from "@/components/FiveElementsSection";
 import { PersonCard } from "@/components/PersonCard";
 import { FORTUNE_LABELS, type FortuneSlug } from "@/lib/navigation";
 import { getPersonPort } from "@/lib/ports";
+import type { BasicSajuPort } from "@/lib/ports/basicSaju";
 import type { PersonPort } from "@/lib/ports/person";
 
 export function FortuneInfoScreen({
   slug,
   personPort,
+  basicSajuPort,
 }: {
   slug: Exclude<FortuneSlug, "compatibility">;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다 (MOCK-PORT).
   personPort?: PersonPort;
+  // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다 (MOCK-PORT).
+  basicSajuPort?: BasicSajuPort;
 }) {
   const router = useRouter();
 
@@ -88,16 +93,10 @@ export function FortuneInfoScreen({
         </div>
       ) : null}
 
-      <section data-slot="five-elements" className="mt-[38px] ml-[37px]">
-        {/* TODO(PD 문구) */}
-        <h2 className="text-[20px] font-semibold">오행분석</h2>
-        {/* TODO(F-09 · Q-30): 오행분석 값 자리 — 데이터 API 없음 */}
-        <div aria-hidden className="mt-[19px] flex flex-col gap-[28px]">
-          {[0, 1, 2, 3, 4].map((slot) => (
-            <div key={slot} className="h-[31px] w-[327px] bg-[#d9d9d9]" />
-          ))}
-        </div>
-      </section>
+      <FiveElementsSection
+        personId={person?.personId ?? null}
+        port={basicSajuPort}
+      />
     </AppShell>
   );
 }

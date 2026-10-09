@@ -1,10 +1,17 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import { FORTUNE_LABELS } from "@/lib/navigation";
+import { type BasicSaju, ELEMENTS } from "@/lib/ports/basicSaju";
 import type { PersonPort, PersonSummary } from "@/lib/ports/person";
 import { makeQueryClient } from "@/lib/queryClient";
 import { createFakeAccount } from "@/mocks/account";
@@ -49,15 +56,33 @@ function fakeAccountPort() {
   return createFakePersonPort(account);
 }
 
+// 픽스처일 뿐이며 실제 계산 · 규칙과 무관하다
+function basicSajuStub() {
+  const getBasicSaju = vi.fn(
+    async (_personId: string): Promise<BasicSaju> => ({
+      fiveElements: ELEMENTS.map((element, i) => ({ element, count: i + 1 })),
+      birthTimeKnown: true,
+      calculationVersion: "fixture-calc",
+    }),
+  );
+  return { port: { getBasicSaju }, getBasicSaju };
+}
+
 function setup(
   personPort: PersonPort = fakeAccountPort(),
   slug: "love" | "wealth" | "overall" | "sinsal" = "love",
 ) {
-  return render(
+  const sajuStub = basicSajuStub();
+  const rendered = render(
     <QueryClientProvider client={makeQueryClient()}>
-      <FortuneInfoScreen slug={slug} personPort={personPort} />
+      <FortuneInfoScreen
+        slug={slug}
+        personPort={personPort}
+        basicSajuPort={sajuStub.port}
+      />
     </QueryClientProvider>,
   );
+  return { ...rendered, getBasicSaju: sajuStub.getBasicSaju };
 }
 
 class Boundary extends Component<
@@ -179,18 +204,37 @@ describe("FortuneInfoScreen (FORT-01)", () => {
     expect(String(caught)).toContain("MOCK-PORT");
   });
 
-  it("i. 오행분석 자리가 있고, 등껍질 글자나 가격 숫자는 없다", async () => {
+  it("i. 오행분석 섹션에는 li 5개가 있고, 섹션 밖 본문에는 등껍질 글자나 숫자가 없다", async () => {
     const { container } = setup();
     await proceed();
-    expect(
-      container.querySelector('[data-slot="five-elements"]'),
-    ).not.toBeNull();
-    const main = within(screen.getByRole("main"));
-    const text = main.getByText("오행분석").closest("section")?.textContent;
-    expect(text).toBe("오행분석");
-    // 본문(푸터 제외) 어디에도 등껍질 글자나 숫자가 없다
+    const section = container.querySelector('[data-slot="five-elements"]');
+    expect(section).not.toBeNull();
+    await waitFor(() =>
+      expect(
+        within(section as HTMLElement).getAllByRole("listitem"),
+      ).toHaveLength(5),
+    );
+    // 섹션 밖 본문(푸터 제외) 어디에도 등껍질 글자나 숫자가 없다
     const body = screen.getByRole("main").textContent ?? "";
-    expect(body).not.toContain("등껍질");
-    expect(body).not.toMatch(/\d/);
+    const outside = body.replace(section?.textContent ?? "", "");
+    expect(outside).not.toContain("등껍질");
+    expect(outside).not.toMatch(/\d/);
+  });
+
+  it("j. 저장된 다른 사용자를 고르면 오행분석을 그 사람의 personId 로 조회한다", async () => {
+    const user = userEvent.setup();
+    const { getBasicSaju } = setup();
+    await waitFor(() =>
+      expect(getBasicSaju).toHaveBeenCalledWith(SELF.personId),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: "저장된 다른 사용자 불러오기",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: OTHER.name }));
+    await waitFor(() =>
+      expect(getBasicSaju).toHaveBeenCalledWith(OTHER.personId),
+    );
   });
 });
