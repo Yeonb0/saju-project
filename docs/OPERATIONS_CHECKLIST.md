@@ -428,6 +428,15 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-10: A 충전 상품 HTTP 조회와 테스트 연결 풀
+
+- 기준: codex/fe-handoff-notes, main 병합 이후 로컬 A 개발. GET /api/v1/products?category=TOP_UP을 추가했다. 로그인 없는 읽기 전용 조회이며 서버 가격/유료분/보너스분/총 지급량을 반환한다. 기본 비활성 상태에서는 items=[]다. 전체 FORTUNE/GIFT 카탈로그는 미구현이고 미지원 필터는 400이다.
+- 적용: 6-1 공개 상품 정보만 GET 허용/기존 주문 소유권·CSRF 유지, 6-2 조회 시 주문/원장/lot 미변경과 테스트 connection pool, 6-6 개발/테스트 DB 분리/판매 비활성 유지, 6-9 PG 키 미사용·미출력. 신규 migration이나 판매 활성화 변경은 없다.
+- H2 관련 18건 통과 후 실제 PostgreSQL 전체 실행에서 테스트 context마다 기본 연결 풀이 누적돼 SQLSTATE 53300(too many clients)로 B 수능 HTTP 8건이 초기화 실패했다. 테스트 프로필만 최대 연결 6/최소 유휴 1로 제한하고 재실행했다. 운영 DB 연결 한도/부하를 검증했다는 의미는 아니다.
+- 최종 PostgreSQL 17.11의 localhost:55432/sajuppugi_test에서 check bootJar exportOpenApi --rerun-tasks 성공. XML 총 300건, 통과 297, 실패/오류 0, 선택 제외 3(실제 Liner/OpenAPI opt-in/walletDemo). OpenAPI export는 별도 task에서 성공했다. 신규 상품 HTTP 4건은 실제 catalog/DB/보안 필터를 사용하며 6종 금액/지급량/순서, 비활성·판매 기간 필터, 잘못된 query, 미인증 조회, 주문/원장/lot 미변경을 확인했다.
+- 읽기 전용 SQL로 테스트 DB/버전, Flyway 14건 모두 success=true, 활성 충전 상품 0건을 확인했다. 상품 활성화 fixture는 테스트 트랜잭션 종료 시 롤백하며 개발 DB는 변경하지 않았다.
+- 토스 승인/조회 adapter, 실제 충전 지급, 결과 불명 복구, 실키 테스트 결제, FE 실제 adapter/E2E, 운영 배포·부하는 미검증/미완료다. B 코드/FE 코드를 변경하지 않았고 구매/복구 기본 비활성은 유지한다. 토스 문서 예제키 확보와 본인 상점 승인 완료는 구분한다. push/PR/배포는 하지 않았다.
+
 ### 2026-10-10: 팀 전달 문서 간소화
 
 - FE_DELIVERY_20261010.md를 질문 답변/미구현 경계/주의사항/FE 확인·회신 목록만 담은 전달용으로 추가했다. 기존 FE_HANDOFF는 상세 참고용으로 유지한다.

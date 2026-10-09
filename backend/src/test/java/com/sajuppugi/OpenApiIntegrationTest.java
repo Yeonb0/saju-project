@@ -33,6 +33,7 @@ class OpenApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/quotes/{quoteId}'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/wallet'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/products'].get.operationId").value("listTopUpProducts"))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         Map<String, Object> schema = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         Path output = Path.of(System.getProperty("openapi.export.path"));

@@ -270,6 +270,11 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 
 Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
+구현 범위(2026-10-10, A 로컬): `GET /api/v1/products?category=TOP_UP`만 제공한다.
+로그인 없이 판매 가능한 충전 상품을 조회하고 아래 TOP_UP 필드와 공통 `data` 응답을 사용한다.
+기본 판매 차단 상태에서는 `data.items=[]`다. category 누락/미지원 값 및 fortuneType은 400이다.
+아래 FORTUNE/GIFT와 혼합 목록은 목표 계약이며 아직 제공하지 않는다.
+
 ```json
 {
   "items": [

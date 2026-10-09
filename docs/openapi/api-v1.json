@@ -144,6 +144,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseProductsResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ProductsResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponsePurchaseResponse" : {
         "properties" : {
           "data" : {
@@ -922,6 +933,31 @@
         },
         "type" : "object"
       },
+      "Price" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "currency" : {
+            "enum" : [ "KRW", "TURTLE_SHELL" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ProductsResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TopUpResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "items" ],
+        "type" : "object"
+      },
       "PurchaseRequest" : {
         "properties" : {
           "counterpartPersonId" : {
@@ -1374,6 +1410,37 @@
         },
         "type" : "object"
       },
+      "TopUpResponse" : {
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "bonusAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "category" : {
+            "enum" : [ "TOP_UP" ],
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "creditedAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "paidAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "price" : {
+            "$ref" : "#/components/schemas/Price"
+          }
+        },
+        "required" : [ "active", "bonusAmount", "category", "code", "creditedAmount", "paidAmount", "price" ],
+        "type" : "object"
+      },
       "TwelveStages" : {
         "properties" : {
           "day" : {
@@ -1494,6 +1561,42 @@
           }
         },
         "tags" : [ "basic-saju-controller" ]
+      }
+    },
+    "/api/v1/products" : {
+      "get" : {
+        "description" : "Currently supports category=TOP_UP only. Returns available products, not a price reservation.",
+        "operationId" : "listTopUpProducts",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "category",
+          "required" : true,
+          "schema" : {
+            "enum" : [ "TOP_UP" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "fortuneType",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProductsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ ],
+        "tags" : [ "product-controller" ]
       }
     },
     "/api/v1/quotes/fortune" : {
