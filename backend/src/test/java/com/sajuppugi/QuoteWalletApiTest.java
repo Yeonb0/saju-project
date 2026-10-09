@@ -133,9 +133,9 @@ class QuoteWalletApiTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
         }
+        var expiredAt = clock.instant().minusSeconds(1);
         jdbc.update("UPDATE purchase_quotes SET created_at = ?, expires_at = ? WHERE id = ?",
-                Timestamp.from(clock.instant().minusSeconds(1801)),
-                Timestamp.from(clock.instant().minusSeconds(1)), quote);
+                Timestamp.from(expiredAt.minusSeconds(1800)), Timestamp.from(expiredAt), quote);
         mvc.perform(get("/api/v1/quotes/{id}", quote).with(user(owner.toString())))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("QUOTE_EXPIRED"));
