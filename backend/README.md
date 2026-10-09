@@ -85,10 +85,12 @@ bash ./gradlew clean check bootJar
 `LINER_API_KEY`를 환경변수나 `backend/.env`에 설정한 뒤 명시적으로 실행한다.
 
 ```sh
-LINER_LIVE_TEST=true ./gradlew test \
+LINER_LIVE_TEST=true ./gradlew test --rerun-tasks \
   --tests 'com.sajuppugi.fortune.generation.LinerLiveSmokeTest'
 jq . build/liner-live-response.json
 ```
+
+`--rerun-tasks`를 생략하면 이전 실행 결과가 `UP-TO-DATE`로 재사용되어 실제 API를 호출하지 않을 수 있다.
 
 ## 환경 설정
 
