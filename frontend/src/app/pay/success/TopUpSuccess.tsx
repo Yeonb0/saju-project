@@ -5,6 +5,7 @@
 // 처리 중 · 결과 불명확은 조회, 30초 초과는 확인 중 + 주문 확인 버튼. 새 결제 · 새 키로 유도하지 않는다.
 // 승인은 주문 하나에 한 번 — React StrictMode 의 이중 실행에도 inflight 로 한 번만 보낸다 (CONFIRM-KEY).
 // 디자인 요소 없음 (PG-FIRST). 배치는 LAYOUT-FIGMA PAY-03 · 04 · 05.
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -15,6 +16,7 @@ import {
 import { getTopUpPort } from "@/lib/ports";
 import type { PaymentReturn, TopUpPort } from "@/lib/ports/topUp";
 import { loadPurchaseSelection } from "@/lib/purchase/restore";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 import {
   PAY_ACTION_PRIMARY,
   PAY_ACTION_SECONDARY,
@@ -46,13 +48,16 @@ export function TopUpSuccess({
 }) {
   // 포트는 렌더 중이 아니라 요청할 때 고른다 (진짜 구현이 없으면 오류 화면으로)
   const topUp = () => port ?? getTopUpPort();
+  const queryClient = useQueryClient();
   const [view, setView] = useState<View>({ kind: "confirming" });
   // 충전 전 앞 화면 (PURCHASE-RESTORE). 저장소는 렌더가 아니라 effect 에서 읽는다 — 서버 렌더와 어긋나지 않게
   const [resumePath, setResumePath] = useState<string | null>(null);
   useEffect(() => {
     if (view.kind !== "credited") return;
     setResumePath(loadPurchaseSelection()?.returnPath ?? null);
-  }, [view.kind]);
+    // CREDITED 일 때만 — 잔액은 서버에서 다시 받는다 (TOPUP-DONE · P-09 · Q-22: 클라이언트에서 합산하지 않는다)
+    queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
+  }, [view.kind, queryClient]);
 
   useEffect(() => {
     let alive = true;

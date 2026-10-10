@@ -7,8 +7,8 @@ import type { Reading, ReadingPort, ReadingSection } from "@/lib/ports/reading";
 
 const TRACE = "fixture-trace";
 
-// 픽스처일 뿐이며 실제 섹션 구성 · 문구와 무관하다. 타입 네 가지와 모르는 타입 하나를 모두 지나가게 둔다.
-const FIXTURE_SECTIONS: readonly ReadingSection[] = [
+// 픽스처일 뿐이며 실제 섹션 구성 · 문구와 무관하다. 타입 네 가지와 모르는 타입 하나를 모두 지나가게 둔다. 수능 전용 타입은 SUNEUNG 에만 둔다.
+const FIXTURE_SUNEUNG_SECTIONS: readonly ReadingSection[] = [
   { key: "SUMMARY", type: "TEXT", title: "FIXTURE 요약", content: "FIXTURE" },
   {
     key: "PERIODS",
@@ -36,6 +36,13 @@ const FIXTURE_SECTIONS: readonly ReadingSection[] = [
     ],
   },
   // 서버가 나중에 새 타입을 보내는 경우 (Q-05)
+  { key: "FIXTURE_NEW", type: "UNKNOWN", rawType: "FIXTURE_NEW_TYPE" },
+];
+
+// 픽스처일 뿐이며 실제 섹션 구성과 무관하다 — 일반 운세 구성은 Q-35 · Q-05 확정 후. 수능 전용 섹션을 섞지 않는다
+const FIXTURE_GENERAL_SECTIONS: readonly ReadingSection[] = [
+  { key: "SUMMARY", type: "TEXT", title: "FIXTURE 요약", content: "FIXTURE" },
+  { key: "DETAIL", type: "TEXT", title: "FIXTURE 풀이", content: "FIXTURE" },
   { key: "FIXTURE_NEW", type: "UNKNOWN", rawType: "FIXTURE_NEW_TYPE" },
 ];
 
@@ -75,7 +82,10 @@ export function createFakeReadings(): FakeReadings {
           product.fortuneType === "SUNEUNG"
             ? { type: "SUNEUNG", date: "2000-01-01" }
             : null,
-        sections: FIXTURE_SECTIONS,
+        sections:
+          product.fortuneType === "SUNEUNG"
+            ? FIXTURE_SUNEUNG_SECTIONS
+            : FIXTURE_GENERAL_SECTIONS,
         disclaimers: ["FOR_ENTERTAINMENT"],
         createdAt: now.toISOString(),
       });

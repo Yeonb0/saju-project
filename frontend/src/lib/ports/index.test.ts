@@ -127,6 +127,9 @@ describe("결과 포트 선택 (MOCK-PORT)", () => {
     };
     const { quoteId } = await fortune.createQuote(selection);
     const result = await fortune.purchase({ quoteId, selection }, "key-1");
+    expect(result.status).toBe("FULFILLED");
+    if (result.readingId === null)
+      throw new Error("FIXTURE: 가짜 구매 결과에 readingId 가 없다");
     const reading = await selectReadingPort("mock", readings).getReading(
       result.readingId,
     );

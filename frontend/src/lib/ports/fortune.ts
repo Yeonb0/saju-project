@@ -94,14 +94,20 @@ export function toReadingPurchaseStatus(raw: string): ReadingPurchaseStatus {
 
 export type ReadingPurchaseResult = Readonly<{
   purchaseId: string;
-  readingId: string;
+  // 처리 중 · 재요청 응답에서 null 일 수 있다 — null 을 0 · 완료로 바꾸지 않는다 (Q-38, BE-A 10/10)
+  readingId: string | null;
   status: ReadingPurchaseStatus;
   charged: Money;
-  // 구매 응답의 서버 잔액
-  balance: number;
-  // 생성 실패로 차감을 되돌렸으면 true (READING_GENERATION_FAILED)
-  refunded: boolean;
+  // 구매 응답의 서버 잔액. 처리 중 · 재요청 응답에서 null 일 수 있다 (Q-38, BE-A 10/10)
+  balance: number | null;
+  // refunded 는 두지 않는다 — OpenAPI PurchaseResponse 에 refunded 가 없고, 오류 code 만으로 환급을 단정하지 않는다 (Q-38)
 }>;
+
+// 결과 화면으로 보내도 되는 구매 응답 — FULFILLED 이고 readingId 가 있을 때만 (Q-38)
+export type FulfilledReadingPurchase = ReadingPurchaseResult & {
+  status: "FULFILLED";
+  readingId: string;
+};
 
 export type FortunePort = {
   listProducts(fortuneType: FortuneType): Promise<readonly FortuneProduct[]>;

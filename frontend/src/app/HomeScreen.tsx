@@ -12,6 +12,7 @@ import { FORTUNE_LABELS, type FortuneSlug } from "@/lib/navigation";
 import { getSessionPort, getTopUpPort } from "@/lib/ports";
 import type { SessionPort } from "@/lib/ports/session";
 import type { TopUpPort } from "@/lib/ports/topUp";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
 
@@ -52,7 +53,7 @@ export function HomeScreen({
   const signedIn = state?.status === "signed_in";
 
   const wallet = useQuery({
-    queryKey: ["wallet"],
+    queryKey: WALLET_QUERY_KEY,
     queryFn: () => (topUpPort ?? getTopUpPort()).getWallet(),
     enabled: signedIn,
   });

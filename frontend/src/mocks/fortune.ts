@@ -190,7 +190,7 @@ export function createFakeFortunePort(
       }
 
       const failed = scenario === "generation_failed";
-      // 생성 실패면 차감을 되돌린다 (API_SPEC 8장 초안 refunded=true)
+      // 생성 실패면 차감을 되돌린다 (잔액으로만 드러난다 — 응답에 refunded 는 없다, Q-38)
       if (failed) wallet.credit(p.price.amount);
       const result: ReadingPurchaseResult = {
         purchaseId: crypto.randomUUID(),
@@ -200,7 +200,6 @@ export function createFakeFortunePort(
         status: failed ? "FAILED" : "FULFILLED",
         charged: failed ? { currency: p.price.currency, amount: 0 } : p.price,
         balance: wallet.balance(),
-        refunded: failed,
       };
       purchases.set(idempotencyKey, { body, result });
       return result;
