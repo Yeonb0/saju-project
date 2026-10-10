@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createIdempotencyKey,
   createIdempotentCommand,
+  createKeyedCommand,
   createOrderBoundCommand,
 } from "./idempotency";
 
@@ -49,6 +50,22 @@ describe("createOrderBoundCommand", () => {
 
   it("주문 ID 가 UUID 가 아니면 던진다", () => {
     expect(() => createOrderBoundCommand("not-a-uuid", PAYLOAD)).toThrow();
+  });
+});
+
+describe("createKeyedCommand", () => {
+  it("같은 키 · 같은 입력이면 key · body 가 같고 body 는 payload 와 같다", () => {
+    const key = createIdempotencyKey();
+    const first = createKeyedCommand(key, PAYLOAD);
+    const second = createKeyedCommand(key, PAYLOAD);
+    expect(first.key).toBe(key);
+    expect(second.key).toBe(first.key);
+    expect(second.body).toBe(first.body);
+    expect(JSON.parse(first.body)).toEqual(PAYLOAD);
+  });
+
+  it("키가 UUID 가 아니면 던진다", () => {
+    expect(() => createKeyedCommand("not-a-uuid", PAYLOAD)).toThrow();
   });
 });
 
