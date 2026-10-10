@@ -9,12 +9,13 @@
 - **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** + **진짜 adapter 시작(ADAPTER-HTTP)**. 최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA) — 글꼴 · 손그림 외곽선 · 색 토큰은 팀 문서 반영(Q-32) · 적용 시작(사용자 결정) 전까지 넣지 않는다. 캐릭터 · 아이콘 · 이미지 에셋은 자리만, 와이어 문구는 자리표시. 코드는 Claude Code, 웹 대화는 명세 · 검토 · 작업 공간 재현 · 변이 확인 (CODE-BY-CC · SCREEN-CHECK). **위험: BE 스테이징 · 세션(카카오 로그인 · `GET /session`) API 없음 (R-06) — 진짜 모드 연결은 세션 adapter(CSRF 출처)에 막혀 있다. FE 목표 10/12 · 심사 요청 10/14 의 진짜 연결은 BE 일정에 달렸다**
 - **10/10 오전 새로 들어온 것**: (1) BE-A PR #17 `main` 병합(`f47b719`, 10/9 밤) — **OpenAPI 파일 `docs/openapi/api-v1.json`**, 견적 자금 필드(`walletBalance` · `balanceAfter` · `shortage` · `recommendedTopUp`) · `charged` 통일 · `GET /quotes/{quoteId}` · `GET /wallet`(유료 · 보너스) · `POST /top-up-orders`(예정 지급량) · 오행 `{ personId }` 입력, `backend/docs/FE_REQUESTS_20261009.md`. `boyeon` 에 병합(`f207fd9`). (2) BE-B 답변서 2종(10/9) · BE-A FE 전달(10/10) · 사업자등록증 → TEAM-QUESTIONS 반영(`1a9d877`): Q-30 · R-08 해결, Q-34 · Q-35 대부분 해결, 새 질문 Q-37(수능 결과 구조) · Q-38(구매 결과 · 환급 확인). (3) 팀 회신 문서 `뿌기사주-FE-회신-20261010.md`(저장소 밖, 사용자가 팀에 공유)
 - **일정 위치 (10/10 오전)**: PG 트랙 가짜 범위 배치는 끝났고, 진짜 연결 준비(생성 타입 · adapter 틀 · 오행 · 지갑 · 주문 생성)를 했다. 남은 PG 일: 세션 adapter(BE-B 세션 API 대기) → `ports/index.ts` 진짜 연결, 충전 승인 · 상품 목록(Q-17 · Q-28), 토스 SDK(R-09), 푸터 값 4개(R-07) · 원고(Q-21 · Q-36), 실기기
-- **마지막으로 끝낸 작업** (10/10, `boyeon` `c46bfa7`): 전부 웹 대화가 작업 공간에서 diff 재현 · 변이 확인 후 커밋
+- **마지막으로 끝낸 작업** (10/10, `boyeon` `79a2df0`): 전부 웹 대화가 작업 공간에서 diff 재현 · 변이 확인 후 커밋
   - `main` PR #17 병합 (`f207fd9`), TEAM-QUESTIONS 팀 답 반영 (`1a9d877`, 웹 대화 직접 push)
   - COMMON-01 사업자 값 4개 — 상호 · 대표자 · 사업자등록번호 · 주소, 사업자등록증 그대로 (`5bee76c`)
   - 구매 결과 처리 — 환급 문장은 서버 `REFUNDED` 일 때만, `FULFILLED` + `readingId` 일 때만 결과 이동, 처리 중은 같은 키로 결과 확인 (`8feb588`, Q-38)
   - OpenAPI 생성 타입 + 동기화 테스트 · adapters 밖 사용 금지 테스트 (`2c9a17b`)
   - 첫 adapter — 오행분석 (`e6a603a`), 충전 지갑 · 주문 생성 (`c46bfa7`). 둘 다 `ports/index.ts` 에는 아직 연결하지 않았다 (세션 adapter 후)
+  - HOME-03 테스트 대기 3초 · 정규식 오타 (`79a2df0`)
   - 테스트 67 파일 · 558 개
 - **화면 현황 (10/10, 최종 와이어 기준)** — 10/9 와 같음
   - 동작 + 배치: HOME-01 ~ 04, FORT-01 ~ 05, MATCH-01 ~ 03, CSAT-01 ~ 06, PAY-01 ~ 05, MY-01, INFO-01 · 02, COMMON-01, (팝업) 차감 확인 · 잔액 부족 — 전부 가짜 모드. 진짜 모드는 adapter 연결 전이라 "진짜 구현 없음" 오류
@@ -49,7 +50,7 @@
   - FE 가 팀 문서 PR 로 고칠 것 (DOCS-TEAM-PR, 사용자 동의 후): A-01 개발 범위(심사 전 카카오만 · 심사 후 구글 · 네이버, Q-36 3), Q-19 답(T-01 · T-02, PD 확인 후), Q-32 디자인 시스템
   - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person · signed_in_with_other, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired, 비우면 fulfilled). 미리보기에서는 왼쪽 아래 "가짜" 조작판이 우선 (MOCK-PANEL). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로
   - Vercel "Automatically expose System Environment Variables" 켜짐(10/4) — 운영 mock 차단 · Sentry 키 검사가 기댄다
-  - `pnpm test` — 보통 35 ~ 60초. 10/10 에 한 번 `HomeScreen.test.tsx` "c. 로그인이면 지갑 픽스처 잔액(7)" 이 실패하고 재실행에서 통과(작업 공간 부하 재현 안 됨 — `findByRole` 기본 대기 1초 초과로 추정). 또 나면 실패 로그를 받아 원인 확인. 같은 테스트의 이름 정규식 `/^7s*충전하기$/` 는 `\s*` 의 오타(지금 통과에는 영향 없음) — 다음 HomeScreen 작업 때 고친다
+  - `pnpm test` — 보통 35 ~ 60초. 10/10 에 한 번 `HomeScreen.test.tsx` "c. 로그인이면 지갑 픽스처 잔액(7)" 이 실패하고 재실행에서 통과(작업 공간 부하 재현 안 됨 — `findByRole` 기본 대기 1초 초과로 추정). 대기 3초 · 이름 정규식 오타(`s*` → `\s*`) 수정 (`79a2df0`). 또 나면 실패 로그를 받아 원인 확인
   - 명세 정확도 (웹 대화 자체 점검): "이 조건을 빼면 이 테스트가 실패해야 한다" 요구가 10/10 에 두 번 더 성립하지 않았다(59단계 status 조건 — 테스트 픽스처의 readingId 가 null 이라 다른 조건이 막음, 61단계 정렬 — zod 가 스키마 순서로 키를 만듦). 웹 대화가 작업 공간 변이로 확인해 59단계는 테스트를 더했다. 61단계에서 `satisfies` 를 리터럴이 아닌 값에 쓰면 이름 대조가 안 된다는 것도 변이로 찾았다 (생성 타입 필드가 모두 선택이라)
   - PD 에게 받은 것: 선물 재발송 안내 문구(저장소 밖). 정책 초안 3종은 `docs/policies/`(`8fffac0`) — 확정본 전 코드 반영 금지
   - 사업자등록증 원본은 저장소에 두지 않는다 (대표자 개인정보 포함). 푸터에는 4개 값만
@@ -141,7 +142,7 @@
 
 ## 세션 로그
 
-- 2026-10-10 (오전) · 58 ~ 62단계: BE-B 답변서 2종 · BE-A PR #17 · FE 전달 · 사업자등록증 대조 → TEAM-QUESTIONS(`1a9d877`, Q-37 · Q-38 신설) · 팀 회신 문서(`뿌기사주-FE-회신-20261010.md`). `main` PR #17 병합(`f207fd9`), 사업자 값 4개(`5bee76c`), 구매 결과 처리 Q-38(`8feb588`), OpenAPI 생성 타입(`2c9a17b`), 결정 ADAPTER-HTTP · 오행분석 adapter(`e6a603a`) · 충전 adapter(`c46bfa7`). 매 단계 작업 공간 재현 · 변이 확인. 테스트 67 파일 · 558 개
+- 2026-10-10 (오전) · 58 ~ 63단계: BE-B 답변서 2종 · BE-A PR #17 · FE 전달 · 사업자등록증 대조 → TEAM-QUESTIONS(`1a9d877`, Q-37 · Q-38 신설) · 팀 회신 문서(`뿌기사주-FE-회신-20261010.md`). `main` PR #17 병합(`f207fd9`), 사업자 값 4개(`5bee76c`), 구매 결과 처리 Q-38(`8feb588`), OpenAPI 생성 타입(`2c9a17b`), 결정 ADAPTER-HTTP · 오행분석 adapter(`e6a603a`) · 충전 adapter(`c46bfa7`), 문서(`a4d2dbd`), 63단계 HOME-03 테스트(`79a2df0`). 매 단계 작업 공간 재현 · 변이 확인. 테스트 67 파일 · 558 개
 - 2026-10-09 (오후) · 39 ~ 56단계: HOME-01 로그인 제공자 · 화면은 카카오만(`4717e77`, LOGIN-3 개정), PAY-01 수정안(`b5f7f3a`), PAY-03 ~ 05(`5f61f94`), INFO-01(`5e37d52`), `main` PR #15 병합(`8340913`), 정책 초안 `docs/policies/`(`8fffac0`, 웹 대화 직접 push), COMMON-01(`78aa7ad`), INFO-02(`aa2296e`), 오행분석 포트 · 가짜(`13eb54d`) · 화면(`5c38cb3`). BE-B PR #15 검토 → 팀 질문 문서(Q-33 ~ Q-36) · BE-B 연동 TODO(PHASES). 테스트 62 파일 · 499 개
 - 2026-10-09 (오전) · 팀 답 요청 문서(`뿌기사주-팀-답-요청-20261009.md`, 사용자에게 전달). 로그인 네이버 · 구글 버튼 39단계 지시(LOGIN-3). 최종 와이어 PD 추가 화면 7개 · 디자인 시스템 확정본(Figma `iFtLxChBQf3nQWaltdrJ37`) 조회 → PHASES v2.9 · Q-25 부분 · Q-15 부분 · Q-32. 다음 세션 지침 교체본 작성.
 - 2026-10-08 (밤) ~ 10-09 (아침) · HOME-03 · 04 커밋 · 메뉴 줄 높이(`8c16730` · `ce4bf89`), FORT-01(`d7f988b`), FORT-02 · 03(`74a753e`), 가짜 시나리오 `signed_in_with_other`(`45828ff`), MATCH-01 · 02(`1f6150e`), MATCH-03(`ddeb780`), PAY-02 · FORT-04(`7c9b186`), FORT-05 · CSAT-02(`36d4284`) — 매 단계 작업 공간 재현 · 화면 대조. 오늘의 운세는 Q-31 로 넘김(TODAY-HOLD). 결정 MATCH-SELF · CLIENT-REDIRECT · SCREEN-CHECK. TEAM-QUESTIONS Q-31 · Q-23 l.
