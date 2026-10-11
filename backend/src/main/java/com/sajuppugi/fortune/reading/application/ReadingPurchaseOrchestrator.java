@@ -80,7 +80,7 @@ public class ReadingPurchaseOrchestrator {
         } catch (GenerationFailedException failure) {
             try {
                 readings.markFailed(purchase.id(), "READING_GENERATION_FAILED", lease);
-            } catch (IllegalStateException fencedOff) {
+            } catch (RuntimeException fencedOrPersistenceFailure) {
                 throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
             }
             throw new ApiException(ErrorCode.READING_GENERATION_FAILED);

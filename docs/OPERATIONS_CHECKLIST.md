@@ -748,3 +748,6 @@ LIMIT 20;
 - 로컬 HTTP 서버의 응답을 2초 지연하고 read timeout을 100ms로 설정해 제한 시간 내 `LinerApiException`으로 종료하며 API key/원격 본문을 노출하지 않음을 확인했다. 이는 실제 Liner endpoint나 staging 프록시 시험은 아니다.
 - 분리 PostgreSQL DB에서 전체 `clean check bootJar` 성공. 로컬 커밋 `afa5cfe`, `f09f2f5`, `4ca8c91`; push/PR/배포는 하지 않았다. 실제 staging SIGKILL과 운영 용량 측정은 환경 권한·트래픽이 필요한 별도 운영 검증으로 남는다.
 - opt-in 조건이 일반 `test` task의 JVM에 전달되지 않아 PostgreSQL recovery suite가 제외되는 검증 공백을 발견했다. 분리 DB URL을 강제하는 `generationRecoveryPostgresTest` task를 추가하고 실제 4건 실행을 확인했다. 이 과정에서 fixture의 30분 견적 제약과 Spring repository 예외 변환 기대값을 수정했으며 업무 제약을 완화하지 않았다.
+- 재검증 정적 리뷰에서 `@Repository`가 stale fence의 예외를 Spring 데이터 접근 예외로 변환해 동기 구매 오케스트레이터의 좁은 catch를 벗어날 수 있음을 발견했다. generation 실패 상태 저장의 모든 런타임 저장 실패를 `READING_FULFILLMENT_UNAVAILABLE`로 변환하고 전용 단위 테스트로 고정했다. stale 결과 자체는 DB fence가 계속 거절한다.
+- 재암호화 SQL은 평문과 `enc:v1`만 대상으로 제한했다. PostgreSQL 표본에서 평문/`v1`은 `v2`로 전환되고 임의의 미래 `enc:v3` 값은 변경되지 않음을 확인했다.
+- 수정 후 분리 PostgreSQL에서 `clean check bootJar` 성공: XML 총 412건, 통과 405, 실패/오류 0, 의도적 제외 7. 이어 전용 recovery 4건은 통과 4, 제외/실패/오류 0으로 별도 확인했다. 실제 staging 프로세스 종료와 운영 부하는 여전히 이 로컬 검증의 범위가 아니다.

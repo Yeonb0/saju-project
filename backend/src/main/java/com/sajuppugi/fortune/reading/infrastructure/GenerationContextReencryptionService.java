@@ -21,7 +21,8 @@ public class GenerationContextReencryptionService {
         if (batchSize < 1 || batchSize > 1_000) throw new IllegalArgumentException("batchSize must be 1..1000");
         List<StoredContext> contexts = jdbc.query("""
                 SELECT id, generation_context FROM reading_purchases
-                WHERE generation_context IS NOT NULL AND generation_context NOT LIKE 'enc:v2:%'
+                WHERE generation_context IS NOT NULL
+                AND (generation_context LIKE 'enc:v1:%' OR generation_context NOT LIKE 'enc:%')
                 ORDER BY id LIMIT ?
                 """, (rs, row) -> new StoredContext(rs.getObject(1, UUID.class), rs.getString(2)), batchSize);
         int updated = 0;

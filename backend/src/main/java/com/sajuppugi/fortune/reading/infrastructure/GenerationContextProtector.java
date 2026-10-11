@@ -32,8 +32,4 @@ public class GenerationContextProtector {
         }
         return stored;
     }
-
-    public boolean needsReencryption(String stored) {
-        return stored != null && !stored.startsWith(CURRENT_PREFIX);
-    }
 }

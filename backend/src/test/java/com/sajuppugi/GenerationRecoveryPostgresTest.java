@@ -61,6 +61,9 @@ class GenerationRecoveryPostgresTest {
         String legacyV1 = "enc:v1:" + Base64.getEncoder().encodeToString(personDataProtector.encrypt(plaintext));
         jdbc.update("UPDATE reading_purchases SET generation_context = ? WHERE id = ?", legacyV1,
                 v1Fixture.purchase());
+        Fixture unknownVersionFixture = fixture();
+        jdbc.update("UPDATE reading_purchases SET generation_context = 'enc:v3:opaque' WHERE id = ?",
+                unknownVersionFixture.purchase());
 
         assertThat(reencryption.reencryptBatch(100)).isGreaterThanOrEqualTo(2);
         String migrated = jdbc.queryForObject(
@@ -69,6 +72,8 @@ class GenerationRecoveryPostgresTest {
         assertThat(migrated).startsWith("enc:v2:").doesNotContain("테스트", "2004-03-15");
         assertThat(jdbc.queryForObject("SELECT generation_context FROM reading_purchases WHERE id = ?",
                 String.class, v1Fixture.purchase())).startsWith("enc:v2:");
+        assertThat(jdbc.queryForObject("SELECT generation_context FROM reading_purchases WHERE id = ?",
+                String.class, unknownVersionFixture.purchase())).isEqualTo("enc:v3:opaque");
         assertThat(reencryption.reencryptBatch(100)).isZero();
         assertThat(recovery.recover(plaintextFixture.purchase()))
                 .isEqualTo(GenerationRecoveryService.Outcome.FULFILLED);
