@@ -12,6 +12,7 @@ import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.member.application.MemberService;
 import com.sajuppugi.person.application.PersonService;
 import com.sajuppugi.person.domain.Person;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -92,11 +93,11 @@ class MemberLifecycleTest {
     void rejectsWithdrawalWhileRefundablePaidBalanceRemains() throws Exception {
         UUID userId = insertUser("ACTIVE", NOW.minusSeconds(3600), null);
         jdbc.update("INSERT INTO wallets (user_id, paid_balance, bonus_balance, version, updated_at) VALUES (?, 5, 0, 0, ?)",
-                userId, NOW);
+                userId, timestamp(NOW));
         jdbc.update("""
                 INSERT INTO wallet_lots (id, wallet_user_id, balance_type, granted_amount, remaining_amount,
                     expires_at, created_at) VALUES (?, ?, 'PAID', 5, 5, ?, ?)
-                """, UUID.randomUUID(), userId, NOW.plusSeconds(86400), NOW.minusSeconds(60));
+                """, UUID.randomUUID(), userId, timestamp(NOW.plusSeconds(86400)), timestamp(NOW.minusSeconds(60)));
 
         mvc.perform(delete("/api/v1/me").with(user(userId.toString())).with(csrf()))
                 .andExpect(status().isConflict())
@@ -111,7 +112,7 @@ class MemberLifecycleTest {
         jdbc.update("""
                 INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at,
                     withdrawal_requested_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, id, "kakao-" + id, "테스트 회원", status, createdAt, createdAt, withdrawalAt);
+                """, id, "kakao-" + id, "테스트 회원", status, timestamp(createdAt), timestamp(createdAt), timestamp(withdrawalAt));
         return id;
     }
 
@@ -119,13 +120,15 @@ class MemberLifecycleTest {
         jdbc.update("""
                 INSERT INTO user_sessions (id, user_id, token_hash, csrf_secret_hash, expires_at, last_seen_at)
                 VALUES (?, ?, ?, ?, ?, ?)
-                """, UUID.randomUUID(), userId, tokenHash, "c".repeat(64), NOW.plusSeconds(86400), NOW);
+                """, UUID.randomUUID(), userId, tokenHash, "c".repeat(64), timestamp(NOW.plusSeconds(86400)), timestamp(NOW));
     }
 
     private BirthInput birth() {
         return new BirthInput(LocalDate.of(2000, 1, 2), LocalTime.of(12, 30), false,
                 BirthInput.CalendarType.SOLAR, false, BirthInput.Gender.FEMALE);
     }
+
+    private Timestamp timestamp(Instant value) { return value == null ? null : Timestamp.from(value); }
 
     @TestConfiguration
     static class FixedClockConfiguration {
