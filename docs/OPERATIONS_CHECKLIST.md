@@ -718,3 +718,12 @@ LIMIT 20;
 - 후속 실제 PostgreSQL 17 분리 DB(`localhost:55432`, fake Liner)에서 `GenerationRecoveryPostgresTest`를 실행했다. 독립 worker 2개가 동일 DEBITED 구매를 동시에 recovery해도 최종 상태 FULFILLED와 `readings` 1건만 남음을 확인했다. OS 강제 종료·lease 만료 후 늦은 완료·실제 Liner 지연/보상 대사는 여전히 미검증이다.
 - 추가 PostgreSQL 재현에서 첫 worker의 lease를 만료시키고 두 번째 worker가 더 높은 fence로 점유한 뒤, 첫 worker의 늦은 실패 저장이 거절되는지 확인했다. 두 번째 worker도 종료된 상황을 DB의 만료 lease로 재현한 후 새 recovery service 실행이 저장된 snapshot으로 FULFILLED/readings 1건에 수렴했다. 이는 SIGKILL 자체를 실행한 시험은 아니지만 프로세스 메모리에 의존하지 않는 재시작 경계를 검증한다.
 - `ReadingGenerationServiceTest`, `FailedPurchaseRecoveryTest`, 일반/수능 API suite를 함께 재실행해 provider 3회 실패 뒤 deterministic fallback, fallback까지 실패한 확정 실패, 보상 receipt 재사용·동시 recovery·bounded retry·REFUNDED 확정을 확인했다. 실제 Liner endpoint에 고의 지연을 보내거나 staging 프로세스를 SIGKILL한 것은 아니며 운영 활성화·배포도 하지 않았다.
+
+### 2026-10-11: B 생성 복구 코드 리뷰 후 운영 결함 보완
+
+- 적용: 6-2 차감/context 영속 순서, 6-3 확정 실패와 일시 오류 구분, 6-4 재시도 소진·후보별 격리, 6-9 생성 context 암호화와 탈퇴 삭제.
+- generation context를 CREATED 상태에서 지갑 차감 전에 저장하도록 순서를 바꿨다. 동일 context 재저장은 멱등 허용하고 다른 context는 거절한다. 차감 커밋 직후 중단돼 DEBITED/context 없음으로 고착되는 구간을 제거했다.
+- generation in-progress, DB/부적 저장 등 일시 오류는 lease를 해제하고 재시도한다. Liner와 deterministic fallback이 모두 실패한 `GenerationFailedException`만 FAILED/PENDING으로 전이한다.
+- 만료 lease에서 최대 시도 횟수에 도달한 GENERATING 구매는 `GENERATION_RETRY_EXHAUSTED`로 FAILED 전이한다. scheduler는 purchase별 예외를 격리해 한 손상 행이 배치 전체를 중단하지 않게 했다.
+- generation context는 기존 person AES-GCM 보호기를 이용한 `enc:v1:` 암호문으로 저장한다. PostgreSQL에서 표시 이름과 생년일 원문이 보이지 않고 복호화 recovery가 성공함을 확인했다. 회원 탈퇴 최종 익명화 때 context를 NULL로 지운다. 기존 평문 context는 혼합 배포 호환을 위해 읽을 수 있으므로 운영 배포 전 재암호화/삭제 계획이 필요하다.
+- 관련 H2 운세·생성·보상·회원 테스트와 PostgreSQL recovery 경쟁/소진 테스트를 통과했다. 실제 staging SIGKILL/live Liner/운영 부하는 확인하지 않았다. 구매 기능과 recovery 기본 비활성은 유지한다.
