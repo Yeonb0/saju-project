@@ -168,6 +168,15 @@ WHERE generation_context IS NOT NULL
   AND generation_context NOT LIKE 'enc:v2:%';
 ```
 
+전환과 generation lease 복구 회귀는 개발 DB가 아닌 분리 테스트 DB에서 다음 전용 task로 실행한다.
+
+```bash
+TEST_DATABASE_URL=jdbc:postgresql://localhost:55432/sajuppugi_test \
+TEST_DATABASE_USERNAME=sajuppugi_test \
+TEST_DATABASE_PASSWORD=local-test-only \
+./gradlew generationRecoveryPostgresTest
+```
+
 ## DB 마이그레이션과 패키지
 
 - Flyway 경로: `src/main/resources/db/migration`

@@ -747,3 +747,4 @@ LIMIT 20;
 - 완료 구매의 quote 생성/만료 시각을 과거로 옮긴 HTTP replay 테스트에서 기존 결과를 반환하고 지갑 차감과 Liner 호출이 각각 1회인 것을 확인했다.
 - 로컬 HTTP 서버의 응답을 2초 지연하고 read timeout을 100ms로 설정해 제한 시간 내 `LinerApiException`으로 종료하며 API key/원격 본문을 노출하지 않음을 확인했다. 이는 실제 Liner endpoint나 staging 프록시 시험은 아니다.
 - 분리 PostgreSQL DB에서 전체 `clean check bootJar` 성공. 로컬 커밋 `afa5cfe`, `f09f2f5`, `4ca8c91`; push/PR/배포는 하지 않았다. 실제 staging SIGKILL과 운영 용량 측정은 환경 권한·트래픽이 필요한 별도 운영 검증으로 남는다.
+- opt-in 조건이 일반 `test` task의 JVM에 전달되지 않아 PostgreSQL recovery suite가 제외되는 검증 공백을 발견했다. 분리 DB URL을 강제하는 `generationRecoveryPostgresTest` task를 추가하고 실제 4건 실행을 확인했다. 이 과정에서 fixture의 30분 견적 제약과 Spring repository 예외 변환 기대값을 수정했으며 업무 제약을 완화하지 않았다.

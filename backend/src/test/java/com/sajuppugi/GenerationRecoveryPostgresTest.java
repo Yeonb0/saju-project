@@ -89,7 +89,8 @@ class GenerationRecoveryPostgresTest {
                 INSERT INTO purchase_quotes(id, requester_user_id, product_id, product_code, category, price_currency,
                 price_amount, active, catalog_version, context_hash, created_at, expires_at, purchase_id)
                 VALUES (?, ?, ?, ?, 'READING', 'TURTLE_SHELL', 15, true, 'test', ?, ?, ?, ?)
-                """, quote, user, product, code, "a".repeat(64), Timestamp.from(now), Timestamp.from(now.plusSeconds(60)), purchase);
+                """, quote, user, product, code, "a".repeat(64), Timestamp.from(now),
+                Timestamp.from(now.plusSeconds(1800)), purchase);
         jdbc.update("""
                 INSERT INTO reading_purchases(id, buyer_user_id, product_id, quote_id, subject_person_id, status, created_at)
                 VALUES (?, ?, ?, ?, ?, 'DEBITED', ?)
@@ -130,7 +131,7 @@ class GenerationRecoveryPostgresTest {
 
         assertThat(secondLease.fence()).isGreaterThan(firstLease.fence());
         assertThatThrownBy(() -> readings.markFailed(fixture.purchase(), "LATE_WORKER_FAILURE", firstLease))
-                .isInstanceOf(IllegalStateException.class);
+                .hasRootCauseInstanceOf(IllegalStateException.class);
         assertThat(jdbc.queryForObject("SELECT status FROM reading_purchases WHERE id = ?", String.class,
                 fixture.purchase())).isEqualTo("GENERATING");
 
@@ -174,7 +175,8 @@ class GenerationRecoveryPostgresTest {
                 INSERT INTO purchase_quotes(id, requester_user_id, product_id, product_code, category, price_currency,
                 price_amount, active, catalog_version, context_hash, created_at, expires_at, purchase_id)
                 VALUES (?, ?, ?, ?, 'READING', 'TURTLE_SHELL', 15, true, 'test', ?, ?, ?, ?)
-                """, quote, user, product, code, "b".repeat(64), Timestamp.from(now), Timestamp.from(now.plusSeconds(60)), purchase);
+                """, quote, user, product, code, "b".repeat(64), Timestamp.from(now),
+                Timestamp.from(now.plusSeconds(1800)), purchase);
         jdbc.update("INSERT INTO reading_purchases(id, buyer_user_id, product_id, quote_id, subject_person_id, status, created_at) VALUES (?, ?, ?, ?, ?, 'DEBITED', ?)",
                 purchase, user, product, quote, person, Timestamp.from(now));
         var facts = new DeterministicSajuEngine().calculate(new BirthInput(LocalDate.of(2004, 3, 15),
