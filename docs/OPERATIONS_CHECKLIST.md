@@ -737,3 +737,13 @@ LIMIT 20;
 - 두 서비스에 따로 있던 상태 전이·오류 처리 143줄을 제거했다. 앞으로 한 상품만 lease 해제나 실패 분류가 달라지는 회귀 위험을 줄였으며, 지갑 차감과 Liner 호출을 하나의 장기 DB 트랜잭션으로 묶지 않았다.
 - 분리 PostgreSQL 17 테스트 DB(`localhost:55432`)에서 `check bootJar --rerun-tasks`를 실행해 성공했다. 구매·운세 관련 선별 suite도 별도로 성공했다. 실제 staging SIGKILL, live Liner 지연, 운영 부하는 이번 리팩터링에서 다시 실행하지 않았고 기존 기본 비활성 설정을 유지한다.
 - 로컬 기능 커밋 `6397c72`; push/PR/배포는 하지 않았다.
+
+### 2026-10-11: B 코드 리뷰 잔여 보안·상태 전이 보완
+
+- 적용: 6-2 차감 불일치 상태 전이 제한, 6-3 실제 HTTP 지연 timeout, 6-4 context 재개 호환, 6-6 opt-in 데이터 전환 순서, 6-9 암호화 키 분리와 원문 비노출.
+- generation context 새 쓰기는 인물 정보 보호기와 분리된 전용 32-byte 키 및 `enc:v2` 형식을 사용한다. 공통 AES-GCM 구현만 재사용하고 키는 공유하지 않는다. 기존 평문/`enc:v1`은 새 코드가 읽을 수 있으며, 기본 비활성인 batch runner가 행별 원본 값 조건을 걸어 `v2`로 재암호화한다.
+- PostgreSQL 17에서 평문 context를 `v2`로 전환하고 재실행 시 변경 0건, 이후 저장 snapshot으로 generation recovery 완료를 확인했다. 배포 순서와 잔여 행 확인 SQL은 backend README에 기록했다. 실제 운영 데이터 전환은 수행하지 않았다.
+- lease 없는 범용 `markFailed`를 제거했다. 차감 금액 불일치는 `DEBITED` 상태에만 적용되는 전용 전이이고, 생성 실패는 현재 lease token/fence가 일치해야만 저장된다.
+- 완료 구매의 quote 생성/만료 시각을 과거로 옮긴 HTTP replay 테스트에서 기존 결과를 반환하고 지갑 차감과 Liner 호출이 각각 1회인 것을 확인했다.
+- 로컬 HTTP 서버의 응답을 2초 지연하고 read timeout을 100ms로 설정해 제한 시간 내 `LinerApiException`으로 종료하며 API key/원격 본문을 노출하지 않음을 확인했다. 이는 실제 Liner endpoint나 staging 프록시 시험은 아니다.
+- 분리 PostgreSQL DB에서 전체 `clean check bootJar` 성공. 로컬 커밋 `afa5cfe`, `f09f2f5`, `4ca8c91`; push/PR/배포는 하지 않았다. 실제 staging SIGKILL과 운영 용량 측정은 환경 권한·트래픽이 필요한 별도 운영 검증으로 남는다.

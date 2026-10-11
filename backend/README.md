@@ -131,6 +131,10 @@ jq . build/liner-live-response.json
 | `DB_USERNAME` | DB 사용자 |
 | `DB_PASSWORD` | DB 비밀번호 |
 | `PORT` | HTTP 포트, 기본 8080 |
+| `PERSON_ENCRYPTION_KEY` | 인물 정보용 Base64 32-byte 키. 기존 키를 임의 교체하지 않는다 |
+| `GENERATION_CONTEXT_ENCRYPTION_KEY` | 생성 복구 context 전용 Base64 32-byte 키. 인물 키와 다른 값을 사용한다 |
+| `GENERATION_CONTEXT_REENCRYPTION_ENABLED` | 기존 평문/`enc:v1` context의 `enc:v2` 전환 실행. 기본 `false` |
+| `GENERATION_CONTEXT_REENCRYPTION_BATCH_SIZE` | 전환 트랜잭션당 최대 행 수, 기본 100, 허용 1~1000 |
 | `LINER_API_KEY` | Liner 서버 API 키. 클라이언트·Git·로그에 노출 금지 |
 | `LINER_MODEL` | Liner 모델 ID, 기본 `liner-mark` |
 | `LINER_BASE_URL` | 기본 `https://platform.liner.com/api/v1` |
@@ -150,6 +154,19 @@ $env:DB_PASSWORD = '<configured-password>'
 ```
 
 로컬 프로필은 프로젝트의 `backend/.env`를 선택적으로 읽는다. 이 파일은 Git에서 제외되며 `LINER_API_KEY=...` 형식으로 저장한다. staging·production은 실제 Liner 어댑터가 기본이고 키가 없으면 시작에 실패한다. 운영 키는 반드시 배포 플랫폼의 비밀 환경변수로 등록하며 토스/OAuth/R2 키도 소스나 로그에 기록하지 않는다.
+
+기존 generation context를 전환할 때는 먼저 모든 새 인스턴스에 기존 `PERSON_ENCRYPTION_KEY`와 별도의
+`GENERATION_CONTEXT_ENCRYPTION_KEY`를 함께 설정한다. 새 버전 배포 후 한 인스턴스에서만
+`GENERATION_CONTEXT_REENCRYPTION_ENABLED=true`로 기동한다. 작업은 최대 100행씩 독립 트랜잭션으로
+평문과 `enc:v1`만 `enc:v2`로 조건부 갱신하며 재실행해도 안전하다. 아래 조회 결과가 0인지 확인한 뒤
+옵션을 다시 `false`로 내린다. 키나 context 원문은 조회·로그에 출력하지 않는다.
+
+```sql
+SELECT COUNT(*) AS legacy_generation_contexts
+FROM reading_purchases
+WHERE generation_context IS NOT NULL
+  AND generation_context NOT LIKE 'enc:v2:%';
+```
 
 ## DB 마이그레이션과 패키지
 

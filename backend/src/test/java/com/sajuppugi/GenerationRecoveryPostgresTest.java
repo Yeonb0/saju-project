@@ -15,11 +15,13 @@ import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
 import com.sajuppugi.fortune.reading.infrastructure.GenerationContextProtector;
 import com.sajuppugi.fortune.reading.infrastructure.GenerationContextReencryptionService;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
+import com.sajuppugi.person.infrastructure.PersonDataProtector;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Base64;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -44,21 +46,33 @@ class GenerationRecoveryPostgresTest {
     @Autowired GenerationRecoveryService recovery;
     @Autowired GenerationContextProtector contextProtector;
     @Autowired GenerationContextReencryptionService reencryption;
+    @Autowired PersonDataProtector personDataProtector;
 
     @Test
     void legacyPlaintextContextIsReencryptedIdempotentlyAndRemainsRecoverable() {
-        Fixture fixture = fixture();
+        Fixture plaintextFixture = fixture();
         String encrypted = jdbc.queryForObject(
-                "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class, fixture.purchase());
+                "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class,
+                plaintextFixture.purchase());
         String plaintext = contextProtector.decrypt(encrypted);
-        jdbc.update("UPDATE reading_purchases SET generation_context = ? WHERE id = ?", plaintext, fixture.purchase());
+        jdbc.update("UPDATE reading_purchases SET generation_context = ? WHERE id = ?", plaintext,
+                plaintextFixture.purchase());
+        Fixture v1Fixture = fixture();
+        String legacyV1 = "enc:v1:" + Base64.getEncoder().encodeToString(personDataProtector.encrypt(plaintext));
+        jdbc.update("UPDATE reading_purchases SET generation_context = ? WHERE id = ?", legacyV1,
+                v1Fixture.purchase());
 
-        assertThat(reencryption.reencryptBatch(100)).isGreaterThanOrEqualTo(1);
+        assertThat(reencryption.reencryptBatch(100)).isGreaterThanOrEqualTo(2);
         String migrated = jdbc.queryForObject(
-                "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class, fixture.purchase());
+                "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class,
+                plaintextFixture.purchase());
         assertThat(migrated).startsWith("enc:v2:").doesNotContain("테스트", "2004-03-15");
+        assertThat(jdbc.queryForObject("SELECT generation_context FROM reading_purchases WHERE id = ?",
+                String.class, v1Fixture.purchase())).startsWith("enc:v2:");
         assertThat(reencryption.reencryptBatch(100)).isZero();
-        assertThat(recovery.recover(fixture.purchase())).isEqualTo(GenerationRecoveryService.Outcome.FULFILLED);
+        assertThat(recovery.recover(plaintextFixture.purchase()))
+                .isEqualTo(GenerationRecoveryService.Outcome.FULFILLED);
+        assertThat(recovery.recover(v1Fixture.purchase())).isEqualTo(GenerationRecoveryService.Outcome.FULFILLED);
     }
 
     @Test
