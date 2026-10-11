@@ -51,11 +51,23 @@ class CatalogPersistenceTest {
     @Test
     void quotePersistsSnapshotRatherThanReadingNewCatalogPrice() {
         product("READING", "READING", true, null, null);
+        jdbc.update("UPDATE products SET product_name = 'Original', regular_price_amount = 20 WHERE code = 'READING'");
         var quote = service.issueQuote(new IssueQuote(USER, "READING", "a".repeat(64)));
-        jdbc.update("UPDATE products SET price_amount = 20, catalog_version = 'new', active = FALSE WHERE code = 'READING'");
+        jdbc.update("UPDATE products SET price_amount = 20, product_name = 'Changed', regular_price_amount = 30, catalog_version = 'new', active = FALSE WHERE code = 'READING'");
         assertThat(service.getQuote(USER, quote.id())).isEqualTo(quote);
         assertThat(quote.productSnapshot().price().amount()).isEqualTo(10);
+        assertThat(quote.productSnapshot().productName()).isEqualTo("Original");
+        assertThat(quote.productSnapshot().regularPrice().amount()).isEqualTo(20);
         assertThat(quote.expiresAt()).isEqualTo(NOW.plusSeconds(1800));
+    }
+
+    @Test
+    void legacyQuoteWithNoDisplayEvidenceDoesNotInventHistoricalRegularPrice() {
+        var quote = service.issueQuote(new IssueQuote(USER, "LOVE_READING_WITH_TALISMAN", "a".repeat(64)));
+        jdbc.update("UPDATE purchase_quotes SET product_name = NULL, regular_price_amount = NULL, fortune_type = NULL, product_option = NULL WHERE id = ?", quote.id());
+        var legacy = service.getQuote(USER, quote.id()).productSnapshot();
+        assertThat(legacy.productName()).isEqualTo("LOVE_READING_WITH_TALISMAN");
+        assertThat(legacy.regularPrice()).isNull();
     }
 
     @Test

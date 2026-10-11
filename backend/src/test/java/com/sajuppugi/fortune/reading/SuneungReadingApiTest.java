@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class SuneungReadingApiTest {
     private static final Instant NOW = Instant.parse("2026-10-08T00:00:00Z");
-    private static final UUID PRODUCT_ID = UUID.fromString("b0000000-0000-0000-0000-000000000001");
+    private static final UUID PRODUCT_ID = UUID.fromString("b6000000-0000-0000-0000-000000000002");
 
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
@@ -83,8 +83,10 @@ class SuneungReadingApiTest {
         otherUserId = UUID.randomUUID();
         personId = UUID.randomUUID();
         jdbc.update("""
-                INSERT INTO products (id, code, category, price_currency, price_amount, active, catalog_version)
-                VALUES (?, 'SUNEUNG_READING_WITH_TALISMAN', 'READING', 'TURTLE_SHELL', 15, TRUE, 'test-v1')
+                INSERT INTO products (id, code, category, price_currency, price_amount, active, catalog_version,
+                product_name, regular_price_amount, fortune_type, product_option)
+                VALUES (?, 'SUNEUNG_READING_WITH_TALISMAN', 'READING', 'TURTLE_SHELL', 15, TRUE, 'test-v1',
+                '수능운 + 부적', 20, 'SUNEUNG', 'READING_WITH_TALISMAN')
                 """, PRODUCT_ID);
 
         when(subjects.getOwnedSubject(userId, personId)).thenReturn(new ReadingSubjectPort.OwnedSubject(personId,

@@ -9,6 +9,7 @@ import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ErrorCode;
 import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
+import com.sajuppugi.wallet.application.WalletPurchaseReceiptPort;
 import com.sajuppugi.wallet.application.WalletPurchaseService;
 import com.sajuppugi.wallet.domain.WalletBalance;
 import com.sajuppugi.wallet.port.WalletPurchaseRepository;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -41,6 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 class WalletPurchasePersistenceTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired WalletPurchasePort wallet;
+    @Autowired WalletPurchaseReceiptPort receipts;
     @Autowired CatalogUseCase catalog;
     @Autowired WalletRepository walletRepository;
     @Autowired Clock clock;
@@ -77,6 +80,37 @@ class WalletPurchasePersistenceTest {
         jdbc.update("DELETE FROM wallets WHERE user_id = ?", owner);
         jdbc.update("DELETE FROM purchase_quotes WHERE requester_user_id = ?", owner);
         jdbc.update("DELETE FROM products WHERE id = ?", product);
+    }
+
+    @Test
+    void receiptReadsRequireOwnerQuoteAndOriginalTransactionWithoutWriting() {
+        grant("PAID", 20, 3600, -10);
+        UUID quote = quote();
+        var debit = wallet.debit(owner, quote, key("receipt-buy"));
+        assertThat(receipts.findDebit(owner, quote)).contains(debit);
+        assertThat(receipts.findDebit(UUID.randomUUID(), quote)).isEmpty();
+        assertThat(receipts.findDebit(owner, UUID.randomUUID())).isEmpty();
+        assertThat(receipts.findCompensation(owner, quote, debit.transactionId())).isEmpty();
+        var refund = wallet.compensate(debit.transactionId(), "READING_GENERATION_FAILED", key("receipt-refund"));
+        assertThat(receipts.findCompensation(owner, quote, debit.transactionId())).contains(refund);
+        assertThat(receipts.findCompensation(UUID.randomUUID(), quote, debit.transactionId())).isEmpty();
+        assertThat(receipts.findCompensation(owner, UUID.randomUUID(), debit.transactionId())).isEmpty();
+        assertThat(receipts.findCompensation(owner, quote, UUID.randomUUID())).isEmpty();
+        assertThat(receipts.findDebit(owner, quote)).contains(debit);
+        assertThat(count("PURCHASE")).isEqualTo(1);
+        assertThat(count("REFUND")).isEqualTo(1);
+        assertThat(projection().balance()).isEqualTo(20);
+    }
+
+    @Test
+    void shortageDetailsExposeOnlySafeAmountsWithoutWriting() {
+        grant("PAID", 7, 3600, -10);
+        assertThatThrownBy(() -> wallet.debit(owner, quote(), key("shortage-details")))
+                .isInstanceOfSatisfying(ApiException.class, exception ->
+                        assertThat(exception.details()).isEqualTo(Map.of(
+                                "required", 15, "balance", 7, "shortage", 8, "currency", "TURTLE_SHELL")));
+        assertThat(count("PURCHASE")).isZero();
+        assertThat(projection().balance()).isEqualTo(7);
     }
 
     @Test

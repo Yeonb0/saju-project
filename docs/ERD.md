@@ -180,7 +180,7 @@ erDiagram
 | `balance_type` | varchar(10) | `PAID`, `BONUS` |
 | `source_type`, `source_id` | varchar, uuid | 충전·보상·조정 출처 |
 | `granted_amount`, `remaining_amount` | integer | 0 이상 |
-| `expires_at` | timestamptz | 유료 5년, 보너스 기본 180일 |
+| `expires_at` | timestamptz | 지급일부터 유료 5년, 보너스 1년(P-04 확정) |
 | `created_at` | timestamptz | 지급 시각 |
 
 #### `wallet_transactions`

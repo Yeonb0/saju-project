@@ -47,6 +47,19 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  toss:
+    adapter: ${TOSS_ADAPTER:disabled}
+    base-url: https://api.tosspayments.com
+    secret-key: ${TOSS_SECRET_KEY:}
+    connect-timeout: ${TOSS_CONNECT_TIMEOUT:3s}
+    read-timeout: ${TOSS_READ_TIMEOUT:10s}
+    recovery:
+      enabled: ${TOSS_RECOVERY_ENABLED:false}
+      max-attempts: 5
+      retry-delay: 30s
+      lease-duration: 3m
+      batch-size: 20
+      poll-delay: 30s
   wallet:
     purchases-enabled: ${WALLET_PURCHASES_ENABLED:false}
     recovery:

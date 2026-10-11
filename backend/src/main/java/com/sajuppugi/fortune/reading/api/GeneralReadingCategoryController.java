@@ -206,7 +206,7 @@ public class GeneralReadingCategoryController {
                 quote.id(), quote.productSnapshot().code(), option.name(), questionKey,
                 new Charged(funded.charged().currency(), funded.charged().amount()),
                 quote.expiresAt(), funded.walletBalance(), funded.balanceAfter(),
-                funded.shortage(), funded.recommendedTopUp())));
+                funded.shortage(), funded.recommendedTopUp(), funded.productName(), funded.regularPrice())));
     }
 
     private PurchaseResult purchase(Authentication authentication, String key, FortuneType type, UUID quoteId,
@@ -335,11 +335,13 @@ public class GeneralReadingCategoryController {
                                                 @NotBlank String questionKey) {}
 
     @Schema(requiredProperties = {"quoteId", "productCode", "productOption", "questionKey", "charged",
-            "expiresAt", "walletBalance", "balanceAfter", "shortage", "recommendedTopUp"})
+            "expiresAt", "walletBalance", "balanceAfter", "shortage", "recommendedTopUp", "productName", "regularPrice"})
     public record CategoryQuoteResponse(UUID quoteId, String productCode, String productOption,
                                         String questionKey, Charged charged, Instant expiresAt,
                                         int walletBalance, @Schema(types = {"integer", "null"}) Integer balanceAfter,
-                                        int shortage, @Schema(types = {"string", "null"}) String recommendedTopUp) {}
+                                        int shortage, @Schema(types = {"string", "null"}) String recommendedTopUp,
+                                        String productName,
+                                        @Schema(nullable = true) com.sajuppugi.catalog.domain.Price regularPrice) {}
 
     public record CategoryPurchaseResponse<T>(UUID purchaseId, UUID readingId, String status,
                                                String calculationVersion, String generationVersion,

@@ -2,6 +2,7 @@ package com.sajuppugi.catalog.api;
 
 import com.sajuppugi.catalog.application.QuoteFundingService;
 import com.sajuppugi.catalog.application.QuoteFundingService.FundingView;
+import com.sajuppugi.catalog.domain.Price;
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ApiResponse;
 import com.sajuppugi.common.api.ErrorCode;
@@ -35,16 +36,18 @@ public class QuoteController {
     }
 
     @Schema(requiredProperties = {"quoteId", "productCode", "charged", "expiresAt", "walletBalance",
-            "balanceAfter", "shortage", "recommendedTopUp"})
+            "balanceAfter", "shortage", "recommendedTopUp", "productName", "regularPrice"})
     public record FundedQuoteResponse(UUID quoteId, String productCode, Charged charged, Instant expiresAt,
                                       int walletBalance, @Schema(types = {"integer", "null"}) Integer balanceAfter,
-                                      int shortage, @Schema(types = {"string", "null"}) String recommendedTopUp) {
+                                      int shortage, @Schema(types = {"string", "null"}) String recommendedTopUp,
+                                      String productName, @Schema(nullable = true) Price regularPrice) {
         public static FundedQuoteResponse from(FundingView funding) {
             var quote = funding.quote();
             var price = quote.productSnapshot().price();
             return new FundedQuoteResponse(quote.id(), quote.productSnapshot().code(),
                     new Charged(price.currency().name(), price.amount()), quote.expiresAt(),
-                    funding.walletBalance(), funding.balanceAfter(), funding.shortage(), funding.recommendedTopUp());
+                    funding.walletBalance(), funding.balanceAfter(), funding.shortage(), funding.recommendedTopUp(),
+                    quote.productSnapshot().productName(), quote.productSnapshot().regularPrice());
         }
     }
 

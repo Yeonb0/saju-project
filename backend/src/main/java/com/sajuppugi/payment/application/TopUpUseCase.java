@@ -27,5 +27,7 @@ public interface TopUpUseCase {
     }
 
     // Wallet balance is present only after the credit transaction commits.
-    record OrderView(TopUpOrder order, boolean processing, WalletBalance walletBalance) {}
+    record OrderView(TopUpOrder order, boolean processing, WalletBalance walletBalance,
+                     NextAction nextAction, String failureCode) {}
+    enum NextAction { NONE, POLL, VIEW_WALLET, CONTACT_SUPPORT, RETRY_PAYMENT }
 }
