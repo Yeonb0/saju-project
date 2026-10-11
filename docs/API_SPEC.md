@@ -612,6 +612,41 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 - 동일한 `Idempotency-Key` 또는 `generationKey`의 재요청은 외부 호출을 중복 실행하지 않고 진행 중 상태나 최초 완료 결과를 반환한다.
 - 부적 fulfillment는 `PENDING` 또는 `READY`를 반환하며, 부적 생성 시작 자체가 실패하면 구매를 완료하지 않고 등껍질을 복구한다. 비동기 완료 방식은 `TBD(F-06)` 확정에 따라 확장한다.
 
+#### 수능운 결과 구조
+
+수능운의 기존 `sections`는 이전 클라이언트 호환을 위해 유지한다. 신규 화면은 문자열을 파싱하지 않고 `suneungGuide`를 사용한다. 구매 성공 응답의 `reading`과 수능운 상세 조회는 같은 구조를 반환한다.
+
+```json
+{
+  "sections": [{ "key": "SUMMARY", "content": "...", "sourceFactKeys": ["dayMaster.hanja"] }],
+  "suneungGuide": {
+    "summary": "...",
+    "examDayGuide": "...",
+    "examPeriods": [
+      { "period": "BEFORE_FIRST_PERIOD", "guidance": "..." },
+      { "period": "BETWEEN_PERIODS", "guidance": "..." },
+      { "period": "FINAL_CHECK", "guidance": "..." }
+    ],
+    "focusTips": ["..."],
+    "foodRecommendations": [
+      { "item": "평소 잘 맞았던 식사", "reason": "..." }
+    ],
+    "preparationChecklist": [
+      { "id": "ADMISSION_TICKET", "label": "수험표", "category": "DOCUMENT" },
+      { "id": "IDENTIFICATION", "label": "신분증", "category": "DOCUMENT" }
+    ],
+    "anxietyManagement": ["..."],
+    "missingElementAdvice": "..."
+  }
+}
+```
+
+- `preparationChecklist`의 체크 여부는 FE 상태이며 서버 결과에 저장하지 않는다.
+- checklist category는 `DOCUMENT`, `WRITING_TOOL`, `TIMEPIECE`, `FOOD`, `CLOTHING`, `OTHER`다.
+- 신규 Liner 수능 요청은 수능 전용 JSON Schema로 `suneungGuide`를 생성한다.
+- Liner 실패 시 deterministic fallback도 동일한 `suneungGuide` 구조를 보장한다.
+- 과거 저장 결과에 `suneungGuide`가 없을 수 있으므로 FE는 전환 기간 동안 legacy `sections` 표시를 지원한다.
+
 ### `GET /readings/{category}`
 
 - 본인 구매 결과 목록, cursor pagination

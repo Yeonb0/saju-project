@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajuppugi.com/schemas/liner-suneung-response-v1.json",
+  "title": "Liner suneung reading response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sections", "omittedSections", "suneungGuide"],
+  "properties": {
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "content", "sourceFactKeys"],
+        "properties": {
+          "key": { "type": "string" },
+          "content": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "sourceFactKeys": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "omittedSections": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "suneungGuide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "examDayGuide", "examPeriods", "focusTips", "foodRecommendations", "preparationChecklist", "anxietyManagement", "missingElementAdvice"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "examDayGuide": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "examPeriods": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "object", "additionalProperties": false, "required": ["period", "guidance"], "properties": {
+            "period": { "type": "string", "minLength": 1 }, "guidance": { "type": "string", "minLength": 1, "maxLength": 1000 }
+          } }
+        },
+        "focusTips": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+        "foodRecommendations": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "object", "additionalProperties": false, "required": ["item", "reason"], "properties": {
+            "item": { "type": "string", "minLength": 1 }, "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+          } }
+        },
+        "preparationChecklist": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "object", "additionalProperties": false, "required": ["id", "label", "category"], "properties": {
+            "id": { "type": "string", "minLength": 1 }, "label": { "type": "string", "minLength": 1 },
+            "category": { "type": "string", "enum": ["DOCUMENT", "WRITING_TOOL", "TIMEPIECE", "FOOD", "CLOTHING", "OTHER"] }
+          } }
+        },
+        "anxietyManagement": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+        "missingElementAdvice": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    }
+  }
+}

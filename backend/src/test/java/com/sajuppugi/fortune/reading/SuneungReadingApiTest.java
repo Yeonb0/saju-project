@@ -20,6 +20,7 @@ import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
+import com.sajuppugi.fortune.generation.application.SuneungGuideFactory;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.fortune.talisman.domain.Talisman.Status;
@@ -114,6 +115,9 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.event.type").value("CSAT"))
                 .andExpect(jsonPath("$.data.reading.event.date").value("2026-11-19"))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(8))
+                .andExpect(jsonPath("$.data.reading.suneungGuide.examPeriods.length()").value(3))
+                .andExpect(jsonPath("$.data.reading.suneungGuide.preparationChecklist[0].id")
+                        .value("ADMISSION_TICKET"))
                 .andExpect(jsonPath("$.data.reading.generationMode").value("LINER"))
                 .andExpect(jsonPath("$.data.reading.talisman.id").isString())
                 .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"))
@@ -270,9 +274,10 @@ class SuneungReadingApiTest {
     }
 
     private LinerResponse valid(LinerRequest request) {
-        return new LinerResponse(request.allowedSections().stream()
+        var sections = request.allowedSections().stream()
                 .map(section -> new GeneratedSection(section, section + " 검증된 수능운 문장", List.of("dayMaster.hanja")))
-                .toList(), List.of());
+                .toList();
+        return new LinerResponse(sections, List.of(), SuneungGuideFactory.fromSections(sections));
     }
 
     private String body() {

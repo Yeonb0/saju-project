@@ -32,7 +32,9 @@ public class DeterministicReadingFallback {
         List<GeneratedSection> sections = request.allowedSections().stream()
                 .map(key -> new GeneratedSection(key, content(key, request.fortuneType(), profile, counterpart), evidence))
                 .toList();
-        return new LinerResponse(sections, List.of());
+        return new LinerResponse(sections, List.of(), request.fortuneType()
+                == com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType.SUNEUNG
+                ? SuneungGuideFactory.fromSections(sections) : null);
     }
 
     private Profile profile(JsonNode facts, String prefix) {

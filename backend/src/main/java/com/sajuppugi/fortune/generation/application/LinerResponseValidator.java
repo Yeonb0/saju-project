@@ -28,12 +28,15 @@ public class LinerResponseValidator {
             Pattern.compile("시스템\\s*프롬프트", Pattern.CASE_INSENSITIVE));
     private final ObjectMapper mapper;
     private final JsonSchema schema;
+    private final JsonSchema suneungSchema;
 
     public LinerResponseValidator(ObjectMapper mapper) {
         this.mapper = mapper;
         try {
             this.schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
                     .getSchema(new ClassPathResource("liner/liner-response.schema.json").getInputStream());
+            this.suneungSchema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                    .getSchema(new ClassPathResource("liner/suneung-response.schema.json").getInputStream());
         } catch (java.io.IOException exception) {
             throw new IllegalStateException("Cannot load Liner response JSON Schema", exception);
         }
@@ -43,7 +46,10 @@ public class LinerResponseValidator {
         if (response == null) {
             throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "response is required");
         }
-        var schemaErrors = schema.validate(mapper.valueToTree(response));
+        var selectedSchema = request.fortuneType()
+                == com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType.SUNEUNG
+                ? suneungSchema : schema;
+        var schemaErrors = selectedSchema.validate(mapper.valueToTree(response));
         if (!schemaErrors.isEmpty()) {
             throw new InvalidGenerationException("LINER_SCHEMA_INVALID", schemaErrors.toString());
         }
@@ -87,6 +93,33 @@ public class LinerResponseValidator {
         if (seen.isEmpty() || !seen.containsAll(required)) {
             throw new InvalidGenerationException("LINER_SECTION_INVALID", "required sections cannot be omitted");
         }
+        validateSuneungGuide(request, response);
+    }
+
+    private void validateSuneungGuide(LinerRequest request, LinerResponse response) {
+        boolean suneung = request.fortuneType()
+                == com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType.SUNEUNG;
+        if (!suneung && response.suneungGuide() != null) {
+            throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "suneungGuide is only allowed for SUNEUNG");
+        }
+        if (!suneung) return;
+        var guide = response.suneungGuide();
+        if (guide == null || blank(guide.summary()) || blank(guide.examDayGuide())
+                || blank(guide.missingElementAdvice()) || guide.examPeriods().isEmpty()
+                || guide.focusTips().isEmpty() || guide.foodRecommendations().isEmpty()
+                || guide.preparationChecklist().isEmpty() || guide.anxietyManagement().isEmpty()) {
+            throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "complete suneungGuide is required");
+        }
+        if (guide.examPeriods().stream().anyMatch(item -> item == null || blank(item.period()) || blank(item.guidance()))
+                || guide.foodRecommendations().stream().anyMatch(item -> item == null || blank(item.item()) || blank(item.reason()))
+                || guide.preparationChecklist().stream().anyMatch(item -> item == null || blank(item.id())
+                        || blank(item.label()) || blank(item.category()))) {
+            throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "suneungGuide items are invalid");
+        }
+    }
+
+    private boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     Set<String> factPaths(JsonNode facts) {

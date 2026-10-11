@@ -7,6 +7,7 @@ import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.catalog.domain.PurchaseQuote;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
+import com.sajuppugi.fortune.generation.domain.GenerationModels.SuneungGuide;
 import com.sajuppugi.fortune.reading.application.GeneralReadingService;
 import com.sajuppugi.fortune.reading.application.ReadingQueryService;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService;
@@ -144,7 +145,7 @@ public class SuneungReadingController {
 
     public record ReadingResponse(UUID id, String fortuneType, String productOption, String subjectDisplayName,
                                   Counterpart counterpart, String questionKey, Event event,
-                                  List<GeneratedSection> sections, String calculationVersion,
+                                  List<GeneratedSection> sections, SuneungGuide suneungGuide, String calculationVersion,
                                   String generationVersion, String contentVersion, String generationMode, Instant createdAt,
                                   List<String> disclaimers, Talisman talisman) {
         static ReadingResponse from(OwnedReading reading) {
@@ -152,7 +153,7 @@ public class SuneungReadingController {
                     reading.subjectDisplayName(), reading.counterpartPersonId() == null ? null : new Counterpart(
                             reading.counterpartPersonId(), reading.counterpartDisplayName(), reading.relationType()),
                     reading.questionKey(), reading.eventDate() == null ? null : new Event("CSAT", reading.eventDate()),
-                    reading.sections().sections(), reading.calculationVersion(), reading.generationVersion(),
+                    reading.sections().sections(), reading.sections().suneungGuide(), reading.calculationVersion(), reading.generationVersion(),
                     reading.contentVersion(), reading.generationMode().name(), reading.createdAt(), List.of("FOR_ENTERTAINMENT"),
                     reading.talismanId() == null ? null : new Talisman(reading.talismanId(), reading.talismanStatus()));
         }

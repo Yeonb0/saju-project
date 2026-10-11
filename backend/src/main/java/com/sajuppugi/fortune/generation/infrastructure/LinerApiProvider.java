@@ -32,6 +32,7 @@ public class LinerApiProvider implements LinerProvider {
     private final ObjectMapper mapper;
     private final LinerApiProperties properties;
     private final JsonNode responseSchema;
+    private final JsonNode suneungResponseSchema;
 
     public LinerApiProvider(RestClient.Builder builder, ObjectMapper mapper, LinerApiProperties properties) {
         this.mapper = mapper;
@@ -46,6 +47,7 @@ public class LinerApiProvider implements LinerProvider {
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
         this.responseSchema = readSchema(mapper);
+        this.suneungResponseSchema = readSchema(mapper, "liner/suneung-response.schema.json");
     }
 
     @Override
@@ -100,7 +102,8 @@ public class LinerApiProvider implements LinerProvider {
     }
 
     private JsonNode tailoredSchema(LinerRequest request) {
-        ObjectNode schema = responseSchema.deepCopy();
+        ObjectNode schema = (request.fortuneType() == FortuneType.SUNEUNG
+                ? suneungResponseSchema : responseSchema).deepCopy();
         removeUnsupportedSchemaKeywords(schema);
         ArrayNode allowed = mapper.createArrayNode();
         request.allowedSections().forEach(section -> allowed.add(section.name()));
@@ -185,7 +188,11 @@ public class LinerApiProvider implements LinerProvider {
     }
 
     private static JsonNode readSchema(ObjectMapper mapper) {
-        try (InputStream input = new ClassPathResource("liner/liner-response.schema.json").getInputStream()) {
+        return readSchema(mapper, "liner/liner-response.schema.json");
+    }
+
+    private static JsonNode readSchema(ObjectMapper mapper, String path) {
+        try (InputStream input = new ClassPathResource(path).getInputStream()) {
             return mapper.readTree(input);
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot load Liner response schema", exception);

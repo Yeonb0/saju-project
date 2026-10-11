@@ -12,6 +12,7 @@ import com.sajuppugi.fortune.generation.application.DeterministicReadingFallback
 import com.sajuppugi.fortune.generation.application.LinerFactProjector;
 import com.sajuppugi.fortune.generation.application.LinerResponseValidator;
 import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
+import com.sajuppugi.fortune.generation.application.SuneungGuideFactory;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.*;
 import com.sajuppugi.fortune.generation.port.GenerationSnapshotStore;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
@@ -133,8 +134,9 @@ class ReadingGenerationServiceTest {
     }
 
     private LinerResponse valid(LinerRequest request) {
-        return new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY,
-                "차분하게 순서를 지키는 흐름이에요.", List.of("dayMaster.hanja"))), List.of());
+        var sections = List.of(new GeneratedSection(SectionKey.SUMMARY,
+                "차분하게 순서를 지키는 흐름이에요.", List.of("dayMaster.hanja")));
+        return new LinerResponse(sections, List.of(), SuneungGuideFactory.fromSections(sections));
     }
 
     private LinerProvider provider(java.util.function.Function<LinerRequest, LinerResponse> function) {

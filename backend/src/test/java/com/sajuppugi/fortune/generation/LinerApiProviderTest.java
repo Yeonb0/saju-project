@@ -6,12 +6,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
+import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey;
 import com.sajuppugi.fortune.generation.infrastructure.LinerApiProperties;
 import com.sajuppugi.fortune.generation.infrastructure.LinerApiProvider;
 import com.sajuppugi.fortune.generation.infrastructure.LinerApiProvider.LinerApiException;
+import com.sajuppugi.fortune.generation.application.SuneungGuideFactory;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.net.InetSocketAddress;
@@ -108,6 +110,30 @@ class LinerApiProviderTest {
     }
 
     @Test
+    void usesDedicatedStructuredSchemaForSuneung() throws Exception {
+        LinerRequest request = suneungRequest();
+        var sections = List.of(new GeneratedSection(SectionKey.SUMMARY, "차분히 준비해 보세요.",
+                List.of("dayMaster.hanja")));
+        LinerResponse generated = new LinerResponse(sections, List.of(), SuneungGuideFactory.fromSections(sections));
+        ObjectNode envelope = mapper.createObjectNode().put("status", "completed");
+        ObjectNode message = envelope.putArray("output").addObject();
+        message.put("type", "message");
+        message.putArray("content").addObject().put("type", "output_text")
+                .put("text", mapper.writeValueAsString(generated));
+        responseStatus = 200;
+        responseBody = mapper.writeValueAsString(envelope);
+
+        LinerResponse response = provider.generate(request);
+
+        assertThat(response.suneungGuide()).isNotNull();
+        assertThat(capturedBody.get().at("/text/format/schema/properties/suneungGuide/type").asText())
+                .isEqualTo("object");
+        assertThat(capturedBody.get().at(
+                "/text/format/schema/properties/suneungGuide/properties/preparationChecklist/items/properties/category/enum")
+                .size()).isPositive();
+    }
+
+    @Test
     void rejectsIncompleteConfigurationBeforeCreatingClient() {
         assertThatThrownBy(() -> new LinerApiProvider(RestClient.builder(), mapper,
                 new LinerApiProperties("https://platform.liner.com/api/v1", "", "liner-mark",
@@ -122,5 +148,13 @@ class LinerApiProviderTest {
         return new LinerRequest("a".repeat(64), "calc-v1", "gen-v1", FortuneType.LOVE,
                 LocalDate.of(2026, 10, 8), "CURRENT_RELATIONSHIP", null, facts, List.of(),
                 List.of(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW));
+    }
+
+    private LinerRequest suneungRequest() {
+        JsonNode facts = mapper.createObjectNode()
+                .set("dayMaster", mapper.createObjectNode().put("hangul", "갑").put("hanja", "甲"));
+        return new LinerRequest("b".repeat(64), "calc-v1", "suneung-v1", FortuneType.SUNEUNG,
+                LocalDate.of(2026, 11, 19), "EXAM_FOCUS", null, facts, List.of(),
+                List.of(SectionKey.SUMMARY));
     }
 }
