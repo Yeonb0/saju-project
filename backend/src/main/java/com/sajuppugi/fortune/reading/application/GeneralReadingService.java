@@ -105,6 +105,17 @@ public class GeneralReadingService {
                     quote.productSnapshot().price());
         }
 
+        GeneralReadingPolicy.Definition policy = GeneralReadingPolicy.require(fortuneType);
+        List<String> missingFields = missingFields(subjects.primary(), subjects.counterpart());
+        GenerationCommand command = new GenerationCommand(userId, fortuneType,
+                LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
+                value(relationType), policy.allowedSections(), missingFields,
+                GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion());
+        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command, option, personId,
+                subjects.primary().displayName(), counterpartPersonId,
+                subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
+                questionKey, option == ProductOption.READING_WITH_TALISMAN));
+
         WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
         UUID debitClaim = UUID.randomUUID();
         if (!readings.tryClaimDebit(purchase.id(), debitClaim, clock.instant(),
@@ -128,16 +139,6 @@ public class GeneralReadingService {
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
 
-        GeneralReadingPolicy.Definition policy = GeneralReadingPolicy.require(fortuneType);
-        List<String> missingFields = missingFields(subjects.primary(), subjects.counterpart());
-        GenerationCommand command = new GenerationCommand(userId, fortuneType,
-                LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
-                value(relationType), policy.allowedSections(), missingFields,
-                GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion());
-        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command, option, personId,
-                subjects.primary().displayName(), counterpartPersonId,
-                subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
-                questionKey, option == ProductOption.READING_WITH_TALISMAN));
         var lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
                 clock.instant().plus(generationLease.leaseDuration())).orElse(null);
         if (lease == null) {

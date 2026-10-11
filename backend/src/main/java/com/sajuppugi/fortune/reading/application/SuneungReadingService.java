@@ -93,6 +93,14 @@ public class SuneungReadingService {
                     quote.productSnapshot().price());
         }
 
+        GenerationCommand command = new GenerationCommand(userId, FortuneType.SUNEUNG,
+                SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
+                subject.birthInput().birthTimeUnknown() ? List.of("pillars.hour", "tenGods.hour", "twelveStages.hour") : List.of(),
+                SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION);
+        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command,
+                ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(), null, null, null,
+                "EXAM_FOCUS", true));
+
         UUID debitClaim = UUID.randomUUID();
         if (!readings.tryClaimDebit(purchase.id(), debitClaim, clock.instant(),
                 clock.instant().minus(DEBIT_CLAIM_LEASE))) {
@@ -114,13 +122,6 @@ public class SuneungReadingService {
             readings.markFailed(purchase.id(), "PURCHASE_DEBIT_MISMATCH");
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
-        GenerationCommand command = new GenerationCommand(userId, FortuneType.SUNEUNG,
-                SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
-                subject.birthInput().birthTimeUnknown() ? List.of("pillars.hour", "tenGods.hour", "twelveStages.hour") : List.of(),
-                SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION);
-        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command,
-                ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(), null, null, null,
-                "EXAM_FOCUS", true));
         var lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
                 clock.instant().plus(generationLease.leaseDuration())).orElse(null);
         if (lease == null) {

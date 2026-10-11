@@ -78,10 +78,16 @@ public class JdbcReadingRepository implements ReadingRepository {
 
     @Override
     public void saveGenerationContext(UUID purchaseId, GenerationResumeContext context) {
-        requireOne(jdbc.update("""
+        int updated = jdbc.update("""
                 UPDATE reading_purchases SET generation_context = ?
-                WHERE id = ? AND status = 'DEBITED' AND generation_context IS NULL
-                """, json(context), purchaseId), "save generation context");
+                WHERE id = ? AND status IN ('CREATED', 'DEBITED') AND generation_context IS NULL
+                """, json(context), purchaseId);
+        if (updated == 1) return;
+        GenerationResumeContext existing = jdbc.query("""
+                SELECT generation_context FROM reading_purchases
+                WHERE id = ? AND status IN ('CREATED', 'DEBITED') AND generation_context IS NOT NULL
+                """, (rs, row) -> context(rs.getString(1)), purchaseId).stream().findFirst().orElse(null);
+        if (!context.equals(existing)) throw new IllegalStateException("Generation context changed for purchase");
     }
 
     @Override
