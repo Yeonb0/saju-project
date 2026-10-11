@@ -59,6 +59,10 @@ public class JdbcTopUpConfirmations {
                     INSERT INTO top_up_confirmation_intents(order_id, payment_key_hash, amount_krw, created_at)
                     VALUES (?, ?, ?, ?)
                     """, orderId, paymentHash, amount, Timestamp.from(now));
+            jdbc.update("""
+                    INSERT INTO top_up_executions(order_id, state, next_attempt_at, updated_at)
+                    VALUES (?, 'READY', ?, ?)
+                    """, orderId, Timestamp.from(now), Timestamp.from(now));
         }
         if (requests.isEmpty()) {
             jdbc.update("""

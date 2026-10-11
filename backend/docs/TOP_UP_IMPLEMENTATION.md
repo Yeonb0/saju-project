@@ -1,5 +1,31 @@
 # A 충전 구현과 검증 경계
 
+## 최신 구현 (2026-10-11)
+
+이 절이 아래 10/10 단계별 기록보다 우선한다. Q-28 FORTUNE 카탈로그/견적 표시 정보도 구현됐다.
+
+- POST /api/v1/top-up-orders/{orderId}/confirm 및 소유자 GET에 processing, walletBalance,
+  grantedShellAmount, nextAction, failureCode를 추가했다. CREDITED에서만 실제 지급량/지급 직후 잔액을 반환한다.
+- 승인 준비와 실행 lease를 먼저 커밋하고 PG는 DB 트랜잭션 밖에서 호출한다. 검증된 승인 이후
+  지급 lot/원장/잔액/receipt/주문 CREDITED/실행 완료를 함께 커밋한다. 한 부분 실패면 전부 롤백한다.
+- 신규 V202610111200은 실행 점유/횟수/다음 시각과 지급 receipt를 추가한다. 기존 intent는 READY로 이관한다.
+- 주문당 지급 receipt와 지갑 잠금으로 재전송/동시 충전의 중복 지급과 잔액 유실을 막는다.
+  유료 만료는 서울 달력 5년, 보너스는 1년이며 0 보너스는 lot을 만들지 않는다.
+- 최초 클라이언트 요청만 승인 호출을 시도한다. 이후는 주문 ID로 PG 조회한다. 승인 호출 시작 표시 이후
+  중단되면 원본 키를 저장하지 않으므로 승인을 무작정 재호출하지 않는다. 미승인 상태가 계속되면 수동 확인으로 간다.
+- lease 기본 3분, 결과 불명 재확인 30초, 최대 5회. 만료된 lease의 뒤늦은 결과는 지급에 반영하지 않는다.
+  확인 한도 초과는 PAYMENT_PENDING/CONTACT_SUPPORT이며 실패/환불 완료를 확정하지 않는다.
+- TOSS_RECOVERY_ENABLED=false 기본 유지. adapter 준비 후 true로 켜야 scheduler 조회 복구가 자동 실행된다.
+  테스트는 scheduler.poll()을 명시 호출한다. 실제 백그라운드 시간 경과/OS 강제 종료 실험은 아니다.
+- 테스트 adapter는 test_gsk/공식 HTTPS만 허용하고 live 키/production 활성화는 여전히 거절한다.
+  따라서 승인 후 현재 설정에서 라이브 키만 바꿔 배포할 수 없다. 별도 운영 활성화 검증이 필요하다.
+- webhook/현금 취소·환불/관리자 대사·수동 확인 도구/rate limit/운영 알림은 후속이다.
+  상품 판매·지갑 구매·복구는 기본 비활성을 유지하며 실제 PG 결제/FE 브라우저 E2E/운영 배포는 수행하지 않았다.
+
+TopUpPaymentFlowTest는 fake PG와 실제 PostgreSQL 트랜잭션으로 승인·재전송·동시 충전·lease 만료·
+응답 유실·지급 저장 실패 롤백/조회 복구·잘못된 승인 증거·거절/취소·한도 초과를 검사한다.
+아래 기존 설명의 'confirm/지급/worker 미구현'은 당시 단계 기록이며 위 구현으로 대체됐다.
+
 ## 구현
 
 - GET /api/v1/products?category=TOP_UP: 로그인 없이 현재 판매 가능한 충전 상품의 서버 가격과 paidAmount/bonusAmount/creditedAmount를 반환한다. 판매 차단 상태에서는 items=[]다.

@@ -18,7 +18,11 @@ public interface PaymentProviderPort {
                   String currency, String safeFailureCode) {
         /** Required again at the grant boundary, including results obtained by order lookup. */
         public boolean approves(TopUpConfirmationIntent intent) {
-            return outcome == Outcome.APPROVED && intent != null && intent.orderId().equals(orderId)
+            return outcome == Outcome.APPROVED && matches(intent);
+        }
+
+        public boolean matches(TopUpConfirmationIntent intent) {
+            return intent != null && intent.orderId().equals(orderId)
                     && intent.paymentKeyHash().equals(paymentKeyHash)
                     && intent.amountKrw() == amountKrw && "KRW".equals(currency);
         }

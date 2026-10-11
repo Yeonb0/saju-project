@@ -425,7 +425,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 ### `POST /top-up-orders`
 
 - 인증·CSRF·`Idempotency-Key` 필요
-- 로컬 구현: 주문 생성과 소유자 GET만 제공한다. 승인·지급·webhook은 아직 미구현이다.
+- 로컬 구현: 주문 생성, 소유자 GET, 승인·원자적 지급·제한된 조회 복구를 제공한다. 실제 PG/FE E2E와 webhook은 미검증/미구현이다.
 - 서버 판매 가능 상품의 가격/유료·보너스 수량을 주문에 저장한다. 같은 사용자/키/상품은
   기존 주문 snapshot을 반환하며 같은 키/다른 상품은 409 IDEMPOTENCY_KEY_REUSED다.
 - 키는 비어 있지 않은 최대 512자이며 원본 대신 SHA-256을 저장한다. 키 범위는 충전 주문 생성이다.
@@ -444,7 +444,12 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "paidShellAmount": 50,
   "bonusShellAmount": 6,
   "creditedShellAmount": 56,
-  "status": "PAYMENT_PENDING"
+  "status": "PAYMENT_PENDING",
+  "processing": false,
+  "walletBalance": null,
+  "grantedShellAmount": null,
+  "nextAction": "NONE",
+  "failureCode": null
 }
 ```
 
@@ -460,7 +465,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 | `TURTLE_SHELL_500` | 500 | 80 | 580 | 50,000원 |
 
 - 승인 완료 시 유료분과 보너스분을 별도 원장 행 또는 동일 거래의 구분 가능한 lot으로 기록한다.
-- 차감 우선순위는 `TBD(P-02A)`다.
+- 지급 만료는 유료 5년/보너스 1년(Asia/Seoul 달력 기준)이며 차감은 확정 P-02A 정책을 따른다.
 
 ### `POST /top-up-orders/{orderId}/confirm`
 
@@ -476,14 +481,28 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 - 서버 저장 주문 금액과 PG 금액을 비교한다.
 - 클라이언트 금액을 신뢰하지 않는다.
-- 성공 시 지급까지 완료하고 잔액을 반환한다.
+- 200은 처리 결과 응답, 202는 아직 처리 중이다. HTTP 200만으로 충전 완료를 표시하지 않는다.
+- **status=CREDITED만** 지급 완료다. 이때 processing=false, grantedShellAmount=실제 지급량,
+  walletBalance=해당 지급 시점 잔액 snapshot, nextAction=VIEW_WALLET이다. 현재 잔액은 GET /wallet으로 다시 조회한다.
+- 결과 불명은 PAYMENT_PENDING/processing=true/nextAction=POLL이며 잔액·실제 지급량은 null이다.
+- creditedShellAmount는 기존 계약의 예정 지급량이며 지급 증거가 아니다.
+- 기본 최대 5회 확인 후에도 불명인 경우 PAYMENT_PENDING/processing=false/CONTACT_SUPPORT,
+  failureCode=PAYMENT_REVIEW_REQUIRED로 남는다. 실패·환불·새 결제를 자동으로 안내하지 않는다.
+- 검증된 거절/취소는 FAILED/CANCELED, processing=false, RETRY_PAYMENT와 PAYMENT_DECLINED/PAYMENT_CANCELED다.
+- failureCode는 주문 결과 필드이며 공통 ApiError.code와 구분한다.
+- 승인 준비·점유 저장 후 PG는 DB 트랜잭션 밖에서 호출한다. 주문→실행→지갑→lot 잠금 아래
+  지급분·원장·잔액·receipt·CREDITED를 하나의 트랜잭션으로 커밋한다.
+- 자동 조회 복구는 TOSS_RECOVERY_ENABLED=true일 때만 동작한다. 기본 false이며 adapter 준비 없이 켜지 않는다.
+- 같은 주문 재전송은 저장된 대응을 재사용하고 지급을 반복하지 않는다. 원본 paymentKey는 저장하지 않는다.
 
 ### `GET /top-up-orders/{orderId}`
 
+- 인증 필요, 타인/없는 주문은 동일 RESOURCE_NOT_FOUND(404). 생성/승인과 동일 응답 DTO다.
 - 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`
 
 ### `POST /webhooks/toss-payments`
 
+- 아래는 목표 계약이며 현재 구현된 엔드포인트가 아니다.
 - 공개 인터넷 엔드포인트지만 PG 서명·이벤트 ID를 검증한다.
 - 웹훅 원문에 민감정보를 남기지 않는다.
 - 이벤트 ID를 멱등 처리한다.
