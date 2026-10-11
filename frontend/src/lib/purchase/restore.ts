@@ -8,7 +8,7 @@
 // 저장소를 쓸 수 없는 환경(사파리 개인 정보 보호 모드 등)에서는 조용히 저장하지 않는다 — 복원은 편의 기능이다.
 import { z } from "zod";
 import { safeReturnTo } from "@/lib/auth/returnTo";
-import type { FortuneSelection } from "@/lib/ports/fortune";
+import { FORTUNE_TYPES, type FortuneSelection } from "@/lib/ports/fortune";
 
 export const PURCHASE_SELECTION_KEY = "purchaseSelection";
 export const PURCHASE_SELECTION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -21,11 +21,14 @@ export type PurchaseSelection = Readonly<{
 }>;
 
 const storedSchema = z.object({
-  v: z.literal(1),
+  // v: 2 — selection 에 fortuneType 추가. v: 1 저장값은 모양이 달라 읽을 때 지운다
+  v: z.literal(2),
   savedAt: z.number().int().nonnegative(),
   returnPath: z.string(),
   quoteId: z.string().min(1),
   selection: z.object({
+    // UNKNOWN 은 허용하지 않는다
+    fortuneType: z.enum(FORTUNE_TYPES),
     productCode: z.string().min(1),
     personId: z.string().min(1),
     counterpartPersonId: z.string().min(1).nullable(),
@@ -48,11 +51,12 @@ export function savePurchaseSelection(
   if (!store) return;
   // 필요한 값만 골라 담는다 — 호출하는 쪽이 다른 값을 섞어 넘겨도 저장되지 않게
   const stored: z.infer<typeof storedSchema> = {
-    v: 1,
+    v: 2,
     savedAt: now,
     returnPath: safeReturnTo(value.returnPath),
     quoteId: value.quoteId,
     selection: {
+      fortuneType: value.selection.fortuneType,
       productCode: value.selection.productCode,
       personId: value.selection.personId,
       counterpartPersonId: value.selection.counterpartPersonId,

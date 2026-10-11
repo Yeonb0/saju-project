@@ -71,6 +71,7 @@ describe("TopUpSuccess (/pay/success)", () => {
       returnPath: "/suneung",
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "SUNEUNG",
         productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
         personId: "66666666-6666-4666-8666-666666666666",
         counterpartPersonId: null,
@@ -185,6 +186,8 @@ describe("TopUpSuccess (/pay/success)", () => {
         status: "CREDITED" as const,
         processing: false,
         walletBalance: null,
+        grantedShellAmount: null,
+        nextAction: "NONE" as const,
       })),
       getOrder: vi.fn(),
     };
@@ -195,6 +198,36 @@ describe("TopUpSuccess (/pay/success)", () => {
     const balance = container.querySelector('[data-slot="wallet-balance"]');
     expect(balance).not.toBeNull();
     expect(balance?.textContent).toBe("");
+    // 지급 수량도 null 이면 비운다 — 0 으로 바꾸지 않는다
+    const granted = container.querySelector('[data-slot="credited-amount"]');
+    expect(granted).not.toBeNull();
+    expect(granted?.textContent).toBe("");
+  });
+
+  it("r. CREDITED 의 지급 수량과 잔액은 서로 다른 서버 필드를 읽는다", async () => {
+    const { ret, deps } = await prepare("credited");
+    // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다
+    const port = {
+      confirm: vi.fn(async () => ({
+        orderId: ret.orderId,
+        status: "CREDITED" as const,
+        processing: false,
+        walletBalance: 5678,
+        grantedShellAmount: 1234,
+        nextAction: "VIEW_WALLET" as const,
+      })),
+      getOrder: vi.fn(),
+    };
+    const { container } = render(
+      <TopUpSuccess ret={ret} port={port} deps={deps} />,
+    );
+    await screen.findByText("충전이 완료되었습니다");
+    expect(
+      container.querySelector('[data-slot="credited-amount"]')?.textContent,
+    ).toBe("1,234");
+    expect(
+      container.querySelector('[data-slot="wallet-balance"]')?.textContent,
+    ).toBe("5,678");
   });
 
   it("s. 헤더(banner)가 없고 캐릭터 자리가 aria-hidden 으로 하나 있다 (확인 중 · 완료)", async () => {

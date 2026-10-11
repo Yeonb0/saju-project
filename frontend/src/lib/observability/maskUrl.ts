@@ -27,7 +27,12 @@ const dynamicPatterns: DynamicPattern[] = Object.keys(ROUTES)
   })
   .sort((a, b) => a.params - b.params);
 
+// API 경로의 purchaseId · quoteId · readingId · orderId 는 UUID 라 모양으로 가린다
+const UUID_SEGMENT =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
 function maskPath(path: string): string {
+  if (path.startsWith("/api/")) return path.replace(UUID_SEGMENT, "[id]");
   if (staticPaths.has(path)) return path; // 정적 경로가 동적 패턴보다 먼저
   const hit = dynamicPatterns.find(({ regex }) => regex.test(path));
   return hit ? hit.pattern : path;

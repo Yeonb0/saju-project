@@ -15,6 +15,7 @@ const VALUE: PurchaseSelection = {
   returnPath: "/suneung",
   quoteId: "77777777-7777-4777-8777-777777777777",
   selection: {
+    fortuneType: "SUNEUNG",
     productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
     personId: "66666666-6666-4666-8666-666666666666",
     counterpartPersonId: null,
@@ -89,6 +90,43 @@ describe("구매 선택 복원 (PURCHASE-RESTORE)", () => {
   it("clear 하면 지워진다", () => {
     savePurchaseSelection(VALUE, T0);
     clearPurchaseSelection();
+    expect(loadPurchaseSelection(T0)).toBeNull();
+  });
+});
+
+describe("구매 선택 복원 — fortuneType (v: 2)", () => {
+  const rawOf = (v: number, selection: Record<string, unknown>) =>
+    JSON.stringify({
+      v,
+      savedAt: T0,
+      returnPath: "/suneung",
+      quoteId: VALUE.quoteId,
+      selection,
+    });
+  const { fortuneType: _ft, ...WITHOUT_TYPE } = VALUE.selection;
+
+  it("n. fortuneType 을 넣어 저장하고 다시 읽으면 같다", () => {
+    savePurchaseSelection(VALUE, T0);
+    expect(loadPurchaseSelection(T0)?.selection.fortuneType).toBe("SUNEUNG");
+    expect(loadPurchaseSelection(T0)).toEqual(VALUE);
+  });
+
+  it("o. v: 1 모양 저장값은 null 이고 지운다", () => {
+    sessionStorage.setItem(
+      PURCHASE_SELECTION_KEY,
+      rawOf(1, { ...WITHOUT_TYPE }),
+    );
+    expect(loadPurchaseSelection(T0)).toBeNull();
+    expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
+  });
+
+  it("p. fortuneType 이 UNKNOWN 이거나 없으면 null 이다", () => {
+    sessionStorage.setItem(
+      PURCHASE_SELECTION_KEY,
+      rawOf(2, { ...WITHOUT_TYPE, fortuneType: "UNKNOWN" }),
+    );
+    expect(loadPurchaseSelection(T0)).toBeNull();
+    sessionStorage.setItem(PURCHASE_SELECTION_KEY, rawOf(2, WITHOUT_TYPE));
     expect(loadPurchaseSelection(T0)).toBeNull();
   });
 });

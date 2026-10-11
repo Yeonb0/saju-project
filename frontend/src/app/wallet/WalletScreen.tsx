@@ -15,7 +15,10 @@ import { createIdempotencyKey } from "@/lib/api/idempotency";
 import { loginHref } from "@/lib/auth/returnTo";
 import { getFortunePort, getPaymentLauncher, getTopUpPort } from "@/lib/ports";
 import type { FortunePort } from "@/lib/ports/fortune";
-import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
+import {
+  PaymentCanceledError,
+  type PaymentLauncher,
+} from "@/lib/ports/paymentLauncher";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import { loadPurchaseSelection } from "@/lib/purchase/restore";
 import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
@@ -113,13 +116,19 @@ export function WalletScreen({
     }
     submitting.current = true;
     order.mutate(intent.current, {
+      onError: (error) => {
+        // 구매자가 결제창을 닫음 — 오류 안내 없이 버튼을 다시 연다. intent(키)는 그대로 둔다 (I-05)
+        if (error instanceof PaymentCanceledError) order.reset();
+      },
       onSettled: () => {
         submitting.current = false;
       },
     });
   }
 
-  const errorKind = order.error ? classifyApiError(order.error) : null;
+  const canceled = order.error instanceof PaymentCanceledError;
+  const errorKind =
+    order.error && !canceled ? classifyApiError(order.error) : null;
 
   return (
     // TODO(PD 문구): 제목
