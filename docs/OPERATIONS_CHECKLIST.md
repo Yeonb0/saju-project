@@ -700,3 +700,11 @@ LIMIT 20;
 - `docs/sql/wallet-demo-inspect.sql`을 BEGIN READ ONLY에서 실행했다. 지갑 paid=20/bonus=0/version=2, lot remaining=20, 현재 사용 가능=20, TOP_UP +20/PURCHASE -15/REFUND +15 각 1건, 거래 총액=배분 합계, REFUND가 원차감 거래 참조, 구매 REFUNDED/recovery_attempts=1을 확인했다.
 - `build/wallet-demo.json`은 마지막 실습의 가상 ID/잔액만 기록하며 Git 제외 대상이다. 실행/접속/정리/pgAdmin/직접 SQL 방법은 `backend/docs/POSTGRESQL_TEST_GUIDE.md`에 기록했다.
 - 사용자가 바로 읽어볼 수 있도록 실습 테스트 컨테이너와 가상 행을 남겼다. 개발 DB는 건드리지 않았다. 컨테이너 down 시 임시 데이터가 사라지고 예제 lot은 약 1시간 뒤 만료된다. 다시 전체 테스트할 때는 test project만 down/up해 초기화한다.
+
+### 2026-10-11: B 생성 lease/fence 1차 적용
+
+- BE-B 책임인 생성 점유와 늦은 완료 차단의 기반을 추가했다. 신규 `V202610111900`은 `reading_purchases`에 generation lease token/until, 단조 증가 fence, 시도 횟수를 저장한다. 기존 applied migration은 수정하지 않았다.
+- 적용: 6-2 상태 전이의 원자적 조건 갱신, 6-3 Liner 호출 중 DB 잠금 미보유, 6-4 stale 실행자의 완료·실패 저장 차단과 프로세스 중단 재개 기반, 6-6 추가형 migration/기본 운영 비활성 유지.
+- 일반·수능 동기 구매는 `DEBITED`/`GENERATING` 상태에서 lease를 원자적으로 점유한 실행자만 FULFILLED/FAILED로 전이할 수 있다. lease가 만료된 뒤 새 실행자가 fence를 올리면 이전 실행자의 결과는 저장되지 않는다. Liner 호출은 lease를 획득한 뒤 DB 트랜잭션 밖에서 수행한다.
+- H2에서 `GeneralReadingApiTest`, `SuneungReadingApiTest`, `BasicSajuApiTest`를 실행해 성공했다. 실제 PostgreSQL migration/경쟁 실행, OS 강제 종료 뒤 worker 재개, lease 갱신/시도 한도, 결과 불명 대사는 아직 검증·구현하지 않았다.
+- 아직 scheduler가 `DEBITED`/stale `GENERATING` 구매를 재생성하지 않으므로 이 변경만으로 중단 복구가 완성된 것은 아니다. `WALLET_PURCHASES_ENABLED`와 recovery 기본 비활성은 유지한다. 로컬 커밋 `5f834c0`, `bb99259`; push/PR/배포는 하지 않았다.
