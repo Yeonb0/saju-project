@@ -451,6 +451,19 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-12: PostgreSQL 세션·CSRF 회귀 보강
+
+- 적용: 6-1의 서버 세션·CSRF·로그아웃 폐기와 6-6의 실제 PostgreSQL 검증 공백을 줄이기 위해, 격리된 `sajuppugi_test` PostgreSQL DB에서만 실행하는 `sessionSecurityPostgresTest` Gradle 작업과 회귀 시험을 추가했다. 이 시험은 임시 사용자·불투명 세션 hash를 만들고 `/session`의 CSRF 회전, CSRF 누락 로그아웃의 403, 유효 CSRF 로그아웃의 cookie 만료·DB revoke, 이후 보호 API의 401을 확인한 뒤 임시 행을 삭제한다.
+- `TEST_DATABASE_URL=jdbc:postgresql://localhost:55432/sajuppugi_test ./gradlew sessionSecurityPostgresTest`를 PostgreSQL 17 컨테이너에서 실행해 성공했다. 이어 기본 H2 PostgreSQL 호환 모드의 `./gradlew test --rerun-tasks`도 XML 기준 417건 중 실패/오류 0, opt-in 제외 8로 성공했다.
+- 이 검증은 실제 카카오 authorization code 교환·사용자 브라우저 cookie·staging HTTPS/CORS·다중 서버 세션 공유를 확인하지 않는다. 실제 OAuth 자격 증명이나 사용자 개인정보는 읽거나 출력하지 않았다.
+
+### 2026-10-12: BE-B FE 차단 해소 계획 현재 브랜치 대조
+
+- 기준: `feat/saju-calculation`의 `7a0bb7c`. `backend/docs/BE_B_FE_UNBLOCKING_IMPLEMENTATION_PLAN_2026-10-11.md`의 Phase 0~5 구현과, 문서에 당시 `예정`으로 남은 Phase 6의 서버 코드·계약·테스트를 현재 브랜치에서 대조했다. 인물 CRUD/암호화 저장·소유권·soft delete·owner lock, `ReadingSubjectPort` adapter, 관계 검증, 수능 typed guide와 fallback, KST 오늘의 운세, 구매 상태 조회/보상 상태 계약, 카카오 OAuth state·불투명 세션·CSRF·로그아웃 구현을 확인했다.
+- `./gradlew test --rerun-tasks`는 H2 PostgreSQL 호환 모드에서 성공했다. XML 기준 416건 중 실패/오류 0, opt-in 제외 7(실제 Liner, OpenAPI export, PostgreSQL recovery 4, wallet demo)이다. 이 실행은 실제 PostgreSQL이나 실제 카카오 제공자·브라우저를 검증하지 않는다.
+- 적용: 6-1 세션/CSRF/returnTo/소유권 단위·통합 시험, 6-2 인물 생성 경쟁 제어 코드, 6-3 Liner typed fallback 계약, 6-6 신규 Flyway migration, 6-9 인물 암호화와 토큰 해시 저장을 코드·문서로 재확인했다. 6-1의 실제 카카오 로그인·cookie, staging HTTPS/CORS 및 다중 인스턴스, 6-2의 이 변경 범위 PostgreSQL 경쟁 실행, 그리고 인물→견적→등껍질 차감→결과의 staging E2E는 미확인이다.
+- 계획 문서의 Phase 6 `예정` 표기는 현재 코드와 불일치한다. 이는 서버 구현의 존재 여부만 해소하며, 외부 환경 검증·BE-A/PD의 receipt/문의 채널 확정까지 완료됐다는 뜻은 아니다.
+
 ### 2026-10-11: Backend-B PR #20 최신 main 충돌 해결
 
 - `feat/saju-calculation`에 `origin/main` 8fd90e8을 병합했다. 환급 상태 충돌은 A의 재실행 안전성

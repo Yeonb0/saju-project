@@ -96,3 +96,21 @@ tasks.register('generationRecoveryPostgresTest', Test) {
         }
     }
 }
+
+tasks.register('sessionSecurityPostgresTest', Test) {
+    description = 'Run the opaque session, CSRF, and logout path against isolated PostgreSQL.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.auth.SessionSecurityPostgresTest' }
+    systemProperty 'session.security.postgres', 'true'
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+    doFirst {
+        if (System.getenv('TEST_DATABASE_URL') != 'jdbc:postgresql://localhost:55432/sajuppugi_test') {
+            throw new GradleException(
+                    'sessionSecurityPostgresTest requires the isolated localhost:55432/sajuppugi_test database.')
+        }
+    }
+}
