@@ -458,6 +458,12 @@ LIMIT 20;
 - 새 통합 시험은 실제 세션 쿠키/DB 해시를 사용해 CSRF 누락 403, 유효 CSRF 로그아웃 200과 Set-Cookie 만료, 이후 보호 API 401, 만료 세션의 미인증 처리를 확인했다. 기존 회원 lifecycle 시험은 탈퇴 요청에서 전체 세션 revoke, 30일 후 사용자 익명화·세션 및 인물 삭제를 계속 검증한다.
 - `exportOpenApi`로 세션·인물·회원 API 계약을 다시 생성하고 FE 타입을 재생성했다. backend H2 검증과 FE 로그인 화면 11건, Biome, TypeScript 검사는 통과했다. 전용 PostgreSQL 세션 시험은 현 셸에 테스트 DB 인증 설정이 없어 연결 전에 중단했으며, 비밀값을 조회·출력하지 않았다. 실제 카카오 로그인 계정의 취소/오류, 브라우저 쿠키, 탈퇴 후 30일 스케줄러 실행은 staging 또는 로컬 사용자 브라우저에서 별도 확인이 필요하다. 배포·push·PR은 하지 않았다.
 
+### 2026-10-12: OAuth 오류 왕복·탈퇴 정리 보강
+
+- callback 오류 통합 시험을 추가해 `access_denied`는 `/login?...&oauth=cancelled`, 다른 provider 오류는 `oauth=failed`로 돌아가며 OAuth state가 재사용되지 않는 것을 확인했다. 이 과정에서 실패 redirect가 login 경로를 안전 경로 필터로 다시 검사해 루트(`/`)로 가던 결함을 수정했다.
+- OAuth state 소비는 PostgreSQL 전용 `UPDATE ... RETURNING` 대신, 조건부 UPDATE 성공 후에만 returnTo를 읽도록 변경했다. 한 요청만 state를 소비하는 조건은 유지하면서 H2 회귀 시험에서도 callback 실패 경로를 검증할 수 있다.
+- 탈퇴 보존 기한 경과 시험은 실제 `MemberDeletionJob`을 호출하고, 삭제 대상의 인물뿐 아니라 `user_sessions` 행도 삭제됨을 확인한다. cron은 Asia/Seoul 매일 03:20이며, 실제 시간 대기나 운영 DB 삭제는 수행하지 않았다.
+
 ### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
 
 - CI 실패의 실제 원인은 `MemberLifecycleTest` fixture가 `Instant`를 `JdbcTemplate` 인자로

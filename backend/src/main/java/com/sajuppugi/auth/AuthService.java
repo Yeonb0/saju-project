@@ -33,8 +33,9 @@ public class AuthService {
     boolean isSecure() { return props.redirectUri() != null && props.redirectUri().startsWith("https://"); }
     String frontendUrl(String returnTo) { return URI.create(props.frontendBaseUrl()).resolve(safeReturnTo(returnTo)).toString(); }
     String loginFailureUrl(String returnTo, boolean cancelled) {
-        return frontendUrl("/login?returnTo=" + java.net.URLEncoder.encode(safeReturnTo(returnTo), java.nio.charset.StandardCharsets.UTF_8)
-                + "&oauth=" + (cancelled ? "cancelled" : "failed"));
+        return URI.create(props.frontendBaseUrl()).resolve("/login?returnTo="
+                + java.net.URLEncoder.encode(safeReturnTo(returnTo), java.nio.charset.StandardCharsets.UTF_8)
+                + "&oauth=" + (cancelled ? "cancelled" : "failed")).toString();
     }
     private String consumeReturnTo(String state, Instant now) {
         return repository.consumeState(SecretHash.sha256(required(state)), now)

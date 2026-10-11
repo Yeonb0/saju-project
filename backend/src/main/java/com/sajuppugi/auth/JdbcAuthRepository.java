@@ -15,11 +15,13 @@ class JdbcAuthRepository implements AuthRepository {
         jdbc.update("INSERT INTO oauth_login_states (state_hash, return_to, expires_at) VALUES (?, ?, ?)", hash, returnTo, ts(expiresAt));
     }
     public Optional<String> consumeState(String hash, Instant now) {
-        return jdbc.query("""
+        int consumed = jdbc.update("""
                 UPDATE oauth_login_states SET consumed_at = ?
                 WHERE state_hash = ? AND consumed_at IS NULL AND expires_at > ?
-                RETURNING return_to
-                """, (rs, row) -> rs.getString(1), ts(now), hash, ts(now)).stream().findFirst();
+                """, ts(now), hash, ts(now));
+        if (consumed != 1) return Optional.empty();
+        return jdbc.query("SELECT return_to FROM oauth_login_states WHERE state_hash = ?",
+                (rs, row) -> rs.getString(1), hash).stream().findFirst();
     }
     public UUID upsertActiveMember(String subject, String nickname, Instant now) {
         UUID id = UUID.randomUUID();
