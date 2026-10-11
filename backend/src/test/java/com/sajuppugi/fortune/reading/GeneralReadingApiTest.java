@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -183,6 +184,29 @@ class GeneralReadingApiTest {
         verify(talismans).create(argThat(command -> command.ownerUserId().equals(userId)
                 && command.fortuneType().name().equals("LOVE")
                 && command.contentVersion().equals("love-2026.10.08")));
+    }
+
+    @Test
+    void completedPurchaseReplaysAfterQuoteExpiresWithoutAnotherDebit() throws Exception {
+        String request = body("LOVE", "CURRENT_RELATIONSHIP", false);
+        UUID quoteId = issueQuote(request, "LOVE_READING_ONLY");
+        String purchaseBody = withQuote(request, quoteId);
+        mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
+                        .header("Idempotency-Key", "expired-replay-first")
+                        .contentType(MediaType.APPLICATION_JSON).content(purchaseBody))
+                .andExpect(status().isCreated());
+
+        Instant expiredAt = Instant.now().minusSeconds(1);
+        jdbc.update("UPDATE purchase_quotes SET created_at = ?, expires_at = ? WHERE id = ?",
+                Timestamp.from(expiredAt.minusSeconds(1800)), Timestamp.from(expiredAt), quoteId);
+
+        mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
+                        .header("Idempotency-Key", "expired-replay-second")
+                        .contentType(MediaType.APPLICATION_JSON).content(purchaseBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.reused").value(true));
+        verify(wallet, times(1)).debit(eq(userId), eq(quoteId), any());
+        verify(liner, times(1)).generate(any());
     }
 
     @Test

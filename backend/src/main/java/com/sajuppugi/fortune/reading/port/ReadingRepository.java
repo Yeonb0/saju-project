@@ -23,7 +23,7 @@ public interface ReadingRepository {
     Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now, Instant leaseUntil);
     void releaseGenerationLease(UUID purchaseId, GenerationLease lease);
     void fulfill(ReadingPurchase purchase, OwnedReading reading, GenerationLease lease);
-    void markFailed(UUID purchaseId, String failureCode);
+    void markDebitMismatch(UUID purchaseId);
     void markFailed(UUID purchaseId, String failureCode, GenerationLease lease);
     void markRefunded(UUID purchaseId);
     Optional<OwnedReading> findOwnedReading(UUID ownerUserId, UUID readingId);

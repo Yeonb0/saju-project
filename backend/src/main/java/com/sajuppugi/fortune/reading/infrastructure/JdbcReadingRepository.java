@@ -185,26 +185,24 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
-    public void markFailed(UUID purchaseId, String failureCode) {
-        markFailed(purchaseId, failureCode, null);
+    public void markDebitMismatch(UUID purchaseId) {
+        requireOne(jdbc.update("""
+                UPDATE reading_purchases SET status = 'FAILED', failure_code = 'PURCHASE_DEBIT_MISMATCH',
+                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END
+                WHERE id = ? AND status = 'DEBITED'
+                """, purchaseId), "mark purchase debit mismatch");
     }
 
     @Override
     public void markFailed(UUID purchaseId, String failureCode, GenerationLease lease) {
         if (failureCode == null || failureCode.isBlank()) throw new IllegalArgumentException("failureCode is required");
-        String sql = lease == null ? """
-                UPDATE reading_purchases SET status = 'FAILED', failure_code = ?,
-                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END,
-                generation_lease_token = NULL, generation_lease_until = NULL
-                WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
-                """ : """
+        String sql = """
                 UPDATE reading_purchases SET status = 'FAILED', failure_code = ?,
                 compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END,
                 generation_lease_token = NULL, generation_lease_until = NULL
                 WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
                 """;
-        int updated = lease == null ? jdbc.update(sql, failureCode, purchaseId)
-                : jdbc.update(sql, failureCode, purchaseId, lease.token(), lease.fence());
+        int updated = jdbc.update(sql, failureCode, purchaseId, lease.token(), lease.fence());
         requireOne(updated, "mark purchase failed");
     }
 

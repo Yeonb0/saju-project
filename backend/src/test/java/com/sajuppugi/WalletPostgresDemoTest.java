@@ -74,7 +74,7 @@ class WalletPostgresDemoTest {
         assertThat(wallet.debit(owner, quote.id(), key)).isEqualTo(debit);
         readings.markDebited(purchase.id(), token, debit.transactionId());
         // Simulate a confirmed content failure, not a real Liner/PG failure.
-        readings.markFailed(purchase.id(), "LOCAL_DEMO_CONTENT_FAILURE");
+        readings.markDebitMismatch(purchase.id());
         assertThat(recovery.recover(purchase.id())).isEqualTo(FailedPurchaseCompensationService.Outcome.REFUNDED);
         int after = query.getBalance(owner).balance();
         assertThat(before).isEqualTo(20);

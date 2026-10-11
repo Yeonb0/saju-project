@@ -62,7 +62,7 @@ public class ReadingPurchaseOrchestrator {
             throw failure;
         }
         if (debit.debitedAmount() != execution.charged().amount()) {
-            readings.markFailed(purchase.id(), "PURCHASE_DEBIT_MISMATCH");
+            readings.markDebitMismatch(purchase.id());
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
 
