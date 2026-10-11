@@ -30,7 +30,8 @@ public class SecurityConfig {
             authorize.requestMatchers("/api/v1/top-up-orders", "/api/v1/top-up-orders/**").authenticated();
             authorize.requestMatchers("/api/v1/quotes/fortune", "/api/v1/quotes/fortune/**",
                     "/api/v1/reading-purchases", "/api/v1/reading-purchases/**",
-                    "/api/v1/readings/**").authenticated();
+                    "/api/v1/readings/**", "/api/v1/people", "/api/v1/people/**",
+                    "/api/v1/daily-fortunes/today", "/api/v1/me", "/api/v1/me/**").authenticated();
             if (environment.acceptsProfiles(Profiles.of("local"))) {
                 authorize.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
             }

@@ -13,6 +13,7 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection
 import com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey;
 import com.sajuppugi.fortune.reading.application.GeneralReadingService;
 import com.sajuppugi.fortune.reading.application.ReadingQueryService;
+import com.sajuppugi.fortune.reading.application.ReadingPurchaseStatusPolicy;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService.PurchaseResult;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
@@ -218,8 +219,11 @@ public class GeneralReadingCategoryController {
 
     private <T> ResponseEntity<ApiResponse<CategoryPurchaseResponse<T>>> purchaseResponse(
             PurchaseResult result, Function<OwnedReading, T> mapper) {
+        var statusProjection = ReadingPurchaseStatusPolicy.project(result.status());
         CategoryPurchaseResponse<T> response = new CategoryPurchaseResponse<>(result.purchaseId(), result.readingId(),
-                result.status().name(), result.reading() == null ? null : result.reading().calculationVersion(),
+                result.status().name(), statusProjection.compensationStatus().name(),
+                statusProjection.nextAction().name(),
+                result.reading() == null ? null : result.reading().calculationVersion(),
                 result.reading() == null ? null : result.reading().generationVersion(),
                 result.reading() == null ? null : result.reading().contentVersion(),
                 result.charged() == null ? null : new Charged(
@@ -344,6 +348,7 @@ public class GeneralReadingCategoryController {
                                         @Schema(nullable = true) com.sajuppugi.catalog.domain.Price regularPrice) {}
 
     public record CategoryPurchaseResponse<T>(UUID purchaseId, UUID readingId, String status,
+                                               String compensationStatus, String nextAction,
                                                String calculationVersion, String generationVersion,
                                                String contentVersion, Charged charged, Integer balance,
                                                boolean reused, T reading) {}

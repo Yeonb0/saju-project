@@ -47,6 +47,8 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  person:
+    encryption-key: ${PERSON_ENCRYPTION_KEY:}
   toss:
     adapter: ${TOSS_ADAPTER:disabled}
     base-url: https://api.tosspayments.com

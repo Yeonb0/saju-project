@@ -20,6 +20,7 @@ import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
+import com.sajuppugi.fortune.generation.application.SuneungGuideFactory;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.fortune.talisman.domain.Talisman.Status;
@@ -109,6 +110,8 @@ class SuneungReadingApiTest {
                         .content(body()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.status").value("FULFILLED"))
+                .andExpect(jsonPath("$.data.compensationStatus").value("NOT_REQUIRED"))
+                .andExpect(jsonPath("$.data.nextAction").value("VIEW_READING"))
                 .andExpect(jsonPath("$.data.balance").value(25))
                 .andExpect(jsonPath("$.data.reading.fortuneType").value("SUNEUNG"))
                 .andExpect(jsonPath("$.data.reading.productOption").value("READING_WITH_TALISMAN"))
@@ -116,6 +119,11 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.event.type").value("CSAT"))
                 .andExpect(jsonPath("$.data.reading.event.date").value("2026-11-19"))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(8))
+                .andExpect(jsonPath("$.data.reading.suneungGuide.examPeriods.length()").value(7))
+                .andExpect(jsonPath("$.data.reading.suneungGuide.examPeriods[0].period").value("BEFORE_ENTRY"))
+                .andExpect(jsonPath("$.data.reading.suneungGuide.examPeriods[6].period").value("FINAL_CHECK"))
+                .andExpect(jsonPath("$.data.reading.suneungGuide.preparationChecklist[0].id")
+                        .value("ADMISSION_TICKET"))
                 .andExpect(jsonPath("$.data.reading.generationMode").value("LINER"))
                 .andExpect(jsonPath("$.data.reading.talisman.id").isString())
                 .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"))
@@ -123,6 +131,13 @@ class SuneungReadingApiTest {
                 .andReturn().getResponse().getContentAsString();
 
         String readingId = com.jayway.jsonpath.JsonPath.read(response, "$.data.readingId");
+        mvc.perform(get("/api/v1/reading-purchases/by-quote/{quoteId}", quoteId)
+                        .with(user(userId.toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FULFILLED"))
+                .andExpect(jsonPath("$.data.compensationStatus").value("NOT_REQUIRED"))
+                .andExpect(jsonPath("$.data.nextAction").value("VIEW_READING"))
+                .andExpect(jsonPath("$.data.failureCode").doesNotExist());
         mvc.perform(get("/api/v1/readings/{id}", readingId).with(user(userId.toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(readingId))
@@ -130,6 +145,42 @@ class SuneungReadingApiTest {
         mvc.perform(get("/api/v1/readings/{id}", readingId).with(user(otherUserId.toString())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("READING_NOT_FOUND"));
+    }
+
+    @Test
+    void exposesFailedCompensationStateByQuoteAndHidesOwnership() throws Exception {
+        UUID purchaseId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO reading_purchases (id, buyer_user_id, product_id, quote_id, subject_person_id,
+                wallet_transaction_id, status, failure_code, compensation_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'FAILED', 'READING_GENERATION_FAILED', 'PENDING', ?)
+                """, purchaseId, userId, PRODUCT_ID, quoteId, personId, UUID.randomUUID(),
+                java.sql.Timestamp.from(NOW));
+
+        mvc.perform(get("/api/v1/reading-purchases/by-quote/{quoteId}", quoteId)
+                        .with(user(userId.toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.purchaseId").value(purchaseId.toString()))
+                .andExpect(jsonPath("$.data.status").value("FAILED"))
+                .andExpect(jsonPath("$.data.compensationStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data.nextAction").value("WAIT"))
+                .andExpect(jsonPath("$.data.failureCode").value("READING_GENERATION_FAILED"));
+
+        mvc.perform(get("/api/v1/reading-purchases/by-quote/{quoteId}", quoteId)
+                        .with(user(otherUserId.toString())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PURCHASE_NOT_FOUND"));
+
+        jdbc.update("""
+                UPDATE reading_purchases SET status = 'REFUNDED', failure_code = NULL,
+                compensation_status = 'COMPLETED' WHERE id = ?
+                """, purchaseId);
+        mvc.perform(get("/api/v1/reading-purchases/by-quote/{quoteId}", quoteId)
+                        .with(user(userId.toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REFUNDED"))
+                .andExpect(jsonPath("$.data.compensationStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.nextAction").value("RETRY_PURCHASE"));
     }
 
     @Test
@@ -272,9 +323,12 @@ class SuneungReadingApiTest {
     }
 
     private LinerResponse valid(LinerRequest request) {
-        return new LinerResponse(request.allowedSections().stream()
-                .map(section -> new GeneratedSection(section, section + " 검증된 수능운 문장", List.of("dayMaster.hanja")))
-                .toList(), List.of());
+        var sections = request.allowedSections().stream()
+                .map(section -> new GeneratedSection(section, section + " 검증된 수능운 문장",
+                        section == com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey.MISSING_ELEMENT
+                                ? List.of("fiveElements.counts.WOOD") : List.of("dayMaster.hanja")))
+                .toList();
+        return new LinerResponse(sections, List.of(), SuneungGuideFactory.fromSections(sections));
     }
 
     private String body() {

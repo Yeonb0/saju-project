@@ -16,5 +16,8 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  person:
+    # Local-only development key. Shared environments must provide PERSON_ENCRYPTION_KEY.
+    encryption-key: ${PERSON_ENCRYPTION_KEY:bG9jYWwtcGVyc29uLWtleS0wMTIzNDU2Nzg5YWJjZGU=}
   liner:
     adapter: ${LINER_ADAPTER:api}

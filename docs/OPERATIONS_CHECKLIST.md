@@ -451,6 +451,31 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-11: Backend-B PR #20 최신 main 충돌 해결
+
+- `feat/saju-calculation`에 `origin/main` 8fd90e8을 병합했다. 환급 상태 충돌은 A의 재실행 안전성
+  (`FAILED`/`REFUNDED`)과 B의 `failure_code` 제거·`compensation_status=COMPLETED`를 함께 유지했다.
+- 적용: 6-2 보상 상태와 지갑 복구의 일치, 6-4 환급 worker 재실행, 6-6 Flyway 버전 고유성,
+  6-9 회원·인물 개인정보 보존/삭제 경계.
+- A의 `V202610111100` migration과 충돌하던 미병합 B 인물 migration을 동일 내용의
+  `V202610111300__b_people.sql`로 이동했다. 적용된 main migration은 수정하지 않았다.
+- 병합 후 `./gradlew clean test`를 실행해 H2 PostgreSQL 호환 모드 전체 403건 중 성공 401,
+  실패/오류 0, 의도적 제외 2를 확인했다. 실제 PostgreSQL migration/동시성 회귀, staging,
+  실제 Toss/Liner, 브라우저 E2E와 배포는 이번 충돌 해결에서 검증하지 않았다.
+
+### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
+
+- CI 실패의 실제 원인은 `MemberLifecycleTest` fixture가 `Instant`를 `JdbcTemplate` 인자로
+  직접 전달한 것이었다. PostgreSQL JDBC는 이 타입의 SQL 타입을 추론하지 못해
+  `Can't infer the SQL type ... java.time.Instant`를 냈다. H2 호환 모드에서는 드러나지 않았다.
+- 회원·지갑·지급분·세션 fixture의 모든 시각 인자를 `Timestamp.from(instant)`로 명시 변환했다.
+  운영 repository나 Flyway schema는 변경하지 않았으며, null 탈퇴 요청 시각도 그대로 null로 전달된다.
+- 분리된 tmpfs PostgreSQL 17 test DB(`localhost:55432`)를 새로 만들고 문제의
+  `MemberLifecycleTest` 3건 및 전체 `clean test`를 실행했다. XML 기준 총 403건 중 통과 400,
+  실패/오류 0, 의도적 opt-in 제외 3(실제 Liner/OpenAPI export/walletDemo)이다.
+- 적용 점검: 6-6 전용 PostgreSQL 테스트 DB와 migration, 6-9 테스트에 실제 사용자·비밀값
+  미사용. staging/실제 OAuth·Toss/Liner 호출·브라우저 E2E·배포는 수행하지 않았다.
+
 ### 2026-10-11: 기능 경계 PR 및 계약 CI 보완
 
 - 사용자 요청에 따라 충전/상품/오류/receipt 작업을 PR #19로 발행했다. 최신 main과 로컬 merge-tree 및

@@ -9,8 +9,10 @@ import com.sajuppugi.catalog.application.QuoteFundingService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
+import com.sajuppugi.fortune.generation.domain.GenerationModels.SuneungGuide;
 import com.sajuppugi.fortune.reading.application.GeneralReadingService;
 import com.sajuppugi.fortune.reading.application.ReadingQueryService;
+import com.sajuppugi.fortune.reading.application.ReadingPurchaseStatusPolicy;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService.PurchaseResult;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
@@ -142,10 +144,13 @@ public class SuneungReadingController {
                                 @Schema(nullable = true) com.sajuppugi.catalog.domain.Price regularPrice) {}
 
     public record PurchaseResponse(UUID purchaseId, UUID readingId, String status,
+                                   String compensationStatus, String nextAction,
                                    String calculationVersion, String generationVersion, String contentVersion,
                                    Charged charged, Integer balance, boolean reused, ReadingResponse reading) {
         static PurchaseResponse from(PurchaseResult result) {
+            var status = ReadingPurchaseStatusPolicy.project(result.status());
             return new PurchaseResponse(result.purchaseId(), result.readingId(), result.status().name(),
+                    status.compensationStatus().name(), status.nextAction().name(),
                     result.reading() == null ? null : result.reading().calculationVersion(),
                     result.reading() == null ? null : result.reading().generationVersion(),
                     result.reading() == null ? null : result.reading().contentVersion(),
@@ -159,7 +164,7 @@ public class SuneungReadingController {
 
     public record ReadingResponse(UUID id, String fortuneType, String productOption, String subjectDisplayName,
                                   Counterpart counterpart, String questionKey, Event event,
-                                  List<GeneratedSection> sections, String calculationVersion,
+                                  List<GeneratedSection> sections, SuneungGuide suneungGuide, String calculationVersion,
                                   String generationVersion, String contentVersion, String generationMode, Instant createdAt,
                                   List<String> disclaimers, Talisman talisman) {
         static ReadingResponse from(OwnedReading reading) {
@@ -167,7 +172,7 @@ public class SuneungReadingController {
                     reading.subjectDisplayName(), reading.counterpartPersonId() == null ? null : new Counterpart(
                             reading.counterpartPersonId(), reading.counterpartDisplayName(), reading.relationType()),
                     reading.questionKey(), reading.eventDate() == null ? null : new Event("CSAT", reading.eventDate()),
-                    reading.sections().sections(), reading.calculationVersion(), reading.generationVersion(),
+                    reading.sections().sections(), reading.sections().suneungGuide(), reading.calculationVersion(), reading.generationVersion(),
                     reading.contentVersion(), reading.generationMode().name(), reading.createdAt(), List.of("FOR_ENTERTAINMENT"),
                     reading.talismanId() == null ? null : new Talisman(reading.talismanId(), reading.talismanStatus()));
         }

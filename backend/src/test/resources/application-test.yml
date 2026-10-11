@@ -9,5 +9,7 @@ spring:
       minimum-idle: 1
 
 app:
+  person:
+    encryption-key: dGVzdC1vbmx5LXBlcnNvbi1lbmNyeXB0aW9uLWtleSE=
   liner:
     adapter: fake

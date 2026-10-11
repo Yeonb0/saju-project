@@ -12,6 +12,7 @@ import com.sajuppugi.fortune.generation.application.DeterministicReadingFallback
 import com.sajuppugi.fortune.generation.application.LinerFactProjector;
 import com.sajuppugi.fortune.generation.application.LinerResponseValidator;
 import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
+import com.sajuppugi.fortune.generation.application.SuneungGuideFactory;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.*;
 import com.sajuppugi.fortune.generation.port.GenerationSnapshotStore;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
@@ -57,15 +58,23 @@ class ReadingGenerationServiceTest {
     void retriesValidationFailuresAndPersistsOnlyTheFirstValidResponse() {
         MemoryStore store = new MemoryStore();
         AtomicInteger calls = new AtomicInteger();
-        LinerProvider provider = provider(request -> calls.incrementAndGet() < 3
-                ? new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY, "반드시 합격한다.", List.of("dayMaster.hanja"))), List.of())
-                : valid(request));
+        List<LinerRequest> requests = new ArrayList<>();
+        LinerProvider provider = provider(request -> {
+            requests.add(request);
+            if (calls.incrementAndGet() >= 3) return valid(request);
+            var invalidSections = List.of(new GeneratedSection(SectionKey.SUMMARY,
+                    "반드시 합격한다.", List.of("dayMaster.hanja")));
+            return new LinerResponse(invalidSections, List.of(), SuneungGuideFactory.fromSections(invalidSections));
+        });
 
         GeneratedReading reading = service(provider, store).generate(command());
 
         assertThat(reading.response().sections()).hasSize(1);
         assertThat(reading.generationMode()).isEqualTo(GenerationMode.LINER);
         assertThat(calls).hasValue(3);
+        assertThat(requests.get(0).validationFeedback()).isEmpty();
+        assertThat(requests.get(1).validationFeedback()).containsExactly("LINER_FORBIDDEN_EXPRESSION");
+        assertThat(requests.get(2).validationFeedback()).containsExactly("LINER_FORBIDDEN_EXPRESSION");
         assertThat(store.attempts).isEqualTo(3);
     }
 
@@ -133,8 +142,9 @@ class ReadingGenerationServiceTest {
     }
 
     private LinerResponse valid(LinerRequest request) {
-        return new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY,
-                "차분하게 순서를 지키는 흐름이에요.", List.of("dayMaster.hanja"))), List.of());
+        var sections = List.of(new GeneratedSection(SectionKey.SUMMARY,
+                "차분하게 순서를 지키는 흐름이에요.", List.of("dayMaster.hanja")));
+        return new LinerResponse(sections, List.of(), SuneungGuideFactory.fromSections(sections));
     }
 
     private LinerProvider provider(java.util.function.Function<LinerRequest, LinerResponse> function) {

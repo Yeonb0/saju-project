@@ -44,6 +44,13 @@ class DeterministicReadingFallbackTest {
         assertThat(response.sections().get(1).content()).contains("수험번호와 선택과목 확인", "종료 10분 전");
         assertThat(response.sections().get(4).content()).contains("특정 음식의 효능을 뜻하지 않습니다");
         assertThat(response.sections().get(6).content()).contains("4초 들이마시고 6초 내쉬는 호흡");
+        assertThat(response.suneungGuide().examPeriods()).extracting("period")
+                .containsExactly("BEFORE_ENTRY", "KOREAN", "MATH", "LUNCH", "ENGLISH", "ELECTIVES", "FINAL_CHECK");
+        assertThat(response.suneungGuide().examPeriods()).extracting("guidance").doesNotHaveDuplicates();
+        assertThat(response.suneungGuide().foodRecommendations()).singleElement()
+                .satisfies(item -> assertThat(item.item()).isEqualTo("평소 잘 맞았던 식사"));
+        assertThat(response.suneungGuide().preparationChecklist()).extracting("id")
+                .contains("ADMISSION_TICKET", "IDENTIFICATION", "WATCH");
         assertThat(response.sections()).allSatisfy(section ->
                 assertThat(section.sourceFactKeys()).contains("dayMaster.hangul", "fiveElements.counts.WATER"));
     }

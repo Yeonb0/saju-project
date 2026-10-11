@@ -14,6 +14,8 @@ public record ReadingPurchase(
         String questionKey,
         UUID walletTransactionId,
         Status status,
+        String failureCode,
+        CompensationStatus compensationStatus,
         UUID readingId,
         Instant createdAt,
         Instant fulfilledAt) {
@@ -22,8 +24,11 @@ public record ReadingPurchase(
                            UUID walletTransactionId, Status status, UUID readingId,
                            Instant createdAt, Instant fulfilledAt) {
         this(id, buyerUserId, productId, quoteId, subjectPersonId, null, null, null,
-                walletTransactionId, status, readingId, createdAt, fulfilledAt);
+                walletTransactionId, status, null, status == Status.REFUNDED
+                        ? CompensationStatus.COMPLETED : CompensationStatus.NOT_REQUIRED,
+                readingId, createdAt, fulfilledAt);
     }
 
     public enum Status { CREATED, DEBITED, GENERATING, FULFILLED, FAILED, REFUNDED }
+    public enum CompensationStatus { NOT_REQUIRED, PENDING, COMPLETED, REVIEW_REQUIRED }
 }

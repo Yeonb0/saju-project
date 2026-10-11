@@ -13,9 +13,12 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ReadingGenerationService {
+    private static final Logger LOG = LoggerFactory.getLogger(ReadingGenerationService.class);
     private static final int MAX_ATTEMPTS = 3;
     private static final Duration GENERATION_LEASE = Duration.ofMinutes(2);
 
@@ -67,20 +70,26 @@ public class ReadingGenerationService {
     }
 
     private GeneratedReading invokeWithRetry(LinerRequest request, String contentVersion, int firstAttempt) {
-        String inputHash = keys.hashInput(request);
         InvalidGenerationException lastValidation = null;
         RuntimeException lastProviderFailure = null;
+        LinerRequest attemptRequest = request;
+        java.util.List<String> validationFeedback = new java.util.ArrayList<>();
         for (int index = 0; index < MAX_ATTEMPTS; index++) {
             int attempt = firstAttempt + index;
+            String inputHash = keys.hashInput(attemptRequest);
             long started = System.nanoTime();
             LinerResponse response;
             try {
-                response = provider.generate(request);
-                validator.validate(request, response);
+                response = provider.generate(attemptRequest);
+                validator.validate(attemptRequest, response);
             } catch (InvalidGenerationException exception) {
                 lastValidation = exception;
+                LOG.warn("Liner output validation failed: provider={}, attempt={}, code={}",
+                        provider.name(), attempt, exception.code());
                 snapshots.recordAttempt(request.generationKey(), attempt, provider.name(), inputHash,
                         "VALIDATION_FAILED", elapsedMillis(started), exception.code());
+                if (!validationFeedback.contains(exception.code())) validationFeedback.add(exception.code());
+                attemptRequest = request.withValidationFeedback(validationFeedback);
                 continue;
             } catch (RuntimeException exception) {
                 lastProviderFailure = exception;
@@ -90,13 +99,14 @@ public class ReadingGenerationService {
             }
             snapshots.recordAttempt(request.generationKey(), attempt, provider.name(), inputHash,
                     "SUCCEEDED", elapsedMillis(started), null);
-            return snapshots.saveSucceeded(request, response, contentVersion, GenerationMode.LINER);
+            return snapshots.saveSucceeded(attemptRequest, response, contentVersion, GenerationMode.LINER);
         }
         long started = System.nanoTime();
+        String inputHash = keys.hashInput(attemptRequest);
         LinerResponse response;
         try {
-            response = fallback.generate(request);
-            validator.validate(request, response);
+            response = fallback.generate(attemptRequest);
+            validator.validate(attemptRequest, response);
         } catch (RuntimeException fallbackFailure) {
             snapshots.recordAttempt(request.generationKey(), firstAttempt + MAX_ATTEMPTS, fallback.name(), inputHash,
                     "FALLBACK_FAILED", elapsedMillis(started), "FALLBACK_GENERATION_FAILED");
@@ -109,7 +119,7 @@ public class ReadingGenerationService {
         }
         snapshots.recordAttempt(request.generationKey(), firstAttempt + MAX_ATTEMPTS, fallback.name(), inputHash,
                 "FALLBACK_SUCCEEDED", elapsedMillis(started), null);
-        return snapshots.saveSucceeded(request, response, contentVersion, GenerationMode.FALLBACK);
+        return snapshots.saveSucceeded(attemptRequest, response, contentVersion, GenerationMode.FALLBACK);
     }
 
     private long elapsedMillis(long started) {

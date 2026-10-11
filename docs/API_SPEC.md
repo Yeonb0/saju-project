@@ -233,9 +233,12 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 {
   "id": "uuid",
   "nickname": "윤진",
+  "status": "ACTIVE",
   "walletBalance": 50,
   "hasPrimaryPerson": true,
-  "createdAt": "2026-10-01T03:00:00Z"
+  "createdAt": "2026-10-01T03:00:00Z",
+  "withdrawalRequestedAt": null,
+  "scheduledDeletionAt": null
 }
 ```
 
@@ -244,10 +247,32 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 - 인증·CSRF 필요
 - 유료 잔액이 있으면 `409 PAID_BALANCE_REMAINS`와 환불 안내 정보를 반환한다.
 - 탈퇴 접수 성공: `202 Accepted`
+- 접수 즉시 모든 활성 세션을 폐기하고 상태를 `WITHDRAWAL_PENDING`으로 바꾼다.
+- 접수 30일 후 회원 닉네임·카카오 식별자·인물 입력을 삭제 또는 비식별화한다.
+- 결제·원장처럼 법적 보관과 대사에 필요한 기록은 회원 UUID와 함께 유지한다.
 
 ### `GET /people`
 
 - 본인과 저장한 사람 목록
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "profileType": "SELF",
+      "displayName": "민지",
+      "birthDate": "2008-03-12",
+      "birthTime": "13:25:00",
+      "birthTimeUnknown": false,
+      "calendarType": "SOLAR",
+      "isLeapMonth": false,
+      "gender": "FEMALE",
+      "relationType": null
+    }
+  ]
+}
+```
 
 ### `POST /people`
 
@@ -256,6 +281,45 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 - 타인은 `relation`, `thirdPartyAuthorizationConfirmed=true` 필수
 - 타인 최대 10명, 초과 시 `409 PERSON_LIMIT_EXCEEDED`
 
+본인 생성 예시:
+
+```json
+{
+  "profileType": "SELF",
+  "displayName": "민지",
+  "birthDate": "2008-03-12",
+  "birthTime": "13:25",
+  "birthTimeUnknown": false,
+  "calendarType": "SOLAR",
+  "isLeapMonth": false,
+  "gender": "FEMALE",
+  "thirdPartyAuthorizationConfirmed": false
+}
+```
+
+타인 생성 예시:
+
+```json
+{
+  "profileType": "OTHER",
+  "displayName": "엄마",
+  "birthDate": "1978-05-10",
+  "birthTime": null,
+  "birthTimeUnknown": true,
+  "calendarType": "LUNAR",
+  "isLeapMonth": false,
+  "gender": "FEMALE",
+  "relationType": "FAMILY",
+  "thirdPartyAuthorizationConfirmed": true
+}
+```
+
+- `profileType`: `SELF | OTHER`
+- `relationType`: `FAMILY | FRIEND | LOVER | CRUSH | WORK_SCHOOL | OTHER`
+- 화면 관계 매핑: 엄마·아빠 → `FAMILY`, 애인 → `LOVER`, 직접 입력 → `OTHER`
+- 본인은 사용자당 활성 프로필 1개만 허용하며 중복 생성은 `409 PRIMARY_PERSON_ALREADY_EXISTS`다.
+- 개인정보는 암호화해 저장하고, 다른 사용자의 인물은 존재 여부를 숨기기 위해 `404 PERSON_NOT_FOUND`로 응답한다.
+
 ### `GET /people/{personId}`
 
 - 소유자 전용
@@ -263,10 +327,13 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 ### `PATCH /people/{personId}`
 
 - 전체 계산 입력이 바뀌면 이후 구매에만 반영한다. 기존 결과는 변경하지 않는다.
+- `profileType`은 변경할 수 없다.
+- 요청은 `POST /people`에서 `profileType`을 제외한 필드를 사용한다. `OTHER`는 관계와 타인 입력 동의가 계속 필수다.
 
 ### `DELETE /people/{personId}`
 
 - 기존 구매 결과는 보존하되 새 구매 대상 목록에서 제거한다.
+- 성공 응답은 `204 No Content`다. 삭제된 인물은 이후 목록·견적·구매 대상에서 제외한다.
 
 ## 5. 상품 카탈로그
 
@@ -509,31 +576,34 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ## 7. 오늘의 운세
 
-### `POST /daily-fortunes`
+### `GET /daily-fortunes/today`
 
-- 인증 불필요
-- rate limit 적용
-
-```json
-{ "person": { "...PersonInput": "..." }, "date": "2026-10-01" }
-```
+- 인증 필요
+- request body 없음
+- Query: `personId` (필수, 현재 사용자가 소유한 활성 인물)
+- 날짜는 서버의 KST 오늘을 사용한다.
 
 ```json
 {
-  "date": "2026-10-01",
-  "summary": "차분하게 순서를 지키면 좋은 날이에요.",
-  "luckyColor": "초록",
-  "luckyItem": "작은 노트",
-  "luckyPlace": "창가",
-  "action": "할 일을 세 줄로 적어보세요.",
-  "calculationVersion": "manse-1.0.0",
-  "generationVersion": "liner-daily-v1",
-  "contentVersion": "daily-2026.10.1"
+  "date": "2026-10-11",
+  "personId": "uuid",
+  "scores": {
+    "overall": 72,
+    "love": 65,
+    "wealth": 74,
+    "studyWork": 80,
+    "condition": 58
+  },
+  "calculationVersion": "manse-2026.10-v1",
+  "contentVersion": "daily-score-2026.10-v1"
 }
 ```
 
-- 서버는 동일 입력·날짜·계산/생성 버전에 대해 최초 성공 스냅샷을 재사용한다.
-- 원본 인물정보를 분석 도구에 전송하지 않는다.
+- 모든 지수는 0~100 정수다.
+- 장문 본문은 반환하지 않는다.
+- 동일 인물·날짜·계산/content 버전의 결과는 항상 같다.
+- Liner API를 호출하지 않고 서버의 결정론적 만세력 계산 결과와 KST 날짜만 사용한다.
+- 인물 없음·삭제·소유권 없음은 존재 여부를 숨기기 위해 `404 PERSON_NOT_FOUND`로 응답한다.
 
 ## 8. 유료 운세 구매·결과
 
@@ -619,6 +689,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "purchaseId": "uuid",
   "readingId": "uuid",
   "status": "FULFILLED",
+  "compensationStatus": "NOT_REQUIRED",
+  "nextAction": "VIEW_READING",
   "calculationVersion": "manse-1.0.0",
   "generationVersion": "liner-general-reading-v2",
   "contentVersion": "love-2026.10.08",
@@ -647,6 +719,79 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - Liner 호출 또는 응답 검증이 3회 실패하면 같은 허용 섹션의 결정론적 fallback 문구를 저장한다. fallback까지 실패하면 구매를 실패 처리하고 차감을 역분개한다.
 - 동일한 `Idempotency-Key` 또는 `generationKey`의 재요청은 외부 호출을 중복 실행하지 않고 진행 중 상태나 최초 완료 결과를 반환한다.
 - 부적 fulfillment는 `PENDING` 또는 `READY`를 반환하며, 부적 생성 시작 자체가 실패하면 구매를 완료하지 않고 등껍질을 복구한다. 비동기 완료 방식은 `TBD(F-06)` 확정에 따라 확장한다.
+
+### `GET /reading-purchases/by-quote/{quoteId}`
+
+- 인증 필요, 구매자 본인만 조회할 수 있다.
+- `(buyerUserId, quoteId)` 조합은 최대 한 구매를 갖는다.
+- 아직 구매 row가 생성되지 않았거나 다른 사용자의 견적이면 `404 PURCHASE_NOT_FOUND`다.
+- POST가 purchase row를 commit한 뒤에는 처리 중이어도 404가 아니라 현재 상태를 반환한다.
+
+```json
+{
+  "purchaseId": "uuid",
+  "quoteId": "uuid",
+  "readingId": null,
+  "status": "FAILED",
+  "compensationStatus": "PENDING",
+  "nextAction": "WAIT",
+  "failureCode": "READING_GENERATION_FAILED",
+  "createdAt": "2026-10-11T03:00:00Z",
+  "fulfilledAt": null
+}
+```
+
+화면의 상태 분기 기준은 `status`이며, `nextAction`은 버튼·안내 행동을 결정한다.
+
+| status | compensationStatus | nextAction | 의미 |
+| --- | --- | --- | --- |
+| `CREATED`, `DEBITED`, `GENERATING` | `NOT_REQUIRED` | `WAIT` | 구매 처리 중 |
+| `FULFILLED` | `NOT_REQUIRED` | `VIEW_READING` | 결과 열람 가능 |
+| `FAILED` | `PENDING` | `WAIT` | 차감 보상 진행 중 |
+| `FAILED` | `REVIEW_REQUIRED` | `CONTACT_SUPPORT` | 자동 보상 판단 불가, 운영 확인 필요 |
+| `FAILED` | `NOT_REQUIRED` | `RETRY_PURCHASE` | 차감 전에 실패했으므로 보상 불필요 |
+| `FAILED` | `COMPLETED` | `RETRY_PURCHASE` | 이전 데이터 호환 조합이며 신규 흐름은 `REFUNDED`로 정규화 |
+| `REFUNDED` | `COMPLETED` | `RETRY_PURCHASE` | 보상 완료, 다시 구매 가능 |
+
+- `compensationStatus`: `NOT_REQUIRED`, `PENDING`, `COMPLETED`, `REVIEW_REQUIRED`
+- `nextAction`: `WAIT`, `VIEW_READING`, `RETRY_PURCHASE`, `CONTACT_SUPPORT`
+- POST 구매 응답에도 `compensationStatus`와 `nextAction`을 반환한다.
+- receipt와 지갑 차감·보상 실행은 BE-A의 `WalletPurchasePort` 책임이다. BE-B는 운세 purchase 상태와 결과 생성 orchestration을 소유한다.
+
+#### 수능운 결과 구조
+
+수능운의 기존 `sections`는 이전 클라이언트 호환을 위해 유지한다. 신규 화면은 문자열을 파싱하지 않고 `suneungGuide`를 사용한다. 구매 성공 응답의 `reading`과 수능운 상세 조회는 같은 구조를 반환한다.
+
+```json
+{
+  "sections": [{ "key": "SUMMARY", "content": "...", "sourceFactKeys": ["dayMaster.hanja"] }],
+  "suneungGuide": {
+    "summary": "...",
+    "examDayGuide": "...",
+    "examPeriods": [
+      { "period": "BEFORE_FIRST_PERIOD", "guidance": "..." },
+      { "period": "BETWEEN_PERIODS", "guidance": "..." },
+      { "period": "FINAL_CHECK", "guidance": "..." }
+    ],
+    "focusTips": ["..."],
+    "foodRecommendations": [
+      { "item": "평소 잘 맞았던 식사", "reason": "..." }
+    ],
+    "preparationChecklist": [
+      { "id": "ADMISSION_TICKET", "label": "수험표", "category": "DOCUMENT" },
+      { "id": "IDENTIFICATION", "label": "신분증", "category": "DOCUMENT" }
+    ],
+    "anxietyManagement": ["..."],
+    "missingElementAdvice": "..."
+  }
+}
+```
+
+- `preparationChecklist`의 체크 여부는 FE 상태이며 서버 결과에 저장하지 않는다.
+- checklist category는 `DOCUMENT`, `WRITING_TOOL`, `TIMEPIECE`, `FOOD`, `CLOTHING`, `OTHER`다.
+- 신규 Liner 수능 요청은 수능 전용 JSON Schema로 `suneungGuide`를 생성한다.
+- Liner 실패 시 deterministic fallback도 동일한 `suneungGuide` 구조를 보장한다.
+- 과거 저장 결과에 `suneungGuide`가 없을 수 있으므로 FE는 전환 기간 동안 legacy `sections` 표시를 지원한다.
 
 ### `GET /readings/{category}`
 

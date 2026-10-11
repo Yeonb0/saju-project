@@ -27,12 +27,25 @@ public class DeterministicReadingFallback {
         Profile profile = profile(request.facts(), "");
         Profile counterpart = request.facts().has("counterpart")
                 ? profile(request.facts(), "/counterpart") : null;
-        List<String> evidence = counterpart == null ? CORE_FACTS : java.util.stream.Stream.concat(
-                CORE_FACTS.stream(), CORE_FACTS.stream().map(path -> "counterpart." + path)).toList();
         List<GeneratedSection> sections = request.allowedSections().stream()
-                .map(key -> new GeneratedSection(key, content(key, request.fortuneType(), profile, counterpart), evidence))
+                .map(key -> new GeneratedSection(key, content(key, request.fortuneType(), profile, counterpart),
+                        evidence(key, counterpart != null)))
                 .toList();
-        return new LinerResponse(sections, List.of());
+        return new LinerResponse(sections, List.of(), request.fortuneType()
+                == com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType.SUNEUNG
+                ? SuneungGuideFactory.fromSections(sections) : null);
+    }
+
+    private List<String> evidence(SectionKey key, boolean hasCounterpart) {
+        if (key == SectionKey.GOOD_PERIOD) {
+            return java.util.stream.Stream.concat(CORE_FACTS.stream(), java.util.stream.Stream.of("luck.annual[0].year"))
+                    .toList();
+        }
+        if (hasCounterpart) {
+            return java.util.stream.Stream.concat(CORE_FACTS.stream(),
+                    CORE_FACTS.stream().map(path -> "counterpart." + path)).toList();
+        }
+        return CORE_FACTS;
     }
 
     private Profile profile(JsonNode facts, String prefix) {
@@ -87,8 +100,12 @@ public class DeterministicReadingFallback {
                     .formatted(p.dayMaster);
             case STUDY_AND_WORK -> "%s이 강한 분포는 한 번 잡은 과제를 밀고 가는 데 활용할 수 있습니다. 다만 완료 기준과 검토 시점을 먼저 정해 몰입이 재작업으로 이어지지 않게 관리하세요."
                     .formatted(p.strong);
-            case WEALTH_FLOW, INCOME, SPENDING_CAUTION -> "재정 판단은 운세보다 실제 수입·고정비·상환 일정이 우선입니다. %s의 추진력으로 즉시 결정하기 전에 24시간 보류 규칙과 월 지출 한도를 두고, 계약 조건은 별도로 확인하세요."
+            case WEALTH_FLOW -> "재정 흐름은 운세보다 실제 수입·고정비·상환 일정으로 먼저 확인해야 합니다. %s의 추진력은 예산 목표를 실행하는 데 쓰고, 월초에 가용 금액과 필수 지출을 나눠 기록하세요."
                     .formatted(p.strong);
+            case INCOME -> "수입을 늘리는 선택에는 기대 금액뿐 아니라 필요한 시간과 비용도 함께 적어 보세요. %s의 강점을 기존 기술을 완성하거나 협상 자료를 준비하는 데 쓰고, 수익 보장은 경계해야 합니다."
+                    .formatted(p.strong);
+            case SPENDING_CAUTION -> "지출 전에는 필요·욕구·보류의 세 칸으로 나누고 큰 결제는 24시간 뒤 다시 확인하세요. 상대적으로 적은 %s의 균형은 월 한도와 계약 조건을 체크리스트로 점검하는 습관에서 찾을 수 있습니다."
+                    .formatted(p.weak);
             case CONDITION -> "현재 해석은 의료 판단이 아닙니다. %s의 활동성을 살리되 수면, 식사, 움직임의 시간을 일정하게 기록해 컨디션 변화를 현실 자료로 확인하세요. 불편이 지속되면 의료 전문가의 안내를 우선해야 합니다."
                     .formatted(p.strong);
             case LUCKY_POINT -> "행운 요소는 결과를 보장하는 물건이 아니라 루틴을 떠올리는 표식으로만 활용하세요. 상대적으로 적은 %s을 연상시키는 색이나 메모를 ‘한 번 더 확인하기’ 신호로 정할 수 있습니다."
@@ -101,8 +118,10 @@ public class DeterministicReadingFallback {
                     .formatted(p.dayMaster, counterpartDayMaster(counterpart));
             case RELATIONSHIP_TIP -> "관계의 결과를 운세로 확정하지 말고 연락 빈도, 약속 이행, 경계 존중처럼 관찰 가능한 행동을 기준으로 판단하세요. %s의 보완점은 질문하고 확인하는 습관으로 채울 수 있습니다."
                     .formatted(p.weak);
-            case SPECIAL_STARS, BALANCING_SPECIAL_STARS -> "특수한 명리 표지는 성격이나 사건을 확정하는 진단이 아닙니다. %s 일간과 전체 오행 분포(%s)를 함께 보는 참고 신호로만 사용하고, 실제 선택은 현재 상황과 행동을 기준으로 하세요."
+            case SPECIAL_STARS -> "신살은 사건을 예언하거나 성격을 확정하는 진단이 아닙니다. %s 일간과 전체 오행 분포(%s)를 함께 살펴, 반복해서 드러나는 강점과 과해질 때의 신호를 발견하는 전통적 참고 표지로만 활용하세요."
                     .formatted(p.dayMaster, distribution);
+            case BALANCING_SPECIAL_STARS -> "신살의 이름보다 현실에서 조절할 행동을 정하는 편이 중요합니다. 강한 %s은 해야 할 일을 끝내는 데 쓰고, 상대적으로 적은 %s은 하루 한 번 멈춤·기록·휴식 중 한 가지를 실천하며 균형을 확인하세요."
+                    .formatted(p.strong, p.weak);
         };
     }
 

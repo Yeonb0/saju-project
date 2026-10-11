@@ -259,6 +259,7 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 | HTTP | code | 의미 | 처리 |
 |---:|---|---|---|
 | 404 | `READING_NOT_FOUND` | 결과 없음 또는 소유권 없음 | 목록 복귀 |
+| 404 | `PURCHASE_NOT_FOUND` | 구매 없음 또는 소유권 없음 | 견적/구매 화면 복귀 |
 | 500 | `PURCHASE_DEBIT_MISMATCH` | 서버 견적과 실제 차감량 불일치 | 자동 보상 후 고객센터 안내 |
 | 503 | `READING_FULFILLMENT_UNAVAILABLE` | 지갑·인물 fulfillment 연동 준비 안 됨 | 이후 재시도 |
 | 409 | `READING_ALREADY_FULFILLED` | 이미 완성된 구매를 다시 생성 요청 | 기존 결과 반환 |
@@ -271,6 +272,13 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 - `AI_RESPONSE_INVALID`에는 AI가 계산 JSON에 없는 명리 정보를 생성했거나 허용하지 않은 섹션을 반환한 경우가 포함된다.
 - 최종 `READING_GENERATION_FAILED`가 되면 등껍질 구매는 보상 거래로 복구한다.
 - 이미 성공한 `generationKey`가 있으면 외부 호출 없이 최초 스냅샷을 반환한다.
+
+구매 상태 응답의 `failureCode`는 현재 다음 안정값을 사용한다.
+
+| failureCode | 의미 |
+| --- | --- |
+| `PURCHASE_DEBIT_MISMATCH` | 견적 금액과 실제 지갑 차감량 불일치 |
+| `READING_GENERATION_FAILED` | Liner 재시도와 deterministic fallback 이후에도 결과 생성 실패 |
 
 ### 4.9 부적·파일 저장소
 

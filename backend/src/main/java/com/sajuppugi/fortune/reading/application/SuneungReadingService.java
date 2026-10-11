@@ -107,7 +107,7 @@ public class SuneungReadingService {
             throw failure;
         }
         if (debit.debitedAmount() != quote.productSnapshot().price().amount()) {
-            readings.markFailed(purchase.id());
+            readings.markFailed(purchase.id(), "PURCHASE_DEBIT_MISMATCH");
             compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_DEBIT_MISMATCH");
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
@@ -128,7 +128,7 @@ public class SuneungReadingService {
                     userId, readingId, FortuneType.SUNEUNG, facts, SuneungEventPolicy.CONTENT_VERSION));
             return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
         } catch (RuntimeException generationFailure) {
-            readings.markFailed(purchase.id());
+            readings.markFailed(purchase.id(), "READING_GENERATION_FAILED");
             try {
                 compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_GENERATION_FAILED");
             } catch (RuntimeException compensationFailure) {

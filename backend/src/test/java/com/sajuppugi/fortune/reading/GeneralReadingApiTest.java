@@ -309,9 +309,27 @@ class GeneralReadingApiTest {
 
     private LinerResponse valid(LinerRequest request) {
         return new LinerResponse(request.allowedSections().stream()
-                .map(section -> new GeneratedSection(section, section + " 검증된 일반 운세 문장",
-                        List.of("dayMaster.hanja")))
+                .map(section -> new GeneratedSection(section, sectionContent(section),
+                        evidence(section)))
                 .toList(), List.of());
+    }
+
+    private String sectionContent(com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey section) {
+        return switch (section) {
+            case SPECIAL_STARS -> "신살 표지는 사건 예언이 아니라 반복되는 성향과 강점을 살피는 참고 자료입니다.";
+            case BALANCING_SPECIAL_STARS -> "균형을 위해 하루 한 번 멈춤과 기록, 충분한 휴식 중 한 가지를 실행해 보세요.";
+            default -> section + " 항목은 계산된 명리 정보를 바탕으로 현재 선택을 점검하는 안내입니다.";
+        };
+    }
+
+    private List<String> evidence(com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey section) {
+        return switch (section) {
+            case MISSING_ELEMENT -> List.of("fiveElements.counts.WOOD");
+            case GOOD_PERIOD -> List.of("luck.annual[0].year");
+            case MATCH_STRENGTH, MATCH_CONFLICT, COMMUNICATION, RELATIONSHIP_TIP ->
+                    List.of("counterpart.dayMaster.hanja");
+            default -> List.of("dayMaster.hanja");
+        };
     }
 
     private ReadingSubjectPort.OwnedSubject subject(UUID id, String name, int year, int month, int day) {
