@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerRequest;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
+import com.sajuppugi.fortune.generation.application.ReadingPromptPolicy;
 import com.sajuppugi.fortune.generation.port.LinerProvider;
 import java.io.IOException;
 import java.io.InputStream;
@@ -75,7 +76,7 @@ public class LinerApiProvider implements LinerProvider {
     ObjectNode payload(LinerRequest request) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("model", properties.model());
-        payload.put("instructions", instructions(request.fortuneType()));
+        payload.put("instructions", instructions(request));
         payload.put("input", "다음 입력 JSON에만 근거해 결과 JSON을 생성하세요.\n" + input(request));
         payload.put("max_output_tokens", properties.maxOutputTokens());
         payload.putObject("reasoning").put("effort", properties.reasoningEffort());
@@ -144,7 +145,7 @@ public class LinerApiProvider implements LinerProvider {
         throw new LinerApiException("Liner output text is missing");
     }
 
-    private String instructions(FortuneType type) {
+    private String instructions(LinerRequest request) {
         return """
                 당신은 뿌기사주의 한국어 운세 해석 작성기입니다.
                 입력 facts는 서버의 결정론적 만세력 계산 결과이며, 입력에 없는 명리 정보는 계산·추측·보완하지 마세요.
@@ -154,19 +155,9 @@ public class LinerApiProvider implements LinerProvider {
                 결과·합격·수익·질병·죽음을 확정하거나 공포를 조장하지 말고 재미와 자기성찰을 위한 참고 정보로 작성하세요.
                 재물 내용은 투자 권유가 아니며, 건강 내용은 의학적 진단이 아니라고 명확히 표현하세요.
                 출력은 제공된 JSON Schema만 따르고 Markdown 코드 펜스나 추가 설명을 쓰지 마세요.
-                운세별 문체 지침: %s
-                """.formatted(tone(type));
-    }
-
-    private String tone(FortuneType type) {
-        return switch (type) {
-            case OVERALL -> "관계·학업/일·재물·컨디션을 균형 있게 연결하고 실행 가능한 작은 행동으로 마무리합니다.";
-            case LOVE -> "관계 상태를 단정하지 않고 감정 확인, 대화, 경계 존중을 중심으로 따뜻하게 씁니다.";
-            case WEALTH -> "현실의 수입·고정비·계약 조건을 우선하며 절제된 재정 습관을 제안합니다.";
-            case COMPATIBILITY -> "두 사람을 우열로 비교하지 않고 공통점·차이·대화 방법을 양쪽 facts에 근거해 씁니다.";
-            case SINSAL -> "신살을 사건 예언이나 낙인으로 쓰지 않고 장점과 생활 속 다스림의 관점으로 설명합니다.";
-            case SUNEUNG -> "합격을 예측하지 않고 시험 당일 준비·집중·긴장 관리에 도움이 되는 현실적 루틴을 제안합니다.";
-        };
+                세부 작성 지침:
+                %s
+                """.formatted(ReadingPromptPolicy.instructions(request));
     }
 
     private Set<String> factPaths(JsonNode facts) {
