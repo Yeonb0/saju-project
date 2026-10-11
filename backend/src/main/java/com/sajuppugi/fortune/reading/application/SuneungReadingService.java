@@ -10,10 +10,9 @@ import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.fortune.calculation.application.SajuCalculationUseCase;
 import com.sajuppugi.fortune.calculation.domain.CalculationFacts;
 import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
-import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
-import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationFailedException;
-import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationInProgressException;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.*;
+import com.sajuppugi.fortune.reading.application.ReadingPurchaseOrchestrator.Execution;
+import com.sajuppugi.fortune.reading.application.ReadingPurchaseOrchestrator.ExecutionResult;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
 import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
@@ -22,9 +21,7 @@ import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateTalisman;
-import com.sajuppugi.wallet.application.WalletPurchasePort;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -34,40 +31,34 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SuneungReadingService {
-    private static final Duration DEBIT_CLAIM_LEASE = Duration.ofMinutes(1);
     private static final List<SectionKey> SECTIONS = List.of(
             SectionKey.SUMMARY, SectionKey.EXAM_DAY, SectionKey.EXAM_PERIODS, SectionKey.FOCUS,
             SectionKey.MEAL, SectionKey.PREPARATION, SectionKey.ANXIETY_MANAGEMENT, SectionKey.MISSING_ELEMENT);
 
     private final CatalogUseCase catalog;
-    private final ObjectProvider<WalletPurchasePort> walletProvider;
     private final ObjectProvider<ReadingSubjectPort> subjectProvider;
     private final SajuCalculationUseCase calculation;
-    private final ReadingGenerationService generation;
     private final SuneungPurchaseClaimService claims;
     private final ReadingRepository readings;
     private final BundledReadingFulfillmentService bundledFulfillment;
+    private final ReadingPurchaseOrchestrator orchestrator;
     private final SuneungQuoteContext quoteContext;
-    private final GenerationLeaseProperties generationLease;
     private final Clock clock;
 
-    public SuneungReadingService(CatalogUseCase catalog, ObjectProvider<WalletPurchasePort> walletProvider,
-                                 ObjectProvider<ReadingSubjectPort> subjectProvider,
-                                 SajuCalculationUseCase calculation, ReadingGenerationService generation,
+    public SuneungReadingService(CatalogUseCase catalog, ObjectProvider<ReadingSubjectPort> subjectProvider,
+                                 SajuCalculationUseCase calculation,
                                  SuneungPurchaseClaimService claims, ReadingRepository readings,
                                  BundledReadingFulfillmentService bundledFulfillment,
-                                 SuneungQuoteContext quoteContext, GenerationLeaseProperties generationLease,
+                                 ReadingPurchaseOrchestrator orchestrator, SuneungQuoteContext quoteContext,
                                  Clock clock) {
         this.catalog = catalog;
-        this.walletProvider = walletProvider;
         this.subjectProvider = subjectProvider;
         this.calculation = calculation;
-        this.generation = generation;
         this.claims = claims;
         this.readings = readings;
         this.bundledFulfillment = bundledFulfillment;
+        this.orchestrator = orchestrator;
         this.quoteContext = quoteContext;
-        this.generationLease = generationLease;
         this.clock = clock;
     }
 
@@ -83,7 +74,6 @@ public class SuneungReadingService {
             return new PurchaseResult(existing.id(), existing.readingId(), existing.status(), null, null, true,
                     snapshot.productSnapshot().price());
         }
-        WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
         ReadingSubjectPort subjects = required(subjectProvider.getIfAvailable());
         ReadingSubjectPort.OwnedSubject subject = Optional.ofNullable(subjects.getOwnedSubject(userId, personId))
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
@@ -110,40 +100,11 @@ public class SuneungReadingService {
                 SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
                 subject.birthInput().birthTimeUnknown() ? List.of("pillars.hour", "tenGods.hour", "twelveStages.hour") : List.of(),
                 SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION);
-        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command,
+        GenerationResumeContext resumeContext = new GenerationResumeContext(command,
                 ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(), null, null, null,
-                "EXAM_FOCUS", true));
-
-        UUID debitClaim = UUID.randomUUID();
-        if (!readings.tryClaimDebit(purchase.id(), debitClaim, clock.instant(),
-                clock.instant().minus(DEBIT_CLAIM_LEASE))) {
-            ReadingPurchase current = readings.findPurchaseByQuote(userId, quoteId).orElseThrow();
-            return new PurchaseResult(current.id(), current.readingId(), current.status(), null, null, true,
-                    quote.productSnapshot().price());
-        }
-        IdempotencyKey debitKey = debitKey(purchase.id(), key);
-        WalletPurchasePort.DebitResult debit;
-        try {
-            debit = wallet.debit(userId, quoteId, debitKey);
-            if (debit == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-            readings.markDebited(purchase.id(), debitClaim, debit.transactionId());
-        } catch (RuntimeException failure) {
-            readings.releaseDebitClaim(purchase.id(), debitClaim);
-            throw failure;
-        }
-        if (debit.debitedAmount() != quote.productSnapshot().price().amount()) {
-            readings.markFailed(purchase.id(), "PURCHASE_DEBIT_MISMATCH");
-            throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
-        }
-        var lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
-                clock.instant().plus(generationLease.leaseDuration())).orElse(null);
-        if (lease == null) {
-            ReadingPurchase current = readings.findPurchaseByQuote(userId, quoteId).orElseThrow();
-            return new PurchaseResult(current.id(), current.readingId(), current.status(), null, null, true,
-                    quote.productSnapshot().price());
-        }
-        try {
-            GeneratedReading generated = generation.generate(command);
+                "EXAM_FOCUS", true);
+        ExecutionResult result = orchestrator.execute(new Execution(userId, quoteId, key, purchase,
+                quote.productSnapshot().price(), command, resumeContext, (generated, lease) -> {
             UUID readingId = UUID.randomUUID();
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(),
@@ -151,23 +112,14 @@ public class SuneungReadingService {
                     generated.response(), generated.calculationVersion(),
                     generated.generationVersion(), generated.contentVersion(), generated.generationMode(), null,
                     null, clock.instant());
-            reading = bundledFulfillment.fulfill(purchase, reading, new CreateTalisman(
+            return bundledFulfillment.fulfill(purchase, reading, new CreateTalisman(
                     userId, readingId, FortuneType.SUNEUNG, facts, SuneungEventPolicy.CONTENT_VERSION), lease);
-            return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
-        } catch (GenerationInProgressException inProgress) {
-            readings.releaseGenerationLease(purchase.id(), lease);
-            throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-        } catch (GenerationFailedException generationFailure) {
-            try {
-                readings.markFailed(purchase.id(), "READING_GENERATION_FAILED", lease);
-            } catch (IllegalStateException fencedOff) {
-                throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-            }
-            throw new ApiException(ErrorCode.READING_GENERATION_FAILED);
-        } catch (RuntimeException transientFailure) {
-            readings.releaseGenerationLease(purchase.id(), lease);
-            throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
+        }));
+        if (result.current() != null) {
+            return new PurchaseResult(result.current().id(), result.current().readingId(), result.current().status(),
+                    null, null, true, quote.productSnapshot().price());
         }
+        return completed(result.reading(), result.balance(), result.reused(), quote.productSnapshot().price());
     }
 
     public OwnedReading get(UUID userId, UUID readingId) {
@@ -213,11 +165,6 @@ public class SuneungReadingService {
     private <T> T required(T dependency) {
         if (dependency == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
         return dependency;
-    }
-
-    private IdempotencyKey debitKey(UUID purchaseId, IdempotencyKey requestKey) {
-        if (requestKey == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
-        return new IdempotencyKey("reading-purchase:" + purchaseId);
     }
 
     private PurchaseResult completed(OwnedReading reading, Integer balance, boolean reused, Price charged) {

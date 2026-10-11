@@ -10,12 +10,10 @@ import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.fortune.calculation.application.SajuCalculationUseCase;
 import com.sajuppugi.fortune.calculation.domain.CalculationFacts;
 import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
-import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
-import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationFailedException;
-import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationInProgressException;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
-import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedReading;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationCommand;
+import com.sajuppugi.fortune.reading.application.ReadingPurchaseOrchestrator.Execution;
+import com.sajuppugi.fortune.reading.application.ReadingPurchaseOrchestrator.ExecutionResult;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService.PurchaseResult;
 import com.sajuppugi.fortune.reading.domain.GeneralReadingPolicy;
 import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
@@ -27,9 +25,7 @@ import com.sajuppugi.fortune.reading.domain.RelationType;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
 import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateTalisman;
-import com.sajuppugi.wallet.application.WalletPurchasePort;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -42,37 +38,30 @@ import org.springframework.stereotype.Service;
 @Service
 public class GeneralReadingService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
-    private static final Duration DEBIT_CLAIM_LEASE = Duration.ofMinutes(1);
-
     private final CatalogUseCase catalog;
-    private final ObjectProvider<WalletPurchasePort> walletProvider;
     private final ObjectProvider<ReadingSubjectPort> subjectProvider;
     private final SajuCalculationUseCase calculation;
-    private final ReadingGenerationService generation;
     private final SuneungPurchaseClaimService claims;
     private final ReadingRepository readings;
     private final BundledReadingFulfillmentService bundledFulfillment;
+    private final ReadingPurchaseOrchestrator orchestrator;
     private final ReadingQuoteContext quoteContext;
-    private final GenerationLeaseProperties generationLease;
     private final Clock clock;
 
-    public GeneralReadingService(CatalogUseCase catalog, ObjectProvider<WalletPurchasePort> walletProvider,
-                                 ObjectProvider<ReadingSubjectPort> subjectProvider,
-                                 SajuCalculationUseCase calculation, ReadingGenerationService generation,
+    public GeneralReadingService(CatalogUseCase catalog, ObjectProvider<ReadingSubjectPort> subjectProvider,
+                                 SajuCalculationUseCase calculation,
                                  SuneungPurchaseClaimService claims, ReadingRepository readings,
                                  BundledReadingFulfillmentService bundledFulfillment,
-                                 ReadingQuoteContext quoteContext, GenerationLeaseProperties generationLease,
+                                 ReadingPurchaseOrchestrator orchestrator, ReadingQuoteContext quoteContext,
                                  Clock clock) {
         this.catalog = catalog;
-        this.walletProvider = walletProvider;
         this.subjectProvider = subjectProvider;
         this.calculation = calculation;
-        this.generation = generation;
         this.claims = claims;
         this.readings = readings;
         this.bundledFulfillment = bundledFulfillment;
+        this.orchestrator = orchestrator;
         this.quoteContext = quoteContext;
-        this.generationLease = generationLease;
         this.clock = clock;
     }
 
@@ -119,43 +108,12 @@ public class GeneralReadingService {
                 LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
                 value(relationType), policy.allowedSections(), missingFields,
                 GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion());
-        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command, option, personId,
+        GenerationResumeContext resumeContext = new GenerationResumeContext(command, option, personId,
                 subjects.primary().displayName(), counterpartPersonId,
                 subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
-                questionKey, option == ProductOption.READING_WITH_TALISMAN));
-
-        WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
-        UUID debitClaim = UUID.randomUUID();
-        if (!readings.tryClaimDebit(purchase.id(), debitClaim, clock.instant(),
-                clock.instant().minus(DEBIT_CLAIM_LEASE))) {
-            ReadingPurchase current = readings.findPurchaseByQuote(userId, quoteId).orElseThrow();
-            return new PurchaseResult(current.id(), current.readingId(), current.status(), null, null, true,
-                    quote.productSnapshot().price());
-        }
-        IdempotencyKey debitKey = debitKey(purchase.id(), key);
-        WalletPurchasePort.DebitResult debit;
-        try {
-            debit = wallet.debit(userId, quoteId, debitKey);
-            if (debit == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-            readings.markDebited(purchase.id(), debitClaim, debit.transactionId());
-        } catch (RuntimeException failure) {
-            readings.releaseDebitClaim(purchase.id(), debitClaim);
-            throw failure;
-        }
-        if (debit.debitedAmount() != quote.productSnapshot().price().amount()) {
-            readings.markFailed(purchase.id(), "PURCHASE_DEBIT_MISMATCH");
-            throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
-        }
-
-        var lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
-                clock.instant().plus(generationLease.leaseDuration())).orElse(null);
-        if (lease == null) {
-            ReadingPurchase current = readings.findPurchaseByQuote(userId, quoteId).orElseThrow();
-            return new PurchaseResult(current.id(), current.readingId(), current.status(), null, null, true,
-                    quote.productSnapshot().price());
-        }
-        try {
-            GeneratedReading generated = generation.generate(command);
+                questionKey, option == ProductOption.READING_WITH_TALISMAN);
+        ExecutionResult result = orchestrator.execute(new Execution(userId, quoteId, key, purchase,
+                quote.productSnapshot().price(), command, resumeContext, (generated, lease) -> {
             UUID readingId = UUID.randomUUID();
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     fortuneType, option, personId, subjects.primary().displayName(), counterpartPersonId,
@@ -169,21 +127,10 @@ public class GeneralReadingService {
             } else {
                 readings.fulfill(purchase, reading, lease);
             }
-            return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
-        } catch (GenerationInProgressException inProgress) {
-            readings.releaseGenerationLease(purchase.id(), lease);
-            throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-        } catch (GenerationFailedException failure) {
-            try {
-                readings.markFailed(purchase.id(), "READING_GENERATION_FAILED", lease);
-            } catch (IllegalStateException fencedOff) {
-                throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-            }
-            throw new ApiException(ErrorCode.READING_GENERATION_FAILED);
-        } catch (RuntimeException transientFailure) {
-            readings.releaseGenerationLease(purchase.id(), lease);
-            throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-        }
+            return reading;
+        }));
+        if (result.current() != null) return existing(result.current(), userId, quote.productSnapshot().price());
+        return completed(result.reading(), result.balance(), result.reused(), quote.productSnapshot().price());
     }
 
     private PurchaseQuote validateQuote(UUID userId, UUID quoteId, FortuneType fortuneType, ProductOption option,
@@ -259,11 +206,6 @@ public class GeneralReadingService {
                     "counterpart.twelveStages.hour"));
         }
         return List.copyOf(missing);
-    }
-
-    private IdempotencyKey debitKey(UUID purchaseId, IdempotencyKey requestKey) {
-        if (requestKey == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
-        return new IdempotencyKey("reading-purchase:" + purchaseId);
     }
 
     private <T> T required(T dependency) {
