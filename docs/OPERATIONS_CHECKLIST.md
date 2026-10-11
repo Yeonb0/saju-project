@@ -715,3 +715,4 @@ LIMIT 20;
 - `GenerationRecoveryScheduler`는 `WALLET_PURCHASES_ENABLED=true` 및 `READING_GENERATION_RECOVERY_ENABLED=true`일 때만 실행한다. DEBITED 또는 만료 lease의 GENERATING 구매를 찾고, 새 lease/fence를 얻은 실행자만 Liner 호출 뒤 FULFILLED/FAILED로 전이할 수 있다. 외부 호출은 DB 잠금 밖에서 한다.
 - 적용: 6-2 구매 상태와 결과 저장의 fence 조건, 6-3 Liner 결과 불명 재시도 경계, 6-4 중단 뒤 재개·stale 완료 차단, 6-6 추가형 migration/기본 비활성. 생성 실패는 기존 FAILED 보상 worker가 처리하는 경로를 유지한다.
 - H2에서 일반·수능 구매 API 테스트를 재실행해 성공했다. 실제 PostgreSQL에서 두 worker 경쟁, OS 강제 종료, lease 만료 뒤 늦은 완료, Liner 지연 및 보상 대사는 아직 검증하지 않았다. 운영 활성화·배포·push는 하지 않았다.
+- 후속 실제 PostgreSQL 17 분리 DB(`localhost:55432`, fake Liner)에서 `GenerationRecoveryPostgresTest`를 실행했다. 독립 worker 2개가 동일 DEBITED 구매를 동시에 recovery해도 최종 상태 FULFILLED와 `readings` 1건만 남음을 확인했다. OS 강제 종료·lease 만료 후 늦은 완료·실제 Liner 지연/보상 대사는 여전히 미검증이다.
