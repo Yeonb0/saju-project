@@ -5,6 +5,8 @@ import com.sajuppugi.common.api.ApiResponse;
 import com.sajuppugi.common.api.ErrorCode;
 import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.catalog.domain.PurchaseQuote;
+import com.sajuppugi.catalog.application.QuoteFundingService;
+import io.swagger.v3.oas.annotations.media.Schema;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedSection;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.SuneungGuide;
@@ -40,12 +42,14 @@ public class SuneungReadingController {
     private final SuneungReadingService service;
     private final GeneralReadingService generalService;
     private final ReadingQueryService queryService;
+    private final QuoteFundingService funding;
 
     public SuneungReadingController(SuneungReadingService service, GeneralReadingService generalService,
-                                     ReadingQueryService queryService) {
+                                     ReadingQueryService queryService, QuoteFundingService funding) {
         this.service = service;
         this.generalService = generalService;
         this.queryService = queryService;
+        this.funding = funding;
     }
 
     @PostMapping("/reading-purchases")
@@ -69,20 +73,25 @@ public class SuneungReadingController {
     }
 
     @PostMapping("/quotes/fortune")
-    public ResponseEntity<ApiResponse<QuoteResponse>> quote(
+    public ResponseEntity<ApiResponse<SuneungQuoteResponse>> quote(
             Authentication authentication, @Valid @RequestBody QuoteRequest request) {
         if (request.fortuneType() == null && !request.isLegacySuneung()) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
+        UUID userId = userId(authentication);
         PurchaseQuote quote = request.fortuneType() == null
-                ? service.issueQuote(userId(authentication), request.personId())
-                : generalService.issueQuote(userId(authentication), request.fortuneType(), request.productOption(),
+                ? service.issueQuote(userId, request.personId())
+                : generalService.issueQuote(userId, request.fortuneType(), request.productOption(),
                         request.personId(), request.counterpartPersonId(), request.relationType(), request.questionKey());
+        var funded = funding.get(userId, quote.id());
         Event event = request.fortuneType() == null
                 ? new Event("CSAT", com.sajuppugi.fortune.reading.application.SuneungEventPolicy.EXAM_DATE) : null;
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(new QuoteResponse(
-                quote.id(), quote.productSnapshot().code(), quote.productSnapshot().price().currency().name(),
-                quote.productSnapshot().price().amount(), quote.expiresAt(), event)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(new SuneungQuoteResponse(
+                quote.id(), quote.productSnapshot().code(), new Charged(
+                        quote.productSnapshot().price().currency().name(), quote.productSnapshot().price().amount()),
+                quote.expiresAt(), event, funded.walletBalance(), funded.balanceAfter(),
+                funded.shortage(), funded.recommendedTopUp(), quote.productSnapshot().productName(),
+                quote.productSnapshot().regularPrice())));
     }
 
     @GetMapping("/readings")
@@ -125,8 +134,14 @@ public class SuneungReadingController {
         }
     }
 
-    public record QuoteResponse(UUID quoteId, String productCode, String currency, int amount,
-                                Instant expiresAt, Event event) {}
+    @Schema(requiredProperties = {"quoteId", "productCode", "charged", "expiresAt", "event", "walletBalance",
+            "balanceAfter", "shortage", "recommendedTopUp", "productName", "regularPrice"})
+    public record SuneungQuoteResponse(UUID quoteId, String productCode, Charged charged,
+                                Instant expiresAt, Event event, int walletBalance,
+                                @Schema(types = {"integer", "null"}) Integer balanceAfter, int shortage,
+                                @Schema(types = {"string", "null"}) String recommendedTopUp,
+                                String productName,
+                                @Schema(nullable = true) com.sajuppugi.catalog.domain.Price regularPrice) {}
 
     public record PurchaseResponse(UUID purchaseId, UUID readingId, String status,
                                    String compensationStatus, String nextAction,

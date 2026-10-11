@@ -149,4 +149,58 @@ describe("AboutScreen (PG-4 /about)", () => {
     expect(String(caught)).toContain("MOCK-PORT");
     silence.mockRestore();
   });
+
+  it("i. h2 가 순서대로 서비스 소개 · 충전 상품 · 제공 방법 · 기간 · 유효기간 · 환불 · 고객센터다", async () => {
+    setup();
+    await screen.findAllByRole("listitem");
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+    ).toEqual([
+      "서비스 소개",
+      "충전 상품",
+      "제공 방법 · 기간",
+      "유효기간",
+      "환불",
+      "고객센터",
+    ]);
+  });
+
+  it("j. 원고 · 가격 자리는 하나씩 있고 모두 비어 있다", async () => {
+    setup();
+    await screen.findAllByRole("listitem");
+    const main2 = screen.getByRole("main");
+    for (const slot of [
+      "intro",
+      "content-prices",
+      "period",
+      "validity",
+      "refund-summary",
+      "support",
+    ]) {
+      const found = main2.querySelectorAll(`[data-slot="${slot}"]`);
+      expect(found).toHaveLength(1);
+      expect(found[0].textContent).toBe("");
+    }
+  });
+
+  it("k. 활성 상품 li 는 상품 상자 안에 있고 콘텐츠 가격 상자에는 li 가 없다", async () => {
+    setup();
+    const items = await screen.findAllByRole("listitem");
+    const main = screen.getByRole("main");
+    const products = main.querySelector('[data-slot="top-up-products"]');
+    expect(products).not.toBeNull();
+    for (const item of items) expect(products).toContainElement(item);
+    const prices = main.querySelector('[data-slot="content-prices"]');
+    expect(prices?.querySelectorAll("li")).toHaveLength(0);
+  });
+
+  it("l. 캐릭터 자리는 aria-hidden 으로 하나 있다", async () => {
+    setup();
+    await screen.findAllByRole("listitem");
+    const slots = screen
+      .getByRole("main")
+      .querySelectorAll('[data-slot="character"]');
+    expect(slots).toHaveLength(1);
+    expect(slots[0]).toHaveAttribute("aria-hidden", "true");
+  });
 });

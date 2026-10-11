@@ -26,7 +26,7 @@
 | 폰트 | **보류 (FONT-HOLD, D-02 미정)** | 결정 전까지 코드에서 글꼴을 지정하지 않는다. 결정되면 `next/font/local` 서브셋 셀프호스팅 |
 | 오버레이 UI | **vaul**(바텀시트) + **Radix Dialog**(모달) | headless 라 손그림 스타일 입히기 쉬움. shadcn/ui 미채택 |
 | 서버 데이터 | **TanStack Query** | mutation 자동 재시도 0 (`makeQueryClient`) — 결제 · 구매 명령 중복 방지 |
-| API 타입 | **openapi-typescript + openapi-fetch** | BE springdoc OpenAPI 에서 생성 (API_SPEC 15장). 명세 변경이 컴파일 에러로 드러남. 생성 타입은 `src/lib/api/adapters/` 에서만 쓰고, 그 전에는 포트 + 가짜 구현 (MOCK-PORT, 1-2) |
+| API 타입 | **openapi-typescript** (openapi-fetch 는 쓰지 않는다 — ADAPTER-HTTP, 10/10) | BE springdoc OpenAPI(`docs/openapi/api-v1.json`, BE-A PR #17)에서 `pnpm api:types` 로 `src/types/api.d.ts` 생성 (API_SPEC 15장). 생성 타입은 `src/lib/api/adapters/` 에서만 쓴다(테스트로 막음). adapter 는 `src/lib/api/http.ts` 로 요청하고, 응답 `data` 를 zod 로 런타임 검사한 뒤 검사 값을 객체 리터럴 + `satisfies` 생성 타입으로 대조(필드 이름이 바뀌면 typecheck 실패)해 포트 모델로 바꾼다 (MOCK-PORT, 1-2) |
 | 결제 | **토스페이먼츠 SDK v2** `@tosspayments/tosspayments-sdk` (2026-10-01 TOSS-SDK) | P-08 토스 기준. 결제창 열기만 FE, 금액 · 승인은 서버. 설치는 PG-3 에서 |
 | 폼 | **React Hook Form + Zod** | PersonForm 하나를 여러 곳에서 재사용, "시간 모름" 조건부 검증 (A-04 · A-05) |
 | 클라이언트 상태 | **Zustand** (선물 위저드 한정, `sessionStorage` persist) | 결제창 리다이렉트 후 복귀해도 선물 입력값 유지 |
@@ -103,7 +103,7 @@ BE 스테이징 · OpenAPI 가 늦어져(R-06 · Q-18) 화면과 결제 흐름�
 | 컴포넌트 · 모듈 | 쓰이는 화면 | 만드는 단계 |
 |---|---|---|
 | AppShell (헤더: 뒤로/제목/메뉴, 사이드 메뉴, 하단 고정 CTA) | 거의 전부 | Phase 1 (완료) |
-| API 클라이언트 (`src/lib/api` — 공통 응답 · 오류 code 처리 + CSRF + Idempotency-Key, `adapters/` 는 openapi-fetch) + 포트(`src/lib/ports`) · 가짜(`src/mocks`) (MOCK-PORT) | 서버를 부르는 모든 화면 | PG-1 (`idempotency.ts` 완료 `353d9b8` — 구매 의도당 키 · 본문 고정, 충전 승인은 주문 ID 키) |
+| API 클라이언트 (`src/lib/api` — 공통 응답 · 오류 code 처리 + CSRF + Idempotency-Key, `adapters/` 는 `http.ts` + zod — ADAPTER-HTTP) + 포트(`src/lib/ports`) · 가짜(`src/mocks`) (MOCK-PORT) | 서버를 부르는 모든 화면 | PG-1 (`idempotency.ts` 완료 `353d9b8` — 구매 의도당 키 · 본문 고정, 충전 승인은 주문 ID 키) |
 | 로그인 가드 (세션 확인 · `returnTo` 복귀) | 로그인 필요 화면 전부 (A-02) | PG-2 |
 | Checkout — PG 결제 (서버 주문 요약 · 동의 · 토스 결제창 · `/pay/success` 승인 · `CREDITED` 확인 · 승인 지연 확인 중 화면 · `/pay/fail`) | PAY-01 · PAY-02 · FORT-04 (`/wallet`, 팀 문서 반영 `cc60ab3`) — 결제 수단 · 동의 체크는 Q-25. 선물은 등껍질 결제라 쓰지 않는다 (P-07) | PG-3 |
 | BusinessFooter (사업자 정보 8개 + 약관 3종 링크, 값은 `src/lib/business.ts` 한 파일) | 전부 (AppShell 하단) | PG-4 (틀 완료 `4453ba9`, 값 대기 R-07) |

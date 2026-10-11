@@ -7,6 +7,7 @@ export const FAKE_SESSION_SCENARIOS = [
   "new_user", // 처음 로그아웃, 로그인하면 본인 정보 없음 (A-03 온보딩 경로 확인용)
   "signed_in", // 처음부터 로그인 · 본인 정보 있음
   "signed_in_without_person", // 처음부터 로그인 · 본인 정보 없음
+  "signed_in_with_other", // 처음부터 로그인 · 본인 정보 있음 · 저장된 타인 1명 (궁합 MATCH-01 · 02 확인용)
 ] as const;
 
 export type FakeSessionScenario = (typeof FAKE_SESSION_SCENARIOS)[number];
@@ -28,14 +29,26 @@ const FIXTURE_SELF: PersonSummary = {
   name: "FIXTURE",
 };
 
+// 픽스처일 뿐이며 실제 사용자와 무관하다 (signed_in_with_other 의 저장된 타인)
+const FIXTURE_OTHER: PersonSummary = {
+  personId: "77777777-7777-4777-8777-777777777777",
+  isSelf: false,
+  name: "FIXTURE OTHER",
+};
+
 export function createFakeAccount(scenario: FakeSessionScenario): FakeAccount {
   let signedIn =
-    scenario === "signed_in" || scenario === "signed_in_without_person";
+    scenario === "signed_in" ||
+    scenario === "signed_in_without_person" ||
+    scenario === "signed_in_with_other";
   let self: PersonSummary | null =
-    scenario === "signed_out" || scenario === "signed_in"
+    scenario === "signed_out" ||
+    scenario === "signed_in" ||
+    scenario === "signed_in_with_other"
       ? { ...FIXTURE_SELF }
       : null;
-  const others: PersonSummary[] = [];
+  const others: PersonSummary[] =
+    scenario === "signed_in_with_other" ? [{ ...FIXTURE_OTHER }] : [];
 
   return {
     isSignedIn: () => signedIn,

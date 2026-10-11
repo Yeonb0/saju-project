@@ -49,3 +49,32 @@ tasks.named('test') {
 tasks.named('jar') {
     enabled = false
 }
+
+tasks.register('exportOpenApi', Test) {
+    description = 'Export the local /api/v1 OpenAPI contract for frontend type generation.'
+    group = 'documentation'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.OpenApiIntegrationTest' }
+    systemProperty 'openapi.export.path', file('../docs/openapi/api-v1.json').absolutePath
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+}
+
+tasks.register('walletDemo', Test) {
+    description = 'Retain a synthetic debit/refund example in the isolated local PostgreSQL test database.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.WalletPostgresDemoTest' }
+    systemProperty 'wallet.demo.path', file('build/wallet-demo.json').absolutePath
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+    doFirst {
+        if (System.getenv('TEST_DATABASE_URL') != 'jdbc:postgresql://localhost:55432/sajuppugi_test') {
+            throw new GradleException('walletDemo requires the isolated localhost:55432/sajuppugi_test database.')
+        }
+    }
+}

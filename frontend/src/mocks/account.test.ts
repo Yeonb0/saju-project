@@ -24,4 +24,21 @@ describe("가짜 계정 (MOCK-PORT)", () => {
       name: "FIXTURE",
     });
   });
+
+  it("signed_in_with_other: 로그인 · 본인은 픽스처 · 저장된 타인 1명", () => {
+    const account = createFakeAccount("signed_in_with_other");
+    expect(account.isSignedIn()).toBe(true);
+    expect(account.getSelf()).toMatchObject({ isSelf: true, name: "FIXTURE" });
+    expect(account.getOthers()).toEqual([
+      {
+        personId: "77777777-7777-4777-8777-777777777777",
+        isSelf: false,
+        name: "FIXTURE OTHER",
+      },
+    ]);
+  });
+
+  it("signed_in 은 저장된 타인이 없다 (기존 동작 유지)", () => {
+    expect(createFakeAccount("signed_in").getOthers()).toHaveLength(0);
+  });
 });

@@ -30,6 +30,9 @@ describe("classifyApiError", () => {
     [429, "RATE_LIMITED", "rate_limited"],
     [500, "INTERNAL_SERVER_ERROR", "server"],
     [502, null, "server"],
+    [422, "BIRTH_TIME_REQUIRED_AT_TERM", "birth_time_required"],
+    [500, "PURCHASE_DEBIT_MISMATCH", "server"],
+    [503, "READING_FULFILLMENT_UNAVAILABLE", "server"],
     [418, "SOMETHING_NEW", "unknown"],
   ];
 

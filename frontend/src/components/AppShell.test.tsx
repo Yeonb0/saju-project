@@ -11,6 +11,11 @@ const LINKS = [
   ["마이페이지", "/me"],
   ["내 부적 창고", "/vault"],
   ["오늘의 운세", "/today"],
+  ["애정운", "/fortune/love"],
+  ["재물운", "/fortune/wealth"],
+  ["종합운", "/fortune/overall"],
+  ["신살", "/fortune/sinsal"],
+  ["궁합", "/fortune/compatibility"],
   ["수능운", "/suneung"],
 ] as const;
 
@@ -21,13 +26,13 @@ async function openMenu() {
 }
 
 describe("AppShell 사이드 메뉴", () => {
-  it("처음엔 닫혀 있고, 열면 링크 5개가 각자의 href 로 보인다", async () => {
+  it("처음엔 닫혀 있고, 열면 링크 10개가 각자의 href 로 보인다", async () => {
     render(<AppShell>본문</AppShell>);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     await openMenu();
     const dialog = screen.getByRole("dialog", { name: "메뉴" });
-    expect(dialog.querySelectorAll("a")).toHaveLength(5);
+    expect(dialog.querySelectorAll("a")).toHaveLength(10);
     for (const [label, href] of LINKS) {
       expect(screen.getByRole("link", { name: label })).toHaveAttribute(
         "href",

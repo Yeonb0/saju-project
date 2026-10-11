@@ -8,19 +8,37 @@ import com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType;
 import com.sajuppugi.fortune.calculation.domain.BirthInput.Gender;
 import com.sajuppugi.fortune.calculation.domain.CalculationFacts;
 import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
+import com.sajuppugi.fortune.reading.port.ReadingSubjectPort;
 import com.sajuppugi.fortune.calculation.infrastructure.DeterministicSajuEngine.UnsupportedUnknownBirthTimeException;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
 
 @Service
 public class BasicSajuService {
     private final BirthInputNormalizer normalizer;
     private final SajuCalculationUseCase calculation;
+    private final ObjectProvider<ReadingSubjectPort> subjects;
 
-    public BasicSajuService(BirthInputNormalizer normalizer, SajuCalculationUseCase calculation) {
+    public BasicSajuService(BirthInputNormalizer normalizer, SajuCalculationUseCase calculation,
+                            ObjectProvider<ReadingSubjectPort> subjects) {
         this.normalizer = normalizer;
         this.calculation = calculation;
+        this.subjects = subjects;
+    }
+
+    public BasicSajuResult calculateOwned(UUID requesterUserId, UUID personId) {
+        Objects.requireNonNull(requesterUserId, "requesterUserId");
+        Objects.requireNonNull(personId, "personId");
+        ReadingSubjectPort provider = subjects.getIfAvailable();
+        if (provider == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
+        var subject = provider.getOwnedSubject(requesterUserId, personId);
+        if (subject == null) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        var birth = subject.birthInput();
+        return calculate(requesterUserId, new BasicSajuCommand(birth.birthDate().toString(),
+                birth.birthTime() == null ? null : birth.birthTime().toString(), birth.birthTimeUnknown(),
+                birth.calendarType(), birth.leapMonth(), birth.gender()));
     }
 
     public BasicSajuResult calculate(UUID requesterUserId, BasicSajuCommand command) {

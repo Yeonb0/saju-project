@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
+import { type BasicSaju, ELEMENTS } from "@/lib/ports/basicSaju";
 import type { FortunePort } from "@/lib/ports/fortune";
 import type { PersonPort, PersonSummary } from "@/lib/ports/person";
 import {
@@ -48,6 +49,18 @@ const OTHER: PersonSummary = {
   name: "FIXTURE OTHER",
 };
 
+// 픽스처일 뿐이며 실제 계산 · 규칙과 무관하다
+function basicSajuStub() {
+  const getBasicSaju = vi.fn(
+    async (_personId: string): Promise<BasicSaju> => ({
+      fiveElements: ELEMENTS.map((element, i) => ({ element, count: i + 1 })),
+      birthTimeKnown: true,
+      calculationVersion: "fixture-calc",
+    }),
+  );
+  return { port: { getBasicSaju }, getBasicSaju };
+}
+
 type Injected = { personPort?: PersonPort; fortunePort?: FortunePort };
 
 function ports() {
@@ -66,16 +79,23 @@ function setup(overrides: Injected = {}) {
   const createQuote = vi.spyOn(fortunePort, "createQuote");
   const getQuote = vi.spyOn(fortunePort, "getQuote");
   const purchase = vi.spyOn(fortunePort, "purchase");
+  const sajuStub = basicSajuStub();
   render(
     <QueryClientProvider client={makeQueryClient()}>
       <SuneungInfoScreen
         personPort={overrides.personPort ?? base.personPort}
         fortunePort={fortunePort}
         topUpPort={base.topUpPort}
+        basicSajuPort={sajuStub.port}
       />
     </QueryClientProvider>,
   );
-  return { createQuote, getQuote, purchase };
+  return {
+    createQuote,
+    getQuote,
+    purchase,
+    getBasicSaju: sajuStub.getBasicSaju,
+  };
 }
 
 class Boundary extends Component<
@@ -245,5 +265,17 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
     // 테스트 환경은 NEXT_PUBLIC_API_MODE 가 비어 있어 진짜 모드다
     const caught = await expectThrown({});
     expect(String(caught)).toContain("MOCK-PORT");
+  });
+
+  it("k. 오행분석 섹션에 li 5개가 보인다", async () => {
+    const { getBasicSaju } = setup();
+    const section = (await screen.findByText("오행분석")).closest("section");
+    expect(section).not.toBeNull();
+    await waitFor(() =>
+      expect(
+        within(section as HTMLElement).getAllByRole("listitem"),
+      ).toHaveLength(5),
+    );
+    expect(getBasicSaju).toHaveBeenCalledTimes(1);
   });
 });

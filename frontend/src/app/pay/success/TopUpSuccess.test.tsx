@@ -1,11 +1,27 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  render as renderPlain,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiContractError } from "@/lib/api/errors";
 import { savePurchaseSelection } from "@/lib/purchase/restore";
+import { makeQueryClient } from "@/lib/queryClient";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 import { createFakeTopUpPort, type FakeTopUpScenario } from "@/mocks/topUp";
 import { TopUpSuccess } from "./TopUpSuccess";
+
+// 잔액 캐시 무효화(useQueryClient)를 위해 QueryClientProvider 로 감싼다 — 기존 단언은 그대로다
+function render(ui: ReactNode, client = makeQueryClient()) {
+  return renderPlain(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 // vitest 는 globals 를 켜지 않아 Testing Library 자동 정리가 동작하지 않는다.
 afterEach(() => {
@@ -45,8 +61,8 @@ describe("TopUpSuccess (/pay/success)", () => {
     expect(await screen.findByText("충전이 완료되었습니다")).toBeVisible();
     const { balance } = await fake.getWallet();
     expect(
-      screen.getByText(`보유 ${balance.toLocaleString("ko-KR")}`),
-    ).toBeVisible();
+      document.querySelector('[data-slot="wallet-balance"]')?.textContent,
+    ).toBe(balance.toLocaleString("ko-KR"));
   });
 
   it("구매 선택이 저장돼 있으면 완료 뒤 앞 화면으로 이어 간다 (PURCHASE-RESTORE)", async () => {
@@ -65,15 +81,23 @@ describe("TopUpSuccess (/pay/success)", () => {
     expect(
       await screen.findByRole("link", { name: "이어서 하기" }),
     ).toHaveAttribute("href", "/suneung");
+    const links = within(screen.getByTestId("app-cta")).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual(["이어서 하기", "홈으로"]);
+    expect(links[1]).toHaveAttribute("href", "/");
   });
 
-  it("구매 선택이 없으면 충전 화면으로 확인", async () => {
+  it("구매 선택이 없으면 홈으로 하나만", async () => {
     const { port, ret, deps } = await prepare("credited");
     render(<TopUpSuccess ret={ret} port={port} deps={deps} />);
-    expect(await screen.findByRole("link", { name: "확인" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "홈으로" })).toHaveAttribute(
       "href",
-      "/wallet",
+      "/",
     );
+    expect(
+      within(screen.getByTestId("app-cta")).getAllByRole("link"),
+    ).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: "이어서 하기" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "확인" })).toBeNull();
   });
 
   it("StrictMode 이중 실행에도 승인은 한 번", async () => {
@@ -124,6 +148,70 @@ describe("TopUpSuccess (/pay/success)", () => {
     );
   });
 
+  it("r. 결제 거절이면 충전으로 돌아가기(/wallet), 홈으로(/) 순서의 링크가 있다", async () => {
+    const { port, ret, deps } = await prepare("rejected");
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />);
+    await screen.findByRole("alert");
+    const links = within(screen.getByTestId("app-cta")).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual([
+      "충전으로 돌아가기",
+      "홈으로",
+    ]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/wallet", "/"]);
+  });
+
+  it("p. 확인 중에는 상자와 주문 확인 버튼이 없고, 30초 뒤에는 상자 안에 늦어지는 안내가 있다", async () => {
+    const { port, ret, deps } = await prepare("stuck_paid");
+    const { container } = render(
+      <TopUpSuccess ret={ret} port={port} deps={deps} />,
+    );
+    expect(container.querySelector('[data-slot="pay-result-box"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: "주문 확인" })).toBeNull();
+    await screen.findByRole("button", { name: "주문 확인" });
+    expect(
+      container.querySelector('[data-slot="pay-result-box"]'),
+    ).toHaveTextContent("결제 확인이 늦어지고 있습니다");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "결제를 확인하고 있습니다",
+    );
+  });
+
+  it("q. CREDITED 인데 잔액이 null 이면 잔액 칸이 비어 있다", async () => {
+    const { ret, deps } = await prepare("credited");
+    // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다
+    const port = {
+      confirm: vi.fn(async () => ({
+        orderId: ret.orderId,
+        status: "CREDITED" as const,
+        processing: false,
+        walletBalance: null,
+      })),
+      getOrder: vi.fn(),
+    };
+    const { container } = render(
+      <TopUpSuccess ret={ret} port={port} deps={deps} />,
+    );
+    await screen.findByText("충전이 완료되었습니다");
+    const balance = container.querySelector('[data-slot="wallet-balance"]');
+    expect(balance).not.toBeNull();
+    expect(balance?.textContent).toBe("");
+  });
+
+  it("s. 헤더(banner)가 없고 캐릭터 자리가 aria-hidden 으로 하나 있다 (확인 중 · 완료)", async () => {
+    const { port, ret, deps } = await prepare("paid_then_credited");
+    const { container } = render(
+      <TopUpSuccess ret={ret} port={port} deps={deps} />,
+    );
+    for (const phase of ["confirming", "credited"]) {
+      if (phase === "credited")
+        await screen.findByText("충전이 완료되었습니다");
+      expect(screen.queryByRole("banner")).toBeNull();
+      const slots = container.querySelectorAll('[data-slot="character"]');
+      expect(slots).toHaveLength(1);
+      expect(slots[0]).toHaveAttribute("aria-hidden", "true");
+    }
+  });
+
   it("응답 모양이 계약과 다르면 삼키지 않고 던진다 (오류 화면)", async () => {
     const silence = vi.spyOn(console, "error").mockImplementation(() => {});
     const { ret, deps } = await prepare("credited");
@@ -143,6 +231,28 @@ describe("TopUpSuccess (/pay/success)", () => {
     expect(await screen.findByText("caught")).toBeInTheDocument();
     expect(probe.caught()).toBe(contract);
     silence.mockRestore();
+  });
+
+  it("g. CREDITED 면 완료 화면 뒤 잔액 조회가 무효화된다 (P-09 · Q-22)", async () => {
+    const { port, ret, deps } = await prepare("credited");
+    const client = makeQueryClient();
+    // 잔액 캐시를 심어 둔다 (픽스처일 뿐이며 실제 잔액과 무관하다)
+    client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />, client);
+    await screen.findByText("충전이 완료되었습니다");
+    await waitFor(() =>
+      expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true),
+    );
+  });
+
+  it("h. 아직 CREDITED 가 아닌 동안(확인 중 · 처리 중)에는 무효화하지 않는다", async () => {
+    const { port, ret, deps } = await prepare("stuck_paid");
+    const client = makeQueryClient();
+    client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />, client);
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
+    await screen.findByRole("button", { name: "주문 확인" });
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
   });
 });
 

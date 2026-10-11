@@ -23,6 +23,7 @@ const SESSION_HELP: Record<FakeSessionScenario, string> = {
   new_user: "로그인하면 본인 정보 없음",
   signed_in: "로그인 · 본인 정보 있음",
   signed_in_without_person: "로그인 · 본인 정보 없음",
+  signed_in_with_other: "로그인 · 본인 + 저장된 타인 1명",
 };
 const TOP_UP_HELP: Record<FakeTopUpScenario, string> = {
   credited: "바로 완료",

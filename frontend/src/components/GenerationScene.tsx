@@ -15,8 +15,29 @@ export function GenerationScene({
   actions?: ReactNode;
 }) {
   if (failure === null) {
-    // TODO(PD 문구) · TODO(캐릭터): 뿌기 부적 배달 포즈 (PG-FIRST 후)
-    return <LoadingScene message="결과를 만들고 있습니다" />;
+    // 배치: LAYOUT-FIGMA 195:121 (FORT-05 · CSAT-02 동일)
+    return (
+      <div
+        data-slot="generation-wait"
+        className="flex flex-col items-center pt-[367px]"
+      >
+        <LoadingScene
+          // TODO(PD 문구)
+          message={
+            <span className="mt-[26px] block text-center text-[20px] leading-[normal]">
+              결과를 만들고 있습니다
+            </span>
+          }
+        >
+          {/* TODO(캐릭터): 뿌기 분석 포즈 60×70 (195:126) — PG-FIRST 후 · 가운데 정렬(mx-auto) — output 이 문구 폭이라 그 안에서 가운데 */}
+          <span
+            aria-hidden
+            data-slot="character"
+            className="mx-auto block h-[70px] w-[60px]"
+          />
+        </LoadingScene>
+      </div>
+    );
   }
   return (
     <>

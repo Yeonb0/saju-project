@@ -39,7 +39,58 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
     screen.getByRole("button", { name: "카카오로 시작하기" }).click();
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/wallet"));
     expect(startLogin).toHaveBeenCalledTimes(1);
-    expect(startLogin).toHaveBeenCalledWith("/wallet", expect.any(Function));
+    expect(startLogin).toHaveBeenCalledWith(
+      "KAKAO",
+      "/wallet",
+      expect.any(Function),
+    );
+  });
+
+  it("로그인이 진행 중이면 카카오 버튼이 disabled 다", async () => {
+    const port: SessionPort = createFakeSessionPort({ scenario: "signed_out" });
+    vi.spyOn(port, "startLogin").mockImplementation(
+      () => new Promise<void>(() => {}),
+    );
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <LoginScreen returnTo="/wallet" port={port} />
+      </QueryClientProvider>,
+    );
+    screen.getByRole("button", { name: "카카오로 시작하기" }).click();
+    await waitFor(() => {
+      const buttons = screen.getAllByRole("button");
+      expect(buttons).toHaveLength(1);
+      expect(buttons[0]).toBeDisabled();
+    });
+  });
+
+  it("로고 자리는 aria-hidden 이고 버튼 이름은 문구 그대로다", () => {
+    const { container } = render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <LoginScreen
+          returnTo="/wallet"
+          port={createFakeSessionPort({ scenario: "signed_out" })}
+        />
+      </QueryClientProvider>,
+    );
+    expect(container.querySelector('[data-slot="kakao-logo"]')).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "카카오로 시작하기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("네이버 · 구글 버튼은 없다 (LOGIN-3 개정)", () => {
+    setup("signed_out");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(
+      screen.queryByRole("button", { name: "네이버로 시작하기" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "구글로 시작하기" }),
+    ).toBeNull();
   });
 
   it("서비스명 h1 은 뿌기사주 하나이고, 헤더(banner)는 없다 (LAYOUT-FIGMA)", () => {

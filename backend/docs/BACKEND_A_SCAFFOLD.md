@@ -2,10 +2,11 @@
 
 ## 범위와 현재 상태
 
-현재 A 영역에는 Java 타입, 내부 호출 계약, 확정 정책의 순수 함수와 일부 실제 저장·조회 구현이 있다.
-상품·기본 견적 저장 및 지갑 조회에 JDBC 저장소, DB migration, Spring 서비스 구현체를 추가했다.
-HTTP 업무 API와 외부 연동은 아직 없다. 미구현 인터페이스에는 성공을 가장하는 임시 구현을 두지 않는다.
-기존 인증 전 업무 API 차단 설정은 유지한다. B 담당 코드는 변경하지 않는다.
+2026-10-09 최신: 견적/지갑 조회 HTTP API와 지갑 차감·원장·원거래 복구 DB adapter가 있다.
+지갑 쓰기는 기본 비활성이며 실제 구매 복구 worker·충전/PG·인증/인물 연결은 후속이다.
+상세 활성화 경계와 검증 범위는 `WALLET_PURCHASE_IMPLEMENTATION.md`를 따른다.
+아래 파일 배치와 순수 함수 설명은 초기 골격 기록이며 최신 구현 상태와 구분한다.
+미구현 인터페이스에는 성공을 가장하는 임시 구현을 두지 않고 인증/CSRF를 유지한다.
 
 ## 파일 배치
 
@@ -55,8 +56,8 @@ HTTP 업무 API와 외부 연동은 아직 없다. 미구현 인터페이스에�
 
 ## B와 맞출 내부 계약
 
-- `WalletPurchasePort.debit`: 사용자/견적/멱등 키 → 원장 거래 ID, 차감량, 최신 잔액.
-- `WalletPurchasePort.compensate`: 최초 거래 ID/사유/멱등 키 → 보상 거래. 최초 배분 기반 역분개와 중복 보상 제한은 구현 시 필요하다.
+- `WalletPurchasePort.debit`: 사용자/견적/내부 멱등 키 → 원장 거래 ID, 차감량, 커밋 시점 잔액. 2026-10-09 DB adapter 추가, 기본 비활성. 재전송은 최초 잔액 snapshot을 반환하므로 현재 잔액은 별도 조회한다.
+- `WalletPurchasePort.compensate`: 최초 거래 ID/사유/내부 멱등 키 → 원거래 배분에 대한 한 번의 보상 거래. DB adapter 추가; 실제 구매 복구 worker는 후속이다. 상세: `WALLET_PURCHASE_IMPLEMENTATION.md`.
 - `GiftAccessPort`: token 및 부적 대상을 확인하고 gift ID/접근 만료를 반환한다. 입력 검증·사주·결과·부적 생성은 B에서 제공한다.
 - 기존 역할 문서의 예시와 달리 현재 타입은 `UUID`를 사용하고 보상도 멱등 키를 받는다. B 연동 전에 양쪽이 서명을 확인한다.
 

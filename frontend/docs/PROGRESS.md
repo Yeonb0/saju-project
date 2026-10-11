@@ -6,49 +6,60 @@
 
 ## 현재 상태
 
-- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** 으로 FE 가 할 수 있는 화면 흐름을 끝내는 중. 10/8 부터 **최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA)** — 글꼴 · 손그림 프레임 · 캐릭터 · 에셋 · 색 토큰 · 와이어 문구는 계속 보류. 코드는 Claude Code, 웹 대화는 명세 · 검토 (CODE-BY-CC). **위험: BE 스테이징 · HTTP 업무 API · OpenAPI 없음, 제공일 재산정 중 (R-06) — FE 목표 10/12 · 심사 요청 10/14 는 BE 일정에 달렸다**. 원화 결제는 충전 하나뿐 (R-01 토스 상담 10/10)
-- **마지막으로 끝낸 작업** (10/6 ~ 10/8, `boyeon` `aaa196e`):
-  - 10/6 새벽 Claude Code 세션(사용자)이 웹 대화 검토 없이 8커밋 push · draft PR #13 생성 — 10/7 사후 검토로 유지 결정: 차감 확인 · 잔액 부족 팝업(`3d939c4`), 구매 선택 복원 연결(`c83ae3e`), 준비물 체크 저장(`04bcb28`), ReadingViewer · 결과 재열람(`16e56aa`), PersonCard(`0e5cb37`), 생성 대기 · 실패 안내(`57ceedd`), `screens.ts` 화면 ID 전환(`4ce2e6a`), Vitest node/jsdom 분리(`39c750d`)
-  - `main` BE-A PR #14(`a064ea6`) 를 `boyeon` 에 병합(`a47e428`) — 상품 · 견적 · 지갑 조회 내부 구현, HTTP 없음 (`backend/docs/FE_COMPATIBILITY.md`)
-  - 잔액 부족 팝업에 서버 추천 충전 상품(P-06), 가짜 추천을 BE-A 규칙으로, 견적 401 로그인 안내, `/wallet` 판매 상품 없음 (`6526d3c`)
-  - PG-4 `/about` 틀 — 활성 충전 상품만 서버 값, 소개 · 제공 기간 · 환불 요약 자리 (`7aba2e1`)
-  - CSAT-01 `/suneung` — 진행 → 차감 확인 팝업 → 결과, 충전 후 복귀 (`80a9a0b`). 이제 로그인 → 본인 정보 → 수능운 → 잔액 부족 → 충전 → 복귀 → 구매 → 결과가 가짜로 끝까지 이어진다
-  - 와이어 배치 — 공통 헤더 · Card · Button `cta` · PersonCard · CSAT-01 (`84cb468`), 로그인 · 충전 (`bfb7de1`), 정보 입력 (`1504fe1`), 푸터 · 차감 팝업 · `/about` (`9234cc3`), 결과 카드 · 결제 복귀 (`573d578`)
-  - MY-01 `/me` — 계정 · 로그아웃 · 저장된 사람들 · 약관 링크 (`8141672`), 로그아웃 후 `/` 로 (`71296ad`)
-  - 가짜 조작판 (MOCK-PANEL, `aaa196e`) — Vercel 미리보기에서 버튼으로 시나리오 전환. 웹 대화가 로그아웃 상태 → 로그인 · 잔액 100 · 생성 실패로 바꿔 확인
-  - 웹 대화가 원격 코드를 직접 띄워 화면을 찍어 확인 — 로그인 → 정보 → 수능운 → 잔액 부족 → 충전 → 복귀 → 구매 → 결과 → 마이페이지 로그아웃까지 가짜로 끝까지 동작 (10/8)
-  - PR #13 제목 · 본문 갱신 (draft 유지), 팀원별 요청을 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 로 정리 (claude.ai 문서 — 사용자가 공유)
-- **다음 작업**
-  1. (FE) PR #13 ready → 머지 판단 (사용자)
-  2. (사용자) Vercel → Settings → Environment Variables 에 `NEXT_PUBLIC_API_MODE=mock` 을 **Preview 에만** 추가(Production 금지 — 빌드가 막힌다) → 재배포 → `boyeon` 브랜치 미리보기 주소를 팀에 공유. Deployment Protection 의 Vercel Authentication 이 켜져 있으면 끄거나 공유 링크 사용. 로컬 확인 — `frontend/.env.local` 에 `NEXT_PUBLIC_API_MODE=mock` · `NEXT_PUBLIC_MOCK_SESSION_SCENARIO=signed_in` 을 넣고 `pnpm dev` 재시작 → `/suneung` 진행 → 부족 → 충전 → 복귀 → 결과. 10/8 "signed_in 인데 로그인 화면" 은 env 파일 위치 · 이름 · 재시작 확인 중
-  3. (사용자 → 팀) 팀 요청 자료 공유. 오늘 기한 **Q-25**(PD · BE-A), 지금 **R-08** · **R-06**
-  4. (FE, 가짜 구현) 남은 것은 팀 답에 걸린다 — 일반 운세 질문(Q-26), 다른 사람 추가(권한 확인 문구), 충전 결제 수단(Q-25), 오행분석(Q-30). 남은 화면 배치는 그 화면을 만들 때
-  5. (FE) PR #13 — 문서 커밋 후 ready → 머지. 머지하면 `main` 배포에서 `/login` · `/onboarding` · `/wallet` · `/about` · `/suneung` 이 "진짜 구현 없음" 오류 화면 (의도된 시끄러운 실패)
-  6. (FE) 진짜 연결 — OpenAPI 수령 후 `adapters/`(세션 · 인물 · 충전 · 운세 · 결과), 토스 SDK 결제창(R-09)
-  7. (FE) Q-25 답이 오면 충전 화면 결제 수단 · 동의 · 안내 (심사 요청 전 확정 필수)
-- **`main` PR 주의**: 위 5번. 진짜 adapter 전까지 그 화면을 남에게 보여 주지 않는다
+- **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** + **진짜 adapter 시작(ADAPTER-HTTP)**. 최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA) — 글꼴 · 손그림 외곽선 · 색 토큰은 팀 문서 반영(Q-32) · 적용 시작(사용자 결정) 전까지 넣지 않는다. 캐릭터 · 아이콘 · 이미지 에셋은 자리만, 와이어 문구는 자리표시. 코드는 Claude Code, 웹 대화는 명세 · 검토 · 작업 공간 재현 · 변이 확인 (CODE-BY-CC · SCREEN-CHECK). **위험: BE 스테이징 · 세션(카카오 로그인 · `GET /session`) API 없음 (R-06) — 진짜 모드 연결은 세션 adapter(CSRF 출처)에 막혀 있다. FE 목표 10/12 · 심사 요청 10/14 의 진짜 연결은 BE 일정에 달렸다**
+- **10/10 오전 새로 들어온 것**: (1) BE-A PR #17 `main` 병합(`f47b719`, 10/9 밤) — **OpenAPI 파일 `docs/openapi/api-v1.json`**, 견적 자금 필드(`walletBalance` · `balanceAfter` · `shortage` · `recommendedTopUp`) · `charged` 통일 · `GET /quotes/{quoteId}` · `GET /wallet`(유료 · 보너스) · `POST /top-up-orders`(예정 지급량) · 오행 `{ personId }` 입력, `backend/docs/FE_REQUESTS_20261009.md`. `boyeon` 에 병합(`f207fd9`). (2) BE-B 답변서 2종(10/9) · BE-A FE 전달(10/10) · 사업자등록증 → TEAM-QUESTIONS 반영(`1a9d877`): Q-30 · R-08 해결, Q-34 · Q-35 대부분 해결, 새 질문 Q-37(수능 결과 구조) · Q-38(구매 결과 · 환급 확인). (3) 팀 회신 문서 `뿌기사주-FE-회신-20261010.md`(저장소 밖, 사용자가 팀에 공유)
+- **일정 위치 (10/10 오전)**: PG 트랙 가짜 범위 배치는 끝났고, 진짜 연결 준비(생성 타입 · adapter 틀 · 오행 · 지갑 · 주문 생성)를 했다. 남은 PG 일: 세션 adapter(BE-B 세션 API 대기) → `ports/index.ts` 진짜 연결, 충전 승인 · 상품 목록(Q-17 · Q-28), 토스 SDK(R-09), 푸터 값 4개(R-07) · 원고(Q-21 · Q-36), 실기기
+- **마지막으로 끝낸 작업** (10/10, `boyeon` `79a2df0`): 전부 웹 대화가 작업 공간에서 diff 재현 · 변이 확인 후 커밋
+  - `main` PR #17 병합 (`f207fd9`), TEAM-QUESTIONS 팀 답 반영 (`1a9d877`, 웹 대화 직접 push)
+  - COMMON-01 사업자 값 4개 — 상호 · 대표자 · 사업자등록번호 · 주소, 사업자등록증 그대로 (`5bee76c`)
+  - 구매 결과 처리 — 환급 문장은 서버 `REFUNDED` 일 때만, `FULFILLED` + `readingId` 일 때만 결과 이동, 처리 중은 같은 키로 결과 확인 (`8feb588`, Q-38)
+  - OpenAPI 생성 타입 + 동기화 테스트 · adapters 밖 사용 금지 테스트 (`2c9a17b`)
+  - 첫 adapter — 오행분석 (`e6a603a`), 충전 지갑 · 주문 생성 (`c46bfa7`). 둘 다 `ports/index.ts` 에는 아직 연결하지 않았다 (세션 adapter 후)
+  - HOME-03 테스트 대기 3초 · 정규식 오타 (`79a2df0`)
+  - 테스트 67 파일 · 558 개
+- **화면 현황 (10/10, 최종 와이어 기준)** — 10/9 와 같음
+  - 동작 + 배치: HOME-01 ~ 04, FORT-01 ~ 05, MATCH-01 ~ 03, CSAT-01 ~ 06, PAY-01 ~ 05, MY-01, INFO-01 · 02, COMMON-01, (팝업) 차감 확인 · 잔액 부족 — 전부 가짜 모드. 진짜 모드는 adapter 연결 전이라 "진짜 구현 없음" 오류
+  - 부분: FORT-06 · 07 결과 — 결과 고정 필드 순서는 Q-35 1 해결, 요약 Q-05 · 공유 G-11 · 부적. 수능 결과 구조 Q-37
+  - 보류: TODAY-01 · 02 (Q-31 답 왔으나 API_SPEC 7장 · OpenAPI 미반영), GIFT-06 ~ 08 · MY-02 (팀 결정)
+  - 규칙으로 막음: GIFT-01 ~ 05 · RECV-* · FORT-08 · 09 · CSAT-07 · TALBOX — 선물 · 부적은 OpenAPI 전 가짜 포트로도 만들지 않는다 (부적 · 선물 HTTP API 는 아직 OpenAPI 에 없음)
+- **다음 작업** (막힌 것은 건너뛴다)
+  1. (사용자 → 팀) 회신 문서 공유 — Q-37 수능 결과 구조(BE-B · PD) · Q-38 환급 확인(BE-A · BE-B) · R-06 스테이징 · R-09 토스 키 · PD 항목(신살 · 정책 초안 수정 · 푸터 값 4개 · Q-33)
+  2. (FE, 지금 가능) 일반 운세 견적 · 구매 포트를 카테고리 계약에 맞추기 — 선택값에 `productOption` · `questionKey`, 수능운 `charged` · 자금 필드(가짜 · 포트 모델) → 그다음 견적 · 구매 adapter. 상품명 · 정가(Q-28) · `relationType` 대응(Q-35 2) · 질문 선택지 문구(Q-26)는 자리만
+  3. (FE, 답 오면) 세션 adapter(BE-B 세션 API · OpenAPI) → `ports/index.ts` 진짜 연결, 충전 승인 · 주문 조회(Q-17), 상품 목록(Q-28), 결과 adapter(Q-37), 오늘의 운세(Q-31 반영 후)
+  4. (사용자) `boyeon` → `main` PR, 미리보기 실기기 (Android Chrome · 카카오톡 인앱)
+  5. (FE) 푸터 남은 값 4개(R-07) · 정책 원고(Q-21 · Q-36) 오면 넣기
+- **`main` 배포 주의**: `main` 배포(가짜 모드 금지)에서 `/login` · `/onboarding` · `/wallet` · `/about` · `/suneung` · `/me` · `/fortune/*` 가 "진짜 구현 없음" 오류 화면 (의도된 시끄러운 실패). 팀 확인은 `boyeon` 미리보기 주소로만 한다. 진짜 로그인은 고정 스테이징 · 운영 도메인에서만 된다 (R-04 — 미리보기 브랜치 주소는 카카오 Redirect URI 로 못 쓴다)
 - **보류 (재개 조건)**
-  - 디자인 — 글꼴(FONT-HOLD · D-02), 손그림 프레임(D-03 · Q-15), 캐릭터(D-06 · T-01 · R-02), 아이콘 에셋, 색 토큰(D-01), 사이드 메뉴 운세 목록(`TODO(D-10)`): PG 심사 요청 후. 배치(LAYOUT-FIGMA)는 진행
-  - 팀 확정 전이라 만들지 않는 것 (v0.3 ⚠️): 여러 명 선물(GIFT-06 ~ 08), 발송 실패 링크 직접 공유(GIFT-05), 네이버 · 구글 로그인(A-01), 고민 입력의 결과 반영(F-04). 충전 결제 수단 · 동의 체크 · 안내 문구는 Q-25 전까지
-  - 타인 정보 입력(MY-02) — 권한 확인 문구 PD 후. 본인 재저장 · 중복 경고는 BE-B. 본인 수정 경로 Q-29
-  - 오행분석 값(CSAT-01 · FORT-01) — API 대기 (Q-30). 결과 고지 문구 — PD (F-08, 지금은 코드 원문이 보인다)
-  - OAuth 취소 · 오류 복귀 — BE-B 콜백 확정 후. 로그아웃 UI — MY-01
-  - `/pay/success` 로그인 필요 링크의 `returnTo` — 진짜 세션 연결 때 (`TODO(PG-2)`)
-  - 선물 위저드 · 선물 결제 · 부적 화면 — OpenAPI 대기 (Q-17 · Q-20), 가짜 포트로도 만들지 않는다
+  - 디자인 — 글꼴(FONT-HOLD), 손그림 외곽선(Q-32), 캐릭터(D-06 · T-01 · R-02 — 자리만), 아이콘 에셋, 색 토큰(Q-32): 팀 문서 반영 · 적용 시작 결정 후
+  - 네이버 · 구글 로그인 버튼 — PG 심사 후 (LOGIN-3 개정, BE-B 도 같은 답 — Q-36 3)
+  - 오늘의 운세 TODAY-01 · 02 — Q-31 이 API_SPEC 7장 · OpenAPI 에 들어간 뒤
+  - 결과 FORT-06 · 07 · CSAT-04 — Q-37 · Q-05 · G-11 · 부적 규칙
+  - 질문 화면 입력 — 선택지 문구(Q-26), MATCH-03 관계 질문 여부(Q-26 · Q-35 2), 고민 입력은 1차 미반영 · 입력 칸 없음(BE-B 답)
+  - PAY-01 동의 · 안내 문구, PAY-05 취소 · 실패 문구, 다시 결제 시 상품 유지 — Q-33 · Q-25 · Q-21
+  - PAY-03 지급 수량 — 승인 · 지급 API(Q-17). 주문 예정량으로 표시하지 않는다 (TOPUP-DONE)
+  - 정책 원고 · 시행일 · 가입 약관 동의 · 만 14세 — Q-36 · Q-21 · R-07 (BE-B 제안: 동의 버전 · 시각 기록, 만 14세 확인 기록)
+  - 신살 — 17종 계산 미구현(BE-B), 1차 판매 여부 PD (Q-05 · F-03, 10/15)
+  - 타인 정보 입력(MY-02 · 궁합 상대 새로 입력) — 권한 확인 문구 PD 후. 본인 수정 경로 Q-29
+  - 결과 고지 문구 — PD (F-08). 시간 미상 오행 고지 — F-08 문구 후
+  - OAuth 취소 · 오류 복귀 — BE-B 콜백 확정 후. `/pay/success` 로그인 필요 링크의 `returnTo` — 진짜 세션 연결 때 (`TODO(PG-2)`)
+  - 선물 위저드 · 선물 결제 · 부적 화면 — OpenAPI 대기 (Q-17 · Q-20), 가짜 포트로도 만들지 않는다 (선택지 B)
   - iOS Safari 실기기 — iPhone 확보 후 (R-03). Sentry 소스맵 — Phase 7
 - **막힌 점 · 전달할 것**
-  - 팀에 받을 것: 공유 문서 "뿌기사주 팀 요청 자료 (FE)" 에 팀원별 · 날짜순으로 정리. 세부는 `TEAM-QUESTIONS.md` (Q-17 · Q-18 · Q-19 · Q-20 · Q-21 · Q-22 · Q-23 d ~ g · Q-24 · Q-25 · Q-26 · Q-28 · Q-29 · Q-30, R-01 · R-03 ~ R-09)
-  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음, Q-17 · Q-28): `API_SPEC.md` 6장 50,000원 82 · 582 → 80 · 580, 견적 필드 · `productName`, 운세 상품 메타데이터 · 정가, 충전 `processing`, CSRF, 선물 주문 · `delivery`, 판매 종료 code, 내역 유형 이름
-  - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired, 비우면 fulfilled). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로. `.env.example` 반영은 사용자가 직접(아직 안 함)
+  - 팀에 받을 것: 10/10 회신 문서(Q-37 · Q-38 · R-06 · R-09 · PD 항목). 세부는 `TEAM-QUESTIONS.md` (Q-17 ~ Q-38, R-01 · R-03 ~ R-09)
+  - 팀 문서 중 BE 가 고칠 것 (FE 는 손대지 않음): `API_SPEC.md` 2장 `ReadingSectionType` 과 수능 결과 실제 모양(Q-37), 7장 오늘의 운세(Q-31 답 반영), 2장 관계 대응표(Q-35 2 — 또는 FE 가 A-07 PR), 상품 메타데이터 · `productName` · 정가 · `GET /products`(Q-28), 충전 승인 · `processing`(Q-17), 구매 상태 조회(Q-38)
+  - FE 가 팀 문서 PR 로 고칠 것 (DOCS-TEAM-PR, 사용자 동의 후): A-01 개발 범위(심사 전 카카오만 · 심사 후 구글 · 네이버, Q-36 3), Q-19 답(T-01 · T-02, PD 확인 후), Q-32 디자인 시스템
+  - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person · signed_in_with_other, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired, 비우면 fulfilled). 미리보기에서는 왼쪽 아래 "가짜" 조작판이 우선 (MOCK-PANEL). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로
   - Vercel "Automatically expose System Environment Variables" 켜짐(10/4) — 운영 mock 차단 · Sentry 키 검사가 기댄다
-  - `pnpm test` — `39c750d` 로 순수 로직은 node 환경, 보통 25 ~ 100초. 10/8 에 두 번 "Failed to start forks worker"(워커 시작 시간 초과, 한 번은 6041초) — 단언 실패는 없고 재실행 통과. PC 부하 탓으로 보이며, 또 나면 `maxWorkers` 를 더 줄이거나 `pool: "threads"` 를 검토
-  - PD 에게 받은 것 (저장소 밖): 선물 재발송 안내 문구, 충전 환불정책 초안 `refund-policy-draft.md`(확정 전 코드 반영 금지)
+  - `pnpm test` — 보통 35 ~ 60초. 10/10 에 한 번 `HomeScreen.test.tsx` "c. 로그인이면 지갑 픽스처 잔액(7)" 이 실패하고 재실행에서 통과(작업 공간 부하 재현 안 됨 — `findByRole` 기본 대기 1초 초과로 추정). 대기 3초 · 이름 정규식 오타(`s*` → `\s*`) 수정 (`79a2df0`). 또 나면 실패 로그를 받아 원인 확인
+  - 명세 정확도 (웹 대화 자체 점검): "이 조건을 빼면 이 테스트가 실패해야 한다" 요구가 10/10 에 두 번 더 성립하지 않았다(59단계 status 조건 — 테스트 픽스처의 readingId 가 null 이라 다른 조건이 막음, 61단계 정렬 — zod 가 스키마 순서로 키를 만듦). 웹 대화가 작업 공간 변이로 확인해 59단계는 테스트를 더했다. 61단계에서 `satisfies` 를 리터럴이 아닌 값에 쓰면 이름 대조가 안 된다는 것도 변이로 찾았다 (생성 타입 필드가 모두 선택이라)
+  - PD 에게 받은 것: 선물 재발송 안내 문구(저장소 밖). 정책 초안 3종은 `docs/policies/`(`8fffac0`) — 확정본 전 코드 반영 금지
+  - 사업자등록증 원본은 저장소에 두지 않는다 (대표자 개인정보 포함). 푸터에는 4개 값만
   - 유저 플로우: FigJam `dd8IamO1coU9vpa4P7AgMi`(v1, 10/4). 와이어 배치 값은 웹 대화가 Figma 에서 읽어 지시문에 숫자로 넘긴다
   - (PD 전달) 개인정보처리방침 국외 이전 고지 — PostHog(US) · Sentry(지역 확인 필요)
   - (PD 전달) 카카오톡 인앱브라우저의 떠 있는 버튼이 화면 오른쪽 가운데를 가린다
   - `app/error.tsx` 는 실기기에서 띄워 보지 못했다 — 첫 실제 API 연결 화면에서 확인
   - 테스트 출력의 jsdom 경고 "Not implemented: navigation to another Document" 는 `AppShell.test.tsx` 사이드 메뉴 링크 테스트가 낸다 (통과에 영향 없음)
-  - Claude Code 는 `frontend/` 에서 시작한다 — 루트에 `CLAUDE.md` 가 없다
+  - Claude Code 는 `frontend/` 에서 시작한다 — 루트에 `CLAUDE.md` 가 없다 (루트 `AGENTS.md` 는 BE 운영 규칙 — FE 작업 규칙은 `frontend/CLAUDE.md`)
   - Playwright 브라우저 미설치 — E2E 처음 돌리기 전에 `pnpm -C frontend e2e:install`
   - `.github/pull_request_template.md` 에 "스크린샷 필수" 문구가 남아 있다 (팀 공용 파일이라 그대로)
 
@@ -58,7 +69,7 @@
 |---|---|---|
 | 9/29 (화) | 구 D-01 · D-02 · D-12 · D-14 확정 | 닫힘 — 팀 결정 문서로 대체 (DECISION-IDS) |
 | 10/4 (일) | BE 스테이징 · 공통 응답 · 로그인 골격 (BE 일정) · Phase 1 FE 골격 | ⬜ FE 골격 완료(디자인 보류). BE 는 골격만(`a605afa`), 스테이징 · 로그인 미충족 — 재산정 중 (R-06) |
-| 10/10 (토) | BE 충전 · 토스 테스트 결제 · 디자인 에셋 1차 (D-03) | ⬜ BE 는 "10/10 이전 약속 어려움" (R-06) |
+| 10/10 (토) | BE 충전 · 토스 테스트 결제 · 디자인 에셋 1차 (D-03) | ⬜ BE-A 충전 주문 생성 · 지갑 API 는 `main`(PR #17), 승인 · 지급 · 스테이징 없음 (R-06). FE 는 생성 타입 · adapter 2개 |
 | 10/12 (월) | FE 심사용 사이트 (PG-1 ~ PG-5) | ⬜ |
 | 10/14 (수) 전후 | 카드사 심사 요청 | ⬜ |
 | 10/15 (목) | 디자인 에셋 확정 · 콘텐츠 1차 (D-03 · D-04) | ⬜ |
@@ -74,6 +85,16 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| ADAPTER-HTTP | 진짜 adapter 는 openapi-fetch 대신 `src/lib/api/http.ts`(`createApiClient` — 공통 껍데기 검사 · CSRF 1회 재시도 · 멱등 키)로 요청하고, 응답 `data` 를 zod 로 필수 · 정확한 모양까지 런타임 검사한 뒤(실패면 `ApiContractError`) 검사 값을 **객체 리터럴 + `satisfies` 생성 타입**으로 대조해(필드 이름이 바뀌면 typecheck 실패 — 생성 타입 필드가 모두 선택이라 리터럴이 아닌 값에는 대조가 안 된다) 포트 모델로 바꾼다. 경로는 `satisfies keyof paths`, 요청 본문은 `satisfies` 요청 스키마. 생성 타입은 `adapters/` 에서만(테스트로 막음). 모르는 enum 값은 UNKNOWN. 기준 파일 `adapters/basicSaju.ts`(`e6a603a`) | 2026-10-10 | 사용자 (선택지 A http.ts + zod · B openapi-fetch 중 A) |
+| LOGIN-3 개정 | PG 심사까지 로그인 화면(HOME-01)에는 카카오 버튼만 둔다. 네이버 · 구글 버튼은 나중에 추가한다 — 세션 포트 `startLogin(provider, …)` 와 가짜 3종은 그대로 둔다(`4717e77`). 버튼 배치 값은 와이어 224:1087 · 195:781 | 2026-10-09 | 사용자 |
+| POLICY-DRAFTS | PD 정책 초안 3종을 팀 문서 `docs/policies/`(TERMS · PRIVACY · REFUND + README)에 보관한다(`8fffac0`). 확정본(빈칸 채움 · Q-36 답) 전에는 FE 코드(INFO-02)에 넣지 않는다. 옮기면서 Notion 내보내기의 깨진 링크 두 곳만 고쳤다(README 에 기록) | 2026-10-09 | 사용자 |
+| BASIC-SAJU-PORT | 오행분석 포트 입력은 `personId`(FE 모델)다. `POST /fortune/basic` 의 요청 모양(생년정보 원문 또는 personId, Q-35 3)은 진짜 adapter 가 맞춘다. 포트에는 화면이 쓰는 값만(오행 5개 · 시간 미상 여부 · 계산 버전) | 2026-10-09 | FE |
+| DESIGN-SYSTEM | 디자인 시스템 확정본은 Figma `iFtLxChBQf3nQWaltdrJ37` 페이지 `디자인 시스템`(`67:66`) — 색은 의미 변수만(Primitives 직접 사용 금지), 글꼴 4종, 여백 · 모서리 · 외곽선 값, 손그림 외곽선 프리셋, 기본 · 전용 컴포넌트. 팀 문서 D-01 · D-02 · D-03 · D-05 반영(Q-32, DOCS-TEAM-PR) 전에는 코드에 넣지 않는다 | 2026-10-09 | 사용자 (팀 확정 전달) |
+| LOGIN-3 | HOME-01 에 네이버 · 구글 버튼을 넣고 세션 포트 `startLogin` 이 제공자(KAKAO · NAVER · GOOGLE)를 받게 한다(A-01 3종 확정, FE 개발 범위는 사용자 결정). 가짜 구현은 세 제공자 모두 로그인. 진짜 연결의 네이버 · 구글 경로는 API_SPEC 에 없어 지어내지 않고 BE-B 대기(진짜 모드에서는 던짐). 계정 연결(I-07)은 미정 | 2026-10-09 | 사용자 |
+| TODAY-HOLD | 오늘의 운세(TODAY-01 · 02)는 넘긴다 — API_SPEC 7장 `POST /daily-fortunes` 초안(인증 불필요 · 요청에 생년정보 · 운세 지수 없음)이 X-01 · X-02(로그인 + 저장된 본인 · 운세 지수)와 반대라 가짜 포트 모양을 정할 수 없다. BE-B 계약(Q-31) 후 재개 | 2026-10-08 | 사용자 |
+| MATCH-SELF | 궁합 사람 선택(MATCH-01 · 02)의 첫 칸은 본인 고정, 둘째 칸만 고른다 — 와이어는 두 칸 모두 빈 칸이지만 Q-26 팀 답(v0.3 "궁합은 본인 + 상대")을 따른다 (FIGMA-FINAL). 와이어와의 차이는 Q-23 l | 2026-10-08 | FE |
+| CLIENT-REDIRECT | 클라이언트 화면에서 대상이 잘못됐을 때(옛 링크 · 지운 인물 · 잘못된 두 사람)는 `notFound()` 를 부르지 않고 앞 화면으로 `router.replace` 1회 (ref 가드). 근거: Next 16 문서 — `notFound()` 는 서버 컴포넌트 · 서버 함수 · 라우트 핸들러에서만. 정상 사용에서도 생기는 경우라 `error.tsx` 로 던지지 않는다. 쿼리 자체가 없거나 모양이 틀리면 서버 page.tsx 의 `notFound()` | 2026-10-08 | FE |
+| SCREEN-CHECK | 웹 대화가 원격 `boyeon` 을 작업 공간에 받아 가짜 모드로 띄우고(`pnpm dev -p 3100`) Playwright 402×874 로 찍어 와이어 좌표와 대조한다. 커밋 전 검토 때는 Claude Code 보고의 diff 를 작업 공간에 적용해 같은 확인 + "조건을 빼면 실패해야 하는 테스트" 를 직접 돌린다. 사용자에게 스크린샷을 요구하지 않는다 (NO-SCREENSHOT) | 2026-10-08 | 사용자 |
 | MOCK-PANEL | 가짜 모드(`NEXT_PUBLIC_API_MODE=mock`)에서만 화면 왼쪽 아래 "가짜" 버튼으로 세션 · 충전 결과 · 운세 구매 결과 · 시작 잔액(0 · 7 · 100)을 고르고 바로 가기로 이동한다. 우선순위 저장값 → 환경 변수 → 기본값. 저장은 localStorage `mockOverrides` — 가짜 모드 개발 도구라 브라우저 저장소 규칙의 예외, 진짜 모드 · 운영에서는 읽지도 그리지도 않는다. 목적: Vercel 미리보기 하나로 팀원이 모든 흐름을 확인 (`aaa196e`) | 2026-10-08 | 사용자 |
 | LAYOUT-FIGMA | PG-FIRST 를 일부 푼다 — 최종 와이어(`195:91`)의 글자 크기 · 굵기 · 위치 · 간격과 상자(크기 · 테두리 · 모서리 · 와이어 회색)를 화면에 넣는다. 값은 웹 대화가 Figma 에서 읽어 지시문에 숫자로 넘긴다(FIGMA-WEB-ONLY). 계속 넣지 않는 것: 글꼴(FONT-HOLD), 손그림 프레임, 캐릭터 · 아이콘 · 이미지 에셋(자리만 둔다), 색 토큰 확정(와이어 회색은 `TODO(PD 토큰 v0)`), 와이어 문구(지금 자리표시 유지). 공통: 헤더 64px · 제목 30px, Card 와이어 카드, Button `cta` 327×69, AppShell `header` 옵션 | 2026-10-08 | 사용자 |
 | CODE-BY-CC 예외 기록 | 10/6 새벽 사용자의 Claude Code 세션이 웹 대화 검토 없이 8커밋을 `boyeon` 에 push 하고 draft PR #13 을 만들었다(커밋 메시지에 지정하지 않은 줄 포함). 10/7 사후 검토로 유지. 10/8 은 속도를 위해 CSAT-01 · 배치 1차를 커밋 후 원격 검토로 처리했다 — 둘 다 문제 없음. 기본은 계속 커밋 전 검토 (형식 B → C) | 2026-10-08 | FE |
@@ -121,6 +142,11 @@
 
 ## 세션 로그
 
+- 2026-10-10 (오전) · 58 ~ 63단계: BE-B 답변서 2종 · BE-A PR #17 · FE 전달 · 사업자등록증 대조 → TEAM-QUESTIONS(`1a9d877`, Q-37 · Q-38 신설) · 팀 회신 문서(`뿌기사주-FE-회신-20261010.md`). `main` PR #17 병합(`f207fd9`), 사업자 값 4개(`5bee76c`), 구매 결과 처리 Q-38(`8feb588`), OpenAPI 생성 타입(`2c9a17b`), 결정 ADAPTER-HTTP · 오행분석 adapter(`e6a603a`) · 충전 adapter(`c46bfa7`), 문서(`a4d2dbd`), 63단계 HOME-03 테스트(`79a2df0`). 매 단계 작업 공간 재현 · 변이 확인. 테스트 67 파일 · 558 개
+- 2026-10-09 (오후) · 39 ~ 56단계: HOME-01 로그인 제공자 · 화면은 카카오만(`4717e77`, LOGIN-3 개정), PAY-01 수정안(`b5f7f3a`), PAY-03 ~ 05(`5f61f94`), INFO-01(`5e37d52`), `main` PR #15 병합(`8340913`), 정책 초안 `docs/policies/`(`8fffac0`, 웹 대화 직접 push), COMMON-01(`78aa7ad`), INFO-02(`aa2296e`), 오행분석 포트 · 가짜(`13eb54d`) · 화면(`5c38cb3`). BE-B PR #15 검토 → 팀 질문 문서(Q-33 ~ Q-36) · BE-B 연동 TODO(PHASES). 테스트 62 파일 · 499 개
+- 2026-10-09 (오전) · 팀 답 요청 문서(`뿌기사주-팀-답-요청-20261009.md`, 사용자에게 전달). 로그인 네이버 · 구글 버튼 39단계 지시(LOGIN-3). 최종 와이어 PD 추가 화면 7개 · 디자인 시스템 확정본(Figma `iFtLxChBQf3nQWaltdrJ37`) 조회 → PHASES v2.9 · Q-25 부분 · Q-15 부분 · Q-32. 다음 세션 지침 교체본 작성.
+- 2026-10-08 (밤) ~ 10-09 (아침) · HOME-03 · 04 커밋 · 메뉴 줄 높이(`8c16730` · `ce4bf89`), FORT-01(`d7f988b`), FORT-02 · 03(`74a753e`), 가짜 시나리오 `signed_in_with_other`(`45828ff`), MATCH-01 · 02(`1f6150e`), MATCH-03(`ddeb780`), PAY-02 · FORT-04(`7c9b186`), FORT-05 · CSAT-02(`36d4284`) — 매 단계 작업 공간 재현 · 화면 대조. 오늘의 운세는 Q-31 로 넘김(TODAY-HOLD). 결정 MATCH-SELF · CLIENT-REDIRECT · SCREEN-CHECK. TEAM-QUESTIONS Q-31 · Q-23 l.
+- 2026-10-08 (저녁) · 가짜 조작판(`aaa196e`, MOCK-PANEL) → Vercel Preview 가짜 모드 설정 · 팀 공유 가능. 화면 현황 49개 대조, PD 화면 제작 요청서 작성. HOME-03 · HOME-04 구현(24단계, 커밋 대기). PR #13 `main` 병합(`c4c2088`).
 - 2026-10-08 (오후) · 와이어 배치 계속(`1504fe1` · `9234cc3` · `573d578`), MY-01(`8141672` · `71296ad`). 웹 대화가 원격 코드를 직접 띄워 화면 대조 시작 — 로그아웃 후 `/login` 으로 가던 문제를 화면에서 찾아 고침.
 - 2026-10-07 ~ 10-08 · `main` BE-A PR #14 병합(`a47e428`) · FE_COMPATIBILITY 대조, 10/6 커밋 8개 사후 검토(유지). 잔액 부족 추천 충전 · 가짜 추천 BE-A 규칙 · 판매 상품 없음(`6526d3c`), `/about` 틀(`7aba2e1`), CSAT-01(`80a9a0b`), 와이어 배치 1차(`84cb468` · `bfb7de1`, LAYOUT-FIGMA). PR #13 본문 갱신. 팀 요청 자료 공유 문서 작성, TEAM-QUESTIONS Q-28 ~ Q-30.
 - 2026-10-04 ~ 10-05 · MOCK-PORT 로 PG-1 · PG-2 · PG-3 가짜 범위와 Phase 3 본인 입력 진행 — API 코어(`ffe1080`), 충전 포트 · 화면(`e0ce4dd` · `03f01fa` · `816b130`), returnTo · 세션 · 로그인 가드 · `/login`(`728e9fb` · `84b5390`), 인물 포트 · PersonForm · `/onboarding`(`75b774c` · `8f94cde`), PersonForm 검증 규칙(`1a7fe39`), 테스트 시간 초과 완화(`ebb16b0`). 결정 MOCK-PORT(`fe549f4`) · CODE-BY-CC. PR #12 병합(`47e2055`). 로컬 충전 시나리오 6종 확인.

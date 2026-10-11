@@ -107,11 +107,15 @@ type ReadingSectionType =
   | "CHECKLIST";
 ```
 
+관계 선택 매핑(2026-10-11, B 답변+FE 회신 반영): 엄마/아빠는 FAMILY, 애인은 LOVER,
+직접 입력은 OTHER다. 직접 입력 문자열은 현재 API로 전송하지 않는다.
+이는 관계 enum 매핑이며 카테고리별 질문 문구/선택 정책(Q-26)의 최종 결정은 별도다.
+
 - 사주 원국, 간지, 십성, 12운성, 합충형파해, 대운·세운은 오픈소스 만세력 라이브러리와 서버 계산 엔진으로만 계산한다.
 - 계산 엔진 출력은 서버 내부의 구조화된 JSON으로 정규화하고 Liner API에 전달한다. Liner는 이 JSON에 근거한 사주 해석·설명 문장만 생성한다.
 - Liner에는 계산 결과, 상품·이벤트 맥락, 선택형 관심 항목, 허용 섹션을 전달한다. 원본 생년월일시와 자유 메모 등 문장 생성에 불필요한 개인정보는 전달하지 않는다.
 - 요청에는 계산 결과에 없는 필드 목록과 허용 근거 키를 포함한다. Liner가 미제공 명리 정보를 계산·보완·추론하거나 허용 범위 밖의 섹션을 반환하면 검증 실패로 처리한다.
-- 자유 메모는 저장·표시만 할 수 있으며 계산 엔진이나 Liner 입력으로 전달하지 않는다.
+- 자유 메모 수집·저장·표시 API는 현재 제공하지 않는다(2026-10-11 회신 대조). 계산 엔진이나 Liner 입력으로 전달하지 않는다.
 
 ### 내부 Liner 생성 계약
 
@@ -335,7 +339,14 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 
 ### `GET /products`
 
-Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
+Query: `category=TOP_UP|FORTUNE`, 선택적 `fortuneType`. `GIFT`는 후속 구현 대상이다.
+
+구현 범위(2026-10-11, A 로컬): `category=TOP_UP|FORTUNE`을 제공한다. GIFT와 category 생략은 아직 지원하지 않는다.
+로그인 없이 현재 활성/판매 기간 내 상품만 조회하고 공통 `data.items` 응답을 사용한다.
+FORTUNE은 선택적으로 `fortuneType=OVERALL|LOVE|WEALTH|COMPATIBILITY|SINSAL|SUNEUNG`으로 필터링한다.
+category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType 조합은 400이다.
+판매 준비가 안 된 상품은 목록에서 제외된다. 기본 충전/수능 상품은 비활성이며 이번 변경으로 판매를 켜지 않는다.
+표시 정보가 미등록된 운세 상품도 제외한다. 이 API는 비활성 상품까지 나열하는 심사용 소개 목록이 아니다.
 
 ```json
 {
@@ -345,13 +356,23 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
       "category": "FORTUNE",
       "fortuneType": "LOVE",
       "option": "READING_ONLY",
-      "price": { "currency": "TURTLE_SHELL", "amount": 30 },
+      "productName": "애정운",
+      "price": { "currency": "TURTLE_SHELL", "amount": 10 },
+      "regularPrice": null,
+      "paidAmount": null,
+      "bonusAmount": null,
+      "creditedAmount": null,
       "active": true,
       "saleEndsAt": null
     },
     {
       "code": "TURTLE_SHELL_100",
       "category": "TOP_UP",
+      "productName": "등껍질 100개 충전",
+      "regularPrice": null,
+      "fortuneType": null,
+      "option": null,
+      "saleEndsAt": null,
       "price": { "currency": "KRW", "amount": 10000 },
       "paidAmount": 100,
       "bonusAmount": 14,
@@ -363,6 +384,9 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 ```
 
 - 비활성 상품은 구매할 수 없다.
+- 예시는 각 category 응답의 항목을 함께 설명한 것이다. 실제 응답은 요청 category 하나만 포함한다.
+- `regularPrice`는 `{currency, amount}` 또는 null이다. 일반 운세+부적/수능운은 정가 20, 판매가 15개다.
+- 목록의 `option`을 견적 요청의 `productOption`으로 매핑한다. TOP_UP의 지급량은 완료 증거가 아닌 예정량이다.
 - 선물 상품 원화 가격은 `TBD(P-03A)`가 확정된 뒤 등록한다.
 
 ### `POST /quotes/fortune/{category}`
@@ -395,9 +419,18 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 - 일반 운세 `READING_ONLY`는 등껍질 10개, `READING_WITH_TALISMAN`은 15개다.
 
-응답은 `quoteId`, `productCode`, `productOption`, `questionKey`, `charged`, `expiresAt`을 반환한다.
+응답은 `quoteId`, `productCode`, `productOption`, `questionKey`, `charged`, `expiresAt`,
+`walletBalance`, `balanceAfter`, `shortage`, `recommendedTopUp`, `productName`, `regularPrice`를 반환한다.
 
-수능운은 기존 `POST /quotes/fortune` 계약을 유지한다.
+- `charged`는 일반 운세·수능운 공통의 사용 등껍질 값 `{currency, amount}`다.
+- `walletBalance`는 조회 시점의 사용 가능한 유료+보너스 잔액이다.
+- `shortage`는 부족분이며 잔액이 충분하면 0이다. 부족하면 `balanceAfter`는 null이다.
+- `recommendedTopUp`은 보너스 포함 지급량이 부족분 이상인 활성·판매 기간 내 상품 중
+  원화 최저가 상품 코드다. 동률은 코드 순이다. 단일 추천 상품이 없으면 null이며 부족분은 유지한다.
+- 조회값은 잔액 예약이 아니다. 실제 구매에서 잔액·판매 가능 여부를 다시 검사한다.
+
+수능운은 `POST /quotes/fortune`을 사용한다. Q-34에 따라 최상위 `currency`·`amount`를
+`charged`로 통일했다. FE adapter는 아래 계약과 OpenAPI 파일을 사용한다.
 
 ```json
 { "personId": "uuid" }
@@ -407,8 +440,13 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 {
   "quoteId": "uuid",
   "productCode": "SUNEUNG_READING_WITH_TALISMAN",
-  "currency": "TURTLE_SHELL",
-  "amount": 15,
+  "productName": "수능운 + 부적",
+  "regularPrice": { "currency": "TURTLE_SHELL", "amount": 20 },
+  "charged": { "currency": "TURTLE_SHELL", "amount": 15 },
+  "walletBalance": 7,
+  "balanceAfter": null,
+  "shortage": 8,
+  "recommendedTopUp": "TURTLE_SHELL_10",
   "event": { "type": "CSAT", "date": "2026-11-19" },
   "expiresAt": "2026-10-01T03:10:00Z"
 }
@@ -416,6 +454,18 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 - 일반 운세의 견적 fingerprint에는 운세·옵션·인물·질문·궁합 상대와 관계가 모두 포함된다.
 - 구매 시 동일 fingerprint를 다시 확인하므로 입력을 바꿔 견적을 재사용할 수 없다.
+
+### `GET /quotes/{quoteId}`
+
+- 인증 필요. 본인 운세/추가 부적 견적의 소유자만 조회한다.
+- `quoteId`, `productCode`, `charged`, `expiresAt`, `walletBalance`, `balanceAfter`,
+  `shortage`, `recommendedTopUp`, `productName`, `regularPrice`를 반환한다. 일반 견적 POST의 옵션·질문, 수능 event는 이 재조회 DTO에 없다.
+- 저장된 가격·만료는 유지하고 잔액·부족분·추천은 재조회 시점에 다시 계산한다.
+- 상품명·정가도 견적 생성 시 snapshot을 저장한다. 이후 카탈로그 수정은 기존 견적에 반영하지 않는다.
+- 변경 전 견적/구 버전 앱이 생성한 견적은 당시 표시 기록이 없어 productName에 상품 코드를 사용하고 regularPrice는 null이다.
+- 본인 만료 견적은 `409 QUOTE_EXPIRED`, 타인/미존재는 같은 `404 RESOURCE_NOT_FOUND`다.
+- 차감, 지급, 견적 구매 연결을 수행하지 않으며 인물 이름·생년정보·context hash를 노출하지 않는다.
+- 선물 다건 견적은 별도 계약이며 이 경로의 이번 구현 범위에 포함하지 않는다.
 
 ## 6. 지갑·충전
 
@@ -426,10 +476,12 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "currency": "TURTLE_SHELL",
   "balance": 50,
   "paidBalance": 40,
-  "bonusBalance": 10,
-  "expiring": [{ "amount": 10, "balanceType": "BONUS", "expiresAt": "2027-03-30T15:00:00Z" }]
+  "bonusBalance": 10
 }
 ```
+
+인증된 사용자 본인의 사용 가능한 지급분을 조회한다. 만료·미래 지급분은 제외한다.
+지갑이 없으면 잔액 0을 반환하며 조회로 지갑을 생성하지 않는다. `expiring` 상세 목록은 후속이다.
 
 ### `GET /wallet/transactions`
 
@@ -440,6 +492,11 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 ### `POST /top-up-orders`
 
 - 인증·CSRF·`Idempotency-Key` 필요
+- 로컬 구현: 주문 생성, 소유자 GET, 승인·원자적 지급·제한된 조회 복구를 제공한다. 실제 PG/FE E2E와 webhook은 미검증/미구현이다.
+- 서버 판매 가능 상품의 가격/유료·보너스 수량을 주문에 저장한다. 같은 사용자/키/상품은
+  기존 주문 snapshot을 반환하며 같은 키/다른 상품은 409 IDEMPOTENCY_KEY_REUSED다.
+- 키는 비어 있지 않은 최대 512자이며 원본 대신 SHA-256을 저장한다. 키 범위는 충전 주문 생성이다.
+- PAYMENT_PENDING의 creditedShellAmount는 예정 수량이다. 실제 지급 완료나 현재 잔액이 아니다.
 
 ```json
 { "productCode": "TURTLE_SHELL_50" }
@@ -454,7 +511,12 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "paidShellAmount": 50,
   "bonusShellAmount": 6,
   "creditedShellAmount": 56,
-  "status": "PAYMENT_PENDING"
+  "status": "PAYMENT_PENDING",
+  "processing": false,
+  "walletBalance": null,
+  "grantedShellAmount": null,
+  "nextAction": "NONE",
+  "failureCode": null
 }
 ```
 
@@ -467,10 +529,10 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 | `TURTLE_SHELL_50` | 50 | 6 | 56 | 5,000원 |
 | `TURTLE_SHELL_100` | 100 | 14 | 114 | 10,000원 |
 | `TURTLE_SHELL_300` | 300 | 46 | 346 | 30,000원 |
-| `TURTLE_SHELL_500` | 500 | 82 | 582 | 50,000원 |
+| `TURTLE_SHELL_500` | 500 | 80 | 580 | 50,000원 |
 
 - 승인 완료 시 유료분과 보너스분을 별도 원장 행 또는 동일 거래의 구분 가능한 lot으로 기록한다.
-- 차감 우선순위는 `TBD(P-02A)`다.
+- 지급 만료는 유료 5년/보너스 1년(Asia/Seoul 달력 기준)이며 차감은 확정 P-02A 정책을 따른다.
 
 ### `POST /top-up-orders/{orderId}/confirm`
 
@@ -486,14 +548,28 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 - 서버 저장 주문 금액과 PG 금액을 비교한다.
 - 클라이언트 금액을 신뢰하지 않는다.
-- 성공 시 지급까지 완료하고 잔액을 반환한다.
+- 200은 처리 결과 응답, 202는 아직 처리 중이다. HTTP 200만으로 충전 완료를 표시하지 않는다.
+- **status=CREDITED만** 지급 완료다. 이때 processing=false, grantedShellAmount=실제 지급량,
+  walletBalance=해당 지급 시점 잔액 snapshot, nextAction=VIEW_WALLET이다. 현재 잔액은 GET /wallet으로 다시 조회한다.
+- 결과 불명은 PAYMENT_PENDING/processing=true/nextAction=POLL이며 잔액·실제 지급량은 null이다.
+- creditedShellAmount는 기존 계약의 예정 지급량이며 지급 증거가 아니다.
+- 기본 최대 5회 확인 후에도 불명인 경우 PAYMENT_PENDING/processing=false/CONTACT_SUPPORT,
+  failureCode=PAYMENT_REVIEW_REQUIRED로 남는다. 실패·환불·새 결제를 자동으로 안내하지 않는다.
+- 검증된 거절/취소는 FAILED/CANCELED, processing=false, RETRY_PAYMENT와 PAYMENT_DECLINED/PAYMENT_CANCELED다.
+- failureCode는 주문 결과 필드이며 공통 ApiError.code와 구분한다.
+- 승인 준비·점유 저장 후 PG는 DB 트랜잭션 밖에서 호출한다. 주문→실행→지갑→lot 잠금 아래
+  지급분·원장·잔액·receipt·CREDITED를 하나의 트랜잭션으로 커밋한다.
+- 자동 조회 복구는 TOSS_RECOVERY_ENABLED=true일 때만 동작한다. 기본 false이며 adapter 준비 없이 켜지 않는다.
+- 같은 주문 재전송은 저장된 대응을 재사용하고 지급을 반복하지 않는다. 원본 paymentKey는 저장하지 않는다.
 
 ### `GET /top-up-orders/{orderId}`
 
+- 인증 필요, 타인/없는 주문은 동일 RESOURCE_NOT_FOUND(404). 생성/승인과 동일 응답 DTO다.
 - 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`
 
 ### `POST /webhooks/toss-payments`
 
+- 아래는 목표 계약이며 현재 구현된 엔드포인트가 아니다.
 - 공개 인터넷 엔드포인트지만 PG 서명·이벤트 ID를 검증한다.
 - 웹훅 원문에 민감정보를 남기지 않는다.
 - 이벤트 ID를 멱등 처리한다.
@@ -538,6 +614,20 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 - 요청에 포함된 인물정보는 계산에만 사용하며 이 API 자체는 저장하지 않는다.
 - 응답에는 사용자 ID, 이름, 원본 생년월일시를 포함하지 않는다.
 
+저장된 인물을 선택한 FE는 원문 생년정보 대신 아래 입력을 사용한다.
+
+```json
+{ "personId": "uuid" }
+```
+
+- `personId`와 원문 생년 필드를 함께 보내거나 두 입력 모두 누락하면 `400 VALIDATION_FAILED`다.
+- 서버는 로그인한 사용자의 인물만 조회한다. 타인/미존재는 같은 `404 RESOURCE_NOT_FOUND`다.
+- 실제 인물 저장소 adapter가 미연결이면 `503 READING_FULFILLMENT_UNAVAILABLE`이다.
+  이번 구현은 인물 입력 계약 추가이며 OAuth·인물 저장 기능 자체를 완성한 것은 아니다.
+- 저장된 절기 경계일 인물의 출생 시간이 미상이면 원문 입력과 같은 `422 BIRTH_TIME_REQUIRED_AT_TERM`이다.
+
+기존 원문 입력도 유지한다.
+
 ```json
 {
   "birthDate": "2004-03-15",
@@ -566,6 +656,13 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 ```
 
 견적 발급 때 사용한 필드를 동일하게 전송해야 한다. 궁합은 견적과 마찬가지로 `counterpartPersonId`, `relationType`이 필수다. 수능운은 기존 `POST /reading-purchases` 계약을 유지한다.
+
+현재 구매 HTTP 공통 경계는 사용자별 `Idempotency-Key`를 요청 경로와 파싱된 요청 내용에
+영속적으로 연결한다. 같은 키로 견적/선택/경로를 바꾸면 `409 IDEMPOTENCY_KEY_REUSED`다.
+같은 키·같은 요청은 기존 구매 처리로 전달한다. 이것만으로 최초 응답 재사용이나
+만료 후 완료 재조회, 중단 구매 재개까지 구현된 것은 아니다.
+키는 1~512자(공백만인 값 제외)이며 입력/인증/CSRF 검증을 통과한 요청에 적용한다.
+세부 범위와 보존/배포 제한은 `backend/docs/PURCHASE_REQUEST_BINDINGS.md`를 참고한다.
 
 | fortuneType | 허용 questionKey | 생성 section 순서 |
 |---|---|---|
@@ -990,6 +1087,36 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 `CREATED → DEBITED → GENERATING → FULFILLED`
 
 실패: `FAILED → REFUNDED`
+
+#### 구매 상태 조회 계약 (2026-10-11, B안 A 수용 / 미구현)
+
+- GET /api/v1/reading-purchases/{purchaseId}
+- GET /api/v1/reading-purchases/by-quote/{quoteId}
+- 실제 사용자 소유권 검사, 타인/없는 자원은 같은 404 RESOURCE_NOT_FOUND.
+- 이미 생성된 구매 조회/replay는 견적 만료와 무관하다. 최초 구매에만 만료 검사를 적용한다.
+- 공통 envelope의 data는 다음 모양이다. 현재 OpenAPI/실행 API 제공 완료가 아니다.
+
+```json
+{
+  "purchaseId": "uuid",
+  "quoteId": "uuid",
+  "status": "GENERATING",
+  "readingId": null,
+  "compensationStatus": "NOT_REQUIRED",
+  "failureCode": null,
+  "nextAction": "POLL",
+  "nextRetryAt": null,
+  "updatedAt": "2026-10-10T10:00:00Z"
+}
+```
+
+readingId는 FULFILLED에서만 값이 있다. compensationStatus는 NOT_REQUIRED/PENDING/COMPLETED/REVIEW_REQUIRED,
+nextAction은 POLL/VIEW_READING/CONTACT_SUPPORT/NONE이다. 잔액은 GET /wallet로 별도 조회한다.
+REFUNDED는 보상 receipt 확인 후에만 저장한다. 새 조회 계약의 완료 표시는
+status=REFUNDED와 compensationStatus=COMPLETED가 일치해야 하며 오류 code만으로 표시하지 않는다.
+lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦은 생성 결과를 노출하지 않는다.
+전체 상태 조합과 receipt 포트 보완 등 남은 계약은
+[10/11 회신 반영 기록](../backend/docs/TEAM_CONTRACT_DECISIONS_20261011.md)을 따른다.
 
 ### 선물 주문·선물
 

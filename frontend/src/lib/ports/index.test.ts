@@ -8,6 +8,7 @@ import {
   resolveFortuneScenario,
   resolveSessionScenario,
   resolveTopUpScenario,
+  selectBasicSajuPort,
   selectFortunePort,
   selectPaymentLauncher,
   selectPersonPort,
@@ -74,6 +75,23 @@ describe("인물 포트 선택 (MOCK-PORT)", () => {
   });
 });
 
+describe("오행분석 포트 선택 (MOCK-PORT)", () => {
+  it("진짜 모드는 구현이 없어 던진다", () => {
+    expect(() =>
+      selectBasicSajuPort("real", createFakeAccount("signed_in")),
+    ).toThrow("MOCK-PORT");
+  });
+
+  it("가짜 모드는 가짜 오행 값을 준다", async () => {
+    const account = createFakeAccount("signed_in");
+    const result = await selectBasicSajuPort("mock", account).getBasicSaju(
+      account.getSelf()?.personId ?? "",
+    );
+    // 픽스처일 뿐이며 실제 계산 · 규칙과 무관하다
+    expect(result.fiveElements.map((e) => e.count)).toEqual([2, 1, 3, 0, 2]);
+  });
+});
+
 describe("운세 구매 포트 선택 (MOCK-PORT)", () => {
   it("진짜 모드는 구현이 없어 던진다", () => {
     expect(() => selectFortunePort("real", undefined)).toThrow();
@@ -109,6 +127,9 @@ describe("결과 포트 선택 (MOCK-PORT)", () => {
     };
     const { quoteId } = await fortune.createQuote(selection);
     const result = await fortune.purchase({ quoteId, selection }, "key-1");
+    expect(result.status).toBe("FULFILLED");
+    if (result.readingId === null)
+      throw new Error("FIXTURE: 가짜 구매 결과에 readingId 가 없다");
     const reading = await selectReadingPort("mock", readings).getReading(
       result.readingId,
     );
