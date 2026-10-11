@@ -87,10 +87,10 @@ A 측 개발 기준으로 `productName`(서버 표시명), `regularPrice`({curre
 확인되지 않은 정가를 FE가 더하거나 추정하지 않으며, 미확정 상품 regularPrice는 null이다.
 견적 생성 당시 이름/정가도 snapshot으로 보존하는 방향이다.
 
-이 필드는 아직 구현/OpenAPI 반영 전이고 FE에게 신규 개발 기준을 전달해야 한다.
+이 필드는 10/11 A 로컬에서 구현했다. 일반/수능 견적 POST와 GET에 동일하게 추가하며 OpenAPI를 재생성한다.
 구체적인 표시명 문구는 PD 확인 대상이다. A가 정가 정책 자체를 새로 만든 것이 아니다.
-상품 조회는 비로그인 허용 방향을 유지한다. `/products?category=TOP_UP`만 로컬 구현돼 있고
-FORTUNE/운세 metadata와 비활성 상품을 /about에 어떻게 표시할지는 후속 계약/구현이다.
+상품 조회는 비로그인 허용 방향을 유지한다. `/products?category=TOP_UP|FORTUNE`을 로컬 구현했고
+FORTUNE의 fortuneType 필터/option/판매 종료 시각을 제공한다. 비활성 상품을 /about에 어떻게 표시할지는 후속 계약/구현이다.
 구매 가능한 목록과 심사용 소개 목록의 판매 가능 여부를 혼동하지 않는다.
 
 ## 5. 아직 확정할 수 없는 것
