@@ -15,7 +15,9 @@
 | Phase 2 궁합 계약 | 코드 검증 완료·문서 반영 | 기존 궁합 서비스의 상대/동일인/관계 필수 검증을 유지 |
 | Phase 3 수능 typed response | 완료 | 수능 전용 Liner JSON Schema, validator, fallback, 공개 응답 추가 |
 | Phase 4 오늘의 운세 | 완료 | 인증 GET, 소유 인물, KST 날짜, 결정론적 0~100 지수 구현 |
-| Phase 5 이후 | 예정 | 구매 상태 계약부터 진행 |
+| Phase 5 구매 상태 계약 | BE-B 범위 완료 | by-quote 조회, 상태/보상/nextAction/failureCode 및 POST 필드 구현 |
+| Phase 5 BE-A/PD 후속 | 외부 확인 필요 | receipt 포트 승인, REVIEW_REQUIRED 고객 문의 채널 |
+| Phase 6 | 예정 | 카카오 로그인·세션·CSRF |
 
 ## 1. 목적과 우선순위
 

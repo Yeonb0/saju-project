@@ -10,6 +10,7 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.SuneungGuide;
 import com.sajuppugi.fortune.reading.application.GeneralReadingService;
 import com.sajuppugi.fortune.reading.application.ReadingQueryService;
+import com.sajuppugi.fortune.reading.application.ReadingPurchaseStatusPolicy;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService.PurchaseResult;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
@@ -128,10 +129,13 @@ public class SuneungReadingController {
                                 Instant expiresAt, Event event) {}
 
     public record PurchaseResponse(UUID purchaseId, UUID readingId, String status,
+                                   String compensationStatus, String nextAction,
                                    String calculationVersion, String generationVersion, String contentVersion,
                                    Charged charged, Integer balance, boolean reused, ReadingResponse reading) {
         static PurchaseResponse from(PurchaseResult result) {
+            var status = ReadingPurchaseStatusPolicy.project(result.status());
             return new PurchaseResponse(result.purchaseId(), result.readingId(), result.status().name(),
+                    status.compensationStatus().name(), status.nextAction().name(),
                     result.reading() == null ? null : result.reading().calculationVersion(),
                     result.reading() == null ? null : result.reading().generationVersion(),
                     result.reading() == null ? null : result.reading().contentVersion(),

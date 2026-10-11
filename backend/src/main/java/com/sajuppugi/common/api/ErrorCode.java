@@ -18,6 +18,7 @@ public enum ErrorCode {
     PERSON_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "저장할 수 있는 타인은 최대 10명입니다."),
     PRIMARY_PERSON_ALREADY_EXISTS(HttpStatus.CONFLICT, "본인 정보가 이미 등록되어 있습니다."),
     READING_NOT_FOUND(HttpStatus.NOT_FOUND, "운세 결과를 찾을 수 없습니다."),
+    PURCHASE_NOT_FOUND(HttpStatus.NOT_FOUND, "구매 내역을 찾을 수 없습니다."),
     READING_FULFILLMENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "운세 구매 준비 중입니다. 잠시 후 다시 시도해 주세요."),
     READING_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "운세 생성에 실패했습니다. 사용한 등껍질은 복구됩니다."),
     PURCHASE_DEBIT_MISMATCH(HttpStatus.INTERNAL_SERVER_ERROR, "구매 처리 중 금액 검증에 실패했습니다."),

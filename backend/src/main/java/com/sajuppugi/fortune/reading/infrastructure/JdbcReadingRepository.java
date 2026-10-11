@@ -105,16 +105,21 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
-    public void markFailed(UUID purchaseId) {
+    public void markFailed(UUID purchaseId, String failureCode) {
+        if (failureCode == null || failureCode.isBlank()) throw new IllegalArgumentException("failureCode is required");
         requireOne(jdbc.update("""
-                UPDATE reading_purchases SET status = 'FAILED'
+                UPDATE reading_purchases SET status = 'FAILED', failure_code = ?,
+                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END
                 WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
-                """, purchaseId), "mark purchase failed");
+                """, failureCode, purchaseId), "mark purchase failed");
     }
 
     @Override
     public void markRefunded(UUID purchaseId) {
-        requireOne(jdbc.update("UPDATE reading_purchases SET status = 'REFUNDED' WHERE id = ? AND status = 'FAILED'",
+        requireOne(jdbc.update("""
+                UPDATE reading_purchases SET status = 'REFUNDED', failure_code = NULL,
+                compensation_status = 'COMPLETED' WHERE id = ? AND status = 'FAILED'
+                """,
                 purchaseId), "mark purchase refunded");
     }
 
@@ -164,7 +169,9 @@ public class JdbcReadingRepository implements ReadingRepository {
                 rs.getObject("subject_person_id", UUID.class), rs.getObject("counterpart_person_id", UUID.class),
                 rs.getString("relation_type"), rs.getString("question_key"),
                 rs.getObject("wallet_transaction_id", UUID.class),
-                Status.valueOf(rs.getString("status")), rs.getObject("reading_id", UUID.class),
+                Status.valueOf(rs.getString("status")), rs.getString("failure_code"),
+                ReadingPurchase.CompensationStatus.valueOf(rs.getString("compensation_status")),
+                rs.getObject("reading_id", UUID.class),
                 instant(rs, "created_at"), instant(rs, "fulfilled_at"));
     }
 

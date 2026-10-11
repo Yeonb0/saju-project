@@ -586,6 +586,8 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
   "purchaseId": "uuid",
   "readingId": "uuid",
   "status": "FULFILLED",
+  "compensationStatus": "NOT_REQUIRED",
+  "nextAction": "VIEW_READING",
   "calculationVersion": "manse-1.0.0",
   "generationVersion": "liner-general-reading-v2",
   "contentVersion": "love-2026.10.08",
@@ -614,6 +616,44 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 - Liner 호출 또는 응답 검증이 3회 실패하면 같은 허용 섹션의 결정론적 fallback 문구를 저장한다. fallback까지 실패하면 구매를 실패 처리하고 차감을 역분개한다.
 - 동일한 `Idempotency-Key` 또는 `generationKey`의 재요청은 외부 호출을 중복 실행하지 않고 진행 중 상태나 최초 완료 결과를 반환한다.
 - 부적 fulfillment는 `PENDING` 또는 `READY`를 반환하며, 부적 생성 시작 자체가 실패하면 구매를 완료하지 않고 등껍질을 복구한다. 비동기 완료 방식은 `TBD(F-06)` 확정에 따라 확장한다.
+
+### `GET /reading-purchases/by-quote/{quoteId}`
+
+- 인증 필요, 구매자 본인만 조회할 수 있다.
+- `(buyerUserId, quoteId)` 조합은 최대 한 구매를 갖는다.
+- 아직 구매 row가 생성되지 않았거나 다른 사용자의 견적이면 `404 PURCHASE_NOT_FOUND`다.
+- POST가 purchase row를 commit한 뒤에는 처리 중이어도 404가 아니라 현재 상태를 반환한다.
+
+```json
+{
+  "purchaseId": "uuid",
+  "quoteId": "uuid",
+  "readingId": null,
+  "status": "FAILED",
+  "compensationStatus": "PENDING",
+  "nextAction": "WAIT",
+  "failureCode": "READING_GENERATION_FAILED",
+  "createdAt": "2026-10-11T03:00:00Z",
+  "fulfilledAt": null
+}
+```
+
+화면의 상태 분기 기준은 `status`이며, `nextAction`은 버튼·안내 행동을 결정한다.
+
+| status | compensationStatus | nextAction | 의미 |
+| --- | --- | --- | --- |
+| `CREATED`, `DEBITED`, `GENERATING` | `NOT_REQUIRED` | `WAIT` | 구매 처리 중 |
+| `FULFILLED` | `NOT_REQUIRED` | `VIEW_READING` | 결과 열람 가능 |
+| `FAILED` | `PENDING` | `WAIT` | 차감 보상 진행 중 |
+| `FAILED` | `REVIEW_REQUIRED` | `CONTACT_SUPPORT` | 자동 보상 판단 불가, 운영 확인 필요 |
+| `FAILED` | `NOT_REQUIRED` | `RETRY_PURCHASE` | 차감 전에 실패했으므로 보상 불필요 |
+| `FAILED` | `COMPLETED` | `RETRY_PURCHASE` | 이전 데이터 호환 조합이며 신규 흐름은 `REFUNDED`로 정규화 |
+| `REFUNDED` | `COMPLETED` | `RETRY_PURCHASE` | 보상 완료, 다시 구매 가능 |
+
+- `compensationStatus`: `NOT_REQUIRED`, `PENDING`, `COMPLETED`, `REVIEW_REQUIRED`
+- `nextAction`: `WAIT`, `VIEW_READING`, `RETRY_PURCHASE`, `CONTACT_SUPPORT`
+- POST 구매 응답에도 `compensationStatus`와 `nextAction`을 반환한다.
+- receipt와 지갑 차감·보상 실행은 BE-A의 `WalletPurchasePort` 책임이다. BE-B는 운세 purchase 상태와 결과 생성 orchestration을 소유한다.
 
 #### 수능운 결과 구조
 

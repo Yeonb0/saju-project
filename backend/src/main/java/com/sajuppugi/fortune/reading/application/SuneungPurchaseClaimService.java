@@ -38,7 +38,8 @@ public class SuneungPurchaseClaimService {
                     .orElseThrow(() -> new IllegalStateException("Quote was claimed without a reading purchase"));
         }
         ReadingPurchase purchase = new ReadingPurchase(purchaseId, userId, productId, quoteId, personId,
-                counterpartPersonId, relationType, questionKey, null, Status.CREATED, null, clock.instant(), null);
+                counterpartPersonId, relationType, questionKey, null, Status.CREATED, null,
+                ReadingPurchase.CompensationStatus.NOT_REQUIRED, null, clock.instant(), null);
         readings.createPurchase(purchase);
         return purchase;
     }

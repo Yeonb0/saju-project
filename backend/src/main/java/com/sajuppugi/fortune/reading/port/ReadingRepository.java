@@ -16,7 +16,7 @@ public interface ReadingRepository {
     void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId);
     void markGenerating(UUID purchaseId);
     void fulfill(ReadingPurchase purchase, OwnedReading reading);
-    void markFailed(UUID purchaseId);
+    void markFailed(UUID purchaseId, String failureCode);
     void markRefunded(UUID purchaseId);
     Optional<OwnedReading> findOwnedReading(UUID ownerUserId, UUID readingId);
     List<OwnedReading> findOwnedReadings(UUID ownerUserId, FortuneType fortuneType, UUID personId,
