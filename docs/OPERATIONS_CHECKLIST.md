@@ -4,6 +4,18 @@
 
 이 문서는 점검 결과와 제안이다. 팀 정책이나 확정 일정의 원본을 대체하지 않는다. 운영 서버 주소, 플랫폼 설정, 실제 DB, 트래픽 지표와 장애 로그는 확인하지 않았다. 현재 사용자 수와 운영 중인 배포 버전은 이 자료만으로 확인할 수 없다. 이번에는 코드 변경이나 테스트 재실행, 배포를 하지 않았다.
 
+### 2026-10-11: PR #21 서버 키 저장 후 FE 제외 백엔드 재검증
+
+- 기준: PR #21 `codex/fe-a-completed-handoff`, `b81076c` (기능 기준 main `8fd90e8`). 사용자가 키 저장 후 FE 제외 테스트와 같은 PR에 검증 기록 커밋을 요청했다. 적용: 6-1 인증/CSRF/소유권, 6-2 PostgreSQL 원자성/원장/중복/동시성, 6-3 외부 응답 검증/결과 불명, 6-4 lease/제한된 조회 복구, 6-6 환경 분리/migration, 6-9 비밀값 비출력/커밋 제외.
+- `backend/.env`에서 시크릿 존재와 지원 테스트 키 형식을 boolean으로만 확인했다. `TOSS_ADAPTER=disabled`, `TOSS_RECOVERY_ENABLED=false`이며 `.env`는 Git ignore 대상이다. 키를 수정하거나 출력하지 않았고, 토스 인증 유효성·상점·FE 키 세트 일치는 확인하지 않았다.
+- 기존 테스트 DB에는 다른 브랜치 migration 21개가 남아 있어 그 실행 결과를 최종 근거로 사용하지 않았다. 기존 DB를 보존하고 55432의 새 `sajuppugi_test_pr21_20261011` DB에서 재실행했다. PostgreSQL 17.11, migration 18개 모두 success=true, 충전 상품 6종 모두 비활성을 확인했다. 개발 DB는 5432의 `sajuppugi`로 분리돼 있다.
+- 새 DB에서 `check bootJar --rerun-tasks` 성공: 37 suites, 총 383건 중 380 통과, 실패/오류 0, 선택 실행 제외 3 (Liner 실제 호출, OpenAPI 선택 export, 지갑 시연). 충전/토스 7 suites 97건 모두 통과: TopUpCatalog 7, TopUpProductApi 6, TopUpOrderApi 7, TopUpConfirmationPersistence 13, TopUpPaymentFlow 24, TossPaymentConfiguration 3, TossPaymentProvider 37.
+- 가짜 PG와 실제 PostgreSQL로 CREDITED/정확한 지급·원장·잔액, 같은/다른 승인 요청키 재전송의 주문당 한 번 지급, 두 주문 동시 충전, PG 대기 중 중복 요청, 금액/소유권/인증/CSRF 거절을 검증했다. 승인 응답 유실, 승인 전 중단 상태, lease 만료와 늦은 응답, 지급 DB 오류 전체 롤백 후 조회 복구, 최대 5회 뒤 CONTACT_SUPPORT, 잘못된 PG 증거 및 거절/취소의 지급 없음도 통과했다. OS 강제 종료나 FE 취소 화면을 실제로 시험한 것은 아니다.
+- 저장된 `.env`와 local 프로필로 빌드 JAR를 실제 기동했다. 기존 개발 DB에 미적용 migration 8개가 자동 적용되어 10개에서 18개 모두 성공 상태가 됐다. 충전 상품 6종 비활성, 충전 주문/지급 receipt 0건을 확인했다. 상품을 활성화하거나 실제 지급하지 않았다.
+- 실제 HTTP: health/readiness 각각 200/UP, TOP_UP 상품 조회 200/items=[], 미로그인 지갑/주문 조회 401/AUTHENTICATION_REQUIRED, CSRF 없는 주문 생성/승인 POST 403/CSRF_FAILED. 실행 서버 OpenAPI에 생성 POST/승인 POST/소유자 GET 경로가 있음을 확인했다.
+- PG 호출은 DB 트랜잭션 밖에서 실행하고, 검증된 승인 뒤 지급분·원장·잔액·receipt·CREDITED를 한 트랜잭션으로 저장한다. 저장 실패는 함께 롤백되고, 결과 불명은 재승인 대신 기존 주문 조회로 확인한다. 자동 복구는 실제 local 설정에서 계속 꺼져 있으며 복구 테스트는 가짜 PG와 제어된 시각/명시 poll 호출이다.
+- 남음: 실제 토스 인증/승인/조회, B 실제 로그인·CSRF 발급 경로, FE adapter/결제창/완료·취소 화면, 키 세트 일치, 실제 프로세스 종료 복구, staging/운영 검증. 현재 SecurityConfig는 로그인 구현을 B에 맡기며 formLogin/httpBasic을 비활성화하므로 자동 테스트의 인증 사용자 주입을 실제 로그인 완료로 보지 않는다. 최종 확인에서 최초 백그라운드 local 서버(PID 31888)가 8080을 제공한다. 추가 기동 시도는 포트 사용 중으로 종료됐고 서버를 두 개 실행하지 않는다. PR에는 이 검증 기록만 추가하며 키·빌드 산출물은 포함하지 않는다.
+
 ### 2026-10-11: FE A 1~4번 완료 회신과 선물 제외 문서 PR 준비
 
 - 사용자 요청으로 FE 요청서 5번 Q-20 선물 개발/전달은 보류했다. 기존 `codex/gift-quote-orders`의 `0f574ad`까지의 커밋은 보존하고, 최신 main `8fd90e8`에서 `codex/fe-a-completed-handoff`를 분리했다. 선물 코드/새 migration은 이번 PR에 포함하지 않는다.
