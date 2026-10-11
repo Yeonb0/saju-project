@@ -89,6 +89,12 @@ public class GeneralReadingService {
                                    UUID personId, UUID counterpartPersonId, RelationType relationType,
                                    String questionKey, IdempotencyKey key) {
         validateInput(fortuneType, option, personId, counterpartPersonId, relationType, questionKey);
+        ReadingPurchase existing = readings.findPurchaseByQuote(userId, quoteId).orElse(null);
+        if (existing != null) {
+            PurchaseQuote snapshot = validateQuoteSnapshot(catalog.getQuoteSnapshot(userId, quoteId), fortuneType,
+                    option, personId, counterpartPersonId, relationType, questionKey);
+            return existing(existing, userId, snapshot.productSnapshot().price());
+        }
         Subjects subjects = ownedSubjects(userId, personId, counterpartPersonId);
         PurchaseQuote quote = validateQuote(userId, quoteId, fortuneType, option, personId,
                 counterpartPersonId, relationType, questionKey);
@@ -183,7 +189,13 @@ public class GeneralReadingService {
     private PurchaseQuote validateQuote(UUID userId, UUID quoteId, FortuneType fortuneType, ProductOption option,
                                         UUID personId, UUID counterpartPersonId, RelationType relationType,
                                         String questionKey) {
-        PurchaseQuote quote = catalog.getQuote(userId, quoteId);
+        return validateQuoteSnapshot(catalog.getQuote(userId, quoteId), fortuneType, option, personId,
+                counterpartPersonId, relationType, questionKey);
+    }
+
+    private PurchaseQuote validateQuoteSnapshot(PurchaseQuote quote, FortuneType fortuneType, ProductOption option,
+                                        UUID personId, UUID counterpartPersonId, RelationType relationType,
+                                        String questionKey) {
         Product product = quote.productSnapshot();
         String expectedCode = GeneralReadingPolicy.productCode(fortuneType, option);
         String expectedHash = quoteContext.hash(fortuneType, option, personId,
@@ -194,6 +206,15 @@ public class GeneralReadingService {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
         return quote;
+    }
+
+    private PurchaseResult existing(ReadingPurchase purchase, UUID userId, Price charged) {
+        if (purchase.status() == Status.FULFILLED) {
+            OwnedReading reading = readings.findOwnedReading(userId, purchase.readingId())
+                    .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND));
+            return completed(reading, null, true, charged);
+        }
+        return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true, charged);
     }
 
     private void validateInput(FortuneType fortuneType, ProductOption option, UUID personId,

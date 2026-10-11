@@ -56,15 +56,21 @@ public class CatalogService implements CatalogUseCase {
 
     @Override
     public PurchaseQuote getQuote(UUID requesterUserId, UUID quoteId) {
+        PurchaseQuote quote = getQuoteSnapshot(requesterUserId, quoteId);
+        if (quote.isExpiredAt(clock.instant())) {
+            throw new ApiException(ErrorCode.QUOTE_EXPIRED);
+        }
+        return quote;
+    }
+
+    @Override
+    public PurchaseQuote getQuoteSnapshot(UUID requesterUserId, UUID quoteId) {
         if (requesterUserId == null || quoteId == null) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
         PurchaseQuote quote = repository.findQuoteById(quoteId)
                 .filter(value -> value.requesterUserId().equals(requesterUserId))
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (quote.isExpiredAt(clock.instant())) {
-            throw new ApiException(ErrorCode.QUOTE_EXPIRED);
-        }
         return quote;
     }
 

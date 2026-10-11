@@ -72,6 +72,17 @@ public class SuneungReadingService {
     }
 
     public PurchaseResult purchase(UUID userId, UUID quoteId, UUID personId, IdempotencyKey key) {
+        ReadingPurchase existing = readings.findPurchaseByQuote(userId, quoteId).orElse(null);
+        if (existing != null) {
+            PurchaseQuote snapshot = validateQuoteSnapshot(catalog.getQuoteSnapshot(userId, quoteId), personId);
+            if (existing.status() == Status.FULFILLED) {
+                return completed(readings.findOwnedReading(userId, existing.readingId())
+                        .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND)), null, true,
+                        snapshot.productSnapshot().price());
+            }
+            return new PurchaseResult(existing.id(), existing.readingId(), existing.status(), null, null, true,
+                    snapshot.productSnapshot().price());
+        }
         WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
         ReadingSubjectPort subjects = required(subjectProvider.getIfAvailable());
         ReadingSubjectPort.OwnedSubject subject = Optional.ofNullable(subjects.getOwnedSubject(userId, personId))
@@ -176,7 +187,10 @@ public class SuneungReadingService {
 
     private PurchaseQuote validateQuote(UUID userId, UUID quoteId, UUID personId) {
         ensureSaleOpen();
-        PurchaseQuote quote = catalog.getQuote(userId, quoteId);
+        return validateQuoteSnapshot(catalog.getQuote(userId, quoteId), personId);
+    }
+
+    private PurchaseQuote validateQuoteSnapshot(PurchaseQuote quote, UUID personId) {
         Product product = quote.productSnapshot();
         if (!quote.contextHash().equals(quoteContext.hash(personId))) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);

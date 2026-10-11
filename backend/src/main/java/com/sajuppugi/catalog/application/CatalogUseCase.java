@@ -16,6 +16,9 @@ public interface CatalogUseCase {
 
     PurchaseQuote getQuote(UUID requesterUserId, UUID quoteId);
 
+    /** Existing purchase replay only: ownership and immutable quote snapshot, without expiry validation. */
+    PurchaseQuote getQuoteSnapshot(UUID requesterUserId, UUID quoteId);
+
     /** New debit only: ownership, expiry and current sale availability; keeps quoted price. */
     PurchaseQuote getPayableQuote(UUID requesterUserId, UUID quoteId);
 
