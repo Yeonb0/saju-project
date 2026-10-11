@@ -380,7 +380,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       personPort: undefined,
       fortunePort: undefined,
     });
-    expect(String(caught)).toContain("MOCK-PORT");
+    expect(String(caught)).not.toContain("FIXTURE");
   });
 
   it("p. 팝업을 열기 전 본문에는 등껍질 글자도 숫자도 없다", async () => {

@@ -449,6 +449,7 @@ LIMIT 20;
 - 프런트의 real session port를 Next `/api` proxy와 연결해 카카오 버튼이 전체 페이지 OAuth 시작 URL로 이동하도록 했다. `API_PROXY_TARGET=http://localhost:8080`, `NEXT_PUBLIC_API_MODE=real` 로컬 설정이 필요하다. FE vitest 556건, typegen/TypeScript 검사와 관련 Biome 검사는 통과했지만 실제 카카오 브라우저 왕복은 아직 미실행이다.
 - 2026-10-12 로컬 PostgreSQL 17.11에서 OAuth migration을 포함한 Flyway 25건 적용과 backend health, Next proxy를 거친 비로그인 `/api/v1/session`, 내부 returnTo를 지닌 카카오 authorize 302을 확인했다. 실제 카카오 계정 동의·callback·cookie 발급과 로그인 뒤 소유권/CSRF/로그아웃 브라우저 E2E는 아직 사용자 브라우저에서 확인해야 한다.
 - 실로그인 모드에서 홈이 실제 wallet adapter를 선택하지 못해 `충전 포트` 오류로 종료되는 경로를 수정했다. `GET /wallet`은 기존 adapter를 사용하며 CSRF token source는 세션 adapter와 공유한다. 세션·홈 포트 선택 회귀 20건, typegen/TypeScript 검사를 다시 통과했다.
+- 로그인 직후 본인 정보가 없는 사용자는 온보딩으로 이동하는 것이 정상이다. 실제 people adapter를 추가하여 `POST /people`의 자기 정보 생성과 `GET /people`의 마이페이지 목록을 세션 CSRF source로 연결했다. FE 전체 556건, typegen/TypeScript를 통과했다. 실제 개인정보 입력·저장 및 그 뒤 마이페이지 browser E2E는 사용자 동작으로 남아 있다.
 
 ### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
 

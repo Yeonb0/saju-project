@@ -75,10 +75,14 @@ describe("세션 포트 선택 (MOCK-PORT)", () => {
 });
 
 describe("인물 포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다", () => {
-    expect(() =>
+  it("진짜 모드는 서버 adapter를 준다", () => {
+    expect(
       selectPersonPort("real", createFakeAccount("signed_in")),
-    ).toThrow();
+    ).toMatchObject({
+      list: expect.any(Function),
+      createSelf: expect.any(Function),
+      createOther: expect.any(Function),
+    });
   });
 });
 

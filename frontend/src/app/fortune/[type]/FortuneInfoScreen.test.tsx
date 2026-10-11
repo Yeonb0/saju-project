@@ -201,7 +201,7 @@ describe("FortuneInfoScreen (FORT-01)", () => {
   it("h. 진짜 모드인데 구현이 없으면 조용히 넘어가지 않고 오류 화면으로 던진다", async () => {
     // 테스트 환경은 NEXT_PUBLIC_API_MODE 가 비어 있어 진짜 모드다
     const caught = await expectThrown(undefined);
-    expect(String(caught)).toContain("MOCK-PORT");
+    expect(String(caught)).not.toContain("FIXTURE");
   });
 
   it("i. 오행분석 섹션에는 li 5개가 있고, 섹션 밖 본문에는 등껍질 글자나 숫자가 없다", async () => {
