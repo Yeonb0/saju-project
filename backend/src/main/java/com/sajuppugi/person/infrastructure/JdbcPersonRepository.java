@@ -27,6 +27,27 @@ public class JdbcPersonRepository implements PersonRepository {
     }
 
     @Override
+    public void lockOwner(UUID ownerUserId, Instant now) {
+        jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+            java.sql.Savepoint savepoint = connection.setSavepoint();
+            try (var statement = connection.prepareStatement(
+                    "INSERT INTO person_owner_locks (owner_user_id, created_at) VALUES (?, ?)")) {
+                statement.setObject(1, ownerUserId);
+                statement.setTimestamp(2, timestamp(now));
+                statement.executeUpdate();
+            } catch (SQLException duplicate) {
+                connection.rollback(savepoint);
+                if (!"23505".equals(duplicate.getSQLState())) throw duplicate;
+            } finally {
+                try { connection.releaseSavepoint(savepoint); } catch (SQLException ignored) { }
+            }
+            return null;
+        });
+        jdbc.queryForObject("SELECT owner_user_id FROM person_owner_locks WHERE owner_user_id = ? FOR UPDATE",
+                UUID.class, ownerUserId);
+    }
+
+    @Override
     public List<Person> findActiveByOwner(UUID ownerUserId) {
         return jdbc.query("""
                 SELECT * FROM people WHERE owner_user_id = ? AND deleted_at IS NULL

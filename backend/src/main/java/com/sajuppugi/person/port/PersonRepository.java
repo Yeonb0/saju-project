@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface PersonRepository {
+    void lockOwner(UUID ownerUserId, java.time.Instant now);
     List<Person> findActiveByOwner(UUID ownerUserId);
     Optional<Person> findActiveOwned(UUID ownerUserId, UUID personId);
     boolean activeSelfExists(UUID ownerUserId);

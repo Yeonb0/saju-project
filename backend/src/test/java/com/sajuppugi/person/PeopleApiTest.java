@@ -22,6 +22,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -108,6 +110,61 @@ class PeopleApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
         mvc.perform(get("/api/v1/people")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void serializesConcurrentSelfCreationForTheSameOwner() throws Exception {
+        UUID owner = UUID.randomUUID();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var start = new java.util.concurrent.CountDownLatch(1);
+            Callable<Object> create = () -> {
+                start.await();
+                try {
+                    return service.create(owner, Person.ProfileType.SELF, "본인", birth(), null, false);
+                } catch (ApiException exception) {
+                    return exception.errorCode();
+                }
+            };
+            var first = executor.submit(create);
+            var second = executor.submit(create);
+            start.countDown();
+            assertThat(java.util.List.of(first.get(), second.get()))
+                    .filteredOn(Person.class::isInstance).hasSize(1);
+            assertThat(java.util.List.of(first.get(), second.get()))
+                    .contains(ErrorCode.PRIMARY_PERSON_ALREADY_EXISTS);
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM people
+                WHERE owner_user_id = ? AND profile_type = 'SELF' AND deleted_at IS NULL
+                """, Integer.class, owner)).isEqualTo(1);
+    }
+
+    @Test
+    void neverCreatesMoreThanTenOthersUnderConcurrentRequests() throws Exception {
+        UUID owner = UUID.randomUUID();
+        try (var executor = Executors.newFixedThreadPool(12)) {
+            var start = new java.util.concurrent.CountDownLatch(1);
+            var tasks = java.util.stream.IntStream.range(0, 12).<Callable<Object>>mapToObj(index -> () -> {
+                start.await();
+                try {
+                    return service.create(owner, Person.ProfileType.OTHER, "친구" + index, birth(),
+                            RelationType.FRIEND, true);
+                } catch (ApiException exception) {
+                    return exception.errorCode();
+                }
+            }).toList();
+            var futures = tasks.stream().map(executor::submit).toList();
+            start.countDown();
+            var results = futures.stream().map(future -> {
+                try { return future.get(); } catch (Exception exception) { throw new RuntimeException(exception); }
+            }).toList();
+            assertThat(results).filteredOn(Person.class::isInstance).hasSize(10);
+            assertThat(results).filteredOn(ErrorCode.PERSON_LIMIT_EXCEEDED::equals).hasSize(2);
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM people
+                WHERE owner_user_id = ? AND profile_type = 'OTHER' AND deleted_at IS NULL
+                """, Integer.class, owner)).isEqualTo(10);
     }
 
     private BirthInput birth() {

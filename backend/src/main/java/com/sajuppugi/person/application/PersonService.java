@@ -42,14 +42,16 @@ public class PersonService {
     public Person create(UUID ownerUserId, Person.ProfileType profileType, String displayName,
                          BirthInput birthInput, RelationType relationType, boolean thirdPartyConfirmed) {
         validate(profileType, displayName, birthInput, relationType, thirdPartyConfirmed);
+        ownerUserId = required(ownerUserId);
+        Instant now = clock.instant();
+        repository.lockOwner(ownerUserId, now);
         if (profileType == Person.ProfileType.SELF && repository.activeSelfExists(ownerUserId)) {
             throw new ApiException(ErrorCode.PRIMARY_PERSON_ALREADY_EXISTS);
         }
         if (profileType == Person.ProfileType.OTHER && repository.countActiveOthers(ownerUserId) >= 10) {
             throw new ApiException(ErrorCode.PERSON_LIMIT_EXCEEDED);
         }
-        Instant now = clock.instant();
-        Person person = new Person(UUID.randomUUID(), required(ownerUserId), profileType, displayName.trim(), birthInput,
+        Person person = new Person(UUID.randomUUID(), ownerUserId, profileType, displayName.trim(), birthInput,
                 relationType, profileType == Person.ProfileType.OTHER ? now : null, now, now);
         repository.insert(person);
         return person;
