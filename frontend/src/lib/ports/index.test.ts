@@ -20,7 +20,55 @@ import {
 describe("포트 선택 (MOCK-PORT)", () => {
   it("진짜 모드는 구현이 없어 던진다 — 조용히 가짜로 바꾸지 않는다", () => {
     expect(() => selectTopUpPort("real", undefined)).toThrow();
-    expect(() => selectPaymentLauncher("real", vi.fn())).toThrow();
+  });
+
+  describe("결제창 선택 (TOSS-LAUNCHER-SWITCH)", () => {
+    const ORDER = {
+      // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다
+      orderId: "33333333-3333-4333-8333-333333333333",
+      orderName: "FIXTURE",
+      amount: { currency: "KRW", amount: 1111 },
+      status: "PAYMENT_PENDING" as const,
+    };
+
+    // 토스 결제창은 키가 없으면 SDK 를 부르기 전에 던진다 — 가짜 결제창과 구별하는 데 쓴다
+    async function opensToss(
+      launcher: ReturnType<typeof selectPaymentLauncher>,
+    ) {
+      const error = await launcher
+        .requestPayment(ORDER)
+        .catch((e: unknown) => e);
+      return error instanceof Error && error.message.includes("TOSS-SDK");
+    }
+
+    it.each([
+      undefined,
+      "",
+      "fake",
+    ])("h. 가짜 모드 %j 는 가짜 결제창 — navigate 로 /pay/success", async (raw) => {
+      const navigate = vi.fn();
+      await selectPaymentLauncher("mock", navigate, raw).requestPayment(ORDER);
+      expect(navigate.mock.calls[0][0]).toContain("/pay/success");
+    });
+
+    it("h. 가짜 모드 toss 는 토스 결제창", async () => {
+      const navigate = vi.fn();
+      expect(
+        await opensToss(selectPaymentLauncher("mock", navigate, "toss")),
+      ).toBe(true);
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it("h. 가짜 모드 bogus 는 던진다", () => {
+      expect(() => selectPaymentLauncher("mock", vi.fn(), "bogus")).toThrow();
+    });
+
+    it("i. 진짜 모드는 토스 결제창 — 선택할 때는 던지지 않는다", async () => {
+      const navigate = vi.fn();
+      const launcher = selectPaymentLauncher("real", navigate);
+      expect(await opensToss(launcher)).toBe(true);
+      expect(navigate).not.toHaveBeenCalled();
+    });
   });
 
   it("가짜 모드는 가짜 구현을 준다", async () => {

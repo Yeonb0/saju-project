@@ -4,6 +4,8 @@
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
 // 모르는 값은 기본값으로 덮지 않고 던진다.
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
+
+import { createTossPaymentLauncher } from "@/lib/payment/tossPaymentLauncher";
 import {
   createFakeAccount,
   FAKE_SESSION_SCENARIOS,
@@ -64,12 +66,33 @@ export function selectTopUpPort(
   });
 }
 
+// 결제창 선택 (TOSS-LAUNCHER-SWITCH). 진짜 모드는 토스 결제창. 가짜 모드는 NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER 로 고른다:
+// 비우거나 "fake" 는 가짜 결제창, "toss" 는 토스 결제창(진짜와 같음), 그 밖의 값은 기본값으로 덮지 않고 던진다 (MOCK-PORT).
+// 이 스위치는 가짜 모드 개발 전용(1단계 시험)이다 — 성공 복귀 뒤 가짜 서버 메모리가 비어 /pay/success 는 완료를 보이지 않는다 (의도).
+// 클라이언트 키(NEXT_PUBLIC_TOSS_CLIENT_KEY)는 gck 만 쓴다 — 값 검사는 결제창을 열 때 한다.
 export function selectPaymentLauncher(
   mode: ApiMode,
   navigate: (url: string) => void,
+  launcherRaw?: string,
+  clientKey?: string,
 ): PaymentLauncher {
-  if (mode !== "mock") return noRealYet("결제창 포트");
-  return createFakePaymentLauncher(navigate);
+  const toss = () =>
+    createTossPaymentLauncher({
+      clientKey,
+      origin: () => window.location.origin,
+    });
+  if (mode !== "mock") return toss();
+  if (
+    launcherRaw === undefined ||
+    launcherRaw === "" ||
+    launcherRaw === "fake"
+  ) {
+    return createFakePaymentLauncher(navigate);
+  }
+  if (launcherRaw === "toss") return toss();
+  throw new Error(
+    `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER 값이 잘못됐다: ${launcherRaw}`,
+  );
 }
 
 // 가짜 지갑은 탭 하나에 하나 — 가짜 충전과 가짜 운세 구매가 같은 잔액을 본다
@@ -156,7 +179,12 @@ export function getReadingPort(): ReadingPort {
 export function getPaymentLauncher(
   navigate: (url: string) => void,
 ): PaymentLauncher {
-  return selectPaymentLauncher(API_MODE, navigate);
+  return selectPaymentLauncher(
+    API_MODE,
+    navigate,
+    process.env.NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER,
+    process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY,
+  );
 }
 
 export function resolveSessionScenario(

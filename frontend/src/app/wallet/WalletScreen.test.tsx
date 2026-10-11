@@ -5,7 +5,10 @@ import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import type { FortunePort, FortuneQuote } from "@/lib/ports/fortune";
-import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
+import {
+  PaymentCanceledError,
+  type PaymentLauncher,
+} from "@/lib/ports/paymentLauncher";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import {
   loadPurchaseSelection,
@@ -148,6 +151,51 @@ describe("WalletScreen (PAY-01)", () => {
     await user.click((await screen.findAllByRole("radio"))[0]);
     await user.click(screen.getByRole("button", { name: "결제하기" }));
     await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
+    expect(createOrder.mock.calls[1][1]).toBe(createOrder.mock.calls[0][1]);
+  });
+
+  it("j. 결제창이 PaymentCanceledError 로 끝나면 오류 안내 없이 결제하기가 다시 눌린다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeTopUpPort();
+    const launcher: PaymentLauncher = {
+      requestPayment: vi.fn().mockRejectedValueOnce(new PaymentCanceledError()),
+    };
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <WalletScreen port={port} launcher={launcher} />
+      </QueryClientProvider>,
+    );
+    await user.click((await screen.findAllByRole("radio"))[0]);
+    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await waitFor(() =>
+      expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "결제하기" })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("k. 결제창을 닫은 뒤 다시 누르면 createOrder 가 같은 Idempotency-Key 로 불린다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeTopUpPort();
+    const createOrder = vi.spyOn(port, "createOrder");
+    const launcher: PaymentLauncher = {
+      requestPayment: vi.fn().mockRejectedValueOnce(new PaymentCanceledError()),
+    };
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <WalletScreen port={port} launcher={launcher} />
+      </QueryClientProvider>,
+    );
+    await user.click((await screen.findAllByRole("radio"))[0]);
+    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "결제하기" })).toBeEnabled(),
+    );
     await user.click(screen.getByRole("button", { name: "결제하기" }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
     expect(createOrder.mock.calls[1][1]).toBe(createOrder.mock.calls[0][1]);
