@@ -82,8 +82,38 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
+    public Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now,
+                                                          Instant leaseUntil) {
+        int updated = jdbc.update("""
+                UPDATE reading_purchases SET status = 'GENERATING', generation_lease_token = ?,
+                generation_lease_until = ?, generation_fence = generation_fence + 1,
+                generation_attempts = generation_attempts + 1
+                WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
+                AND (generation_lease_token IS NULL OR generation_lease_until < ?)
+                """, leaseToken, Timestamp.from(leaseUntil), purchaseId, Timestamp.from(now));
+        if (updated != 1) return Optional.empty();
+        return jdbc.query("SELECT generation_fence FROM reading_purchases WHERE id = ? AND generation_lease_token = ?",
+                (rs, row) -> new GenerationLease(leaseToken, rs.getLong("generation_fence")), purchaseId, leaseToken)
+                .stream().findFirst();
+    }
+
+    @Override
+    public void releaseGenerationLease(UUID purchaseId, GenerationLease lease) {
+        jdbc.update("""
+                UPDATE reading_purchases SET generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
+                """, purchaseId, lease.token(), lease.fence());
+    }
+
+    @Override
     @Transactional
     public void fulfill(ReadingPurchase purchase, OwnedReading reading) {
+        fulfill(purchase, reading, null);
+    }
+
+    @Override
+    @Transactional
+    public void fulfill(ReadingPurchase purchase, OwnedReading reading, GenerationLease lease) {
         jdbc.update("""
                 INSERT INTO readings (id, reading_result_id, owner_user_id, purchase_id, fortune_type,
                 product_option, subject_person_id, subject_display_name, counterpart_person_id,
@@ -98,20 +128,43 @@ public class JdbcReadingRepository implements ReadingRepository {
                 reading.generationVersion(), reading.contentVersion(), reading.generationMode().name(),
                 reading.talismanId(), reading.talismanStatus(),
                 Timestamp.from(reading.createdAt()));
-        requireOne(jdbc.update("""
-                UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?
+        String sql = lease == null ? """
+                UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?,
+                generation_lease_token = NULL, generation_lease_until = NULL
                 WHERE id = ? AND status = 'GENERATING'
-                """, reading.id(), Timestamp.from(reading.createdAt()), purchase.id()), "fulfill purchase");
+                """ : """
+                UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?,
+                generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
+                """;
+        int updated = lease == null
+                ? jdbc.update(sql, reading.id(), Timestamp.from(reading.createdAt()), purchase.id())
+                : jdbc.update(sql, reading.id(), Timestamp.from(reading.createdAt()), purchase.id(), lease.token(), lease.fence());
+        requireOne(updated, "fulfill purchase");
     }
 
     @Override
     public void markFailed(UUID purchaseId, String failureCode) {
+        markFailed(purchaseId, failureCode, null);
+    }
+
+    @Override
+    public void markFailed(UUID purchaseId, String failureCode, GenerationLease lease) {
         if (failureCode == null || failureCode.isBlank()) throw new IllegalArgumentException("failureCode is required");
-        requireOne(jdbc.update("""
+        String sql = lease == null ? """
                 UPDATE reading_purchases SET status = 'FAILED', failure_code = ?,
-                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END
+                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END,
+                generation_lease_token = NULL, generation_lease_until = NULL
                 WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
-                """, failureCode, purchaseId), "mark purchase failed");
+                """ : """
+                UPDATE reading_purchases SET status = 'FAILED', failure_code = ?,
+                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END,
+                generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
+                """;
+        int updated = lease == null ? jdbc.update(sql, failureCode, purchaseId)
+                : jdbc.update(sql, failureCode, purchaseId, lease.token(), lease.fence());
+        requireOne(updated, "mark purchase failed");
     }
 
     @Override

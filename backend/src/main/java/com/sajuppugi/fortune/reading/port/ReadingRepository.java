@@ -15,10 +15,16 @@ public interface ReadingRepository {
     void releaseDebitClaim(UUID purchaseId, UUID claimToken);
     void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId);
     void markGenerating(UUID purchaseId);
+    Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now, Instant leaseUntil);
+    void releaseGenerationLease(UUID purchaseId, GenerationLease lease);
     void fulfill(ReadingPurchase purchase, OwnedReading reading);
+    void fulfill(ReadingPurchase purchase, OwnedReading reading, GenerationLease lease);
     void markFailed(UUID purchaseId, String failureCode);
+    void markFailed(UUID purchaseId, String failureCode, GenerationLease lease);
     void markRefunded(UUID purchaseId);
     Optional<OwnedReading> findOwnedReading(UUID ownerUserId, UUID readingId);
     List<OwnedReading> findOwnedReadings(UUID ownerUserId, FortuneType fortuneType, UUID personId,
                                          Instant beforeCreatedAt, UUID beforeId, int limit);
+
+    record GenerationLease(UUID token, long fence) {}
 }
