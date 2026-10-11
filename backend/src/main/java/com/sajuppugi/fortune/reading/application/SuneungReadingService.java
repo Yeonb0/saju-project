@@ -112,7 +112,6 @@ public class SuneungReadingService {
         }
         if (debit.debitedAmount() != quote.productSnapshot().price().amount()) {
             readings.markFailed(purchase.id(), "PURCHASE_DEBIT_MISMATCH");
-            compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_DEBIT_MISMATCH");
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
         GenerationCommand command = new GenerationCommand(userId, FortuneType.SUNEUNG,
@@ -146,11 +145,6 @@ public class SuneungReadingService {
                 readings.markFailed(purchase.id(), "READING_GENERATION_FAILED", lease);
             } catch (IllegalStateException fencedOff) {
                 throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-            }
-            try {
-                compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_GENERATION_FAILED");
-            } catch (RuntimeException compensationFailure) {
-                generationFailure.addSuppressed(compensationFailure);
             }
             throw new ApiException(ErrorCode.READING_GENERATION_FAILED);
         }
@@ -196,12 +190,6 @@ public class SuneungReadingService {
     private <T> T required(T dependency) {
         if (dependency == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
         return dependency;
-    }
-
-    private void compensate(WalletPurchasePort wallet, UUID transactionId, IdempotencyKey key,
-                            UUID purchaseId, String reason) {
-        wallet.compensate(transactionId, reason, new IdempotencyKey(key.value() + ":compensate"));
-        readings.markRefunded(purchaseId);
     }
 
     private IdempotencyKey debitKey(UUID purchaseId, IdempotencyKey requestKey) {
