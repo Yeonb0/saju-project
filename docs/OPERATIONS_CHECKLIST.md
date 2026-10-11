@@ -447,6 +447,7 @@ LIMIT 20;
 - 적용: 6-1 세션·CSRF·returnTo·소유권 전제, 6-6 추가 Flyway migration, 6-9 닉네임 최소 저장 및 비밀값 비노출. 카카오 토큰 요청은 DB 트랜잭션 밖에서 수행한다.
 - `./gradlew test`는 H2 PostgreSQL 호환 모드에서 성공했다. 실제 PostgreSQL migration, 실제 카카오 로그인, 브라우저 쿠키/CSRF E2E, staging CORS·HTTPS cookie와 다중 인스턴스 시험은 아직 수행하지 않았다.
 - 프런트의 real session port를 Next `/api` proxy와 연결해 카카오 버튼이 전체 페이지 OAuth 시작 URL로 이동하도록 했다. `API_PROXY_TARGET=http://localhost:8080`, `NEXT_PUBLIC_API_MODE=real` 로컬 설정이 필요하다. FE vitest 556건, typegen/TypeScript 검사와 관련 Biome 검사는 통과했지만 실제 카카오 브라우저 왕복은 아직 미실행이다.
+- 2026-10-12 로컬 PostgreSQL 17.11에서 OAuth migration을 포함한 Flyway 25건 적용과 backend health, Next proxy를 거친 비로그인 `/api/v1/session`, 내부 returnTo를 지닌 카카오 authorize 302을 확인했다. 실제 카카오 계정 동의·callback·cookie 발급과 로그인 뒤 소유권/CSRF/로그아웃 브라우저 E2E는 아직 사용자 브라우저에서 확인해야 한다.
 
 ### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
 
