@@ -66,6 +66,10 @@ export function FortuneQuestionsScreen({
 }) {
   const router = useRouter();
   const fortuneType = FORTUNE_TYPE_OF_SLUG[slug];
+  if (fortuneType === "UNKNOWN") {
+    // slug 표에는 UNKNOWN 이 없다 — 있으면 코드 오류
+    throw new Error("운세 종류가 UNKNOWN 이다");
+  }
   const isCompat = slug === "compatibility";
 
   const people = useQuery({
@@ -132,6 +136,7 @@ export function FortuneQuestionsScreen({
     if (saved === null || saved.returnPath !== returnPath) return;
     const codes = [talisman?.code, readingOnly?.code];
     if (
+      saved.selection.fortuneType !== fortuneType ||
       saved.selection.personId !== personId ||
       saved.selection.counterpartPersonId !== counterpartPersonId ||
       !codes.includes(saved.selection.productCode)
@@ -147,6 +152,7 @@ export function FortuneQuestionsScreen({
     products.data,
     targetInvalid,
     returnPath,
+    fortuneType,
     personId,
     counterpartPersonId,
     talisman,
@@ -259,6 +265,7 @@ export function FortuneQuestionsScreen({
                 if (!next) setResumeQuoteId(null);
               }}
               selection={{
+                fortuneType,
                 productCode: chosen.code,
                 personId,
                 counterpartPersonId,

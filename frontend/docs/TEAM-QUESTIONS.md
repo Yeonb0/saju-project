@@ -2,7 +2,7 @@
 
 > **FE 개인 작업 문서다. 팀 합의 문서가 아니다** (DOCS-FE-OWN). FE 가 팀 문서를 읽다가 만난 모순 · 빈 정의(Q-xx)와 일정 · 운영 위험(R-xx)을 모은다.
 > 기준: GitHub `main` 의 팀 문서 — 루트 [`docs/`](../../docs/) (PR #5 `c2bab1a` + PR #6 `22caef7`, 2026-10-03). 결정 원본은 [`docs/PENDING_DECISIONS.md`](../../docs/PENDING_DECISIONS.md) (DOCS-GITHUB).
-> 작성: 2026-10-03 (TQ-RESET). 갱신: 2026-10-03 — R-07 법정 표시 항목, R-08 · R-09 추가 (팀에 보낸 판). 2026-10-03 — **팀 답 1차 반영** (TQ-ANSWERS): PD 답변서(@서인), BE 답변서(B), BE-A 결정 기록(결정 1~42) · FE 전달 요약. 새 질문 Q-16 ~ Q-18. 2026-10-03 — **팀 결정 반영** (TEAM-1003): 선물 등껍질 결제 · 1차 선물 수능운만 · 부적 자동생성 · 단위 "등껍질 N개" · 신살 포함(잠정). 새 질문 Q-19 ~ Q-21. 팀에 보낸 정리본은 `TEAM-DECISIONS-NEEDED-20261003-v2.md` (저장소 밖). 2026-10-03 — **PD 추가 답변 반영** (정리본 1 · 2 · 3 · 4 · 5 · 6 · 8번): 가격 · 부적 자동생성 규칙 · 신살 구성 · BE-A 제안 결정 동의 · 재발송 문구 · 충전 환불정책 초안. PD 요청으로 **FE 가 팀 문서를 고쳐 PR** (`cc60ab3`, DOCS-TEAM-PR). 새 질문 Q-22. 2026-10-04 — **최종 와이어프레임** (Figma `와이어프레임 최종`, node `195:91`, FIGMA-FINAL) 대조: 새 질문 Q-23 ~ Q-27. 화면은 새 화면 ID(PHASES 1장)로 부른다. 2026-10-04 — **기능 명세서 v0.3(PD/PM) 반영** (팀 문서 3차 `9fb9d21`, `main` 병합 `d396cce`) · 서비스명 뿌기사주 확인 · 유저 플로우(FigJam v1) 조회: `반영 PR 대기` 항목은 `main` 에 들어가 `해결`, Q-23 대부분 · Q-27 해결. 2026-10-08 — `main` BE-A PR #14(`a064ea6`, 상품 · 견적 · 지갑 내부 구현, HTTP 없음)와 `backend/docs/FE_COMPATIBILITY.md` 대조: 새 질문 Q-28 ~ Q-30. 팀원별 요청을 공유 문서 "뿌기사주 팀 요청 자료 (FE)"(claude.ai 문서, 10/8)로 정리해 보냈다 — 답은 이 파일 각 항목에 요지로 적는다. 2026-10-09 — FE 가짜 범위 진행 중 만난 것: Q-31(오늘의 운세 API 가 X-01 · X-02 와 반대), Q-23 l(궁합 첫 칸), Q-25 기한 지남 표시. 2026-10-09 — PD 추가 화면(PAY-01 수정안 · PAY-03 ~ 05 · INFO-01 · 02 · COMMON-01)과 디자인 시스템 확정(Figma `iFtLxChBQf3nQWaltdrJ37`) 반영: Q-25 부분, Q-15 부분, 새 질문 Q-32. 2026-10-09 오후 — BE-B PR #15(`08fccad`)와 PD 결제 화면 추가안 · 정책 초안 3종을 반영하다 만난 것: Q-33 ~ Q-36 추가(claude.ai 문서 "뿌기사주 팀 질문 Q-33 · Q-34 · Q-35 · Q-36" 으로 사용자가 팀에 공유, 기한 10/11), Q-30 부분. 2026-10-10 — **팀 답 반영**: BE-B 답변서 2종("Q-33 · Q-34 · Q-35 · Q-36 답변 (BE-B)" · "FE 팀 질문 답변 및 사업자등록 검토", 10/9), BE-A PR #17(`main` `f47b719`, 10/9 밤 — OpenAPI 파일 `docs/openapi/api-v1.json` · 견적 자금 필드 · 견적 재조회 · 지갑 · 충전 주문 · 오행 `personId`, `backend/docs/FE_REQUESTS_20261009.md`), BE-A FE 전달(`FE_DELIVERY_20261010.md`, 저장소 밖), 사업자등록증(사용자 전달). BE-B 답변서는 PR #17 전 기준이라 "아직 미구현" 으로 적힌 곳(견적 자금 필드 · `GET /quotes/{quoteId}` · `personId` · OpenAPI 파일)은 PR #17 로 이미 `main` 에 들어왔다. 새 질문 Q-37(수능 결과 구조) · Q-38(구매 결과 · 환급 확인).
+> 작성: 2026-10-03 (TQ-RESET). 갱신: 2026-10-03 — R-07 법정 표시 항목, R-08 · R-09 추가 (팀에 보낸 판). 2026-10-03 — **팀 답 1차 반영** (TQ-ANSWERS): PD 답변서(@서인), BE 답변서(B), BE-A 결정 기록(결정 1~42) · FE 전달 요약. 새 질문 Q-16 ~ Q-18. 2026-10-03 — **팀 결정 반영** (TEAM-1003): 선물 등껍질 결제 · 1차 선물 수능운만 · 부적 자동생성 · 단위 "등껍질 N개" · 신살 포함(잠정). 새 질문 Q-19 ~ Q-21. 팀에 보낸 정리본은 `TEAM-DECISIONS-NEEDED-20261003-v2.md` (저장소 밖). 2026-10-03 — **PD 추가 답변 반영** (정리본 1 · 2 · 3 · 4 · 5 · 6 · 8번): 가격 · 부적 자동생성 규칙 · 신살 구성 · BE-A 제안 결정 동의 · 재발송 문구 · 충전 환불정책 초안. PD 요청으로 **FE 가 팀 문서를 고쳐 PR** (`cc60ab3`, DOCS-TEAM-PR). 새 질문 Q-22. 2026-10-04 — **최종 와이어프레임** (Figma `와이어프레임 최종`, node `195:91`, FIGMA-FINAL) 대조: 새 질문 Q-23 ~ Q-27. 화면은 새 화면 ID(PHASES 1장)로 부른다. 2026-10-04 — **기능 명세서 v0.3(PD/PM) 반영** (팀 문서 3차 `9fb9d21`, `main` 병합 `d396cce`) · 서비스명 뿌기사주 확인 · 유저 플로우(FigJam v1) 조회: `반영 PR 대기` 항목은 `main` 에 들어가 `해결`, Q-23 대부분 · Q-27 해결. 2026-10-08 — `main` BE-A PR #14(`a064ea6`, 상품 · 견적 · 지갑 내부 구현, HTTP 없음)와 `backend/docs/FE_COMPATIBILITY.md` 대조: 새 질문 Q-28 ~ Q-30. 팀원별 요청을 공유 문서 "뿌기사주 팀 요청 자료 (FE)"(claude.ai 문서, 10/8)로 정리해 보냈다 — 답은 이 파일 각 항목에 요지로 적는다. 2026-10-09 — FE 가짜 범위 진행 중 만난 것: Q-31(오늘의 운세 API 가 X-01 · X-02 와 반대), Q-23 l(궁합 첫 칸), Q-25 기한 지남 표시. 2026-10-09 — PD 추가 화면(PAY-01 수정안 · PAY-03 ~ 05 · INFO-01 · 02 · COMMON-01)과 디자인 시스템 확정(Figma `iFtLxChBQf3nQWaltdrJ37`) 반영: Q-25 부분, Q-15 부분, 새 질문 Q-32. 2026-10-09 오후 — BE-B PR #15(`08fccad`)와 PD 결제 화면 추가안 · 정책 초안 3종을 반영하다 만난 것: Q-33 ~ Q-36 추가(claude.ai 문서 "뿌기사주 팀 질문 Q-33 · Q-34 · Q-35 · Q-36" 으로 사용자가 팀에 공유, 기한 10/11), Q-30 부분. 2026-10-10 — **팀 답 반영**: BE-B 답변서 2종("Q-33 · Q-34 · Q-35 · Q-36 답변 (BE-B)" · "FE 팀 질문 답변 및 사업자등록 검토", 10/9), BE-A PR #17(`main` `f47b719`, 10/9 밤 — OpenAPI 파일 `docs/openapi/api-v1.json` · 견적 자금 필드 · 견적 재조회 · 지갑 · 충전 주문 · 오행 `personId`, `backend/docs/FE_REQUESTS_20261009.md`), BE-A FE 전달(`FE_DELIVERY_20261010.md`, 저장소 밖), 사업자등록증(사용자 전달). BE-B 답변서는 PR #17 전 기준이라 "아직 미구현" 으로 적힌 곳(견적 자금 필드 · `GET /quotes/{quoteId}` · `personId` · OpenAPI 파일)은 PR #17 로 이미 `main` 에 들어왔다. 새 질문 Q-37(수능 결과 구조) · Q-38(구매 결과 · 환급 확인). 2026-10-10 (오후) — BE-B 회신 "A/B 구매 연결 합의 회신"(저장소 밖, 계약 합의안 — 미구현)을 Q-38 에 반영, FE 결정 PURCHASE-STATUS-WAIT · PURCHASE-KEY-STORE. 2026-10-11 — `main` f704145 기준 BE ↔ FE 연결 점검(인증 · 세션 · CSRF · 인물 · 토스 연동 없음 → R-06), 수능운 견적 · 구매 adapter(`1fcd9c0`) 중 만난 것을 Q-26 · Q-28 에 추가. 팀 요청서 "뿌기사주 팀 요청서 (FE, 10/11)"(claude.ai 문서, 사용자가 팀에 공유) — BE-B · BE-A · PD 별 요청과 기한 표.
 > 답변 원문은 저장소에 없다 (사용자가 대화로 전달). 각 항목의 "답" 은 요지만 적는다.
 
 **상태 표기**
@@ -48,9 +48,9 @@
 | Q-23 | 최종 와이어와 팀 결정이 부딪히는 곳 (12건) | PD · BE-A · BE-B | 10/8 (로그인 · 충전 관련), 10/15 (나머지) | PG-2 · Phase 3 ~ 6 | 부분 — b · c · h · i · j · k 해결(v0.3 · 서비스명 뿌기사주), a 부분(3종, 개발 범위 미정). d · e · f · g · l(궁합 첫 칸, 10/9) 대기 |
 | Q-24 | 와이어에 없는 화면 · 상태 | PD | 10/15 | Phase 4 ~ 6 | 부분 — PD 가 ✚ 프레임 추가 예정 (v0.3 · 유저 플로우) |
 | Q-25 | 충전 화면 결제 수단 4칸 · 동의 체크 | BE-A · PD | 10/8 | **PG-3** | **부분 (10/9)** — PD 수정안(301:128): 결제 수단 4칸 삭제 → 바로 토스 결제창, 동의 체크(필수) 와이어 반영. 남은 것: BE-A 토스 계약 결제수단(통합결제창에 무엇이 뜨는지) · 동의 · 안내 문구 확정(Q-21 환불 문구와 같이) |
-| Q-26 | 질문 · 정보 확인 화면 입력 (관심 항목 형태 · 궁합 두 사람 · 오행분석) | PD · BE-B | 10/15 | Phase 6 · Phase 4 (CSAT-01) | 부분 (10/10) — 질문 키는 API_SPEC 8장 표 그대로(BE-B), 화면 문구 · 선택지 이름은 PD. 고민 입력은 서버 미전송 · 결과 미반영(BE-B). MATCH-03 관계 질문을 둘지는 PD (Q-35 2) |
+| Q-26 | 질문 · 정보 확인 화면 입력 (관심 항목 형태 · 궁합 두 사람 · 오행분석) | PD · BE-B | 10/15 | Phase 6 · Phase 4 (CSAT-01) | 부분 (10/11) — 질문 키는 API_SPEC 8장 표 그대로(BE-B), 화면 문구 · 선택지 이름은 PD. 고민 입력은 서버 미전송 · 결과 미반영(BE-B). MATCH-03 관계 질문을 둘지는 PD (Q-35 2). **10/11 보강: 와이어 칸(연애 상태 · 관계 · 알고 싶은 부분) ↔ `questionKey` · `relationType` 대응표를 PD 에 요청** — 일반 운세 5종 진짜 연결이 이것에 막힘 |
 | Q-27 | 결제 확인 팝업과 Checkout 경로 · 표시 항목 | PD · FE | 10/10 | Phase 4 · 5 | **해결** — `/gift/checkout` 삭제(v0.3), 나머지 두 경로도 삭제(CHECKOUT-POPUP). 팝업에 대상 인물 · 구매 후 잔액 · 고지 |
-| Q-28 | BE-A 내부 구현(PR #14) 이후 HTTP 계약에 넣을 것 — 운세 상품 메타데이터 · `productName` · `/products` 비로그인 · 비활성 상품 · 추천 null · 판매 종료 code · 내역 유형 이름 | BE-A | 10/10 (일부 10/15) | Phase 4 진짜 연결 · PG-4 `/about` | 부분 (10/10) — 5 해결(추천 null 은 API_SPEC 5장). 1 · 2 · 3(상품 메타 · `productName` · 정가 · `GET /products`)은 BE-A "후속". 4 · 6 · 7 대기 |
+| Q-28 | BE-A 내부 구현(PR #14) 이후 HTTP 계약에 넣을 것 — 운세 상품 메타데이터 · `productName` · `/products` 비로그인 · 비활성 상품 · 추천 null · 판매 종료 code · 내역 유형 이름 | BE-A | 10/10 (일부 10/15) | Phase 4 진짜 연결 · PG-4 `/about` | 부분 (10/10) — 5 해결(추천 null 은 API_SPEC 5장). 1 · 2 · 3(상품 메타 · `productName` · 정가 · `GET /products`)은 BE-A "후속". 4 · 6 · 7 대기. 10/11: 수능운 adapter 는 `productName` 을 null 로 두고 팝업의 상품 줄을 그리지 않는다(`1fcd9c0`) |
 | Q-29 | 본인 정보 수정 경로 | PD · FE | 10/15 | PersonCard "수정" · MY-01 | 대기 (신규) |
 | Q-30 | 결제 전 오행분석 데이터 API | BE-B | 10/11 | CSAT-01 · FORT-01 (F-09) | **해결** (10/10) — `POST /fortune/basic` 에 `{ personId }` 단독 입력(PR #17 · API_SPEC 8장 · OpenAPI). 인물 adapter 미연결이면 503 |
 | Q-31 | 오늘의 운세 API 가 X-01 · X-02 와 반대 (인증 · 요청 본문 · 운세 지수 · 공유) | BE-B | 10/15 | TODAY-01 · 02 (Phase 6) | 답변 · 반영 대기 (10/10) — BE-B 가 X-01 · X-02 대로 답(본문 없음 · 지수 0~100 · `GET /daily-fortunes/today`). API_SPEC 7장 · OpenAPI 미반영 — TODAY-HOLD 유지 |
@@ -60,13 +60,13 @@
 | Q-35 | 결과 고정 필드의 화면 변환 · 궁합 `relationType` · `/fortune/basic` 입력 · 새 오류 code 2종 처리 · OpenAPI 파일 · 스테이징 | BE-B | 10/11 | FORT-06 · 07 · MATCH-03 · 오행분석 adapter · 진짜 연결 | **부분 (10/10)** — 1 a ~ c 해결, 1 d → Q-37, 2 답변 · 반영 대기(엄마 · 아빠 → `FAMILY` · 애인 → `LOVER` · 직접 입력 → `OTHER`), 3 해결(Q-30), 4 → Q-38, 5 OpenAPI 해결 · 스테이징 R-06 |
 | Q-36 | 정책 초안 3종과 화면 · 결정의 차이 — 가입 약관 동의 단계 · 만 14세 · 소셜 로그인 표기 · 고민 입력 · 빈칸 | PD · BE-B | 10/11 | INFO-02 원고 · 가입 흐름(HOME-01 → 02) | 부분 (10/10) — 3 결정 · 반영 대기(심사 전 카카오만 · 심사 후 구글 · 네이버, A-01), 4 BE-B: 고민 입력 문구 삭제. 1 · 2 는 BE-B 제안(동의 버전 · 시각 기록, 만 14세 확인 기록) → PD · 법무. 5 담당별 빈칸 |
 | Q-37 | 수능운 결과 구조 — 서버 섹션은 `key` · `content` 문자열뿐, FE 는 교시 · 음식 · 준비물 항목 구조(VIEWER) | BE-B · PD | 10/13 | CSAT-04 결과 · 준비물 체크 · 수능 결과 진짜 연결 | 대기 (신규, 10/10) |
-| Q-38 | 구매 결과 · 환급 확인 — 처리 중 `readingId` · `balance` null, 응답에 `refunded` 없음, 생성 실패 code 로 환급 단정 금지, 구매 상태 조회 | BE-A · BE-B | 10/13 | (팝업) 차감 확인 · 생성 실패 안내 · 진짜 구매 adapter | 부분 (신규, 10/10) — 환급 단정 금지 · 결과 이동 조건은 FE 반영 완료(`8feb588`). `PURCHASE_DEBIT_MISMATCH` 안내는 답 엇갈림 |
+| Q-38 | 구매 결과 · 환급 확인 — 처리 중 `readingId` · `balance` null, 응답에 `refunded` 없음, 생성 실패 code 로 환급 단정 금지, 구매 상태 조회 | BE-A · BE-B | 10/13 | (팝업) 차감 확인 · 생성 실패 안내 · 진짜 구매 adapter | 답변 · 반영 대기 (10/10 오후) — 환급 단정 금지 · 결과 이동 조건은 FE 반영 완료(`8feb588`). BE-B 합의안(구매 상태 조회 2종 · `compensationStatus` · `nextAction`)은 API_SPEC · OpenAPI 미반영. 후속 질문 a ~ g. `PURCHASE_DEBIT_MISMATCH` 는 "오류 code 는 환급 증거 아님" 으로 정리 |
 | R-01 | PG 심사 상품 · 충전형 재화 가맹 | BE-A · PD | 10/10 | PG-3 · PG-4 | 부분 — 심사 상품은 충전(등껍질). 카테고리 · 문구 · 가맹은 토스 상담 대기 (확인 목록에 유효기간 표기 · 환불 수수료 · 보너스 회수 · **통신판매업 신고 면제 소명** 추가, 10/10). **충전이 유일한 원화 결제 경로** |
 | R-02 | 캐릭터 출시 범위 | PD | 10/15 | 캐릭터 (보류) | **해결** — 뿌기 포즈 4 + 12지 기본 포즈 1 · 표정 4 · 부적 소품 |
 | R-03 | iOS 실기기 없음 | 전원 | 10/24 | 모든 실기기 확인 | 대기 — PD 아이폰 보유, 대여 여부 미정 |
 | R-04 | 카카오 디벨로퍼스 설정 | BE-B | 10/8 | PG-2 | 부분 (10/10) — 로그인은 백엔드 `authorize` 로 이동하는 방식이라 FE JS 키 불필요. Redirect URI 는 고정 스테이징 · 운영 도메인 — **미리보기 브랜치 주소에서는 진짜 로그인 불가** |
 | R-05 | 카드사 심사용 테스트 계정 | PD · BE-A | 10/12 | PG-5 | 대기 — PD: BE-A 주도 제안 |
-| R-06 | BE 일정과 FE 심사용 사이트 10/12 | BE-A · BE-B | 10/4 | PG-1 · PG-3 | 대기 — **10/4 미충족, 일정 재산정 중** |
+| R-06 | BE 일정과 FE 심사용 사이트 10/12 | BE-A · BE-B | 10/4 | PG-1 · PG-3 | 대기 — **10/4 미충족, 일정 재산정 중**. 10/11 점검: BE 에 로그인 · 세션 · CSRF 토큰 출처 · 인물 · 토스 연동이 없어 브라우저에서 성공하는 API 0개. 세션 · 인물 날짜를 10/11 까지 요청 |
 | R-07 | 푸터 사업자 정보 값 8개 · 통신판매업 | BE-A · PD | 10/10 | PG-4 푸터 | 부분 (10/10) — 등록증 4개(상호 · 대표자 · 사업자등록번호 · 주소) 확정. 유선번호 · 전자우편 · 통신판매업(신고 면제 표시안) · 호스팅 상호 대기 |
 | R-08 | 사업자 명의 | 전원 | 지금 | PG-4 · 토스 계약 · 통신판매업 전체 | **해결** (10/10) — 신규 개인사업자 등록 완료(상호 `마다`, 일반과세자, 개업 2026-09-23). 서비스명 뿌기사주와 병기 |
 | R-09 | 토스 테스트 키를 받을 계정 | BE-A | 10/7 | PG-3 | 부분 — 팀 관리 계정(BE-A 결정 34). 담당자 · 키 대기 |
@@ -505,6 +505,8 @@ Q-16 결정(선물도 등껍질)으로 새로 정해야 하는 것.
 
 **담당 · 필요한 날**: PD · BE-B · 10/15 (Phase 6, CSAT-01 오행분석은 Phase 4 전 10/11)
 
+**10/11 보강 (FE → PD, 팀 요청서)**: 서버는 일반 운세 견적 · 구매에 `questionKey` 를 반드시 받고, 궁합은 `relationType` 도 받는다(OpenAPI `StandardQuoteRequest` · `CompatibilityQuoteRequest`). 와이어에는 FORT-03 "연애 상태" · "알고 싶은 부분", MATCH-03 "관계" · "알고 싶은 부분", FORT-02 "알고 싶은 부분" 칸이 있어 어느 칸이 어느 값인지 정해야 한다. 요청서에 칸 × 서버 값 대응표를 넣어 PD 에 보냈다(위 BE-B 답대로면 애정운 키는 "궁금한 주제" 칸). 이 답 전에는 일반 운세 5종의 견적 · 구매 adapter 를 만들지 않는다 — 수능운만 먼저(`1fcd9c0`).
+
 **답 (2026-10-04, 기능 명세서 v0.3)**: 오행분석은 결제 전 정보 확인 화면에 노출(F-09 확정). 궁합은 본인 + 상대, 상대가 저장돼 있지 않으면 새로 입력(MY-02) 후 복귀(유저 플로우 ④). "특별히 알고 싶은 부분" 은 고민 입력(최대 100자)으로 결과 문구에 반영하자는 **변경 제안** — F-04 · S-06 확정과 부딪혀 BE-B 확정 전까지는 "결과 미반영" 기준. 선택형 질문의 선택지 목록 · 서버 키는 대기.
 
 ---
@@ -543,6 +545,7 @@ Q-16 결정(선물도 등껍질)으로 새로 정해야 하는 것.
 **답 (BE-A, 10/10 FE 전달)**: 5 해결 — API_SPEC 5장 "단일 추천 상품이 없으면 null, 부족분은 유지". 1 · 2 · 3(`productName` · 정가 · 상품 메타데이터 · `GET /products`)은 "후속". 견적 재조회(`GET /quotes/{quoteId}`)에는 옵션 · 질문 · 수능 `event` 가 없으므로 최소 선택값은 FE 가 따로 유지한다 (PURCHASE-RESTORE 그대로). 4 · 6 · 7 은 답 없음.
 
 **FE 영향**: 차감 확인 팝업의 "상품" 줄(CHECKOUT-POPUP)은 진짜 연결 때 서버 값이 없다 — 1 · 2 전까지 진짜 adapter 는 `productName` 을 채울 수 없다.
+**→ 반영 (10/11, `1fcd9c0`)**: 포트 `FortuneQuote.productName` 을 `string | null` 로, 수능운 adapter 는 null. 팝업은 null 이면 "상품" 줄을 그리지 않는다(지어내지 않음). `listProducts` 진짜 구현은 `GET /products` 가 없어 던진다 — 진짜 모드에서 충전 · 운세 질문 · 수능 정보 확인 화면은 상품 목록에서 멈춘다. 팀 요청서(10/11)로 다시 요청.
 
 **담당 · 필요한 날**: BE-A · 10/10 (6 · 7 은 10/15)
 
@@ -721,7 +724,7 @@ PD 초안(이용약관 · 개인정보처리방침 10/8, 환불정책 10/3 · 10
 
 ---
 
-### Q-38. 구매 결과 · 환급 확인 — 부분 (신규, 10/10)
+### Q-38. 구매 결과 · 환급 확인 — 답변 · 반영 대기 (10/10 오후)
 
 BE-A 점검(`backend/docs/PRE_PR_INTEGRATION_REVIEW_20261009.md` 1 · 3) · FE 전달(10/10)에서 FE 코드와 다른 곳이 나왔다.
 
@@ -735,6 +738,22 @@ BE-A 점검(`backend/docs/PRE_PR_INTEGRATION_REVIEW_20261009.md` 1 · 3) · FE �
 
 **FE 반영**: (즉시) 생성 실패 · 차감 불일치 어느 경우에도 환급 완료 문구를 서버 확인 없이 보이지 않는다 — 실패 안내 + 다시 시도 · 문의만. 가짜 구현의 `refunded` 도 서버 확인 값이 생길 때까지 화면 근거로 쓰지 않는다. 나머지는 답 후 adapter 에서.
 **→ 반영 (10/10, `8feb588`)**: 포트 `ReadingPurchaseResult` 에서 `refunded` 삭제, `readingId` · `balance` null 허용. 환급 문장은 응답 상태 `REFUNDED` 일 때만, `READING_GENERATION_FAILED` · `FAILED` 는 실패 안내만. 결과 이동은 `FULFILLED` + `readingId` 일 때만, 그 밖(처리 중 · 모르는 상태 · readingId 없음)은 처리 중 + 같은 키로 결과 확인.
+
+**답 (BE-B 회신 "A/B 구매 연결 합의 회신", 2026-10-10 오후 — 저장소 밖, 계약 합의안 · 미구현)**
+- 구매 상태 조회 `GET /api/v1/reading-purchases/{purchaseId}`, 응답 유실 복구 `GET /api/v1/reading-purchases/by-quote/{quoteId}` — 둘 다 본인이 아니면 같은 404.
+- DTO: `status`(CREATED · DEBITED · GENERATING · FULFILLED · FAILED · REFUNDED) · `readingId`(FULFILLED 만) · `compensationStatus`(NOT_REQUIRED · PENDING · COMPLETED · REVIEW_REQUIRED) · `failureCode` · `nextAction`(POLL · VIEW_READING · CONTACT_SUPPORT · NONE) · `nextRetryAt` · `updatedAt`. 잔액은 없다(지갑 API).
+- 조회 간격: 2초 × 30초 → 5초 최대 2분, 그 뒤 수동 새로고침. 환급 완료 표시는 `REFUNDED` 일 때만, `FAILED` + `REVIEW_REQUIRED` 는 환급 완료 없이 `purchaseId` + 문의 경로.
+- FE 는 구매 완료 전까지 `quoteId` 와 최초 `Idempotency-Key` 를 `sessionStorage` 에 유지하라고 함.
+- 실제 카카오 세션 · 인물 저장소 미구현, 완료 날짜 미확정을 BE-B 가 공식 확인. 진짜 구매 adapter 는 7개 조건(세션 · 인물 · 두 조회 endpoint · 재개 · 환급 재조정 · OpenAPI · 통합 테스트)을 채운 PR 병합 후.
+- `PURCHASE_DEBIT_MISMATCH` 엇갈림은 "오류 code 는 환급 증거가 아니다" 로 정리 — FE `8feb588` 그대로.
+
+**상태**: 답변 · 반영 대기 — API_SPEC · OpenAPI 미반영, BE-A 의 receipt 포트 · 오케스트레이션 소유 이전 수락 미확인.
+
+**FE 결정 (2026-10-10, 사용자)**: 가짜 구현을 합의안에 지금 맞추지 않는다 — API_SPEC · OpenAPI 반영 후 포트 · 가짜 · adapter 를 한 번에, 그 전에는 OpenAPI 에 있는 `purchaseId` 만 포트에 담는다(PURCHASE-STATUS-WAIT). 구매 의도 키 + `quoteId` 의 `sessionStorage` 보관은 원칙 동의(PURCHASE-RESTORE 와 같은 24시간 · 읽을 때 만료 검증 · 구매 성공 · 로그아웃 삭제 · 생년정보 · 가격 · 잔액 금지), 구현은 상태 조회 API 가 OpenAPI 에 들어올 때(PURCHASE-KEY-STORE).
+
+**후속 질문 (BE-B · BE-A, 팀 요청서 10/11)**: a `status` 와 `nextAction` 중 화면 분기 기준 하나 b `FAILED` + `NOT_REQUIRED` · `FAILED` + `COMPLETED` 의 뜻 c `failureCode` 목록을 COMMON 에 d `POST` 구매 응답에도 `compensationStatus` · `nextAction` 이 오는지 e 원 `POST` 처리 중 `by-quote` 404 경합 · (구매자, 견적) 유일성 f BE-A 수락 여부 g `REVIEW_REQUIRED` 문의 채널(문구는 PD — R-07 · F-08)
+
+**→ 반영 (10/11, `1fcd9c0`)**: 수능운 구매 adapter 는 응답의 `readingId` · `balance` · `charged` null 을 그대로 두고(키가 없으면 계약 위반), 201 · 202 를 같은 방식으로 바꾼다. 상태 조회는 만들지 않았다(PURCHASE-STATUS-WAIT).
 
 **담당 · 필요한 날**: BE-A · BE-B · 10/13
 
@@ -792,7 +811,7 @@ BE-A 점검(`backend/docs/PRE_PR_INTEGRATION_REVIEW_20261009.md` 1 · 3) · FE �
 
 ---
 
-### R-06. BE 일정과 FE 심사용 사이트 10/12 — 대기 (위험 커짐)
+### R-06. BE 일정과 FE 심사용 사이트 10/12 — 대기 (위험 커짐, 10/11 점검)
 
 **답 (BE, 2026-10-03)**
 - 답변 시점 `backend/` 에는 구현이 없었고, 10/4 스테이징 · 로그인 완료는 "완료됐다고 답할 수 없다". 이후 `main` 에 BE 골격(`a605afa`)이 들어왔다 — 공통 응답 · 오류 · traceId · 최소 보안만, 업무 API 없음.
@@ -804,6 +823,8 @@ BE-A 점검(`backend/docs/PRE_PR_INTEGRATION_REVIEW_20261009.md` 1 · 3) · FE �
 **정해 줄 것**: 재산정한 스테이징 · 충전 API 제공일 (Q-18 의 OpenAPI 경로 포함).
 
 **10/10**: BE-A PR #17 로 OpenAPI 파일은 생겼지만 스테이징 주소 · 기동 일정은 "이번 작업에서 확정하지 않았다" (BE-A). 인증 · 인물 · 충전 승인 · 지갑 구매 adapter 는 미연결이거나 기본 비활성. **10/12 FE 진짜 연결 목표는 여전히 BE 에 달렸다.**
+
+**10/11 연결 점검 (`main` f704145)**: OpenAPI 에 API 29개. BE `SecurityConfig` 는 `/api/v1/**` 를 모두 인증 필요로 막는데 `auth` · `member` · `person` 패키지가 비어 있어 로그인 경로가 없다 → 모든 호출 401. Spring 기본 CSRF 가 켜져 있고 `GET /session` 이 없어 POST 는 403 `CSRF_FAILED`. `ReadingSubjectPort` 구현 없음 · `app.wallet.purchases-enabled=false` → 인증이 생겨도 오행분석 · 구매 503. BE 코드에 토스 연동 없음. FE 진짜 adapter 는 오행분석 · 지갑 · 충전 주문 생성 · 수능운 견적 · 견적 재확인 · 구매(`1fcd9c0`)까지, 모두 `ports/index.ts` 미연결. **10/12 심사용 사이트 · 10/14 카드사 심사 요청은 진짜 연결 없이는 불가** — 세션 · 인물 완료 날짜를 10/11 까지 요청(팀 요청서), 받으면 10/20 PG 미승인 대안 판단을 앞당겨 검토.
 
 **담당 · 필요한 날**: BE-A · BE-B · 지금
 

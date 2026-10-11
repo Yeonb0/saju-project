@@ -50,6 +50,7 @@ describe("MockPanel (MOCK-PANEL)", () => {
       returnPath: "/suneung",
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "SUNEUNG",
         productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
         personId: "66666666-6666-4666-8666-666666666666",
         counterpartPersonId: null,

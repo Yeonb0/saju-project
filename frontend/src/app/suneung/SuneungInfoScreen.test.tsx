@@ -155,6 +155,7 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
     await user.click(await proceed());
     await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
     expect(createQuote).toHaveBeenCalledWith({
+      fortuneType: "SUNEUNG" as const,
       productCode: SUNEUNG_CODE,
       personId: OTHER.personId,
       counterpartPersonId: null,
@@ -207,6 +208,7 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
     const { personPort, fortunePort } = ports();
     // 만료 안 된 견적 — 같은 가짜 서버에서 미리 받는다
     const quote = await fortunePort.createQuote({
+      fortuneType: "SUNEUNG" as const,
       productCode: SUNEUNG_CODE,
       personId: OTHER.personId,
       counterpartPersonId: null,
@@ -215,6 +217,7 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
       returnPath: "/suneung",
       quoteId: quote.quoteId,
       selection: {
+        fortuneType: "SUNEUNG" as const,
         productCode: SUNEUNG_CODE,
         personId: OTHER.personId,
         counterpartPersonId: null,
@@ -233,6 +236,7 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
       returnPath: "/suneung",
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "SUNEUNG" as const,
         productCode: "FIXTURE_OTHER_PRODUCT",
         personId: OTHER.personId,
         counterpartPersonId: null,
@@ -249,6 +253,7 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
       returnPath: "/fortune/LOVE/questions",
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "SUNEUNG" as const,
         productCode: SUNEUNG_CODE,
         personId: OTHER.personId,
         counterpartPersonId: null,
@@ -277,5 +282,33 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
       ).toHaveLength(5),
     );
     expect(getBasicSaju).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SuneungInfoScreen — fortuneType (ADAPTER-HTTP)", () => {
+  it("v. 팝업에 넘기는 selection 에 SUNEUNG 이 들어간다", async () => {
+    const user = userEvent.setup();
+    const { createQuote } = setup();
+    await user.click(await proceed());
+    await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
+    expect(createQuote.mock.calls[0][0].fortuneType).toBe("SUNEUNG");
+  });
+
+  it("w. 복원: fortuneType 이 다른 저장값은 팝업이 열리지 않고 저장값이 지워진다", async () => {
+    // 픽스처일 뿐이며 실제 상품과 무관하다 — returnPath · personId · productCode 는 같고 fortuneType 만 다르다
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId: "fixture-quote",
+      selection: {
+        fortuneType: "LOVE" as const,
+        productCode: SUNEUNG_CODE,
+        personId: OTHER.personId,
+        counterpartPersonId: null,
+      },
+    });
+    setup();
+    await proceed();
+    await waitFor(() => expect(loadPurchaseSelection()).toBeNull());
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

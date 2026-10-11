@@ -108,8 +108,14 @@ export function TopUpSuccess({
         variant="done"
         // TODO(PD 문구)
         title={<output className="block">충전이 완료되었습니다</output>}
-        // TODO(Q-17): 이번에 지급된 수량 — 승인 · 주문 응답에 필드가 생기면 서버 값만. 문구 TODO(PD 문구)
-        sub={<span data-slot="credited-amount" />}
+        // 서버가 준 이번 지급 수량만 (TOPUP-DONE, Q-17 해결). null 이면 비운다. 단위 · 문구 TODO(PD 문구)
+        sub={
+          <span data-slot="credited-amount">
+            {view.grantedShellAmount !== null
+              ? view.grantedShellAmount.toLocaleString("ko-KR")
+              : null}
+          </span>
+        }
         box={
           <>
             <div className="flex items-end justify-between">

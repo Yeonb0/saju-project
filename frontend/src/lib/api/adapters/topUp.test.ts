@@ -27,8 +27,50 @@ const orderData = (overrides: Record<string, unknown> = {}) => ({
   paidShellAmount: 10,
   bonusShellAmount: 2,
   creditedShellAmount: 12,
+  // 승인 · 조회 응답 필드 (Q-17 해결) — 픽스처일 뿐
+  processing: false,
+  walletBalance: null,
+  grantedShellAmount: null,
+  nextAction: "NONE",
+  failureCode: null,
   ...overrides,
 });
+
+const creditedData = (overrides: Record<string, unknown> = {}) =>
+  orderData({
+    status: "CREDITED",
+    walletBalance: 40,
+    grantedShellAmount: 12,
+    nextAction: "VIEW_WALLET",
+    ...overrides,
+  });
+
+const productData = (overrides: Record<string, unknown> = {}) => ({
+  code: "FIXTURE_TOP_UP",
+  category: "TOP_UP",
+  productName: "FIXTURE 상품",
+  price: { currency: "KRW", amount: 1000 },
+  paidAmount: 10,
+  bonusAmount: 2,
+  creditedAmount: 12,
+  active: true,
+  regularPrice: null,
+  fortuneType: null,
+  option: null,
+  saleEndsAt: null,
+  ...overrides,
+});
+
+function without(data: Record<string, unknown>, key: string) {
+  const { [key]: _removed, ...rest } = data;
+  return rest;
+}
+
+const RETURN = {
+  paymentKey: "fixture-payment-key",
+  orderId: ORDER_ID,
+  amount: "5000",
+};
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -169,18 +211,178 @@ describe("충전 adapter — createOrder", () => {
   });
 });
 
-describe("충전 adapter — 계약이 없는 함수", () => {
-  it("t10. fetch 를 부르지 않고 근거와 함께 던진다", async () => {
-    const { adapter, fetchMock } = setup();
-    await expect(adapter.listTopUpProducts()).rejects.toThrow(/Q-28/);
-    await expect(
-      adapter.confirm({
-        paymentKey: "FIXTURE",
-        orderId: ORDER_ID,
-        amount: "1",
+describe("충전 adapter — confirm", () => {
+  it("a. POST 경로 · Idempotency-Key = orderId · 본문은 amount 가 숫자", async () => {
+    const { adapter, sent } = setup(ok(creditedData()));
+    await adapter.confirm(RETURN);
+    const req = sent(0);
+    expect(req.url).toBe(`/api/v1/top-up-orders/${ORDER_ID}/confirm`);
+    expect(req.method).toBe("POST");
+    expect(req.headers["Idempotency-Key"]).toBe(ORDER_ID);
+    expect(req.body).toBe(
+      `{"paymentKey":"fixture-payment-key","orderId":"${ORDER_ID}","amount":5000}`,
+    );
+  });
+
+  it("b. 403 CSRF_FAILED 뒤 성공하면 두 요청의 키 · 본문 문자열이 같다", async () => {
+    const { adapter, fetchMock, sent } = setup(
+      json(403, {
+        code: "CSRF_FAILED",
+        message: "픽스처 문구",
+        traceId: TRACE,
+        fieldErrors: [],
       }),
-    ).rejects.toThrow(/Q-17/);
-    await expect(adapter.getOrder(ORDER_ID)).rejects.toThrow(/Q-17/);
+      ok(creditedData()),
+    );
+    await adapter.confirm(RETURN);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sent(1).headers["Idempotency-Key"]).toBe(
+      sent(0).headers["Idempotency-Key"],
+    );
+    expect(sent(1).body).toBe(sent(0).body);
+  });
+
+  it.each([
+    "abc",
+    "0",
+    "-1",
+    "1.5",
+  ])("c. amount %s 는 요청하지 않고 던진다", async (amount) => {
+    const { adapter, fetchMock } = setup();
+    await expect(adapter.confirm({ ...RETURN, amount })).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("d. 200 CREDITED 는 서버 값 그대로, nextAction VIEW_WALLET", async () => {
+    const { adapter } = setup(ok(creditedData()));
+    await expect(adapter.confirm(RETURN)).resolves.toEqual({
+      orderId: ORDER_ID,
+      status: "CREDITED",
+      processing: false,
+      walletBalance: 40,
+      grantedShellAmount: 12,
+      nextAction: "VIEW_WALLET",
+    });
+  });
+
+  it("e. 202 PAYMENT_PENDING 의 null 은 0 이 아니라 null, nextAction POLL", async () => {
+    const { adapter } = setup(
+      ok(
+        orderData({
+          status: "PAYMENT_PENDING",
+          processing: true,
+          nextAction: "POLL",
+        }),
+        202,
+      ),
+    );
+    const state = await adapter.confirm(RETURN);
+    expect(state.status).toBe("PAYMENT_PENDING");
+    expect(state.processing).toBe(true);
+    expect(state.walletBalance).toBeNull();
+    expect(state.grantedShellAmount).toBeNull();
+    expect(state.nextAction).toBe("POLL");
+  });
+
+  it("f. 모르는 nextAction 은 UNKNOWN", async () => {
+    const { adapter } = setup(ok(orderData({ nextAction: "FIXTURE_NEXT" })));
+    const state = await adapter.confirm(RETURN);
+    expect(state.nextAction).toBe("UNKNOWN");
+  });
+
+  it.each([
+    ["processing 키 없음", () => without(creditedData(), "processing")],
+    [
+      "grantedShellAmount 키 없음",
+      () => without(creditedData(), "grantedShellAmount"),
+    ],
+    [
+      "CREDITED 인데 grantedShellAmount null",
+      () => creditedData({ grantedShellAmount: null }),
+    ],
+    [
+      "CREDITED 인데 walletBalance null",
+      () => creditedData({ walletBalance: null }),
+    ],
+  ])("g. 계약 위반(%s)은 ApiContractError", async (_name, make) => {
+    const { adapter } = setup(ok(make()));
+    await expect(adapter.confirm(RETURN)).rejects.toBeInstanceOf(
+      ApiContractError,
+    );
+  });
+});
+
+describe("충전 adapter — getOrder", () => {
+  it("h. GET, 본문 없음, orderId 는 encodeURIComponent 로 경로에 넣는다", async () => {
+    const { adapter, sent } = setup(ok(orderData()), ok(orderData()));
+    await adapter.getOrder(ORDER_ID);
+    expect(sent(0).url).toBe(`/api/v1/top-up-orders/${ORDER_ID}`);
+    expect(sent(0).method).toBe("GET");
+    expect(sent(0).body).toBeUndefined();
+    await adapter.getOrder("a/b");
+    expect(sent(1).url).toBe("/api/v1/top-up-orders/a%2Fb");
+  });
+
+  it("h. 같은 변환 — CREDITED 서버 값 그대로", async () => {
+    const { adapter } = setup(ok(creditedData()));
+    const state = await adapter.getOrder(ORDER_ID);
+    expect(state.grantedShellAmount).toBe(12);
+    expect(state.walletBalance).toBe(40);
+  });
+});
+
+describe("충전 adapter — listTopUpProducts", () => {
+  it("i. GET /api/v1/products?category=TOP_UP, CSRF 헤더 없음, 포트 모양(productName · regularPrice 없음)", async () => {
+    const { adapter, sent } = setup(
+      ok({
+        items: [
+          productData({ regularPrice: { currency: "KRW", amount: 1200 } }),
+        ],
+      }),
+    );
+    const products = await adapter.listTopUpProducts();
+    const req = sent(0);
+    expect(req.url).toBe("/api/v1/products?category=TOP_UP");
+    expect(req.method).toBe("GET");
+    expect(req.headers["X-CSRF-Token"]).toBeUndefined();
+    expect(products).toEqual([
+      {
+        code: "FIXTURE_TOP_UP",
+        price: { currency: "KRW", amount: 1000 },
+        paidAmount: 10,
+        bonusAmount: 2,
+        creditedAmount: 12,
+        active: true,
+      },
+    ]);
+    expect("productName" in products[0]).toBe(false);
+    expect("regularPrice" in products[0]).toBe(false);
+  });
+
+  it("i. 빈 items 는 빈 배열 그대로", async () => {
+    const { adapter } = setup(ok({ items: [] }));
+    await expect(adapter.listTopUpProducts()).resolves.toEqual([]);
+  });
+
+  it.each([
+    ["items 키 없음", () => ({})],
+    [
+      "category FORTUNE",
+      () => ({ items: [productData({ category: "FORTUNE" })] }),
+    ],
+    ["paidAmount null", () => ({ items: [productData({ paidAmount: null })] })],
+    [
+      "price.currency TURTLE_SHELL",
+      () => ({
+        items: [
+          productData({ price: { currency: "TURTLE_SHELL", amount: 1000 } }),
+        ],
+      }),
+    ],
+  ])("j. 계약 위반(%s)은 ApiContractError", async (_name, make) => {
+    const { adapter } = setup(ok(make()));
+    await expect(adapter.listTopUpProducts()).rejects.toBeInstanceOf(
+      ApiContractError,
+    );
   });
 });

@@ -11,6 +11,7 @@ const PERSON_ID = "66666666-6666-4666-8666-666666666666";
 async function selectionFor(port: ReturnType<typeof createFakeFortunePort>) {
   const [product] = await port.listProducts("SUNEUNG");
   const selection: FortuneSelection = {
+    fortuneType: "SUNEUNG",
     productCode: product.code,
     personId: PERSON_ID,
     counterpartPersonId: null,
@@ -223,5 +224,26 @@ describe("가짜 운세 구매 포트 (MOCK-PORT)", () => {
       expect((error as ApiError).status).toBe(404);
       expect(codeOf(error)).toBe("RESOURCE_NOT_FOUND");
     });
+  });
+});
+
+describe("가짜 운세 구매 포트 — fortuneType 규칙 (ADAPTER-HTTP 흉내)", () => {
+  it("j. 상품과 다른 fortuneType 으로 createQuote 하면 422 INVALID_REQUEST", async () => {
+    const port = createFakeFortunePort();
+    const { selection } = await selectionFor(port);
+    const error = await port
+      .createQuote({ ...selection, fortuneType: "LOVE" })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(422);
+    expect(codeOf(error)).toBe("INVALID_REQUEST");
+  });
+
+  it("k. 견적에 charged 가 있고 price 키는 없다", async () => {
+    const port = createFakeFortunePort();
+    const { product, selection } = await selectionFor(port);
+    const quote = await port.createQuote(selection);
+    expect(quote.charged).toEqual(product.price);
+    expect("price" in quote).toBe(false);
   });
 });

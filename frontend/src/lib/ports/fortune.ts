@@ -4,7 +4,8 @@
 //
 // - 이 모델은 FE 모델이다. 백엔드 타입이 아니며, 진짜 구현(adapters)이 OpenAPI 생성 타입을 이 모양으로 바꾼다.
 // - 금액 · 등껍질 수량 · 구매 후 잔액은 서버(또는 가짜 구현)가 준 값만 표시한다. 화면에서 계산하지 않는다 (P-03 · P-09).
-// - 견적 필드: BE-A 내부 계약(main a064ea6, backend/docs/FE_COMPATIBILITY.md)에 quoteId · walletBalance · balanceAfter · shortage · recommendedTopUp 이 있고 productName 은 아직 없다 — API_SPEC · OpenAPI 반영은 BE-A (Q-17).
+// - 견적 필드: OpenAPI SuneungQuoteResponse · FundedQuoteResponse 이름을 따른다 — quoteId · productCode · charged(차감 예정) · walletBalance · balanceAfter · shortage · recommendedTopUp · expiresAt (Q-34).
+//   견적의 productName 은 서버 필수 값이다 (Q-28 해결, PR #19). null 은 가짜 · 옛 응답 대비이며 지어내지 않는다.
 // - 고민 입력(interestKey · memo)은 F-04 · Q-26 확정 전이라 넣지 않는다. talismanType 은 T-01 자동생성으로 빠졌다.
 // - 실패는 src/lib/api/errors.ts 의 ApiError · ApiNetworkError · ApiContractError 로 던진다 (가짜도 같다).
 import type { Money } from "./topUp";
@@ -52,6 +53,8 @@ export type FortuneProduct = Readonly<{
 
 // 견적 요청 = 구매 선택. 궁합은 counterpartPersonId 를 쓴다 (API_SPEC 8장 초안, 관계 값은 Q-26 확정 후)
 export type FortuneSelection = Readonly<{
+  // 수능운 요청은 이 값을 서버에 보내지 않는다(personId 만, Q-04 · P-03). 화면 · 복원 · 견적 키가 쓴다
+  fortuneType: Exclude<FortuneType, "UNKNOWN">;
   productCode: string;
   personId: string;
   counterpartPersonId: string | null;
@@ -60,8 +63,10 @@ export type FortuneSelection = Readonly<{
 export type FortuneQuote = Readonly<{
   quoteId: string;
   productCode: string;
-  productName: string;
-  price: Money;
+  // 서버 견적의 productName (Q-28 해결, PR #19). null 은 가짜 · 옛 응답 대비
+  productName: string | null;
+  // 차감 예정 금액 (OpenAPI 이름, Q-34)
+  charged: Money;
   walletBalance: number;
   // 잔액이 충분할 때만 서버가 준 구매 후 잔액, 부족하면 null
   balanceAfter: number | null;
@@ -97,7 +102,8 @@ export type ReadingPurchaseResult = Readonly<{
   // 처리 중 · 재요청 응답에서 null 일 수 있다 — null 을 0 · 완료로 바꾸지 않는다 (Q-38, BE-A 10/10)
   readingId: string | null;
   status: ReadingPurchaseStatus;
-  charged: Money;
+  // 처리 중 응답에서 null 일 수 있다 — 0 으로 바꾸지 않는다 (Q-38)
+  charged: Money | null;
   // 구매 응답의 서버 잔액. 처리 중 · 재요청 응답에서 null 일 수 있다 (Q-38, BE-A 10/10)
   balance: number | null;
   // refunded 는 두지 않는다 — OpenAPI PurchaseResponse 에 refunded 가 없고, 오류 code 만으로 환급을 단정하지 않는다 (Q-38)
