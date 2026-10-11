@@ -18,8 +18,11 @@ import {
 } from "./index";
 
 describe("포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다 — 조용히 가짜로 바꾸지 않는다", () => {
-    expect(() => selectTopUpPort("real", undefined)).toThrow();
+  it("진짜 충전 포트는 서버 adapter를 쓰고, 미구현 결제창은 조용히 가짜로 바꾸지 않는다", () => {
+    expect(selectTopUpPort("real", undefined)).toMatchObject({
+      getWallet: expect.any(Function),
+      createOrder: expect.any(Function),
+    });
     expect(() => selectPaymentLauncher("real", vi.fn())).toThrow();
   });
 

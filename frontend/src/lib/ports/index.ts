@@ -5,7 +5,12 @@
 // 모르는 값은 기본값으로 덮지 않고 던진다.
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
 
-import { createSessionAdapter } from "@/lib/api/adapters/session";
+import {
+  createSessionAdapter,
+  sessionCsrfSource,
+} from "@/lib/api/adapters/session";
+import { createTopUpAdapter } from "@/lib/api/adapters/topUp";
+import { createApiClient } from "@/lib/api/http";
 import {
   createFakeAccount,
   FAKE_SESSION_SCENARIOS,
@@ -59,7 +64,8 @@ export function selectTopUpPort(
   scenarioRaw: string | undefined,
   wallet?: FakeWallet,
 ): TopUpPort {
-  if (mode !== "mock") return noRealYet("충전 포트");
+  if (mode === "real")
+    return createTopUpAdapter(createApiClient({ csrf: sessionCsrfSource }));
   return createFakeTopUpPort({
     scenario: resolveTopUpScenario(scenarioRaw),
     wallet,
