@@ -8,6 +8,8 @@ The document's 2026-10-09 implementation assessment is historical. Check the cur
 
 ## Apply during implementation
 
+- The user-facing virtual currency name is "등껍질", not "조개". Keep existing technical identifiers such as TURTLE_SHELL and shell amount fields unchanged.
+
 - Identify the affected modules and tables, authorization boundary, transaction boundaries, external calls, and failure/recovery states before changing financial or shared behavior. Explain these to the user in plain Korean.
 - Keep PostgreSQL as the project's existing database. Validate risky persistence and concurrency behavior against PostgreSQL; H2 compatibility mode alone is not equivalent evidence.
 - Wallet, payment, purchase, refund, and gift changes must cover duplicate requests, concurrent operations, timeouts, and process interruption where relevant. Confirm ledger allocations, balances, and order states agree.

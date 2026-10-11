@@ -46,6 +46,9 @@ class TopUpProductApiTest {
                 .andExpect(jsonPath("$.data.items[*].bonusAmount").value(contains(0, 3, 6, 14, 46, 80)))
                 .andExpect(jsonPath("$.data.items[*].creditedAmount").value(contains(10, 33, 56, 114, 346, 580)))
                 .andExpect(jsonPath("$.data.items[0].category").value("TOP_UP"))
+                .andExpect(jsonPath("$.data.items[*].productName").value(contains(
+                        "등껍질 10개 충전", "등껍질 30개 충전", "등껍질 50개 충전",
+                        "등껍질 100개 충전", "등껍질 300개 충전", "등껍질 500개 충전")))
                 .andExpect(jsonPath("$.data.items[0].price.currency").value("KRW"))
                 .andExpect(jsonPath("$.data.items[0].active").value(true))
                 .andExpect(jsonPath("$.data.items[0].id").doesNotExist());

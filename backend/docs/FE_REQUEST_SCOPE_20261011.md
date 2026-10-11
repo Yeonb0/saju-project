@@ -37,6 +37,7 @@
 - 현재 판매 가능한 상품만 `data.items`로 반환. 없는 상품은 구매 버튼을 제공하지 않는다.
 - 운세: code, category, fortuneType, **option**, productName, price, regularPrice, active, saleEndsAt.
 - 충전: 기존 paidAmount/bonusAmount/creditedAmount 유지, productName/regularPrice/nullable 운세 필드 추가.
+- 재화 표시명은 **등껍질**이다. 충전 상품명은 `등껍질 100개 충전` 형태이며 TURTLE_SHELL 등 기술 식별자는 유지한다.
 - 목록 option은 견적 요청 productOption에 대응한다. 실제 차감은 charged/price, regularPrice로 결제하지 않는다.
 - 일반/수능 견적 POST 및 GET: **productName**, **regularPrice** 추가. 정가는 Money 또는 null, 부적 포함 상품 20개/판매가 15개.
 - 새 견적은 이름·정가까지 snapshot. 기존/구 버전 견적은 코드 이름/정가 null로 안전하게 표시한다.

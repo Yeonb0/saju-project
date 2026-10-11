@@ -301,7 +301,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
     {
       "code": "TURTLE_SHELL_100",
       "category": "TOP_UP",
-      "productName": "조개 100개 충전",
+      "productName": "등껍질 100개 충전",
       "regularPrice": null,
       "fortuneType": null,
       "option": null,
