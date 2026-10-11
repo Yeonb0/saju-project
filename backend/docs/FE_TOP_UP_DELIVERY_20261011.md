@@ -38,6 +38,13 @@ failureCode는 PAYMENT_DECLINED/PAYMENT_CANCELED/PAYMENT_REVIEW_REQUIRED이며 �
 
 ## FE 확인할 것
 
+현재 BE adapter는 주문서형/결제창형 test_gsk 계열만 허용한다. 이에 맞춘 FE 키는 같은 세트의
+**test_gck 클라이언트 키**다. test_gsk 시크릿은 서버 TOSS_SECRET_KEY 전용이며 FE/Git에 전달하지 않는다.
+사용자 캡처의 위쪽 `_docs_` 키는 공개 문서 예제용이었다. 아래 test_ck/test_sk 개별 연동 키는
+현재 adapter와 맞지 않으므로 그대로 섞어 쓰지 않는다. 팀 상점 키 종류/FE SDK 확인 후 실제 시험한다.
+키를 설정하기 전 사용자에게 확인하며 실제 키를 이 문서/채팅/PR에 넣지 않는다.
+근거: [토스 API 키 안내](https://docs.tosspayments.com/reference/using-api/api-keys).
+
 - 같은 주문 반복 승인/응답 유실/새로고침에서 주문 ID를 유지하고 완료 UI는 CREDITED만 사용하는지.
 - 처리 중/수동 확인/확정 거절·취소를 구분하고 nullable 필드를 안전하게 다루는지.
 - 테스트 client 키와 서버 secret이 같은 팀 상점/연동 종류인지. 키 원문은 회신 문서에 넣지 않는다.

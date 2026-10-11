@@ -37,6 +37,8 @@ The document's 2026-10-09 implementation assessment is historical. Check the cur
 ## Completion reporting
 
 - During ongoing A-part development, make local feature-sized commits after verification, using explicit paths and preserving unrelated edits. The user requested intermediate commits; this does not authorize push, PR creation, or deployment. Keep credentials and generated build/test output out of commits.
+- The user authorized feature-boundary PRs: before switching to a substantially different feature, publish the verified current feature as a PR and keep the next feature on a separate branch. This does not authorize merging or deploying.
+- Before using actual Toss test credentials or making an actual test payment, ask the user about secure local configuration. Do not request secret keys in chat or inspect/print existing secrets without that step. FE receives only the matching test client key; the secret key stays server-side.
 
 Briefly state what changed, which checklist items applied, what was actually verified, and what remains unverified or blocked. Use measured evidence instead of inferring success from HTTP 200, green CI, or test counts. Do not claim a live deployment or production capacity was checked without observing it. Record important completed checks and remaining implementation gaps in the maintained document with date and code/environment context, without sensitive values.
 
