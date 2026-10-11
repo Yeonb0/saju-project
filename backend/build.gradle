@@ -114,3 +114,21 @@ tasks.register('sessionSecurityPostgresTest', Test) {
         }
     }
 }
+
+tasks.register('personConcurrencyPostgresTest', Test) {
+    description = 'Run person owner-lock concurrency checks against isolated PostgreSQL.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.person.PersonConcurrencyPostgresTest' }
+    systemProperty 'person.concurrency.postgres', 'true'
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+    doFirst {
+        if (System.getenv('TEST_DATABASE_URL') != 'jdbc:postgresql://localhost:55432/sajuppugi_test') {
+            throw new GradleException(
+                    'personConcurrencyPostgresTest requires the isolated localhost:55432/sajuppugi_test database.')
+        }
+    }
+}

@@ -451,6 +451,12 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-12: PostgreSQL 인물 생성 경쟁 회귀 보강
+
+- 적용: 6-1의 인물 소유권 경계와 6-2의 동시 쓰기 검증을 위해, 격리된 `sajuppugi_test` PostgreSQL DB에서만 실행하는 `personConcurrencyPostgresTest`를 추가했다. 같은 owner의 동시 SELF 생성 2건에서는 정확히 한 건만 생성되고 나머지는 `PRIMARY_PERSON_ALREADY_EXISTS`인지, 동시 OTHER 생성 12건에서는 정확히 10건만 생성되고 나머지는 `PERSON_LIMIT_EXCEEDED`인지 확인한다. fixture 행과 owner lock 행은 각 시험 뒤 삭제한다.
+- `TEST_DATABASE_URL=jdbc:postgresql://localhost:55432/sajuppugi_test ./gradlew personConcurrencyPostgresTest`가 PostgreSQL 17 컨테이너에서 성공했다. H2 회귀의 기존 `PeopleApiTest`도 함께 재실행해 성공했다. 검증 범위는 `people`과 `person_owner_locks`이며 지갑·등껍질·결제 상태는 변경하지 않았다.
+- 현재 `people.owner_user_id`의 DB 외래 키는 아직 없다. 현재 실제 HTTP 인증은 users 행에서만 만들어지지만, 과거 데이터 호환과 테스트 fixture를 함께 다루는 별도 migration·정리 계획 없이 FK를 추가하지 않았다. 운영 배포 전 orphan 검사와 추가형 FK migration 계획이 필요하다. 실제 카카오 로그인 사용자로 한 인물 CRUD 브라우저 E2E도 미확인이다.
+
 ### 2026-10-12: PostgreSQL 세션·CSRF 회귀 보강
 
 - 적용: 6-1의 서버 세션·CSRF·로그아웃 폐기와 6-6의 실제 PostgreSQL 검증 공백을 줄이기 위해, 격리된 `sajuppugi_test` PostgreSQL DB에서만 실행하는 `sessionSecurityPostgresTest` Gradle 작업과 회귀 시험을 추가했다. 이 시험은 임시 사용자·불투명 세션 hash를 만들고 `/session`의 CSRF 회전, CSRF 누락 로그아웃의 403, 유효 CSRF 로그아웃의 cookie 만료·DB revoke, 이후 보호 API의 401을 확인한 뒤 임시 행을 삭제한다.
