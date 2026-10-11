@@ -69,13 +69,15 @@ class MemberLifecycleTest {
 
     @Test
     void purgesDueMemberPersonalDataButLeavesRecentWithdrawalPending() {
-        UUID due = insertUser("WITHDRAWAL_PENDING", NOW.minusSeconds(90L * 86400),
-                NOW.minusSeconds(31L * 86400));
-        UUID recent = insertUser("WITHDRAWAL_PENDING", NOW.minusSeconds(40L * 86400),
-                NOW.minusSeconds(29L * 86400));
+        UUID due = insertUser("ACTIVE", NOW.minusSeconds(90L * 86400), null);
+        UUID recent = insertUser("ACTIVE", NOW.minusSeconds(40L * 86400), null);
         insertSession(due, "d".repeat(64));
         people.create(due, Person.ProfileType.SELF, "삭제할 이름", birth(), null, false);
         people.create(recent, Person.ProfileType.SELF, "유지할 이름", birth(), null, false);
+        jdbc.update("UPDATE users SET status = 'WITHDRAWAL_PENDING', withdrawal_requested_at = ? WHERE id = ?",
+                timestamp(NOW.minusSeconds(31L * 86400)), due);
+        jdbc.update("UPDATE users SET status = 'WITHDRAWAL_PENDING', withdrawal_requested_at = ? WHERE id = ?",
+                timestamp(NOW.minusSeconds(29L * 86400)), recent);
 
         deletionJob.purgeDueWithdrawals();
 

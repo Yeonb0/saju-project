@@ -10,6 +10,7 @@ import com.sajuppugi.person.application.PersonService;
 import com.sajuppugi.person.domain.Person;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -40,6 +41,11 @@ class PersonConcurrencyPostgresTest {
     void ownerLockAllowsOneSelfAndAtMostTenOthersAcrossConcurrentTransactions() throws Exception {
         assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("sajuppugi_test");
         owner = UUID.randomUUID();
+        Timestamp now = Timestamp.from(java.time.Instant.now());
+        jdbc.update("""
+                INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at)
+                VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+                """, owner, "person-concurrency-" + owner, "테스트", now, now);
 
         List<Object> selfResults = concurrently(2, () -> create(Person.ProfileType.SELF, "본인", null, false));
         assertThat(selfResults).filteredOn(Person.class::isInstance).hasSize(1);
@@ -60,6 +66,7 @@ class PersonConcurrencyPostgresTest {
         if (owner == null) return;
         jdbc.update("DELETE FROM people WHERE owner_user_id = ?", owner);
         jdbc.update("DELETE FROM person_owner_locks WHERE owner_user_id = ?", owner);
+        jdbc.update("DELETE FROM users WHERE id = ?", owner);
     }
 
     private List<Object> concurrently(int workers, Callable<Object> command) throws Exception {

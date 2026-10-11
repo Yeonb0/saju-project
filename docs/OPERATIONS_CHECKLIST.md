@@ -456,6 +456,7 @@ LIMIT 20;
 - 적용: 6-1의 인물 소유권 경계와 6-2의 동시 쓰기 검증을 위해, 격리된 `sajuppugi_test` PostgreSQL DB에서만 실행하는 `personConcurrencyPostgresTest`를 추가했다. 같은 owner의 동시 SELF 생성 2건에서는 정확히 한 건만 생성되고 나머지는 `PRIMARY_PERSON_ALREADY_EXISTS`인지, 동시 OTHER 생성 12건에서는 정확히 10건만 생성되고 나머지는 `PERSON_LIMIT_EXCEEDED`인지 확인한다. fixture 행과 owner lock 행은 각 시험 뒤 삭제한다.
 - `TEST_DATABASE_URL=jdbc:postgresql://localhost:55432/sajuppugi_test ./gradlew personConcurrencyPostgresTest`가 PostgreSQL 17 컨테이너에서 성공했다. H2 회귀의 기존 `PeopleApiTest`도 함께 재실행해 성공했다. 검증 범위는 `people`과 `person_owner_locks`이며 지갑·등껍질·결제 상태는 변경하지 않았다.
 - 현재 `people.owner_user_id`의 DB 외래 키는 아직 없다. 현재 실제 HTTP 인증은 users 행에서만 만들어지지만, 과거 데이터 호환과 테스트 fixture를 함께 다루는 별도 migration·정리 계획 없이 FK를 추가하지 않았다. 운영 배포 전 orphan 검사와 추가형 FK migration 계획이 필요하다. 실제 카카오 로그인 사용자로 한 인물 CRUD 브라우저 E2E도 미확인이다.
+- 후속 보강: `PersonService.create`는 활성 `users` 행이 없거나 탈퇴 대기 등 비활성 상태면 `PERSON_NOT_FOUND`로 거절한다. 따라서 controller/service 경유 신규 인물이 orphan owner에 연결되지 않으며, member 존재 여부도 이 resource API에서 노출하지 않는다. H2와 PostgreSQL owner-lock 회귀는 활성 사용자 fixture를 독립 커밋·정리하도록 바꿔 실제 worker transaction의 가시성 조건을 함께 검증했다. 물리 FK와 과거 orphan 정리는 여전히 별도 migration 전제다.
 
 ### 2026-10-12: PostgreSQL 세션·CSRF 회귀 보강
 

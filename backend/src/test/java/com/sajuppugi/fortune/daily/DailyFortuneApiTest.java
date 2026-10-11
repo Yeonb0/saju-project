@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.sql.Timestamp;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,10 +39,12 @@ class DailyFortuneApiTest {
     @Autowired MockMvc mvc;
     @Autowired PersonService people;
     @Autowired ObjectMapper mapper;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void returnsStableZeroToHundredScoresForOwnedPerson() throws Exception {
         UUID owner = UUID.randomUUID();
+        insertActiveUser(owner);
         Person person = people.create(owner, Person.ProfileType.SELF, "민지", birth(), null, false);
 
         String first = mvc.perform(get("/api/v1/daily-fortunes/today")
@@ -65,6 +69,7 @@ class DailyFortuneApiTest {
     @Test
     void hidesOtherUsersAndDeletedPeople() throws Exception {
         UUID owner = UUID.randomUUID();
+        insertActiveUser(owner);
         Person person = people.create(owner, Person.ProfileType.SELF, "민지", birth(), null, false);
         mvc.perform(get("/api/v1/daily-fortunes/today").param("personId", person.id().toString())
                         .with(user(UUID.randomUUID().toString())))
@@ -89,6 +94,14 @@ class DailyFortuneApiTest {
     private BirthInput birth() {
         return new BirthInput(LocalDate.of(2008, 3, 12), LocalTime.of(13, 25), false,
                 BirthInput.CalendarType.SOLAR, false, BirthInput.Gender.FEMALE);
+    }
+
+    private void insertActiveUser(UUID id) {
+        Timestamp now = Timestamp.from(NOW);
+        jdbc.update("""
+                INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at)
+                VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+                """, id, "daily-test-" + id, "테스트", now, now);
     }
 
     @TestConfiguration
