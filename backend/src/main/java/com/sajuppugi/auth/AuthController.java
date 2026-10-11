@@ -24,12 +24,13 @@ class AuthController {
     String authorize(@RequestParam(required=false) String returnTo) { return "redirect:" + auth.start(returnTo); }
     @GetMapping("/auth/kakao/callback")
     String callback(@RequestParam(required=false) String state, @RequestParam(required=false) String code,
-                    @RequestParam(required=false) String error, HttpServletResponse response) {
+                    @RequestParam(required=false) String error, HttpServletRequest request, HttpServletResponse response) {
         if (error != null) {
             String returnTo = auth.abort(state);
             return "redirect:" + auth.loginFailureUrl(returnTo, "access_denied".equals(error));
         }
-        AuthService.Login login=auth.complete(state, code);
+        AuthService.Login login=auth.complete(state, code,
+                SessionAuthenticationFilter.cookie(request, AuthService.COOKIE));
         response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(AuthService.COOKIE, login.rawToken()).httpOnly(true).secure(auth.isSecure()).sameSite("Lax").path("/").build().toString());
         return "redirect:" + auth.frontendUrl(login.returnTo());
     }
