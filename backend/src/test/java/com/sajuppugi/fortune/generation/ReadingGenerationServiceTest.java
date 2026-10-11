@@ -58,15 +58,23 @@ class ReadingGenerationServiceTest {
     void retriesValidationFailuresAndPersistsOnlyTheFirstValidResponse() {
         MemoryStore store = new MemoryStore();
         AtomicInteger calls = new AtomicInteger();
-        LinerProvider provider = provider(request -> calls.incrementAndGet() < 3
-                ? new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY, "반드시 합격한다.", List.of("dayMaster.hanja"))), List.of())
-                : valid(request));
+        List<LinerRequest> requests = new ArrayList<>();
+        LinerProvider provider = provider(request -> {
+            requests.add(request);
+            if (calls.incrementAndGet() >= 3) return valid(request);
+            var invalidSections = List.of(new GeneratedSection(SectionKey.SUMMARY,
+                    "반드시 합격한다.", List.of("dayMaster.hanja")));
+            return new LinerResponse(invalidSections, List.of(), SuneungGuideFactory.fromSections(invalidSections));
+        });
 
         GeneratedReading reading = service(provider, store).generate(command());
 
         assertThat(reading.response().sections()).hasSize(1);
         assertThat(reading.generationMode()).isEqualTo(GenerationMode.LINER);
         assertThat(calls).hasValue(3);
+        assertThat(requests.get(0).validationFeedback()).isEmpty();
+        assertThat(requests.get(1).validationFeedback()).containsExactly("LINER_FORBIDDEN_EXPRESSION");
+        assertThat(requests.get(2).validationFeedback()).containsExactly("LINER_FORBIDDEN_EXPRESSION");
         assertThat(store.attempts).isEqualTo(3);
     }
 

@@ -65,17 +65,31 @@ public final class GenerationModels {
             String relationKey,
             JsonNode facts,
             List<String> missingFields,
-            List<SectionKey> allowedSections) {
+            List<SectionKey> allowedSections,
+            List<String> validationFeedback) {
         public LinerRequest {
             missingFields = List.copyOf(missingFields);
             allowedSections = List.copyOf(allowedSections);
+            validationFeedback = validationFeedback == null ? List.of() : List.copyOf(validationFeedback);
+        }
+
+        public LinerRequest(String generationKey, String calculationVersion, String generationVersion,
+                            FortuneType fortuneType, LocalDate referenceDate, String interestKey, String relationKey,
+                            JsonNode facts, List<String> missingFields, List<SectionKey> allowedSections) {
+            this(generationKey, calculationVersion, generationVersion, fortuneType, referenceDate,
+                    interestKey, relationKey, facts, missingFields, allowedSections, List.of());
         }
 
         public LinerRequest(String generationKey, String calculationVersion, String generationVersion,
                             FortuneType fortuneType, LocalDate referenceDate, String interestKey,
                             JsonNode facts, List<String> missingFields, List<SectionKey> allowedSections) {
             this(generationKey, calculationVersion, generationVersion, fortuneType, referenceDate,
-                    interestKey, null, facts, missingFields, allowedSections);
+                    interestKey, null, facts, missingFields, allowedSections, List.of());
+        }
+
+        public LinerRequest withValidationFeedback(List<String> feedback) {
+            return new LinerRequest(generationKey, calculationVersion, generationVersion, fortuneType,
+                    referenceDate, interestKey, relationKey, facts, missingFields, allowedSections, feedback);
         }
     }
 

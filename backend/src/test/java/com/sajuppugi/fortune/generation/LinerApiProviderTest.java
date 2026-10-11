@@ -61,7 +61,7 @@ class LinerApiProviderTest {
 
     @Test
     void sendsSafeFactsWithStrictSchemaAndParsesOutputText() throws Exception {
-        LinerRequest request = request();
+        LinerRequest request = request().withValidationFeedback(List.of("LINER_SECTION_TOO_SIMILAR"));
         String generated = """
                 {"sections":[{"key":"SUMMARY","content":"차분히 흐름을 살펴보세요.",
                 "sourceFactKeys":["dayMaster.hanja"]}],"omittedSections":["CURRENT_FLOW"]}
@@ -94,7 +94,9 @@ class LinerApiProviderTest {
                 "/text/format/schema/properties/sections/items/properties/content/maxLength").isMissingNode()).isTrue();
         assertThat(capturedBody.get().at(
                 "/text/format/schema/properties/omittedSections/uniqueItems").isMissingNode()).isTrue();
-        assertThat(capturedBody.get().path("input").asText()).contains("dayMaster").doesNotContain("birthDate");
+        assertThat(capturedBody.get().path("input").asText())
+                .contains("dayMaster", "validationFeedback", "LINER_SECTION_TOO_SIMILAR")
+                .doesNotContain("birthDate");
     }
 
     @Test

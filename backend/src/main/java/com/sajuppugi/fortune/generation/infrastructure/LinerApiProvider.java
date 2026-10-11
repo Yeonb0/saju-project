@@ -99,6 +99,7 @@ public class LinerApiProvider implements LinerProvider {
         input.set("missingFields", mapper.valueToTree(request.missingFields()));
         input.set("allowedSections", mapper.valueToTree(request.allowedSections()));
         input.set("allowedSourceFactKeys", mapper.valueToTree(factPaths(request.facts())));
+        input.set("validationFeedback", mapper.valueToTree(request.validationFeedback()));
         return input;
     }
 
@@ -155,6 +156,7 @@ public class LinerApiProvider implements LinerProvider {
                 결과·합격·수익·질병·죽음을 확정하거나 공포를 조장하지 말고 재미와 자기성찰을 위한 참고 정보로 작성하세요.
                 재물 내용은 투자 권유가 아니며, 건강 내용은 의학적 진단이 아니라고 명확히 표현하세요.
                 출력은 제공된 JSON Schema만 따르고 Markdown 코드 펜스나 추가 설명을 쓰지 마세요.
+                validationFeedback이 있다면 이전 출력이 서버 검증에 실패한 이유입니다. 해당 코드의 문제를 교정하되 이전 출력 내용을 추측하지 마세요.
                 세부 작성 지침:
                 %s
                 """.formatted(ReadingPromptPolicy.instructions(request));
