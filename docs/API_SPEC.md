@@ -229,9 +229,12 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 {
   "id": "uuid",
   "nickname": "윤진",
+  "status": "ACTIVE",
   "walletBalance": 50,
   "hasPrimaryPerson": true,
-  "createdAt": "2026-10-01T03:00:00Z"
+  "createdAt": "2026-10-01T03:00:00Z",
+  "withdrawalRequestedAt": null,
+  "scheduledDeletionAt": null
 }
 ```
 
@@ -240,6 +243,9 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 - 인증·CSRF 필요
 - 유료 잔액이 있으면 `409 PAID_BALANCE_REMAINS`와 환불 안내 정보를 반환한다.
 - 탈퇴 접수 성공: `202 Accepted`
+- 접수 즉시 모든 활성 세션을 폐기하고 상태를 `WITHDRAWAL_PENDING`으로 바꾼다.
+- 접수 30일 후 회원 닉네임·카카오 식별자·인물 입력을 삭제 또는 비식별화한다.
+- 결제·원장처럼 법적 보관과 대사에 필요한 기록은 회원 UUID와 함께 유지한다.
 
 ### `GET /people`
 
