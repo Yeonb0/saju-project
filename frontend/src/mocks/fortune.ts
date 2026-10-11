@@ -109,6 +109,10 @@ export function createFakeFortunePort(
 
   function makeQuote(selection: FortuneSelection): FortuneQuote {
     const p = product(selection.productCode);
+    // 서버 규칙 흉내 — 상품과 다른 운세 종류는 잘못된 요청 (ADAPTER-HTTP 의 selection.fortuneType)
+    if (selection.fortuneType !== p.fortuneType) {
+      throw fail(422, "INVALID_REQUEST");
+    }
     const balance = wallet.balance();
     const shortage = Math.max(0, p.price.amount - balance);
     return {
@@ -116,7 +120,7 @@ export function createFakeFortunePort(
       productCode: p.code,
       // 픽스처 이름 — 실제 문구가 아니다
       productName: `FIXTURE ${p.code}`,
-      price: p.price,
+      charged: p.price,
       walletBalance: balance,
       // 가짜 서버가 계산해 준다 — 화면은 이 값만 표시한다 (P-09)
       balanceAfter: shortage === 0 ? balance - p.price.amount : null,

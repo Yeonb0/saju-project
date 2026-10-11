@@ -169,6 +169,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     expect(await within(dialog).findByText(SELF_NAME)).toBeInTheDocument();
     await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
     expect(createQuote).toHaveBeenCalledWith({
+      fortuneType: "LOVE" as const,
       productCode: TALISMAN,
       personId: SELF_ID,
       counterpartPersonId: null,
@@ -246,7 +247,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       {
         ...all[0],
         code: "FIXTURE_WEALTH_X",
-        fortuneType: "WEALTH",
+        fortuneType: "WEALTH" as const,
         active: false,
       },
     ]);
@@ -285,6 +286,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       returnPath: "/fortune/love/questions?personId=no-such-person",
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "LOVE" as const,
         productCode: TALISMAN,
         personId: "no-such-person",
         counterpartPersonId: null,
@@ -300,6 +302,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
   it("k. 복원: 같은 returnPath · personId · 활성 code 면 팝업이 저절로 열리고 저장한 견적을 재확인한다", async () => {
     const { fortunePort, personPort } = ports();
     const quote = await fortunePort.createQuote({
+      fortuneType: "LOVE" as const,
       productCode: TALISMAN,
       personId: OTHER.personId,
       counterpartPersonId: null,
@@ -308,6 +311,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       returnPath: `/fortune/love/questions?personId=${OTHER.personId}`,
       quoteId: quote.quoteId,
       selection: {
+        fortuneType: "LOVE" as const,
         productCode: TALISMAN,
         personId: OTHER.personId,
         counterpartPersonId: null,
@@ -330,6 +334,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       returnPath: "/suneung",
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "LOVE" as const,
         productCode: TALISMAN,
         personId: SELF_ID,
         counterpartPersonId: null,
@@ -347,6 +352,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       returnPath: `/fortune/love/questions?personId=${SELF_ID}`,
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "LOVE" as const,
         productCode: "FIXTURE_LOVE_NO_SUCH",
         personId: SELF_ID,
         counterpartPersonId: null,
@@ -363,6 +369,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       returnPath: `/fortune/love/questions?personId=${SELF_ID}`,
       quoteId: "fixture-quote",
       selection: {
+        fortuneType: "LOVE" as const,
         productCode: TALISMAN,
         personId: OTHER.personId,
         counterpartPersonId: null,
@@ -420,6 +427,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       ).toBeInTheDocument();
       await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
       expect(createQuote).toHaveBeenCalledWith({
+        fortuneType: "COMPATIBILITY" as const,
         productCode: COMPAT_TALISMAN,
         personId: SELF_ID,
         counterpartPersonId: OTHER.personId,
@@ -487,6 +495,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     it("u. 복원: 같은 returnPath · personId · counterpartPersonId · 활성 code 면 팝업이 저절로 열리고 저장한 견적을 재확인한다", async () => {
       const { fortunePort, personPort } = ports();
       const quote = await fortunePort.createQuote({
+        fortuneType: "COMPATIBILITY" as const,
         productCode: COMPAT_TALISMAN,
         personId: SELF_ID,
         counterpartPersonId: OTHER.personId,
@@ -495,6 +504,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
         returnPath: compatPath(SELF_ID, OTHER.personId),
         quoteId: quote.quoteId,
         selection: {
+          fortuneType: "COMPATIBILITY" as const,
           productCode: COMPAT_TALISMAN,
           personId: SELF_ID,
           counterpartPersonId: OTHER.personId,
@@ -517,6 +527,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
         returnPath: compatPath(SELF_ID, OTHER.personId),
         quoteId: "fixture-quote",
         selection: {
+          fortuneType: "COMPATIBILITY" as const,
           productCode: COMPAT_TALISMAN,
           personId: SELF_ID,
           counterpartPersonId: "another-person",
@@ -533,6 +544,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
         returnPath: `/fortune/love/questions?personId=${SELF_ID}`,
         quoteId: "fixture-quote",
         selection: {
+          fortuneType: "LOVE" as const,
           productCode: TALISMAN,
           personId: SELF_ID,
           counterpartPersonId: OTHER.personId,
@@ -548,5 +560,34 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       const caught = await expectThrown({ counterpartId: OTHER.personId });
       expect(String(caught)).toContain("상대 ID");
     });
+  });
+});
+
+describe("FortuneQuestionsScreen — fortuneType (ADAPTER-HTTP)", () => {
+  it("v2. 팝업에 넘기는 selection 에 slug 의 fortuneType 이 들어간다", async () => {
+    const user = userEvent.setup();
+    const { createQuote } = setup();
+    const buttons = await ctaButtons();
+    await user.click(buttons[0]);
+    await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
+    expect(createQuote.mock.calls[0][0].fortuneType).toBe("LOVE");
+  });
+
+  it("w2. 복원: fortuneType 이 다른 저장값은 팝업이 열리지 않고 저장값이 지워진다", async () => {
+    // 픽스처일 뿐이며 실제 상품과 무관하다 — returnPath · personId · productCode 는 같고 fortuneType 만 다르다
+    savePurchaseSelection({
+      returnPath: `/fortune/love/questions?personId=${SELF_ID}`,
+      quoteId: "fixture-quote",
+      selection: {
+        fortuneType: "WEALTH" as const,
+        productCode: TALISMAN,
+        personId: SELF_ID,
+        counterpartPersonId: null,
+      },
+    });
+    setup();
+    await ctaButtons();
+    await waitFor(() => expect(loadPurchaseSelection()).toBeNull());
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

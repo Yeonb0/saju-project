@@ -142,6 +142,7 @@ export function ShellCheckout({
   const quote = useQuery({
     queryKey: [
       "fortuneQuote",
+      selection.fortuneType,
       selection.productCode,
       selection.personId,
       selection.counterpartPersonId,
@@ -368,12 +369,15 @@ export function ShellCheckout({
         <>
           {/* 서버 견적 값만 표시한다 (P-03 · P-09). TODO(PD 문구): 항목 이름 · 단위 */}
           <dl className={INFO_CLASS}>
-            <Row label="상품">{current.productName}</Row>
+            {/* TODO(Q-28): 견적에 상품 이름이 없다 — 서버가 주기 전에는 줄을 그리지 않는다 */}
+            {current.productName !== null ? (
+              <Row label="상품">{current.productName}</Row>
+            ) : null}
             <Row label="대상">{targetName}</Row>
             <Row label="옵션">{optionLabel}</Row>
             <Row label="보유">{formatNumber(current.walletBalance)}</Row>
             <Row label="사용">
-              {formatNumber(current.price.amount)} {current.price.currency}
+              {formatNumber(current.charged.amount)} {current.charged.currency}
             </Row>
             {current.balanceAfter !== null ? (
               <Row label="구매 후">{formatNumber(current.balanceAfter)}</Row>

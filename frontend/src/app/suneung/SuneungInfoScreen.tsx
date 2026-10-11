@@ -72,6 +72,7 @@ export function SuneungInfoScreen({
     );
     if (
       product === null ||
+      saved.selection.fortuneType !== "SUNEUNG" ||
       saved.selection.productCode !== product.code ||
       !target
     ) {
@@ -157,6 +158,7 @@ export function SuneungInfoScreen({
             if (!next) setResumeQuoteId(null);
           }}
           selection={{
+            fortuneType: "SUNEUNG",
             productCode: product.code,
             personId: person.personId,
             counterpartPersonId: null,

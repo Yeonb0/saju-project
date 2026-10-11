@@ -223,6 +223,7 @@ describe("WalletScreen (PAY-01)", () => {
   describe("잔액 부족 팝업에서 왔을 때 (PAY-02 · FORT-04, PURCHASE-RESTORE)", () => {
     // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다. 가짜 잔액 2 로 부족이 생기게 한다.
     const SELECTION = {
+      fortuneType: "OVERALL" as const,
       productCode: "FIXTURE_OVERALL_READING_ONLY",
       personId: "fixture-person",
       counterpartPersonId: null,

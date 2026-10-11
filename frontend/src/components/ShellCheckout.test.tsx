@@ -36,6 +36,7 @@ afterEach(() => {
 
 // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다. 상품 · 금액은 src/mocks/fortune.ts 의 픽스처다.
 const SELECTION: FortuneSelection = {
+  fortuneType: "SUNEUNG",
   productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
   personId: "66666666-6666-4666-8666-666666666666",
   counterpartPersonId: null,
@@ -205,7 +206,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       quoteId: "fixture-quote",
       productCode: SELECTION.productCode,
       productName: "FIXTURE",
-      price: { currency: "TURTLE_SHELL", amount: 13 },
+      charged: { currency: "TURTLE_SHELL", amount: 13 },
       walletBalance: 2,
       balanceAfter: null,
       shortage: 11,
@@ -450,7 +451,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     quoteId: "fixture-quote",
     productCode: SELECTION.productCode,
     productName: "FIXTURE",
-    price: { currency: "TURTLE_SHELL", amount: 13 },
+    charged: { currency: "TURTLE_SHELL", amount: 13 },
     walletBalance: 1,
     balanceAfter: null,
     shortage: 12,
@@ -571,5 +572,42 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       expect((caught as ApiError).status).toBe(500);
       silence.mockRestore();
     });
+  });
+});
+
+describe("ShellCheckout — 상품 줄 (Q-28)", () => {
+  // 견적 값은 서버 모양 그대로 주입한다 (픽스처일 뿐이며 실제 가격 · 규칙과 무관)
+  const quoteWith = (productName: string | null): FortuneQuote => ({
+    quoteId: "fixture-quote",
+    productCode: SELECTION.productCode,
+    productName,
+    charged: { currency: "TURTLE_SHELL", amount: 13 },
+    walletBalance: 100,
+    balanceAfter: 87,
+    shortage: 0,
+    recommendedTopUp: null,
+    expiresAt: "2099-01-01T00:00:00Z",
+  });
+
+  async function setupWith(productName: string | null) {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "createQuote").mockResolvedValue(quoteWith(productName));
+    setup({ port });
+    await screen.findByRole("button", { name: "사용하기" });
+  }
+
+  it("l. productName 이 null 이면 상품 줄이 없고 나머지 줄은 그대로 있다", async () => {
+    await setupWith(null);
+    expect(screen.queryByText("상품")).toBeNull();
+    for (const label of ["대상", "옵션", "보유", "사용"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText("13 TURTLE_SHELL")).toBeInTheDocument();
+  });
+
+  it("m. productName 이 있으면 상품 줄이 그 값을 보인다", async () => {
+    await setupWith("FIXTURE 상품");
+    expect(screen.getByText("상품")).toBeInTheDocument();
+    expect(screen.getByText("FIXTURE 상품")).toBeInTheDocument();
   });
 });

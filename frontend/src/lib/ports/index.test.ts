@@ -120,6 +120,7 @@ describe("결과 포트 선택 (MOCK-PORT)", () => {
     );
     const [product] = await fortune.listProducts("SUNEUNG");
     const selection = {
+      fortuneType: "SUNEUNG" as const,
       productCode: product.code,
       // 픽스처일 뿐이며 실제 사용자와 무관하다
       personId: "66666666-6666-4666-8666-666666666666",
@@ -182,6 +183,7 @@ describe("MOCK-PANEL 저장값 우선순위", () => {
     const ports = await loadMockPorts();
     const quote = await ports.getFortunePort().createQuote({
       // 픽스처일 뿐이며 실제 상품 · 사용자와 무관하다
+      fortuneType: "SUNEUNG" as const,
       productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
       personId: "66666666-6666-4666-8666-666666666666",
       counterpartPersonId: null,

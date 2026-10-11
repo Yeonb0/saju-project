@@ -49,3 +49,29 @@ describe("maskUrl", () => {
     expect(maskUrl("/unknown/abc?x=1")).toBe("/unknown/abc");
   });
 });
+
+describe("maskUrl — API 경로의 UUID (관측 도구)", () => {
+  // 픽스처일 뿐이며 실제 ID 와 무관하다
+  const ID = "11111111-2222-4333-8444-555555555555";
+  const UPPER = "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE";
+
+  it("q. /api/v1/quotes/<uuid> 는 /api/v1/quotes/[id]", () => {
+    expect(maskUrl(`/api/v1/quotes/${ID}`)).toBe("/api/v1/quotes/[id]");
+  });
+
+  it("r. 대문자 UUID 도 가리고 쿼리를 지운다", () => {
+    expect(maskUrl(`/api/v1/top-up-orders/${UPPER}?paymentKey=x`)).toBe(
+      "/api/v1/top-up-orders/[id]",
+    );
+  });
+
+  it("s. UUID 가 없는 API 경로는 그대로", () => {
+    expect(maskUrl("/api/v1/wallet")).toBe("/api/v1/wallet");
+  });
+
+  it("t. 절대 URL 은 origin 을 남기고 경로만 가린다", () => {
+    expect(maskUrl(`https://example.com/api/v1/readings/${ID}`)).toBe(
+      "https://example.com/api/v1/readings/[id]",
+    );
+  });
+});
