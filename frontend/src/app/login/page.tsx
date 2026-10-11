@@ -6,9 +6,11 @@ import { LoginScreen } from "./LoginScreen";
 export default async function Page(props: PageProps<"/login">) {
   const query = await props.searchParams;
   const raw = query.returnTo;
+  const oauth = query.oauth;
   return (
     <LoginScreen
       returnTo={safeReturnTo(typeof raw === "string" ? raw : null)}
+      oauthStatus={oauth === "cancelled" || oauth === "failed" ? oauth : null}
     />
   );
 }

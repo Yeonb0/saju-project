@@ -9,13 +9,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-@Component
 public class SessionAuthenticationFilter extends OncePerRequestFilter {
     private final AuthService auth;
-    SessionAuthenticationFilter(AuthService auth) { this.auth=auth; }
+    public SessionAuthenticationFilter(AuthService auth) { this.auth=auth; }
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         String token = cookie(req, AuthService.COOKIE); AuthRepository.Session session=auth.session(token);
         if(session != null) SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(session.userId().toString(), null, java.util.List.of()));

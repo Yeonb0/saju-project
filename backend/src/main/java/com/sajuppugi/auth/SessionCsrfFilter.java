@@ -9,13 +9,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-@Component
 public class SessionCsrfFilter extends OncePerRequestFilter {
     private final AuthService auth; private final ObjectMapper mapper;
-    SessionCsrfFilter(AuthService auth, ObjectMapper mapper) { this.auth=auth; this.mapper=mapper; }
+    public SessionCsrfFilter(AuthService auth, ObjectMapper mapper) { this.auth=auth; this.mapper=mapper; }
     protected boolean shouldNotFilter(HttpServletRequest request) { return "GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()) || "OPTIONS".equals(request.getMethod()); }
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         String raw=SessionAuthenticationFilter.cookie(req, AuthService.COOKIE); AuthRepository.Session session=auth.session(raw);

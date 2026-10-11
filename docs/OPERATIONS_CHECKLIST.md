@@ -451,6 +451,13 @@ LIMIT 20;
 - 실로그인 모드에서 홈이 실제 wallet adapter를 선택하지 못해 `충전 포트` 오류로 종료되는 경로를 수정했다. `GET /wallet`은 기존 adapter를 사용하며 CSRF token source는 세션 adapter와 공유한다. 세션·홈 포트 선택 회귀 20건, typegen/TypeScript 검사를 다시 통과했다.
 - 로그인 직후 본인 정보가 없는 사용자는 온보딩으로 이동하는 것이 정상이다. 실제 people adapter를 추가하여 `POST /people`의 자기 정보 생성과 `GET /people`의 마이페이지 목록을 세션 CSRF source로 연결했다. FE 전체 556건, typegen/TypeScript를 통과했다. 실제 개인정보 입력·저장 및 그 뒤 마이페이지 browser E2E는 사용자 동작으로 남아 있다.
 
+### 2026-10-12: OAuth 취소·세션 종료·계약 보완
+
+- 카카오 callback의 `error` 응답도 OAuth state를 한 번 소비하고, 로그인 화면의 `oauth=cancelled` 또는 `oauth=failed` 안내로 되돌린다. 이전 로그인 returnTo는 내부 상대 경로만 허용하는 기존 정책을 그대로 적용한다.
+- 세션 인증/CSRF 필터는 Spring Security 체인에서만 실행하도록 정리했고, `POST /api/v1/auth/logout`을 인증된 요청으로 명시했다. 중복 필터 등록으로 인증이 사라져 로그아웃이 403이 되던 결함을 제거했다.
+- 새 통합 시험은 실제 세션 쿠키/DB 해시를 사용해 CSRF 누락 403, 유효 CSRF 로그아웃 200과 Set-Cookie 만료, 이후 보호 API 401, 만료 세션의 미인증 처리를 확인했다. 기존 회원 lifecycle 시험은 탈퇴 요청에서 전체 세션 revoke, 30일 후 사용자 익명화·세션 및 인물 삭제를 계속 검증한다.
+- `exportOpenApi`로 세션·인물·회원 API 계약을 다시 생성하고 FE 타입을 재생성했다. backend H2 검증과 FE 로그인 화면 11건, Biome, TypeScript 검사는 통과했다. 전용 PostgreSQL 세션 시험은 현 셸에 테스트 DB 인증 설정이 없어 연결 전에 중단했으며, 비밀값을 조회·출력하지 않았다. 실제 카카오 로그인 계정의 취소/오류, 브라우저 쿠키, 탈퇴 후 30일 스케줄러 실행은 staging 또는 로컬 사용자 브라우저에서 별도 확인이 필요하다. 배포·push·PR은 하지 않았다.
+
 ### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
 
 - CI 실패의 실제 원인은 `MemberLifecycleTest` fixture가 `Instant`를 `JdbcTemplate` 인자로

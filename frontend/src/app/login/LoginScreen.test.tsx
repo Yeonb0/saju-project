@@ -128,4 +128,20 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(router.replace).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["cancelled", "카카오 로그인이 취소되었습니다."],
+    ["failed", "카카오 로그인에 실패했습니다. 다시 시도해 주세요."],
+  ] as const)("카카오 콜백 %s 상태를 안전한 안내로 표시한다", (oauthStatus, message) => {
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <LoginScreen
+          returnTo="/wallet"
+          oauthStatus={oauthStatus}
+          port={createFakeSessionPort({ scenario: "signed_out" })}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+  });
 });
