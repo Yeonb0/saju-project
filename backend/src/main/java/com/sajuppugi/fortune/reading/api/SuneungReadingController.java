@@ -88,7 +88,8 @@ public class SuneungReadingController {
                 quote.id(), quote.productSnapshot().code(), new Charged(
                         quote.productSnapshot().price().currency().name(), quote.productSnapshot().price().amount()),
                 quote.expiresAt(), event, funded.walletBalance(), funded.balanceAfter(),
-                funded.shortage(), funded.recommendedTopUp())));
+                funded.shortage(), funded.recommendedTopUp(), quote.productSnapshot().productName(),
+                quote.productSnapshot().regularPrice())));
     }
 
     @GetMapping("/readings")
@@ -132,11 +133,13 @@ public class SuneungReadingController {
     }
 
     @Schema(requiredProperties = {"quoteId", "productCode", "charged", "expiresAt", "event", "walletBalance",
-            "balanceAfter", "shortage", "recommendedTopUp"})
+            "balanceAfter", "shortage", "recommendedTopUp", "productName", "regularPrice"})
     public record SuneungQuoteResponse(UUID quoteId, String productCode, Charged charged,
                                 Instant expiresAt, Event event, int walletBalance,
                                 @Schema(types = {"integer", "null"}) Integer balanceAfter, int shortage,
-                                @Schema(types = {"string", "null"}) String recommendedTopUp) {}
+                                @Schema(types = {"string", "null"}) String recommendedTopUp,
+                                String productName,
+                                @Schema(nullable = true) com.sajuppugi.catalog.domain.Price regularPrice) {}
 
     public record PurchaseResponse(UUID purchaseId, UUID readingId, String status,
                                    String calculationVersion, String generationVersion, String contentVersion,

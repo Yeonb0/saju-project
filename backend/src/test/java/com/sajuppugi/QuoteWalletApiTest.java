@@ -65,12 +65,21 @@ class QuoteWalletApiTest {
                 SELECT ?, 'SUNEUNG_READING_WITH_TALISMAN', 'READING', 'TURTLE_SHELL', 15, TRUE, 'test'
                 WHERE NOT EXISTS (SELECT 1 FROM products WHERE code = 'SUNEUNG_READING_WITH_TALISMAN')
                 """, UUID.randomUUID());
+        jdbc.update("UPDATE products SET active = TRUE WHERE code = 'SUNEUNG_READING_WITH_TALISMAN'");
     }
 
     @ParameterizedTest
     @CsvSource({"overall,OVERALL_FLOW", "love,CURRENT_RELATIONSHIP", "wealth,OVERALL_WEALTH",
             "compatibility,OVERALL_MATCH", "sinsal,OVERALL_SINSAL"})
     void categoryQuotesExposeFundingWithOneChargedShape(String category, String question) throws Exception {
+        String name = switch (category) {
+            case "overall" -> "종합운";
+            case "love" -> "애정운";
+            case "wealth" -> "재물운";
+            case "compatibility" -> "궁합";
+            case "sinsal" -> "신살";
+            default -> throw new IllegalArgumentException(category);
+        };
         lot(owner, "PAID", 7, -1, 3600);
         jdbc.update("UPDATE products SET active = FALSE WHERE category = 'TOP_UP'");
         jdbc.update("UPDATE products SET active = TRUE WHERE code = 'TURTLE_SHELL_10'");
@@ -84,6 +93,8 @@ class QuoteWalletApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.charged.currency").value("TURTLE_SHELL"))
                 .andExpect(jsonPath("$.data.charged.amount").value(15))
+                .andExpect(jsonPath("$.data.productName").value(name + " + 부적"))
+                .andExpect(jsonPath("$.data.regularPrice.amount").value(20))
                 .andExpect(jsonPath("$.data.walletBalance").value(7))
                 .andExpect(jsonPath("$.data.balanceAfter").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.data.shortage").value(8))
@@ -101,6 +112,9 @@ class QuoteWalletApiTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"personId\":\"" + person + "\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.charged.amount").value(15))
+                .andExpect(jsonPath("$.data.productName").value("수능운 + 부적"))
+                .andExpect(jsonPath("$.data.regularPrice.currency").value("TURTLE_SHELL"))
+                .andExpect(jsonPath("$.data.regularPrice.amount").value(20))
                 .andExpect(jsonPath("$.data.event.type").value("CSAT"))
                 .andExpect(jsonPath("$.data.walletBalance").value(7))
                 .andExpect(jsonPath("$.data.shortage").value(8))
@@ -109,10 +123,13 @@ class QuoteWalletApiTest {
                 .andExpect(jsonPath("$.data.amount").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
         UUID quote = UUID.fromString(JsonPath.read(response, "$.data.quoteId"));
+        jdbc.update("UPDATE products SET product_name = 'Changed', regular_price_amount = 30 WHERE code = 'SUNEUNG_READING_WITH_TALISMAN'");
         lot(owner, "PAID", 10, -1, 3600);
         mvc.perform(get("/api/v1/quotes/{id}", quote).with(user(owner.toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.charged.amount").value(15))
+                .andExpect(jsonPath("$.data.productName").value("수능운 + 부적"))
+                .andExpect(jsonPath("$.data.regularPrice.amount").value(20))
                 .andExpect(jsonPath("$.data.walletBalance").value(17))
                 .andExpect(jsonPath("$.data.balanceAfter").value(2))
                 .andExpect(jsonPath("$.data.shortage").value(0))

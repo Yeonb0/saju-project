@@ -428,6 +428,17 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-11: FE 요청 Q-28 상품 표시·운세 목록 구현
+
+- A 로컬 codex/fe-handoff-notes, f02e4f6 이후 작업. GET /products에 FORTUNE/fortuneType 필터와 option/상품명/정가/판매 종료 시각을 추가했다. 충전 응답의 예정 지급량은 기존 의미를 유지한다.
+- 일반 운세/수능 견적 POST와 GET에 productName/regularPrice를 추가하고 견적 생성 시 저장한다. 카탈로그 수정 후 기존 견적의 이름·정가는 바뀌지 않는다. 기록이 없는 기존/구 버전 견적은 코드 이름과 정가 null이며 현재 카탈로그로 소급 채우지 않는다.
+- 추가형 V202610111000 migration: nullable 표시 정보와 정가 제약, 알려진 상품 metadata, 누락된 수능 상품 비활성 등록. 충전 활성화/구매 기능 설정/PG 키/개발 DB는 변경하지 않았다.
+- 적용: 6-1 상품 GET 공개 범위와 견적 소유권 유지, 6-2 조회 무쓰기/가격 및 표시 snapshot, 6-6 추가형 migration/기존 견적 null 호환/로컬과 main 구분, 6-9 키·개인정보 미사용.
+- 실제 검증: 분리된 localhost:55432/sajuppugi_test PostgreSQL 17.11에서 check/bootJar 전체 회귀 357개, 성공 354/실패·오류 0/의도적 제외 3. 실제 Liner, opt-in export 테스트, 지갑 실습 제외이며 OpenAPI export는 별도 task로 실행한다.
+- 검증 내용: 운세 옵션/이름/정가, 충전 6종 예정량 유지, 비활성·판매 기간 필터, 잘못된 category/fortuneType, 견적 가격·표시 정보 변경 후 snapshot 유지, 기록 없는 견적 null 처리, 기존 권한·잔액·원장 회귀. nullable 금액/enum은 JSON Schema 검증기로 값/null 허용과 잘못된 값 거절을 확인했다.
+- 초기 실행에서 잘못 지정한 테스트 상품명과 OpenAPI 3.1 nullable 참조 표현 문제를 발견해 수정하고 전체 재검증했다. 읽기 전용 SQL에서 새 migration success=true와 활성 충전 0개를 확인했다. 구/신 앱 동시 실행 및 staging migration/복귀 훈련은 미실행이다.
+- 남음: 충전 HTTP 승인/원자적 지급/결과 불명 worker, processing/지급 후 잔액, 선물, 실제 토스 및 로그인·인물 연결 E2E, 문의·PG 상담·고정 staging 주소. 테스트 키 준비는 사용자 회신이며 팀 상점용 여부는 아직 미확인이다. push/PR/배포/심사 제출은 하지 않았다.
+
 ### 2026-10-11: FE/B 회신 수용·미확정 분리와 원격 코드 대조
 
 - 사용자 제공 FE 회신과 A/B 합의 회신을 읽고 origin을 fetch했다. origin/main f704145는 FE PR #18 병합, origin/boyeon 1fcd9c0은 수능 adapter 후속, B 원격 81410c3 확인. 로컬 A eee0128에서 검토했고 최신 main을 작업 브랜치에 병합하지 않았다.

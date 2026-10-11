@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -69,12 +70,45 @@ class TopUpProductApiTest {
     @Test
     void rejectsMissingUnsupportedAndIncompatibleFilters() throws Exception {
         mvc.perform(get("/api/v1/products")).andExpect(status().isBadRequest());
-        for (String category : java.util.List.of("FORTUNE", "GIFT", "UNKNOWN", "")) {
+        for (String category : java.util.List.of("GIFT", "UNKNOWN", "")) {
             mvc.perform(get("/api/v1/products").param("category", category))
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
         }
         mvc.perform(get("/api/v1/products").param("category", "TOP_UP").param("fortuneType", "LOVE"))
                 .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/products").param("category", "FORTUNE").param("fortuneType", "UNKNOWN"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void fortuneCatalogExposesOptionsNamesAndRegularMoneyWithoutAuthentication() throws Exception {
+        mvc.perform(get("/api/v1/products").param("category", "FORTUNE").param("fortuneType", "LOVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].productName").value("애정운"))
+                .andExpect(jsonPath("$.data.items[0].fortuneType").value("LOVE"))
+                .andExpect(jsonPath("$.data.items[0].option").value("READING_ONLY"))
+                .andExpect(jsonPath("$.data.items[0].saleEndsAt").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].price.amount").value(10))
+                .andExpect(jsonPath("$.data.items[0].regularPrice").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].paidAmount").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[1].productName").value("애정운 + 부적"))
+                .andExpect(jsonPath("$.data.items[1].price.amount").value(15))
+                .andExpect(jsonPath("$.data.items[1].regularPrice.currency").value("TURTLE_SHELL"))
+                .andExpect(jsonPath("$.data.items[1].regularPrice.amount").value(20));
+    }
+
+    @Test
+    void suneungHasOnlyBundleAndStillRequiresExplicitActivation() throws Exception {
+        jdbc.update("UPDATE products SET active = FALSE WHERE code = 'SUNEUNG_READING_WITH_TALISMAN'");
+        mvc.perform(get("/api/v1/products").param("category", "FORTUNE").param("fortuneType", "SUNEUNG"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items").isEmpty());
+        jdbc.update("UPDATE products SET active = TRUE WHERE code = 'SUNEUNG_READING_WITH_TALISMAN'");
+        mvc.perform(get("/api/v1/products").param("category", "FORTUNE").param("fortuneType", "SUNEUNG"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].option").value("READING_WITH_TALISMAN"))
+                .andExpect(jsonPath("$.data.items[0].regularPrice.amount").value(20));
     }
 
     private int count(String table) {

@@ -272,12 +272,14 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 
 ### `GET /products`
 
-Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
+Query: `category=TOP_UP|FORTUNE`, 선택적 `fortuneType`. `GIFT`는 후속 구현 대상이다.
 
-구현 범위(2026-10-10, A 로컬): `GET /api/v1/products?category=TOP_UP`만 제공한다.
-로그인 없이 판매 가능한 충전 상품을 조회하고 아래 TOP_UP 필드와 공통 `data` 응답을 사용한다.
-기본 판매 차단 상태에서는 `data.items=[]`다. category 누락/미지원 값 및 fortuneType은 400이다.
-아래 FORTUNE/GIFT와 혼합 목록은 목표 계약이며 아직 제공하지 않는다.
+구현 범위(2026-10-11, A 로컬): `category=TOP_UP|FORTUNE`을 제공한다. GIFT와 category 생략은 아직 지원하지 않는다.
+로그인 없이 현재 활성/판매 기간 내 상품만 조회하고 공통 `data.items` 응답을 사용한다.
+FORTUNE은 선택적으로 `fortuneType=OVERALL|LOVE|WEALTH|COMPATIBILITY|SINSAL|SUNEUNG`으로 필터링한다.
+category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType 조합은 400이다.
+판매 준비가 안 된 상품은 목록에서 제외된다. 기본 충전/수능 상품은 비활성이며 이번 변경으로 판매를 켜지 않는다.
+표시 정보가 미등록된 운세 상품도 제외한다. 이 API는 비활성 상품까지 나열하는 심사용 소개 목록이 아니다.
 
 ```json
 {
@@ -287,13 +289,23 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
       "category": "FORTUNE",
       "fortuneType": "LOVE",
       "option": "READING_ONLY",
-      "price": { "currency": "TURTLE_SHELL", "amount": 30 },
+      "productName": "애정운",
+      "price": { "currency": "TURTLE_SHELL", "amount": 10 },
+      "regularPrice": null,
+      "paidAmount": null,
+      "bonusAmount": null,
+      "creditedAmount": null,
       "active": true,
       "saleEndsAt": null
     },
     {
       "code": "TURTLE_SHELL_100",
       "category": "TOP_UP",
+      "productName": "조개 100개 충전",
+      "regularPrice": null,
+      "fortuneType": null,
+      "option": null,
+      "saleEndsAt": null,
       "price": { "currency": "KRW", "amount": 10000 },
       "paidAmount": 100,
       "bonusAmount": 14,
@@ -305,6 +317,9 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 ```
 
 - 비활성 상품은 구매할 수 없다.
+- 예시는 각 category 응답의 항목을 함께 설명한 것이다. 실제 응답은 요청 category 하나만 포함한다.
+- `regularPrice`는 `{currency, amount}` 또는 null이다. 일반 운세+부적/수능운은 정가 20, 판매가 15개다.
+- 목록의 `option`을 견적 요청의 `productOption`으로 매핑한다. TOP_UP의 지급량은 완료 증거가 아닌 예정량이다.
 - 선물 상품 원화 가격은 `TBD(P-03A)`가 확정된 뒤 등록한다.
 
 ### `POST /quotes/fortune/{category}`
@@ -338,7 +353,7 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 - 일반 운세 `READING_ONLY`는 등껍질 10개, `READING_WITH_TALISMAN`은 15개다.
 
 응답은 `quoteId`, `productCode`, `productOption`, `questionKey`, `charged`, `expiresAt`,
-`walletBalance`, `balanceAfter`, `shortage`, `recommendedTopUp`을 반환한다.
+`walletBalance`, `balanceAfter`, `shortage`, `recommendedTopUp`, `productName`, `regularPrice`를 반환한다.
 
 - `charged`는 일반 운세·수능운 공통의 사용 등껍질 값 `{currency, amount}`다.
 - `walletBalance`는 조회 시점의 사용 가능한 유료+보너스 잔액이다.
@@ -358,6 +373,8 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 {
   "quoteId": "uuid",
   "productCode": "SUNEUNG_READING_WITH_TALISMAN",
+  "productName": "수능운 + 부적",
+  "regularPrice": { "currency": "TURTLE_SHELL", "amount": 20 },
   "charged": { "currency": "TURTLE_SHELL", "amount": 15 },
   "walletBalance": 7,
   "balanceAfter": null,
@@ -375,8 +392,10 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 - 인증 필요. 본인 운세/추가 부적 견적의 소유자만 조회한다.
 - `quoteId`, `productCode`, `charged`, `expiresAt`, `walletBalance`, `balanceAfter`,
-  `shortage`, `recommendedTopUp`을 반환한다. 일반 견적 POST의 옵션·질문, 수능 event는 이 재조회 DTO에 없다.
+  `shortage`, `recommendedTopUp`, `productName`, `regularPrice`를 반환한다. 일반 견적 POST의 옵션·질문, 수능 event는 이 재조회 DTO에 없다.
 - 저장된 가격·만료는 유지하고 잔액·부족분·추천은 재조회 시점에 다시 계산한다.
+- 상품명·정가도 견적 생성 시 snapshot을 저장한다. 이후 카탈로그 수정은 기존 견적에 반영하지 않는다.
+- 변경 전 견적/구 버전 앱이 생성한 견적은 당시 표시 기록이 없어 productName에 상품 코드를 사용하고 regularPrice는 null이다.
 - 본인 만료 견적은 `409 QUOTE_EXPIRED`, 타인/미존재는 같은 `404 RESOURCE_NOT_FOUND`다.
 - 차감, 지급, 견적 구매 연결을 수행하지 않으며 인물 이름·생년정보·context hash를 노출하지 않는다.
 - 선물 다건 견적은 별도 계약이며 이 경로의 이번 구현 범위에 포함하지 않는다.

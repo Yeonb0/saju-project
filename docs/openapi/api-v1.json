@@ -535,6 +535,9 @@
           "productCode" : {
             "type" : "string"
           },
+          "productName" : {
+            "type" : "string"
+          },
           "productOption" : {
             "type" : "string"
           },
@@ -548,6 +551,13 @@
           "recommendedTopUp" : {
             "type" : [ "string", "null" ]
           },
+          "regularPrice" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Price"
+            }, {
+              "type" : "null"
+            } ]
+          },
           "shortage" : {
             "format" : "int32",
             "type" : "integer"
@@ -557,7 +567,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "balanceAfter", "charged", "expiresAt", "productCode", "productOption", "questionKey", "quoteId", "recommendedTopUp", "shortage", "walletBalance" ],
+        "required" : [ "balanceAfter", "charged", "expiresAt", "productCode", "productName", "productOption", "questionKey", "quoteId", "recommendedTopUp", "regularPrice", "shortage", "walletBalance" ],
         "type" : "object"
       },
       "CategoryReadingSummary" : {
@@ -768,12 +778,22 @@
           "productCode" : {
             "type" : "string"
           },
+          "productName" : {
+            "type" : "string"
+          },
           "quoteId" : {
             "format" : "uuid",
             "type" : "string"
           },
           "recommendedTopUp" : {
             "type" : [ "string", "null" ]
+          },
+          "regularPrice" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Price"
+            }, {
+              "type" : "null"
+            } ]
           },
           "shortage" : {
             "format" : "int32",
@@ -784,7 +804,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "balanceAfter", "charged", "expiresAt", "productCode", "quoteId", "recommendedTopUp", "shortage", "walletBalance" ],
+        "required" : [ "balanceAfter", "charged", "expiresAt", "productCode", "productName", "quoteId", "recommendedTopUp", "regularPrice", "shortage", "walletBalance" ],
         "type" : "object"
       },
       "GeneratedSection" : {
@@ -946,11 +966,72 @@
         },
         "type" : "object"
       },
+      "ProductResponse" : {
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "bonusAmount" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "category" : {
+            "enum" : [ "TOP_UP", "FORTUNE" ],
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "creditedAmount" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "fortuneType" : {
+            "oneOf" : [ {
+              "enum" : [ "OVERALL", "LOVE", "WEALTH", "COMPATIBILITY", "SINSAL", "SUNEUNG" ],
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "option" : {
+            "oneOf" : [ {
+              "enum" : [ "READING_ONLY", "READING_WITH_TALISMAN" ],
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "paidAmount" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "price" : {
+            "$ref" : "#/components/schemas/Price"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "regularPrice" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Price"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "saleEndsAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "active", "bonusAmount", "category", "code", "creditedAmount", "fortuneType", "option", "paidAmount", "price", "productName", "regularPrice", "saleEndsAt" ],
+        "type" : "object"
+      },
       "ProductsResponse" : {
         "properties" : {
           "items" : {
             "items" : {
-              "$ref" : "#/components/schemas/TopUpResponse"
+              "$ref" : "#/components/schemas/ProductResponse"
             },
             "type" : "array"
           }
@@ -1349,12 +1430,22 @@
           "productCode" : {
             "type" : "string"
           },
+          "productName" : {
+            "type" : "string"
+          },
           "quoteId" : {
             "format" : "uuid",
             "type" : "string"
           },
           "recommendedTopUp" : {
             "type" : [ "string", "null" ]
+          },
+          "regularPrice" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Price"
+            }, {
+              "type" : "null"
+            } ]
           },
           "shortage" : {
             "format" : "int32",
@@ -1365,7 +1456,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "balanceAfter", "charged", "event", "expiresAt", "productCode", "quoteId", "recommendedTopUp", "shortage", "walletBalance" ],
+        "required" : [ "balanceAfter", "charged", "event", "expiresAt", "productCode", "productName", "quoteId", "recommendedTopUp", "regularPrice", "shortage", "walletBalance" ],
         "type" : "object"
       },
       "Talisman" : {
@@ -1408,37 +1499,6 @@
             "$ref" : "#/components/schemas/TenGodPosition"
           }
         },
-        "type" : "object"
-      },
-      "TopUpResponse" : {
-        "properties" : {
-          "active" : {
-            "type" : "boolean"
-          },
-          "bonusAmount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "category" : {
-            "enum" : [ "TOP_UP" ],
-            "type" : "string"
-          },
-          "code" : {
-            "type" : "string"
-          },
-          "creditedAmount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "paidAmount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "price" : {
-            "$ref" : "#/components/schemas/Price"
-          }
-        },
-        "required" : [ "active", "bonusAmount", "category", "code", "creditedAmount", "paidAmount", "price" ],
         "type" : "object"
       },
       "TwelveStages" : {
@@ -1565,14 +1625,14 @@
     },
     "/api/v1/products" : {
       "get" : {
-        "description" : "Currently supports category=TOP_UP only. Returns available products, not a price reservation.",
+        "description" : "Supports TOP_UP and FORTUNE. Only currently available products are returned; omission means unavailable. Not a price reservation.",
         "operationId" : "listTopUpProducts",
         "parameters" : [ {
           "in" : "query",
           "name" : "category",
           "required" : true,
           "schema" : {
-            "enum" : [ "TOP_UP" ],
+            "enum" : [ "TOP_UP", "FORTUNE" ],
             "type" : "string"
           }
         }, {
@@ -1580,6 +1640,7 @@
           "name" : "fortuneType",
           "required" : false,
           "schema" : {
+            "enum" : [ "OVERALL", "LOVE", "WEALTH", "COMPATIBILITY", "SINSAL", "SUNEUNG" ],
             "type" : "string"
           }
         } ],

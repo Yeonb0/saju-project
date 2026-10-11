@@ -65,11 +65,15 @@ public class JdbcCatalogRepository implements CatalogRepository {
         jdbc.update("""
                 INSERT INTO purchase_quotes (id, requester_user_id, product_id, product_code, category,
                 price_currency, price_amount, active, sale_start_at, sale_end_at, catalog_version,
-                context_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                context_hash, created_at, expires_at, product_name, regular_price_amount, fortune_type,
+                product_option) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, quote.id(), quote.requesterUserId(), product.id(), product.code(), product.category().name(),
                 product.price().currency().name(), product.price().amount(), product.active(),
                 timestamp(product.saleStartsAt()), timestamp(product.saleEndsAt()), product.catalogVersion(),
-                quote.contextHash(), timestamp(quote.createdAt()), timestamp(quote.expiresAt()));
+                quote.contextHash(), timestamp(quote.createdAt()), timestamp(quote.expiresAt()),
+                product.productName(), product.regularPrice() == null ? null : product.regularPrice().amount(),
+                product.fortuneType() == null ? null : product.fortuneType().name(),
+                product.productOption() == null ? null : product.productOption().name());
     }
 
     @Override
@@ -84,7 +88,11 @@ public class JdbcCatalogRepository implements CatalogRepository {
                 Product.Category.valueOf(rs.getString("category")),
                 new Price(Price.Currency.valueOf(rs.getString("price_currency")), rs.getInt("price_amount")),
                 rs.getBoolean("active"), instant(rs, "sale_start_at"), instant(rs, "sale_end_at"),
-                rs.getString("catalog_version"));
+                rs.getString("catalog_version"), rs.getString("product_name"),
+                rs.getObject("regular_price_amount") == null ? null : new Price(
+                        Price.Currency.valueOf(rs.getString("price_currency")), rs.getInt("regular_price_amount")),
+                rs.getString("fortune_type") == null ? null : Product.FortuneType.valueOf(rs.getString("fortune_type")),
+                rs.getString("product_option") == null ? null : Product.ProductOption.valueOf(rs.getString("product_option")));
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {
