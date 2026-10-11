@@ -727,3 +727,5 @@ LIMIT 20;
 - 만료 lease에서 최대 시도 횟수에 도달한 GENERATING 구매는 `GENERATION_RETRY_EXHAUSTED`로 FAILED 전이한다. scheduler는 purchase별 예외를 격리해 한 손상 행이 배치 전체를 중단하지 않게 했다.
 - generation context는 기존 person AES-GCM 보호기를 이용한 `enc:v1:` 암호문으로 저장한다. PostgreSQL에서 표시 이름과 생년일 원문이 보이지 않고 복호화 recovery가 성공함을 확인했다. 회원 탈퇴 최종 익명화 때 context를 NULL로 지운다. 기존 평문 context는 혼합 배포 호환을 위해 읽을 수 있으므로 운영 배포 전 재암호화/삭제 계획이 필요하다.
 - 관련 H2 운세·생성·보상·회원 테스트와 PostgreSQL recovery 경쟁/소진 테스트를 통과했다. 실제 staging SIGKILL/live Liner/운영 부하는 확인하지 않았다. 구매 기능과 recovery 기본 비활성은 유지한다.
+- 후속 품질 보완으로 lease 없는 FULFILLED 저장 API와 직접 GENERATING 전이를 제거하고 부적 포함 완료도 현재 lease/fence를 필수화했다. 기존 구매는 견적 만료·판매 기간·현재 인물 상태보다 먼저 소유자 quote snapshot을 검증해 replay한다. 신규 구매에만 현재 만료/판매 검사를 적용한다.
+- 기동 시 generation lease가 Liner 3회 connect/read timeout 합계와 10초 완료 여유보다 긴지 검증한다. 잘못된 설정은 중복 provider 호출 위험이 있으므로 서버 기동을 거절한다. 관련 카탈로그·일반/수능·부적 트랜잭션·설정 단위 테스트를 통과했다.
