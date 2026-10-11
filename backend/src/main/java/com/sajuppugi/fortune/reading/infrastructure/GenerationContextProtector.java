@@ -1,26 +1,39 @@
 package com.sajuppugi.fortune.reading.infrastructure;
 
-import com.sajuppugi.person.infrastructure.PersonDataProtector;
+import com.sajuppugi.common.crypto.AesGcmCipher;
+import com.sajuppugi.person.infrastructure.PersonDataProtectionProperties;
 import java.util.Base64;
 import org.springframework.stereotype.Component;
 
 @Component
 public class GenerationContextProtector {
-    private static final String PREFIX = "enc:v1:";
-    private final PersonDataProtector protector;
+    private static final String LEGACY_PREFIX = "enc:v1:";
+    private static final String CURRENT_PREFIX = "enc:v2:";
+    private final AesGcmCipher current;
+    private final AesGcmCipher legacy;
 
-    public GenerationContextProtector(PersonDataProtector protector) {
-        this.protector = protector;
+    public GenerationContextProtector(GenerationContextProtectionProperties properties,
+                                      PersonDataProtectionProperties legacyProperties) {
+        current = new AesGcmCipher(properties.encryptionKey(), "GENERATION_CONTEXT_ENCRYPTION_KEY");
+        legacy = new AesGcmCipher(legacyProperties.encryptionKey(), "PERSON_ENCRYPTION_KEY");
     }
 
     public String encrypt(String json) {
-        return PREFIX + Base64.getEncoder().encodeToString(protector.encrypt(json));
+        return CURRENT_PREFIX + Base64.getEncoder().encodeToString(current.encrypt(json));
     }
 
     public String decrypt(String stored) {
         if (stored == null) return null;
-        if (!stored.startsWith(PREFIX)) return stored; // deployment compatibility for pre-encryption rows
-        byte[] encrypted = Base64.getDecoder().decode(stored.substring(PREFIX.length()));
-        return protector.decrypt(encrypted);
+        if (stored.startsWith(CURRENT_PREFIX)) {
+            return current.decrypt(Base64.getDecoder().decode(stored.substring(CURRENT_PREFIX.length())));
+        }
+        if (stored.startsWith(LEGACY_PREFIX)) {
+            return legacy.decrypt(Base64.getDecoder().decode(stored.substring(LEGACY_PREFIX.length())));
+        }
+        return stored;
+    }
+
+    public boolean needsReencryption(String stored) {
+        return stored != null && !stored.startsWith(CURRENT_PREFIX);
     }
 }

@@ -12,6 +12,8 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey;
 import com.sajuppugi.fortune.reading.application.GenerationRecoveryService;
 import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
+import com.sajuppugi.fortune.reading.infrastructure.GenerationContextProtector;
+import com.sajuppugi.fortune.reading.infrastructure.GenerationContextReencryptionService;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -40,6 +42,24 @@ class GenerationRecoveryPostgresTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ReadingRepository readings;
     @Autowired GenerationRecoveryService recovery;
+    @Autowired GenerationContextProtector contextProtector;
+    @Autowired GenerationContextReencryptionService reencryption;
+
+    @Test
+    void legacyPlaintextContextIsReencryptedIdempotentlyAndRemainsRecoverable() {
+        Fixture fixture = fixture();
+        String encrypted = jdbc.queryForObject(
+                "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class, fixture.purchase());
+        String plaintext = contextProtector.decrypt(encrypted);
+        jdbc.update("UPDATE reading_purchases SET generation_context = ? WHERE id = ?", plaintext, fixture.purchase());
+
+        assertThat(reencryption.reencryptBatch(100)).isGreaterThanOrEqualTo(1);
+        String migrated = jdbc.queryForObject(
+                "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class, fixture.purchase());
+        assertThat(migrated).startsWith("enc:v2:").doesNotContain("테스트", "2004-03-15");
+        assertThat(reencryption.reencryptBatch(100)).isZero();
+        assertThat(recovery.recover(fixture.purchase())).isEqualTo(GenerationRecoveryService.Outcome.FULFILLED);
+    }
 
     @Test
     void twoWorkersRecoverOneDebitedPurchaseExactlyOnce() throws Exception {
@@ -68,7 +88,7 @@ class GenerationRecoveryPostgresTest {
                 person, "테스트", null, null, null, "OVERALL_FLOW", false));
         String storedContext = jdbc.queryForObject(
                 "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class, purchase);
-        assertThat(storedContext).startsWith("enc:v1:").doesNotContain("테스트", "2004-03-15");
+        assertThat(storedContext).startsWith("enc:v2:").doesNotContain("테스트", "2004-03-15");
 
         var pool = Executors.newFixedThreadPool(2);
         try {

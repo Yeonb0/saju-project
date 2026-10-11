@@ -71,6 +71,11 @@ app:
       batch-size: 20
       poll-delay: 30s
   reading:
+    generation-context-protection:
+      encryption-key: ${GENERATION_CONTEXT_ENCRYPTION_KEY:}
+    generation-context-reencryption:
+      enabled: ${GENERATION_CONTEXT_REENCRYPTION_ENABLED:false}
+      batch-size: ${GENERATION_CONTEXT_REENCRYPTION_BATCH_SIZE:100}
     generation:
       lease-duration: ${READING_GENERATION_LEASE_DURATION:2m}
     generation-recovery:
