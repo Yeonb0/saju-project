@@ -440,6 +440,13 @@ LIMIT 20;
   실패/오류 0, 의도적 제외 2를 확인했다. 실제 PostgreSQL migration/동시성 회귀, staging,
   실제 Toss/Liner, 브라우저 E2E와 배포는 이번 충돌 해결에서 검증하지 않았다.
 
+### 2026-10-11: 카카오 OAuth 서버 세션 기반 초안
+
+- `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`만 서버 환경에서 읽도록 구성했다. 키, 인가 코드, 카카오 access token은 DB·로그·HTTP 응답에 저장하지 않는다.
+- `/api/v1/auth/kakao/authorize`, callback, `/api/v1/session`, 로그아웃 경로와 불투명 HttpOnly 세션 쿠키를 추가했다. OAuth state는 해시와 만료 시각만 PostgreSQL에 저장·1회 소비하며, returnTo는 내부 상대 경로로 제한한다. 세션·CSRF 원문도 저장하지 않고 해시로 검증한다.
+- 적용: 6-1 세션·CSRF·returnTo·소유권 전제, 6-6 추가 Flyway migration, 6-9 닉네임 최소 저장 및 비밀값 비노출. 카카오 토큰 요청은 DB 트랜잭션 밖에서 수행한다.
+- `./gradlew test`는 H2 PostgreSQL 호환 모드에서 성공했다. 실제 PostgreSQL migration, 실제 카카오 로그인, 브라우저 쿠키/CSRF E2E, staging CORS·HTTPS cookie와 다중 인스턴스 시험은 아직 수행하지 않았다.
+
 ### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
 
 - CI 실패의 실제 원인은 `MemberLifecycleTest` fixture가 `Instant`를 `JdbcTemplate` 인자로
