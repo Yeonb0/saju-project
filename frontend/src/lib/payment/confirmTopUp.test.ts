@@ -51,6 +51,8 @@ function state(status: TopUpOrderState["status"]): TopUpOrderState {
     status,
     processing: status === "PAID",
     walletBalance: null,
+    grantedShellAmount: null,
+    nextAction: "NONE",
   };
 }
 
@@ -71,9 +73,47 @@ describe("readPaymentReturn", () => {
       readPaymentReturn(new URLSearchParams(`orderId=${ORDER_ID}&amount=1`)),
     ).toBeNull();
   });
+
+  it.each([
+    "abc",
+    "0",
+    "-1",
+    "1.5",
+    "1e3",
+    "99999999999999999",
+  ])("k. amount %s 는 null (승인 요청을 보내지 않는다)", (amount) => {
+    const params = new URLSearchParams({
+      paymentKey: "pk",
+      orderId: ORDER_ID,
+      amount,
+    });
+    expect(readPaymentReturn(params)).toBeNull();
+  });
+
+  it.each(["5000", "05000"])("k. amount %s 는 문자열 그대로", (amount) => {
+    const params = new URLSearchParams({
+      paymentKey: "pk",
+      orderId: ORDER_ID,
+      amount,
+    });
+    expect(readPaymentReturn(params)).toEqual({
+      paymentKey: "pk",
+      orderId: ORDER_ID,
+      amount,
+    });
+  });
 });
 
 describe("confirmTopUp (TOPUP-DONE)", () => {
+  it("l. credited 결과에 grantedShellAmount 가 서버(가짜) 값 그대로 담긴다", async () => {
+    const { result } = await run("credited");
+    // FIXTURE_TOP_UP_B 의 픽스처 creditedAmount — 실제 지급량이 아니다
+    expect(result).toMatchObject({
+      kind: "credited",
+      grantedShellAmount: 24,
+    });
+  });
+
   it("승인 응답이 CREDITED 면 바로 완료, 조회하지 않는다", async () => {
     const { result, port } = await run("credited");
     expect(result.kind).toBe("credited");
@@ -199,6 +239,7 @@ describe("pollTopUpOrder", () => {
       kind: "credited",
       orderId: ORDER_ID,
       walletBalance: 9,
+      grantedShellAmount: null,
     });
   });
 

@@ -186,6 +186,8 @@ describe("TopUpSuccess (/pay/success)", () => {
         status: "CREDITED" as const,
         processing: false,
         walletBalance: null,
+        grantedShellAmount: null,
+        nextAction: "NONE" as const,
       })),
       getOrder: vi.fn(),
     };

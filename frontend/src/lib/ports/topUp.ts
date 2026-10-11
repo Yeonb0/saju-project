@@ -46,13 +46,33 @@ export type TopUpOrder = Readonly<{
   status: TopUpOrderStatus;
 }>;
 
-// 승인 · 조회 결과. 충전 완료는 status === "CREDITED" 일 때만 (TOPUP-DONE).
-// processing 은 Q-17 계약 반영 전 초안이다. walletBalance 는 서버가 준 경우에만 숫자.
+// 서버가 알려주는 다음 행동 (OpenAPI OrderResponse.nextAction, Q-17 해결 PR #19). 모르는 값은 UNKNOWN.
+export const TOP_UP_NEXT_ACTIONS = [
+  "NONE",
+  "POLL",
+  "VIEW_WALLET",
+  "CONTACT_SUPPORT",
+  "RETRY_PAYMENT",
+] as const;
+
+export type TopUpNextAction = (typeof TOP_UP_NEXT_ACTIONS)[number] | "UNKNOWN";
+
+export function toTopUpNextAction(raw: string): TopUpNextAction {
+  return (TOP_UP_NEXT_ACTIONS as readonly string[]).includes(raw)
+    ? (raw as TopUpNextAction)
+    : "UNKNOWN";
+}
+
+// 승인 · 조회 결과. 충전 완료는 status === "CREDITED" 일 때만 (TOPUP-DONE). 근거: Q-17 해결 (PR #19).
+// walletBalance 는 지급 당시 잔액 snapshot 이다 — 현재 잔액은 getWallet. grantedShellAmount 는 CREDITED 일 때 실제 지급량 (서버 값만, 아니면 null).
+// null 을 0 으로 바꾸지 않는다. failureCode 는 포트에 넣지 않는다 (TODO(Q-33): 실패 사유 문구 미정, 토스 원문 비노출).
 export type TopUpOrderState = Readonly<{
   orderId: string;
   status: TopUpOrderStatus;
   processing: boolean;
   walletBalance: number | null;
+  grantedShellAmount: number | null;
+  nextAction: TopUpNextAction;
 }>;
 
 // PG 복귀 쿼리 그대로. 계산 · 변환 없이 승인 요청에 넘긴다 (CLAUDE.md 원화 결제).

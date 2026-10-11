@@ -105,4 +105,19 @@ describe("가짜 충전 포트", () => {
     const port = createFakeTopUpPort();
     await expect(port.getOrder(KEY_2)).rejects.toMatchObject({ status: 404 });
   });
+
+  it("m. CREDITED 는 상품 creditedAmount 픽스처와 VIEW_WALLET, PAID 는 null 과 POLL", async () => {
+    const credited = await orderAndReturn({ scenario: "credited" });
+    const done = await credited.port.confirm(credited.ret);
+    // FIXTURE_TOP_UP_B 의 픽스처 creditedAmount — 실제 지급량이 아니다
+    expect(done.status).toBe("CREDITED");
+    expect(done.grantedShellAmount).toBe(24);
+    expect(done.nextAction).toBe("VIEW_WALLET");
+
+    const paid = await orderAndReturn({ scenario: "stuck_paid" });
+    const pending = await paid.port.confirm(paid.ret);
+    expect(pending.status).toBe("PAID");
+    expect(pending.grantedShellAmount).toBeNull();
+    expect(pending.nextAction).toBe("POLL");
+  });
 });

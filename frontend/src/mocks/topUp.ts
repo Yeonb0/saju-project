@@ -5,6 +5,7 @@
 import { ApiError, ApiNetworkError } from "@/lib/api/errors";
 import type {
   PaymentReturn,
+  TopUpNextAction,
   TopUpOrder,
   TopUpOrderState,
   TopUpOrderStatus,
@@ -120,12 +121,31 @@ export function createFakeTopUpPort(
     wallet.credit(stored.product.creditedAmount);
   }
 
+  // 서버 규칙 흉내 (Q-17 해결): 상태별 다음 행동
+  function nextActionOf(status: TopUpOrderStatus): TopUpNextAction {
+    switch (status) {
+      case "CREDITED":
+        return "VIEW_WALLET";
+      case "PAID":
+        return "POLL";
+      case "FAILED":
+      case "CANCELED":
+        return "RETRY_PAYMENT";
+      default:
+        return "NONE";
+    }
+  }
+
   function stateOf(stored: StoredOrder): TopUpOrderState {
+    const credited = stored.status === "CREDITED";
     return {
       orderId: stored.order.orderId,
       status: stored.status,
       processing: stored.status === "PAID",
-      walletBalance: stored.status === "CREDITED" ? wallet.balance() : null,
+      walletBalance: credited ? wallet.balance() : null,
+      // 픽스처 상품의 creditedAmount — 실제 지급량이 아니다
+      grantedShellAmount: credited ? stored.product.creditedAmount : null,
+      nextAction: nextActionOf(stored.status),
     };
   }
 

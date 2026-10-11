@@ -22,6 +22,8 @@ export type ConfirmTopUpResult =
       kind: "credited";
       orderId: string;
       walletBalance: number | null;
+      // 서버가 준 실제 지급량 그대로 (TOPUP-DONE, Q-17 해결). null 을 0 으로 바꾸지 않는다
+      grantedShellAmount: number | null;
     }>
   | Readonly<{
       kind: "failed";
@@ -46,7 +48,8 @@ type Deps = {
   pollLimitMs?: number;
 };
 
-// PG 복귀 쿼리에서 세 값을 읽는다. 하나라도 없으면 null — 승인 요청을 보내지 않는다.
+// PG 복귀 쿼리에서 세 값을 읽는다. 하나라도 없거나 amount 가 1 이상의 안전한 정수 문자열이 아니면 null — 승인 요청을 보내지 않는다.
+// amount 문자열은 바꾸지 않고 그대로 담는다 (CLAUDE.md 원화 결제)
 export function readPaymentReturn(
   params: URLSearchParams,
 ): PaymentReturn | null {
@@ -54,6 +57,9 @@ export function readPaymentReturn(
   const orderId = params.get("orderId");
   const amount = params.get("amount");
   if (!paymentKey || !orderId || !amount) return null;
+  if (!/^\d+$/.test(amount)) return null;
+  const numeric = Number(amount);
+  if (numeric < 1 || !Number.isSafeInteger(numeric)) return null;
   return { paymentKey, orderId, amount };
 }
 
@@ -83,6 +89,7 @@ function settle(state: TopUpOrderState): ConfirmTopUpResult | null {
         kind: "credited",
         orderId: state.orderId,
         walletBalance: state.walletBalance,
+        grantedShellAmount: state.grantedShellAmount,
       };
     case "FAILED":
       return { kind: "failed", orderId: state.orderId, cause: "order_failed" };
