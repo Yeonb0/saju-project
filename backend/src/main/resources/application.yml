@@ -73,6 +73,11 @@ app:
   reading:
     generation:
       lease-duration: ${READING_GENERATION_LEASE_DURATION:2m}
+    generation-recovery:
+      enabled: ${READING_GENERATION_RECOVERY_ENABLED:false}
+      max-attempts: 3
+      batch-size: 20
+      poll-delay: 30s
   liner:
     adapter: ${LINER_ADAPTER:fake}
     base-url: ${LINER_BASE_URL:https://platform.liner.com/api/v1}

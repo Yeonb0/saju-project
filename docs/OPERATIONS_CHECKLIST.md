@@ -708,3 +708,10 @@ LIMIT 20;
 - 일반·수능 동기 구매는 `DEBITED`/`GENERATING` 상태에서 lease를 원자적으로 점유한 실행자만 FULFILLED/FAILED로 전이할 수 있다. lease가 만료된 뒤 새 실행자가 fence를 올리면 이전 실행자의 결과는 저장되지 않는다. Liner 호출은 lease를 획득한 뒤 DB 트랜잭션 밖에서 수행한다.
 - H2에서 `GeneralReadingApiTest`, `SuneungReadingApiTest`, `BasicSajuApiTest`를 실행해 성공했다. 실제 PostgreSQL migration/경쟁 실행, OS 강제 종료 뒤 worker 재개, lease 갱신/시도 한도, 결과 불명 대사는 아직 검증·구현하지 않았다.
 - 아직 scheduler가 `DEBITED`/stale `GENERATING` 구매를 재생성하지 않으므로 이 변경만으로 중단 복구가 완성된 것은 아니다. `WALLET_PURCHASES_ENABLED`와 recovery 기본 비활성은 유지한다. 로컬 커밋 `5f834c0`, `bb99259`; push/PR/배포는 하지 않았다.
+
+### 2026-10-11: B 생성 중단 재개 worker
+
+- `V202610112000`으로 차감 직후 외부 생성 전에 확정한 generation command와 결과 메타데이터를 저장한다. 생년 원문·세션·토큰은 포함하지 않으며, 재개 시 수정·삭제된 인물이나 만료된 견적을 다시 읽지 않는다.
+- `GenerationRecoveryScheduler`는 `WALLET_PURCHASES_ENABLED=true` 및 `READING_GENERATION_RECOVERY_ENABLED=true`일 때만 실행한다. DEBITED 또는 만료 lease의 GENERATING 구매를 찾고, 새 lease/fence를 얻은 실행자만 Liner 호출 뒤 FULFILLED/FAILED로 전이할 수 있다. 외부 호출은 DB 잠금 밖에서 한다.
+- 적용: 6-2 구매 상태와 결과 저장의 fence 조건, 6-3 Liner 결과 불명 재시도 경계, 6-4 중단 뒤 재개·stale 완료 차단, 6-6 추가형 migration/기본 비활성. 생성 실패는 기존 FAILED 보상 worker가 처리하는 경로를 유지한다.
+- H2에서 일반·수능 구매 API 테스트를 재실행해 성공했다. 실제 PostgreSQL에서 두 worker 경쟁, OS 강제 종료, lease 만료 뒤 늦은 완료, Liner 지연 및 보상 대사는 아직 검증하지 않았다. 운영 활성화·배포·push는 하지 않았다.

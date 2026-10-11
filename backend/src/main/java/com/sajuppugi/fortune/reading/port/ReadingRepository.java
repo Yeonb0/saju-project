@@ -16,6 +16,8 @@ public interface ReadingRepository {
     void releaseDebitClaim(UUID purchaseId, UUID claimToken);
     void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId);
     void saveGenerationContext(UUID purchaseId, GenerationResumeContext context);
+    List<UUID> findReadyGenerationRecoveries(Instant now, int maxAttempts, int limit);
+    Optional<GenerationRecoveryCandidate> findGenerationRecoveryCandidate(UUID purchaseId);
     void markGenerating(UUID purchaseId);
     Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now, Instant leaseUntil);
     void releaseGenerationLease(UUID purchaseId, GenerationLease lease);
@@ -29,4 +31,5 @@ public interface ReadingRepository {
                                          Instant beforeCreatedAt, UUID beforeId, int limit);
 
     record GenerationLease(UUID token, long fence) {}
+    record GenerationRecoveryCandidate(ReadingPurchase purchase, GenerationResumeContext context) {}
 }

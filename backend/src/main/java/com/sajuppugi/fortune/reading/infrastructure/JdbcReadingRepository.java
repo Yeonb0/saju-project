@@ -85,6 +85,26 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
+    public List<UUID> findReadyGenerationRecoveries(Instant now, int maxAttempts, int limit) {
+        return jdbc.query("""
+                SELECT id FROM reading_purchases
+                WHERE status IN ('DEBITED', 'GENERATING') AND generation_context IS NOT NULL
+                AND generation_attempts < ?
+                AND (status = 'DEBITED' OR generation_lease_token IS NULL OR generation_lease_until < ?)
+                ORDER BY created_at, id LIMIT ?
+                """, (rs, row) -> rs.getObject(1, UUID.class), maxAttempts, Timestamp.from(now), limit);
+    }
+
+    @Override
+    public Optional<GenerationRecoveryCandidate> findGenerationRecoveryCandidate(UUID purchaseId) {
+        return jdbc.query("""
+                SELECT * FROM reading_purchases WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
+                AND generation_context IS NOT NULL
+                """, (rs, row) -> new GenerationRecoveryCandidate(purchase(rs), context(rs.getString("generation_context"))),
+                purchaseId).stream().findFirst();
+    }
+
+    @Override
     public void markGenerating(UUID purchaseId) {
         requireOne(jdbc.update("UPDATE reading_purchases SET status = 'GENERATING' WHERE id = ? AND status = 'DEBITED'",
                 purchaseId), "mark purchase generating");
@@ -256,6 +276,14 @@ public class JdbcReadingRepository implements ReadingRepository {
                     instant(rs, "created_at"));
         } catch (JsonProcessingException exception) {
             throw new SQLException("Invalid reading snapshot", exception);
+        }
+    }
+
+    private GenerationResumeContext context(String value) throws SQLException {
+        try {
+            return mapper.readValue(value, GenerationResumeContext.class);
+        } catch (JsonProcessingException exception) {
+            throw new SQLException("Invalid reading generation context", exception);
         }
     }
 
