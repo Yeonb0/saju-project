@@ -105,6 +105,25 @@ class GenerationRecoveryPostgresTest {
                 fixture.purchase())).isEqualTo(1);
     }
 
+    @Test
+    void exhaustedStaleGenerationLeavesPollingAndMovesToFailedReviewPath() {
+        Fixture fixture = fixture();
+        jdbc.update("""
+                UPDATE reading_purchases SET status = 'GENERATING', generation_attempts = 3,
+                generation_lease_token = ?, generation_lease_until = ? WHERE id = ?
+                """, UUID.randomUUID(), Timestamp.from(Instant.now().minusSeconds(1)), fixture.purchase());
+
+        assertThat(readings.findExhaustedGenerationRecoveries(Instant.now(), 3, 20))
+                .contains(fixture.purchase());
+        assertThat(readings.markGenerationExhausted(fixture.purchase(), Instant.now(), 3)).isTrue();
+        assertThat(jdbc.queryForMap("""
+                SELECT status, failure_code, compensation_status FROM reading_purchases WHERE id = ?
+                """, fixture.purchase()))
+                .containsEntry("status", "FAILED")
+                .containsEntry("failure_code", "GENERATION_RETRY_EXHAUSTED")
+                .containsEntry("compensation_status", "NOT_REQUIRED");
+    }
+
     private Fixture fixture() {
         UUID user = UUID.randomUUID();
         UUID product = UUID.randomUUID();

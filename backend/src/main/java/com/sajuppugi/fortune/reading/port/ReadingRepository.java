@@ -17,6 +17,8 @@ public interface ReadingRepository {
     void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId);
     void saveGenerationContext(UUID purchaseId, GenerationResumeContext context);
     List<UUID> findReadyGenerationRecoveries(Instant now, int maxAttempts, int limit);
+    List<UUID> findExhaustedGenerationRecoveries(Instant now, int maxAttempts, int limit);
+    boolean markGenerationExhausted(UUID purchaseId, Instant now, int maxAttempts);
     Optional<GenerationRecoveryCandidate> findGenerationRecoveryCandidate(UUID purchaseId);
     void markGenerating(UUID purchaseId);
     Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now, Instant leaseUntil);

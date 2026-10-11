@@ -102,6 +102,27 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
+    public List<UUID> findExhaustedGenerationRecoveries(Instant now, int maxAttempts, int limit) {
+        return jdbc.query("""
+                SELECT id FROM reading_purchases
+                WHERE status = 'GENERATING' AND generation_attempts >= ?
+                AND (generation_lease_token IS NULL OR generation_lease_until < ?)
+                ORDER BY created_at, id LIMIT ?
+                """, (rs, row) -> rs.getObject(1, UUID.class), maxAttempts, Timestamp.from(now), limit);
+    }
+
+    @Override
+    public boolean markGenerationExhausted(UUID purchaseId, Instant now, int maxAttempts) {
+        return jdbc.update("""
+                UPDATE reading_purchases SET status = 'FAILED', failure_code = 'GENERATION_RETRY_EXHAUSTED',
+                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END,
+                generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_attempts >= ?
+                AND (generation_lease_token IS NULL OR generation_lease_until < ?)
+                """, purchaseId, maxAttempts, Timestamp.from(now)) == 1;
+    }
+
+    @Override
     public Optional<GenerationRecoveryCandidate> findGenerationRecoveryCandidate(UUID purchaseId) {
         return jdbc.query("""
                 SELECT * FROM reading_purchases WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
