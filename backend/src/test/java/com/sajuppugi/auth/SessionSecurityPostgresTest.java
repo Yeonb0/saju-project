@@ -12,7 +12,10 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -43,9 +46,11 @@ class SessionSecurityPostgresTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired AuthService auth;
+    @Autowired AuthRepository repository;
 
     private UUID userId;
     private UUID sessionId;
+    private String stateHash;
 
     @Test
     void durableOpaqueSessionCsrfAndLogoutWorkOnPostgres() throws Exception {
@@ -85,10 +90,34 @@ class SessionSecurityPostgresTest {
                 sessionId)).isTrue();
     }
 
+    @Test
+    void oauthStateCanBeConsumedOnlyOnceAcrossConcurrentPostgresRequests() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("sajuppugi_test");
+        stateHash = SecretHash.sha256("postgres-state-" + UUID.randomUUID());
+        repository.saveState(stateHash, "/me", NOW.plusSeconds(300));
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> consumeAfter(start));
+            var second = executor.submit(() -> consumeAfter(start));
+            start.countDown();
+            List<java.util.Optional<String>> results = List.of(first.get(), second.get());
+            assertThat(results).filteredOn(java.util.Optional::isPresent).singleElement()
+                    .isEqualTo(java.util.Optional.of("/me"));
+        }
+        assertThat(jdbc.queryForObject("SELECT consumed_at IS NOT NULL FROM oauth_login_states WHERE state_hash = ?",
+                Boolean.class, stateHash)).isTrue();
+    }
+
     @AfterEach
     void cleanUpSyntheticRows() {
         if (sessionId != null) jdbc.update("DELETE FROM user_sessions WHERE id = ?", sessionId);
         if (userId != null) jdbc.update("DELETE FROM users WHERE id = ?", userId);
+        if (stateHash != null) jdbc.update("DELETE FROM oauth_login_states WHERE state_hash = ?", stateHash);
+    }
+
+    private java.util.Optional<String> consumeAfter(CountDownLatch start) throws InterruptedException {
+        start.await();
+        return repository.consumeState(stateHash, NOW);
     }
 
     private static Timestamp timestamp(Instant value) { return Timestamp.from(value); }
