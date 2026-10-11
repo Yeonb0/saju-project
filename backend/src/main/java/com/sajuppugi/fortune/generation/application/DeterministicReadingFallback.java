@@ -27,14 +27,25 @@ public class DeterministicReadingFallback {
         Profile profile = profile(request.facts(), "");
         Profile counterpart = request.facts().has("counterpart")
                 ? profile(request.facts(), "/counterpart") : null;
-        List<String> evidence = counterpart == null ? CORE_FACTS : java.util.stream.Stream.concat(
-                CORE_FACTS.stream(), CORE_FACTS.stream().map(path -> "counterpart." + path)).toList();
         List<GeneratedSection> sections = request.allowedSections().stream()
-                .map(key -> new GeneratedSection(key, content(key, request.fortuneType(), profile, counterpart), evidence))
+                .map(key -> new GeneratedSection(key, content(key, request.fortuneType(), profile, counterpart),
+                        evidence(key, counterpart != null)))
                 .toList();
         return new LinerResponse(sections, List.of(), request.fortuneType()
                 == com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType.SUNEUNG
                 ? SuneungGuideFactory.fromSections(sections) : null);
+    }
+
+    private List<String> evidence(SectionKey key, boolean hasCounterpart) {
+        if (key == SectionKey.GOOD_PERIOD) {
+            return java.util.stream.Stream.concat(CORE_FACTS.stream(), java.util.stream.Stream.of("luck.annual[0].year"))
+                    .toList();
+        }
+        if (hasCounterpart) {
+            return java.util.stream.Stream.concat(CORE_FACTS.stream(),
+                    CORE_FACTS.stream().map(path -> "counterpart." + path)).toList();
+        }
+        return CORE_FACTS;
     }
 
     private Profile profile(JsonNode facts, String prefix) {
@@ -103,8 +114,10 @@ public class DeterministicReadingFallback {
                     .formatted(p.dayMaster, counterpartDayMaster(counterpart));
             case RELATIONSHIP_TIP -> "관계의 결과를 운세로 확정하지 말고 연락 빈도, 약속 이행, 경계 존중처럼 관찰 가능한 행동을 기준으로 판단하세요. %s의 보완점은 질문하고 확인하는 습관으로 채울 수 있습니다."
                     .formatted(p.weak);
-            case SPECIAL_STARS, BALANCING_SPECIAL_STARS -> "특수한 명리 표지는 성격이나 사건을 확정하는 진단이 아닙니다. %s 일간과 전체 오행 분포(%s)를 함께 보는 참고 신호로만 사용하고, 실제 선택은 현재 상황과 행동을 기준으로 하세요."
+            case SPECIAL_STARS -> "신살은 사건을 예언하거나 성격을 확정하는 진단이 아닙니다. %s 일간과 전체 오행 분포(%s)를 함께 살펴, 반복해서 드러나는 강점과 과해질 때의 신호를 발견하는 전통적 참고 표지로만 활용하세요."
                     .formatted(p.dayMaster, distribution);
+            case BALANCING_SPECIAL_STARS -> "신살의 이름보다 현실에서 조절할 행동을 정하는 편이 중요합니다. 강한 %s은 해야 할 일을 끝내는 데 쓰고, 상대적으로 적은 %s은 하루 한 번 멈춤·기록·휴식 중 한 가지를 실천하며 균형을 확인하세요."
+                    .formatted(p.strong, p.weak);
         };
     }
 

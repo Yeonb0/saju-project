@@ -1,6 +1,7 @@
 package com.sajuppugi.fortune.generation;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.fortune.generation.application.LinerResponseValidator;
@@ -12,10 +13,16 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey;
 import java.time.LocalDate;
 import java.util.List;
+import com.sajuppugi.fortune.calculation.domain.BirthInput;
+import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
+import com.sajuppugi.fortune.calculation.infrastructure.DeterministicSajuEngine;
+import com.sajuppugi.fortune.generation.application.LinerFactProjector;
+import com.sajuppugi.fortune.reading.domain.GeneralReadingPolicy;
+import java.time.LocalTime;
 import org.junit.jupiter.api.Test;
 
 class LinerResponseValidatorTest {
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
     private final LinerResponseValidator validator = new LinerResponseValidator(mapper);
     private final LinerRequest request = new LinerRequest("a".repeat(64), "calc-v1", "gen-v1",
             FortuneType.OVERALL, LocalDate.of(2026, 10, 8), null,
@@ -56,5 +63,55 @@ class LinerResponseValidatorTest {
                 .isInstanceOf(InvalidGenerationException.class)
                 .extracting(exception -> ((InvalidGenerationException) exception).code())
                 .isEqualTo("LINER_SCHEMA_INVALID");
+    }
+
+    @Test
+    void rejectsSectionEvidenceThatDoesNotFitItsPurpose() {
+        var evidenceFacts = mapper.createObjectNode();
+        evidenceFacts.putObject("dayMaster").put("hanja", "癸");
+        LinerRequest missingElementRequest = new LinerRequest("b".repeat(64), "calc-v1", "gen-v1",
+                FortuneType.OVERALL, LocalDate.of(2026, 10, 8), "OVERALL_FLOW",
+                evidenceFacts,
+                List.of(), List.of(SectionKey.MISSING_ELEMENT));
+        LinerResponse response = new LinerResponse(List.of(new GeneratedSection(SectionKey.MISSING_ELEMENT,
+                "생활의 균형을 확인해 보세요.", List.of("dayMaster.hanja"))), List.of());
+
+        assertThatThrownBy(() -> validator.validate(missingElementRequest, response))
+                .isInstanceOf(InvalidGenerationException.class)
+                .extracting(exception -> ((InvalidGenerationException) exception).code())
+                .isEqualTo("LINER_SECTION_EVIDENCE_MISMATCH");
+    }
+
+    @Test
+    void rejectsNearDuplicateSections() {
+        var facts = mapper.createObjectNode();
+        facts.putObject("dayMaster").put("hanja", "癸");
+        LinerRequest twoSections = new LinerRequest("c".repeat(64), "calc-v1", "gen-v1",
+                FortuneType.OVERALL, LocalDate.of(2026, 10, 8), "OVERALL_FLOW", facts,
+                List.of(), List.of(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW));
+        LinerResponse response = new LinerResponse(List.of(
+                new GeneratedSection(SectionKey.SUMMARY, "오늘은 차분하게 순서를 확인하고 행동해 보세요.", List.of("dayMaster.hanja")),
+                new GeneratedSection(SectionKey.CURRENT_FLOW, "오늘은 차분하게 순서를 확인하고 행동해 보세요!", List.of("dayMaster.hanja"))), List.of());
+
+        assertThatThrownBy(() -> validator.validate(twoSections, response))
+                .isInstanceOf(InvalidGenerationException.class)
+                .extracting(exception -> ((InvalidGenerationException) exception).code())
+                .isEqualTo("LINER_SECTION_TOO_SIMILAR");
+    }
+
+    @Test
+    void acceptsPurposeSpecificEvidenceFromRealProjectedFacts() {
+        var calculated = new DeterministicSajuEngine().calculate(new BirthInput(LocalDate.of(2004, 3, 15),
+                LocalTime.of(14, 32), false, BirthInput.CalendarType.SOLAR, false,
+                BirthInput.Gender.FEMALE), CalculationPolicy.CURRENT);
+        var facts = new LinerFactProjector(mapper).project(calculated);
+        var sections = GeneralReadingPolicy.require(FortuneType.OVERALL).allowedSections();
+        LinerRequest realRequest = new LinerRequest("d".repeat(64), "calc-v1", "gen-v1",
+                FortuneType.OVERALL, LocalDate.of(2026, 10, 8), "OVERALL_FLOW", facts, List.of(), sections);
+        LinerResponse response = new LinerResponse(sections.stream().map(section -> new GeneratedSection(section,
+                section + " 서로 다른 구체적인 검증 문장입니다.", section == SectionKey.MISSING_ELEMENT
+                ? List.of("fiveElements.counts.WOOD") : List.of("dayMaster.hanja"))).toList(), List.of());
+
+        assertThatCode(() -> validator.validate(realRequest, response)).doesNotThrowAnyException();
     }
 }

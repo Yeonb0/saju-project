@@ -13,9 +13,12 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ReadingGenerationService {
+    private static final Logger LOG = LoggerFactory.getLogger(ReadingGenerationService.class);
     private static final int MAX_ATTEMPTS = 3;
     private static final Duration GENERATION_LEASE = Duration.ofMinutes(2);
 
@@ -79,6 +82,8 @@ public class ReadingGenerationService {
                 validator.validate(request, response);
             } catch (InvalidGenerationException exception) {
                 lastValidation = exception;
+                LOG.warn("Liner output validation failed: provider={}, attempt={}, code={}",
+                        provider.name(), attempt, exception.code());
                 snapshots.recordAttempt(request.generationKey(), attempt, provider.name(), inputHash,
                         "VALIDATION_FAILED", elapsedMillis(started), exception.code());
                 continue;

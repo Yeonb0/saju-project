@@ -13,6 +13,8 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -20,6 +22,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class LinerResponseValidator {
     private static final int MAX_CONTENT_LENGTH = 2_000;
+    // Korean advisory copy often shares short connective words. Keep the guard focused on
+    // near-duplicates so legitimate sections with the same tone are not rejected.
+    private static final double MAX_SECTION_SIMILARITY = 0.90d;
+    private static final Map<SectionKey, List<String>> REQUIRED_EVIDENCE_PREFIXES = evidenceRequirements();
     private static final List<Pattern> FORBIDDEN = List.of(
             Pattern.compile("100\\s*%"),
             Pattern.compile("반드시\\s+(일어난다|된다|성공한다|합격한다)"),
@@ -58,6 +64,7 @@ public class LinerResponseValidator {
         }
         Set<SectionKey> allowed = Set.copyOf(request.allowedSections());
         Set<SectionKey> seen = new HashSet<>();
+        List<String> seenContents = new java.util.ArrayList<>();
         Set<String> validFactPaths = factPaths(request.facts());
         for (GeneratedSection section : response.sections()) {
             if (section == null || section.key() == null || section.content() == null || section.sourceFactKeys() == null) {
@@ -77,6 +84,14 @@ public class LinerResponseValidator {
                     || section.sourceFactKeys().stream().anyMatch(path -> !validFactPaths.contains(path))) {
                 throw new InvalidGenerationException("LINER_SOURCE_FACT_INVALID", "sourceFactKeys must reference supplied facts");
             }
+            validateEvidenceFit(section);
+            for (String previous : seenContents) {
+                if (similarity(previous, content) > MAX_SECTION_SIMILARITY) {
+                    throw new InvalidGenerationException("LINER_SECTION_TOO_SIMILAR",
+                            "sections must provide distinct information");
+                }
+            }
+            seenContents.add(content);
         }
         Set<SectionKey> omitted = new HashSet<>(response.omittedSections());
         if (omitted.size() != response.omittedSections().size() || !allowed.containsAll(omitted)) {
@@ -94,6 +109,46 @@ public class LinerResponseValidator {
             throw new InvalidGenerationException("LINER_SECTION_INVALID", "required sections cannot be omitted");
         }
         validateSuneungGuide(request, response);
+    }
+
+    private void validateEvidenceFit(GeneratedSection section) {
+        List<String> prefixes = REQUIRED_EVIDENCE_PREFIXES.get(section.key());
+        if (prefixes == null) return;
+        boolean matched = section.sourceFactKeys().stream()
+                .anyMatch(path -> prefixes.stream().anyMatch(path::startsWith));
+        if (!matched) {
+            throw new InvalidGenerationException("LINER_SECTION_EVIDENCE_MISMATCH",
+                    "section evidence does not match its purpose");
+        }
+    }
+
+    private double similarity(String left, String right) {
+        Set<String> leftTokens = tokens(left);
+        Set<String> rightTokens = tokens(right);
+        if (leftTokens.isEmpty() || rightTokens.isEmpty()) return 0;
+        Set<String> intersection = new HashSet<>(leftTokens);
+        intersection.retainAll(rightTokens);
+        Set<String> union = new HashSet<>(leftTokens);
+        union.addAll(rightTokens);
+        return (double) intersection.size() / union.size();
+    }
+
+    private Set<String> tokens(String content) {
+        String normalized = content.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^가-힣a-z0-9]+", " ").strip();
+        if (normalized.isEmpty()) return Set.of();
+        return new HashSet<>(java.util.Arrays.asList(normalized.split("\\s+")));
+    }
+
+    private static Map<SectionKey, List<String>> evidenceRequirements() {
+        Map<SectionKey, List<String>> values = new EnumMap<>(SectionKey.class);
+        values.put(SectionKey.MISSING_ELEMENT, List.of("fiveElements."));
+        values.put(SectionKey.GOOD_PERIOD, List.of("luck."));
+        values.put(SectionKey.MATCH_STRENGTH, List.of("counterpart."));
+        values.put(SectionKey.MATCH_CONFLICT, List.of("counterpart."));
+        values.put(SectionKey.COMMUNICATION, List.of("counterpart."));
+        values.put(SectionKey.RELATIONSHIP_TIP, List.of("counterpart."));
+        return Map.copyOf(values);
     }
 
     private void validateSuneungGuide(LinerRequest request, LinerResponse response) {

@@ -320,7 +320,9 @@ class SuneungReadingApiTest {
 
     private LinerResponse valid(LinerRequest request) {
         var sections = request.allowedSections().stream()
-                .map(section -> new GeneratedSection(section, section + " 검증된 수능운 문장", List.of("dayMaster.hanja")))
+                .map(section -> new GeneratedSection(section, section + " 검증된 수능운 문장",
+                        section == com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey.MISSING_ELEMENT
+                                ? List.of("fiveElements.counts.WOOD") : List.of("dayMaster.hanja")))
                 .toList();
         return new LinerResponse(sections, List.of(), SuneungGuideFactory.fromSections(sections));
     }
