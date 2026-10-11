@@ -462,6 +462,7 @@ LIMIT 20;
 - 적용: 6-1의 서버 세션·CSRF·로그아웃 폐기와 6-6의 실제 PostgreSQL 검증 공백을 줄이기 위해, 격리된 `sajuppugi_test` PostgreSQL DB에서만 실행하는 `sessionSecurityPostgresTest` Gradle 작업과 회귀 시험을 추가했다. 이 시험은 임시 사용자·불투명 세션 hash를 만들고 `/session`의 CSRF 회전, CSRF 누락 로그아웃의 403, 유효 CSRF 로그아웃의 cookie 만료·DB revoke, 이후 보호 API의 401을 확인한 뒤 임시 행을 삭제한다.
 - 같은 작업에서 OAuth state를 동시에 두 번 소비하려는 PostgreSQL 요청도 추가 검증했다. 실제 `AuthRepository.consumeState` 호출 중 정확히 하나만 내부 returnTo를 받고 다른 하나는 빈 결과를 받아 state 재사용을 막는 조건부 UPDATE를 확인했다.
 - OAuth 성공 callback은 이제 기존 browser cookie의 세션을 새 세션이 저장된 뒤 revoke한다. provider 호출은 DB 작업 전에 끝내므로 wallet lock이나 장기 DB transaction 안에서 외부 호출을 기다리지 않는다. H2와 격리 PostgreSQL에서 mocked provider 성공 callback을 시험해 새 HttpOnly cookie 발급, 이전 세션 revoke 및 새 활성 세션 1건을 확인했다. 실제 카카오 제공자·브라우저 callback은 이 검증에 포함하지 않는다.
+- `POST /auth/logout` 성공 응답을 API_SPEC와 공통 응답 지침에 맞춰 `204 No Content`로 정렬했다. CSRF 검증, cookie 만료와 DB revoke는 그대로이며 H2·PostgreSQL 회귀에서 확인했다.
 - `TEST_DATABASE_URL=jdbc:postgresql://localhost:55432/sajuppugi_test ./gradlew sessionSecurityPostgresTest`를 PostgreSQL 17 컨테이너에서 실행해 성공했다. 이어 기본 H2 PostgreSQL 호환 모드의 `./gradlew test --rerun-tasks`도 XML 기준 417건 중 실패/오류 0, opt-in 제외 8로 성공했다.
 - 이 검증은 실제 카카오 authorization code 교환·사용자 브라우저 cookie·staging HTTPS/CORS·다중 서버 세션 공유를 확인하지 않는다. 실제 OAuth 자격 증명이나 사용자 개인정보는 읽거나 출력하지 않았다.
 

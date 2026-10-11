@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Instant;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,10 +41,10 @@ class AuthController {
         return ApiResponse.of(session==null ? new SessionResponse(false,null,null,null,null,null) : new SessionResponse(true,session.userId(),session.nickname(),people.activeSelfExists(session.userId()),session.expiresAt(),auth.csrf(session)));
     }
     @PostMapping("/auth/logout") @ResponseBody
-    ApiResponse<Void> logout(HttpServletRequest request, HttpServletResponse response) {
+    ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         auth.logout(SessionAuthenticationFilter.cookie(request, AuthService.COOKIE));
         response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(AuthService.COOKIE, "").httpOnly(true).secure(auth.isSecure()).sameSite("Lax").path("/").maxAge(0).build().toString());
-        return ApiResponse.of(null);
+        return ResponseEntity.noContent().build();
     }
     record SessionResponse(boolean authenticated, java.util.UUID userId, String nickname, Boolean hasPrimaryPerson,
                            Instant expiresAt, String csrfToken) { }

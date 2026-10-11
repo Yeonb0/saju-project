@@ -81,7 +81,7 @@ class SessionSecurityPostgresTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_FAILED"));
         mvc.perform(post("/api/v1/auth/logout").cookie(cookie).header("X-CSRF-Token", csrf))
-                .andExpect(status().isOk())
+                .andExpect(status().isNoContent())
                 .andExpect(result -> assertThat(result.getResponse().getHeader("Set-Cookie")).contains("Max-Age=0"));
         mvc.perform(get("/api/v1/me").cookie(cookie))
                 .andExpect(status().isUnauthorized())
