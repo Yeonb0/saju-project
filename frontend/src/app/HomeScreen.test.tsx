@@ -58,8 +58,13 @@ describe("HomeScreen (HOME-03)", () => {
   it("c. 로그인이면 지갑 픽스처 잔액(7)이 보인다", async () => {
     const { getWallet } = setup("signed_in");
     // 이름은 잔액 줄과 충전하기 줄을 이은 글자 (줄 사이 공백 유무와 무관하게)
+    // 세션 → 지갑 조회를 차례로 기다린다 — 전체 실행이 느릴 때 기본 1초를 넘긴 적이 있어 3초 (10/10)
     expect(
-      await screen.findByRole("link", { name: /^7s*충전하기$/ }),
+      await screen.findByRole(
+        "link",
+        { name: /^7\s*충전하기$/ },
+        { timeout: 3000 },
+      ),
     ).toHaveAttribute("href", "/wallet");
     expect(getWallet).toHaveBeenCalledTimes(1);
   });

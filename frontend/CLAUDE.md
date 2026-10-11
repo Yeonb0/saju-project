@@ -94,7 +94,7 @@
 - 스타일: Tailwind CSS + CSS 변수 토큰 (토큰 적용은 PG 심사 요청 후)
 - 폰트: **보류 (FONT-HOLD)** — 결정 전까지 코드에서 글꼴을 지정하지 않는다. 결정되면 `next/font/local` 서브셋으로 셀프호스팅
 - 오버레이: vaul(바텀시트), Radix Dialog(모달) — shadcn/ui 사용 안 함
-- 데이터: TanStack Query, API 타입은 openapi-typescript + openapi-fetch 로 생성 (백엔드 타입 수동 작성 금지, 생성 파일 손수정 금지). OpenAPI 전에는 포트 + 가짜 구현 (MOCK-PORT, 새 라이브러리 없음 — MSW 쓰지 않음)
+- 데이터: TanStack Query, API 타입은 openapi-typescript 로 생성 (백엔드 타입 수동 작성 금지, 생성 파일 손수정 금지). adapter 는 openapi-fetch 대신 `src/lib/api/http.ts` 로 요청하고 응답을 zod 로 검사한다 (ADAPTER-HTTP, `docs/FRONTEND.md` 1장 표). OpenAPI 전에는 포트 + 가짜 구현 (MOCK-PORT, 새 라이브러리 없음 — MSW 쓰지 않음)
 - 결제: 토스페이먼츠 SDK v2 `@tosspayments/tosspayments-sdk` (TOSS-SDK 승인, 설치는 PG-3 에서 사용자가 직접)
 - 폼: React Hook Form + Zod
 - 클라이언트 상태: Zustand 는 선물 위저드 동안만 (`sessionStorage` persist). 그 외 전역 상태 추가 금지
@@ -110,7 +110,7 @@
 ### 백엔드 — 확정 (팀 문서)
 
 Spring Boot 3 + PostgreSQL, Railway 배포(local · staging · production 분리), API prefix `/api/v1`, 카카오 OAuth + 서버 세션 쿠키, 토스페이먼츠, Cloudflare R2, OpenAPI 는 springdoc 생성 (I-01 · I-02 · I-03 · I-04, `backend/README.md`).
-골격은 `main` 에 있다(`a605afa`, 10/3) — 업무 API 없음, springdoc 은 `local` 프로필에서만 공개 (FE 가 받을 경로는 Q-18).
+골격은 `main` 에 있다(`a605afa`, 10/3) — 업무 API 없음, springdoc 은 `local` 프로필에서만 공개 (FE 가 받을 경로는 Q-18). → OpenAPI 파일은 `docs/openapi/api-v1.json` (BE-A PR #17, 10/9).
 
 ## 폴더 구조
 
@@ -147,7 +147,7 @@ saju-project/
 | `pnpm test` | Vitest 1회 실행 |
 | `pnpm test:watch` | Vitest watch |
 | `pnpm e2e` | Playwright (모바일 뷰포트 2종) — 전체 실행은 사용자가 직접. 처음이면 `pnpm e2e:install` |
-| `pnpm api:types` | `frontend/openapi.json` → `src/types/api.d.ts` 타입 생성 (BE OpenAPI 스펙 수령 후) |
+| `pnpm api:types` | `docs/openapi/api-v1.json`(저장소 루트, BE 가 갱신) → `src/types/api.d.ts` 타입 생성. 생성 파일은 손으로 고치지 않는다 — OpenAPI 파일이 바뀌면 다시 실행 (동기화 테스트가 실패로 알려 준다) |
 
 - 환경 변수: `frontend/.env.example` 을 복사해 `frontend/.env.local` 로 쓴다 (사용자가 직접 작성). `API_PROXY_TARGET` 에 백엔드 주소. 가짜 구현 전환 변수는 MOCK-PORT 코드 단계에서 `.env.example` 에 추가한다 (`docs/FRONTEND.md` 1-2).
 - 배포: Vercel. `main` → 스테이징, PR → 미리보기 URL. 실기기 확인은 미리보기의 브랜치 주소, PG 심사 대상 확인은 운영 도메인.

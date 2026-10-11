@@ -7,7 +7,7 @@ import * as Sentry from "@sentry/nextjs";
 // I-05 (구매 의도 = 견적 하나에 키 하나, 재시도에도 같은 키), PURCHASE-RESTORE (충전 가기 전 선택 저장 · 구매 성공 때 삭제),
 // COMMON 7장 (409 IDEMPOTENCY_REQUEST_PROCESSING 이면 버튼을 다시 열지 않고 같은 키로 상태 확인), F-08 (결제 버튼 위 고지).
 // 앞 화면(CSAT-01 · FORT-02 · 03 · MATCH-03 · FORT-07)이 띄운다. 디자인 요소 없음 (PG-FIRST).
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -22,6 +22,7 @@ import type {
   FortunePort,
   FortuneQuote,
   FortuneSelection,
+  FulfilledReadingPurchase,
   ReadingPurchaseResult,
 } from "@/lib/ports/fortune";
 import type { TopUpPort } from "@/lib/ports/topUp";
@@ -33,6 +34,7 @@ import {
   generationFailureOfError,
   generationFailureOfResult,
 } from "@/lib/reading/generation";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
 
@@ -86,6 +88,13 @@ function reportMismatchToSentry(productCode: string) {
 
 type Intent = { quoteId: string; key: string };
 
+// 결과로 보내도 되는 응답 — FULFILLED 이고 readingId 가 있을 때만 (Q-38)
+function isFulfilled(
+  result: ReadingPurchaseResult,
+): result is FulfilledReadingPurchase {
+  return result.status === "FULFILLED" && result.readingId !== null;
+}
+
 // 구매 명령 뒤 다시 받은 견적에 붙이는 안내 (값은 서버 견적, 문구는 PD)
 type Notice = "requoted" | null;
 
@@ -113,8 +122,9 @@ export function ShellCheckout({
   resumeQuoteId?: string | null;
   // 충전 후 돌아올 앞 화면 경로 (safeReturnTo 를 거쳐 저장된다)
   returnPath: string;
-  // 구매 응답 그대로 (결과 화면으로 보낼 때). 생성 실패(FAILED · READING_GENERATION_FAILED)는 이 팝업이 안내하고 넘기지 않는다
-  onPurchased: (result: ReadingPurchaseResult) => void;
+  // 완료(FULFILLED + readingId)인 구매 응답 그대로 (결과 화면으로 보낼 때). 생성 실패(FAILED · REFUNDED · READING_GENERATION_FAILED)와
+  // 결과를 아직 모르는 응답(처리 중 등)은 이 팝업이 안내하고 넘기지 않는다
+  onPurchased: (result: FulfilledReadingPurchase) => void;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다.
   port?: FortunePort;
   topUpPort?: TopUpPort;
@@ -122,6 +132,7 @@ export function ShellCheckout({
   reportMismatch?: (productCode: string) => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const fortune = () => port ?? getFortunePort();
 
   // 0 이면 첫 견적(복귀면 재확인), 올라가면 새 견적
@@ -165,8 +176,12 @@ export function ShellCheckout({
     mutationFn: (next: Intent) =>
       fortune().purchase({ quoteId: next.quoteId, selection }, next.key),
     onSuccess: (result) => {
-      // 생성 실패는 팝업 안에서 환급 · 재시도 안내 (F-06 · COMMON 4.8)
+      // 구매 요청이 끝났다 — 잔액은 서버에서 다시 받는다 (생성 실패 환급 포함, P-09 · Q-22: 클라이언트에서 차감 · 합산하지 않는다)
+      queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
+      // 생성 실패는 팝업 안에서 실패 · 재시도 안내 (F-06 · COMMON 4.8)
       if (generationFailureOfResult(result)) return;
+      // 결과를 아직 모르는 응답은 넘기지 않고 선택도 지우지 않는다 — "결과 확인" 으로 같은 키 재요청 (Q-38 · I-05)
+      if (!isFulfilled(result)) return;
       clearPurchaseSelection();
       onPurchased(result);
     },
@@ -221,9 +236,14 @@ export function ShellCheckout({
     errorKind === "insufficient_balance" ||
     errorKind === "quote_expired" ||
     errorKind === "price_changed";
-  // 결과를 아직 모른다 — 버튼을 다시 열지 않고 같은 키로 확인만 한다
+  // 결과를 아직 모른다 — 버튼을 다시 열지 않고 같은 키로 확인만 한다.
+  // 오류(처리 중 · 결과 불명)뿐 아니라 실패도 완료도 아닌 성공 응답(GENERATING 등, FULFILLED 인데 readingId null)도 포함 (Q-38)
   const outcomePending =
-    errorKind === "request_processing" || errorKind === "outcome_unknown";
+    errorKind === "request_processing" ||
+    errorKind === "outcome_unknown" ||
+    (purchase.data !== undefined &&
+      generationFailureOfResult(purchase.data) === null &&
+      !isFulfilled(purchase.data));
 
   function send(current: FortuneQuote) {
     if (purchase.isPending || submitting.current) return;

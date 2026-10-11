@@ -16,6 +16,7 @@ import {
   savePurchaseSelection,
 } from "@/lib/purchase/restore";
 import { makeQueryClient } from "@/lib/queryClient";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 import {
   createFakeFortunePort,
   type FakeFortuneScenario,
@@ -60,8 +61,11 @@ function setup(
   const topUpPort = options.topUpPort ?? createFakeTopUpPort();
   const listTopUpProducts = vi.spyOn(topUpPort, "listTopUpProducts");
   const reportMismatch = vi.fn();
+  const client = makeQueryClient();
+  // 잔액 캐시를 심어 둔다 — 구매 뒤 무효화됐는지 본다 (픽스처일 뿐이며 실제 잔액과 무관하다)
+  client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
   render(
-    <QueryClientProvider client={makeQueryClient()}>
+    <QueryClientProvider client={client}>
       <ShellCheckout
         open
         onOpenChange={vi.fn()}
@@ -78,6 +82,7 @@ function setup(
     </QueryClientProvider>,
   );
   return {
+    client,
     wallet,
     port,
     purchase,
@@ -243,14 +248,14 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     expect(purchase.mock.calls[1][1]).toBe(purchase.mock.calls[0][1]);
   });
 
-  it("생성 실패(FAILED · refunded)는 앞 화면에 넘기지 않고 환급 · 다시 시도 안내", async () => {
+  it("생성 실패(FAILED)는 앞 화면에 넘기지 않고 실패 · 다시 시도 안내, 환급 문장 없음", async () => {
     const user = userEvent.setup();
     const { onPurchased, purchase, createQuote } = setup({
       scenario: "generation_failed",
     });
     await user.click(await useButton());
     expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
-    expect(screen.getByText("사용한 등껍질은 돌려드렸습니다")).toBeVisible();
+    expect(screen.queryByText("사용한 등껍질은 돌려드렸습니다")).toBeNull();
     expect(onPurchased).not.toHaveBeenCalled();
 
     // 다시 시도는 새 견적 · 새 키
@@ -275,6 +280,122 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     await user.click(await useButton());
     expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
     expect(screen.queryByText("구매하지 못했습니다")).toBeNull();
+    expect(screen.queryByText("사용한 등껍질은 돌려드렸습니다")).toBeNull();
+  });
+
+  it("f. 응답이 REFUNDED 면 실패 · 환급 문장이 보이고 앞 화면에 넘기지 않는다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    // 픽스처일 뿐이며 실제 구매 응답과 무관하다
+    vi.spyOn(port, "purchase").mockResolvedValueOnce({
+      purchaseId: "FIXTURE",
+      readingId: null,
+      status: "REFUNDED",
+      charged: { currency: "TURTLE_SHELL", amount: 0 },
+      balance: null,
+    });
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.getByText("사용한 등껍질은 돌려드렸습니다")).toBeVisible();
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("g. GENERATING 응답은 결과를 아직 모름 — 처리 중 · 선택 유지, 결과 확인은 같은 키로 재요청", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    // 픽스처일 뿐이며 실제 구매 응답과 무관하다
+    const purchaseSpy = vi.spyOn(port, "purchase").mockResolvedValueOnce({
+      purchaseId: "FIXTURE",
+      readingId: null,
+      status: "GENERATING",
+      charged: { currency: "TURTLE_SHELL", amount: 0 },
+      balance: null,
+    });
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId: "FIXTURE-QUOTE",
+      selection: SELECTION,
+    });
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(onPurchased).not.toHaveBeenCalled();
+    expect(loadPurchaseSelection()).not.toBeNull();
+
+    // 두 번째 응답은 가짜 포트의 실제 구현 (FULFILLED + readingId)
+    await user.click(screen.getByRole("button", { name: "결과 확인" }));
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(purchaseSpy.mock.calls[1][1]).toBe(purchaseSpy.mock.calls[0][1]);
+    expect(onPurchased.mock.calls[0][0].readingId).toEqual(expect.any(String));
+  });
+
+  it("h. FULFILLED 인데 readingId 가 null 이면 넘기지 않고 처리 중", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    // 픽스처일 뿐이며 실제 구매 응답과 무관하다
+    vi.spyOn(port, "purchase").mockResolvedValueOnce({
+      purchaseId: "FIXTURE",
+      readingId: null,
+      status: "FULFILLED",
+      charged: { currency: "TURTLE_SHELL", amount: 0 },
+      balance: null,
+    });
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("g2. GENERATING 인데 readingId 가 있어도 넘기지 않고 처리 중", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    // 픽스처일 뿐이며 실제 구매 응답과 무관하다
+    vi.spyOn(port, "purchase").mockResolvedValueOnce({
+      purchaseId: "FIXTURE",
+      readingId: "FIXTURE-READING",
+      status: "GENERATING",
+      charged: { currency: "TURTLE_SHELL", amount: 0 },
+      balance: null,
+    });
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("d. 구매가 성공하면 잔액 조회가 무효화된다 (P-09 · Q-22)", async () => {
+    const user = userEvent.setup();
+    const { client, onPurchased } = setup();
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
+    await user.click(await useButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
+  });
+
+  it("e. 생성 실패(환급) 응답 뒤에도 잔액 조회가 무효화된다", async () => {
+    const user = userEvent.setup();
+    const { client } = setup({ scenario: "generation_failed" });
+    await user.click(await useButton());
+    await screen.findByText("결과를 만들지 못했습니다");
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
+  });
+
+  it("f. 409 INSUFFICIENT_BALANCE 오류 뒤에는 잔액 조회를 무효화하지 않는다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockRejectedValueOnce(
+      new ApiError({
+        status: 409,
+        code: "INSUFFICIENT_BALANCE",
+        traceId: null,
+      }),
+    );
+    const { client } = setup({ port });
+    await user.click(await useButton());
+    // 새 견적으로 다시 확인받는 안내가 뜰 때까지 기다린다
+    await screen.findByRole("alert");
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
   });
 
   it("구매 요청이 걸린 동안 생성 대기 장면", async () => {

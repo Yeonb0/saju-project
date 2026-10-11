@@ -1,11 +1,27 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  render as renderPlain,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiContractError } from "@/lib/api/errors";
 import { savePurchaseSelection } from "@/lib/purchase/restore";
+import { makeQueryClient } from "@/lib/queryClient";
+import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 import { createFakeTopUpPort, type FakeTopUpScenario } from "@/mocks/topUp";
 import { TopUpSuccess } from "./TopUpSuccess";
+
+// 잔액 캐시 무효화(useQueryClient)를 위해 QueryClientProvider 로 감싼다 — 기존 단언은 그대로다
+function render(ui: ReactNode, client = makeQueryClient()) {
+  return renderPlain(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 // vitest 는 globals 를 켜지 않아 Testing Library 자동 정리가 동작하지 않는다.
 afterEach(() => {
@@ -215,6 +231,28 @@ describe("TopUpSuccess (/pay/success)", () => {
     expect(await screen.findByText("caught")).toBeInTheDocument();
     expect(probe.caught()).toBe(contract);
     silence.mockRestore();
+  });
+
+  it("g. CREDITED 면 완료 화면 뒤 잔액 조회가 무효화된다 (P-09 · Q-22)", async () => {
+    const { port, ret, deps } = await prepare("credited");
+    const client = makeQueryClient();
+    // 잔액 캐시를 심어 둔다 (픽스처일 뿐이며 실제 잔액과 무관하다)
+    client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />, client);
+    await screen.findByText("충전이 완료되었습니다");
+    await waitFor(() =>
+      expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true),
+    );
+  });
+
+  it("h. 아직 CREDITED 가 아닌 동안(확인 중 · 처리 중)에는 무효화하지 않는다", async () => {
+    const { port, ret, deps } = await prepare("stuck_paid");
+    const client = makeQueryClient();
+    client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />, client);
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
+    await screen.findByRole("button", { name: "주문 확인" });
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
   });
 });
 
