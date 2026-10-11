@@ -14,7 +14,8 @@
 | Phase 1 동시성 보강 | 인증 단계와 함께 수행 | `users` 생성 후 owner row lock/FK로 SELF 중복·OTHER 10명 경쟁 조건 보강 |
 | Phase 2 궁합 계약 | 코드 검증 완료·문서 반영 | 기존 궁합 서비스의 상대/동일인/관계 필수 검증을 유지 |
 | Phase 3 수능 typed response | 완료 | 수능 전용 Liner JSON Schema, validator, fallback, 공개 응답 추가 |
-| Phase 4 이후 | 예정 | 오늘의 운세부터 진행 |
+| Phase 4 오늘의 운세 | 완료 | 인증 GET, 소유 인물, KST 날짜, 결정론적 0~100 지수 구현 |
+| Phase 5 이후 | 예정 | 구매 상태 계약부터 진행 |
 
 ## 1. 목적과 우선순위
 

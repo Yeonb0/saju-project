@@ -494,31 +494,34 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 
 ## 7. 오늘의 운세
 
-### `POST /daily-fortunes`
+### `GET /daily-fortunes/today`
 
-- 인증 불필요
-- rate limit 적용
-
-```json
-{ "person": { "...PersonInput": "..." }, "date": "2026-10-01" }
-```
+- 인증 필요
+- request body 없음
+- Query: `personId` (필수, 현재 사용자가 소유한 활성 인물)
+- 날짜는 서버의 KST 오늘을 사용한다.
 
 ```json
 {
-  "date": "2026-10-01",
-  "summary": "차분하게 순서를 지키면 좋은 날이에요.",
-  "luckyColor": "초록",
-  "luckyItem": "작은 노트",
-  "luckyPlace": "창가",
-  "action": "할 일을 세 줄로 적어보세요.",
-  "calculationVersion": "manse-1.0.0",
-  "generationVersion": "liner-daily-v1",
-  "contentVersion": "daily-2026.10.1"
+  "date": "2026-10-11",
+  "personId": "uuid",
+  "scores": {
+    "overall": 72,
+    "love": 65,
+    "wealth": 74,
+    "studyWork": 80,
+    "condition": 58
+  },
+  "calculationVersion": "manse-2026.10-v1",
+  "contentVersion": "daily-score-2026.10-v1"
 }
 ```
 
-- 서버는 동일 입력·날짜·계산/생성 버전에 대해 최초 성공 스냅샷을 재사용한다.
-- 원본 인물정보를 분석 도구에 전송하지 않는다.
+- 모든 지수는 0~100 정수다.
+- 장문 본문은 반환하지 않는다.
+- 동일 인물·날짜·계산/content 버전의 결과는 항상 같다.
+- Liner API를 호출하지 않고 서버의 결정론적 만세력 계산 결과와 KST 날짜만 사용한다.
+- 인물 없음·삭제·소유권 없음은 존재 여부를 숨기기 위해 `404 PERSON_NOT_FOUND`로 응답한다.
 
 ## 8. 유료 운세 구매·결과
 
