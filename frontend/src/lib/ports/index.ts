@@ -4,6 +4,8 @@
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
 // 모르는 값은 기본값으로 덮지 않고 던진다.
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
+
+import { createSessionAdapter } from "@/lib/api/adapters/session";
 import {
   createFakeAccount,
   FAKE_SESSION_SCENARIOS,
@@ -174,7 +176,7 @@ export function selectSessionPort(
   scenarioRaw: string | undefined,
   account?: FakeAccount,
 ): SessionPort {
-  if (mode !== "mock") return noRealYet("세션 포트");
+  if (mode === "real") return createSessionAdapter();
   return createFakeSessionPort({
     scenario: resolveSessionScenario(scenarioRaw),
     account,

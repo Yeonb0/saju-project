@@ -446,6 +446,7 @@ LIMIT 20;
 - `/api/v1/auth/kakao/authorize`, callback, `/api/v1/session`, 로그아웃 경로와 불투명 HttpOnly 세션 쿠키를 추가했다. OAuth state는 해시와 만료 시각만 PostgreSQL에 저장·1회 소비하며, returnTo는 내부 상대 경로로 제한한다. 세션·CSRF 원문도 저장하지 않고 해시로 검증한다.
 - 적용: 6-1 세션·CSRF·returnTo·소유권 전제, 6-6 추가 Flyway migration, 6-9 닉네임 최소 저장 및 비밀값 비노출. 카카오 토큰 요청은 DB 트랜잭션 밖에서 수행한다.
 - `./gradlew test`는 H2 PostgreSQL 호환 모드에서 성공했다. 실제 PostgreSQL migration, 실제 카카오 로그인, 브라우저 쿠키/CSRF E2E, staging CORS·HTTPS cookie와 다중 인스턴스 시험은 아직 수행하지 않았다.
+- 프런트의 real session port를 Next `/api` proxy와 연결해 카카오 버튼이 전체 페이지 OAuth 시작 URL로 이동하도록 했다. `API_PROXY_TARGET=http://localhost:8080`, `NEXT_PUBLIC_API_MODE=real` 로컬 설정이 필요하다. FE vitest 556건, typegen/TypeScript 검사와 관련 Biome 검사는 통과했지만 실제 카카오 브라우저 왕복은 아직 미실행이다.
 
 ### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
 

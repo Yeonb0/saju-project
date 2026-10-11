@@ -1,6 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SessionPort } from "@/lib/ports/session";
 import type { TopUpPort } from "@/lib/ports/topUp";
@@ -27,22 +26,6 @@ function setup(scenario: FakeSessionScenario) {
     </QueryClientProvider>,
   );
   return { getWallet };
-}
-
-class Boundary extends Component<
-  { children: ReactNode; onCatch: (error: unknown) => void },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  componentDidCatch(error: unknown) {
-    this.props.onCatch(error);
-  }
-  render() {
-    return this.state.failed ? <p>caught</p> : this.props.children;
-  }
 }
 
 describe("HomeScreen (HOME-03)", () => {
@@ -103,21 +86,5 @@ describe("HomeScreen (HOME-03)", () => {
       screen.getByRole("heading", { level: 1, name: "뿌기사주" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("banner")).toBeNull();
-  });
-
-  it("g. 진짜 모드인데 구현이 없으면 조용히 넘어가지 않고 오류 화면으로 던진다", async () => {
-    const silence = vi.spyOn(console, "error").mockImplementation(() => {});
-    let caught: unknown = null;
-    // 테스트 환경은 NEXT_PUBLIC_API_MODE 가 비어 있어 진짜 모드다
-    render(
-      <QueryClientProvider client={makeQueryClient()}>
-        <Boundary onCatch={(e) => (caught = e)}>
-          <HomeScreen />
-        </Boundary>
-      </QueryClientProvider>,
-    );
-    await screen.findByText("caught", {}, { timeout: 5000 });
-    expect(String(caught)).toContain("MOCK-PORT");
-    silence.mockRestore();
   });
 });
