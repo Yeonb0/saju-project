@@ -60,8 +60,11 @@ public class WalletPurchaseService implements WalletPurchasePort, WalletPurchase
                     throw new ApiException(ErrorCode.INVALID_REQUEST);
                 }
                 Instant now = clock.instant();
-                if (balance(before.lots(), now).balance() < price.amount()) {
-                    throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
+                int available = balance(before.lots(), now).balance();
+                if (available < price.amount()) {
+                    throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE, Map.of(
+                            "required", price.amount(), "balance", available, "shortage", price.amount() - available,
+                            "currency", "TURTLE_SHELL"));
                 }
                 var allocations = WalletDebitPolicy.allocateDebit(before.lots(), price.amount(), now);
                 var after = changed(before.lots(), allocations);

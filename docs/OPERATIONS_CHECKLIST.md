@@ -428,6 +428,39 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-11: Q-17 충전 승인·원자적 지급·제한된 복구 / Q-18 오류 / A receipt 조회
+
+- 기준: codex/fe-handoff-notes 로컬 A 개발. Q-28에 이어 POST 충전 confirm과 소유자 GET의
+  processing/walletBalance/grantedShellAmount/nextAction/failureCode를 구현했다. CREDITED만 지급 완료다.
+  예정량 creditedShellAmount는 유지하며 실제 지급량/지급 직후 잔액 snapshot은 완료 전 null이다.
+- 적용: 6-1 인증/CSRF/소유권, 6-2 지급 lot/원장/잔액/receipt/주문 원자성·중복·동시 갱신,
+  6-3 PG 호출의 DB 트랜잭션 분리/증거 검증/결과 불명 조회, 6-4 실행 lease/fencing/최대 횟수,
+  6-6 추가형 migration와 기본 비활성, 6-8 문의 필요 상태, 6-9 키 해시·원문 비노출.
+- V202610111200은 실행 점유/재시도 기록과 지급 receipt를 추가한다. 주문→실행→지갑→lot 잠금,
+  DB 밖의 PG 승인/조회, 검증 후 한 트랜잭션의 지급을 사용한다. 최초 승인 이후 재시도는 조회만 하며
+  늦은 lease 결과는 무시한다. 기본 최대 5회 불명은 PAYMENT_PENDING/CONTACT_SUPPORT로 유지한다.
+- 지급 만료는 확정 정책 서울 달력 기준 유료 5년/보너스 1년이다. 윤일/보너스 0건도 검사했다.
+  저장 실패는 모든 지급 자료와 CREDITED를 롤백하고 커밋된 lease를 통해 나중에 조회한다.
+- Q-18은 ApiError.details(기본 빈 객체)와 안전한 잔액 부족 숫자, OpenAPI 공통 오류 선언을 구현했다.
+  Idempotency-Key는 코드/스키마 모두 필수다. 승인 금액의 소수/문자열/범위 초과/0·음수는 400이다.
+- WalletPurchaseReceiptPort는 소유자+견적, 보상은 추가로 원거래를 확인한다. 불일치는 empty,
+  읽기로 지갑/원장을 만들지 않는다. B 연결·최종 서명 동의와 B 구매 중단 재개는 별도다.
+- 최종 PostgreSQL 17.11의 전용 localhost:55432/sajuppugi_test 전체 회귀 XML 383건:
+  통과 380, 실패/오류 0, opt-in 제외 3(실제 Liner/OpenAPI export/walletDemo).
+  TopUpPaymentFlowTest 24건, WalletPurchasePersistenceTest 16건 모두 통과했다.
+  신규 두 suite는 기본 H2에서도 합계 40건 모두 통과했다.
+- 최종 check/bootJar/exportOpenApi --rerun-tasks 성공. OpenAPI 별도 task 4건 모두 통과했고 생성 JSON에서
+  confirm 200/202, 공통 오류 응답, 필수 Idempotency-Key, 신규 주문 필드와 ApiError.details를 확인했다.
+- 가짜 PG+실제 DB/보안 필터로 정상 승인/재전송/두 주문 동시 충전/PG 대기 중 중복 요청/응답 유실,
+  lease 만료와 늦은 완료/DB 저장 실패 롤백·조회 복구/잘못된 승인 증거/거절·취소/확인 한도를 검사했다.
+  실제 OS 강제 종료·다중 프로세스·실제 토스 결제·FE 브라우저 E2E·운영 부하를 수행한 것은 아니다.
+- 읽기 전용 SQL로 PostgreSQL 버전/전용 DB, Flyway 18건 모두 성공, 활성 충전 상품 0건을 확인했다.
+  개발 DB는 변경하지 않았다. TOSS_RECOVERY_ENABLED와 구매/복구 기본 false를 유지한다.
+- 남음: Q-20 선물, 실제 팀 상점 키 E2E, B 인증/인물·구매 재개 연결, FE adapter/브라우저 시험,
+  staging, webhook/현금 취소·환불/관리자 대사·운영 알림·rate limit. live/production adapter 차단은 유지한다.
+  키만 바꾸는 운영 전환은 아직 제공하지 않는다. push/PR/배포/실판매 활성화는 하지 않았다.
+  FE 전달 필수 계약은 backend/docs/FE_TOP_UP_DELIVERY_20261011.md에 정리했다.
+
 ### 2026-10-11: 재화 표시명 등껍질 확정
 
 - 사용자 정정에 따라 재화 표시명은 등껍질로 확정하고 AGENTS.md에 기록했다. 기술 식별자 TURTLE_SHELL/기존 금액 필드는 유지한다.

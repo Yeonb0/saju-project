@@ -69,8 +69,8 @@ REVIEW_REQUIRED/CONTACT_SUPPORT는 자동 조회 종료 후 purchaseId와 문의
 
 ## 3. A receipt 읽기 포트: 수용과 보완
 
-B의 CREATED 복구를 위해 읽기 전용 포트를 A가 제공한다. 내부 repository 조회는 이미 있으나
-B가 사용할 application port/adapter는 아직 없다. 없는 receipt는 Optional.empty이며 새 지갑/원장을 만들지 않는다.
+B의 CREATED 복구를 위해 읽기 전용 WalletPurchaseReceiptPort와 adapter를 A 로컬에 구현했다.
+없는 receipt는 Optional.empty이며 새 지갑/원장을 만들지 않는다.
 조회 시 quote 만료/현재 판매 상태로 이미 커밋된 receipt를 숨기지 않는다.
 
 B 원안: findDebit(userId, quoteId), findCompensation(originalTransactionId).
@@ -78,6 +78,12 @@ A 보완안: 보상 조회도 `(userId, quoteId, originalTransactionId)`를 받�
 사용자·견적·차감 원거래·역분개 연결을 검증한다. B 승인 전 공동 확정 서명으로 취급하지 않는다.
 반환 receipt에는 검증용 소유자/견적/원거래/거래 ID/금액이 필요하며 잔액은 현재 값으로 사용하지 않는다.
 반환 record의 최종 이름/필드와 불일치 시 오류 계약을 A 구현 PR 전에 B와 맞춘다.
+
+10/11 구현 서명: Optional<WalletPurchasePort.DebitResult> findDebit(userId, quoteId),
+Optional<WalletPurchasePort.CompensationResult> findCompensation(userId, quoteId, originalTransactionId).
+조회에서 소유자/견적/원거래를 검증하고 기존 거래 ID·금액·잔액 snapshot record를 반환한다.
+타인/불일치는 empty이며 B는 receipt 존재를 확인한 뒤 상태를 갱신해야 한다.
+B의 최종 서명 동의/실제 오케스트레이션 연결까지 완료됐다는 뜻은 아니다.
 
 ## 4. Q-28: A가 정할 수 있는 필드 기준
 
@@ -122,6 +128,11 @@ B도 완료일을 확약하지 않았으며 이 문서에서 확정 일정이나
   main에는 아직 없고 실제 토스 승인·결과 영속화·지급·자동 대사는 미구현이다.
 - 로컬 A의 이전 검증: PostgreSQL 353건 중 통과 350/실패 0/선택 제외 3, 토스 로컬 시험 40건 통과.
   이는 이전 실행 결과이며 이번 회신 검토에서 테스트/E2E를 다시 실행하지 않았다.
+
+10/11 후속 개발: 위 로컬 상태는 회신 검토 당시 기록이다. 현재 Q-28 FORTUNE 표시 metadata,
+Q-17 승인 HTTP/lease/원자적 지급/제한된 조회 복구와 Q-18 오류 계약도 로컬 구현했다.
+FE_TOP_UP_DELIVERY_20261011.md와 OPERATIONS_CHECKLIST 최신 실행 기록을 확인한다.
+실제 PG/FE 브라우저 E2E/운영 배포, Q-20 선물은 아직 미완료다.
 
 ## 7. A 할 일 순서와 완료 판정
 

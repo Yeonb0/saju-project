@@ -42,6 +42,7 @@ public class OpenApiConfig {
                 .group("v1")
                 .pathsToMatch("/api/v1/**")
                 .addOpenApiCustomizer(OpenApiConfig::catalogNullablePrices)
+                .addOpenApiCustomizer(OpenApiConfig::commonErrors)
                 .build();
     }
 
@@ -70,5 +71,18 @@ public class OpenApiConfig {
         Schema<Object> schema = new Schema<>();
         schema.setTypes(Set.of("null"));
         return schema;
+    }
+
+    private static void commonErrors(OpenAPI api) {
+        io.swagger.v3.core.converter.ModelConverters.getInstance().read(ApiError.class)
+                .forEach(api.getComponents()::addSchemas);
+        api.getPaths().values().forEach(path -> path.readOperations().forEach(operation -> {
+            for (String status : List.of("400", "401", "403", "404", "409", "422", "500", "503")) {
+                var content = new io.swagger.v3.oas.models.media.Content().addMediaType("application/json",
+                        new io.swagger.v3.oas.models.media.MediaType().schema(new Schema<>().$ref("#/components/schemas/ApiError")));
+                operation.getResponses().putIfAbsent(status, new io.swagger.v3.oas.models.responses.ApiResponse()
+                        .description("Common error envelope; branch on code, not message.").content(content));
+            }
+        }));
     }
 }

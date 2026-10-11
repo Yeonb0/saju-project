@@ -5,6 +5,17 @@
 > 적용 범위: `/api/v1` JSON API
 > 참조: [`API_SPEC.md`](./API_SPEC.md), [`ERD.md`](./ERD.md)
 
+## 2026-10-11 구현 구분
+
+ApiError는 details를 항상 반환하며 값이 없으면 빈 객체다. 지갑 잔액 부족은 안전한 숫자
+required/balance/shortage와 currency만 제공한다. 없는 지갑은 details가 빈 객체일 수 있다.
+원문 입력/PG 사유/키/개인정보는 details로 반환하지 않는다.
+OpenAPI는 공통 400/401/403/404/409/422/500/503 응답의 ApiError schema를 선언한다.
+아래 전체 업무 코드 표는 목표 계약을 포함하며 모든 코드가 구현됐다는 뜻은 아니다.
+충전 소유권 거절의 현재 구현은 PAYMENT_ORDER_NOT_FOUND가 아니라 RESOURCE_NOT_FOUND(404)다.
+PAYMENT_DECLINED/PAYMENT_CANCELED/PAYMENT_REVIEW_REQUIRED는 주문 응답의 failureCode이며
+공통 오류 code와 구분한다. 결과 불명/자동 확인 한도 초과를 환불 완료로 표시하지 않는다.
+
 ## 1. 기본 원칙
 
 - HTTP status는 전송 결과를, `code`는 프론트가 분기할 업무 원인을 나타낸다.
@@ -228,8 +239,11 @@ type FieldError = {
 
 | HTTP | code | 의미 | 재시도 |
 |---:|---|---|---|
-| 400 | `PAYMENT_AMOUNT_MISMATCH` | 클라이언트/PG/서버 주문 금액 불일치 | 아니요 |
+| 409 | `PAYMENT_AMOUNT_MISMATCH` | 승인 요청 금액과 서버 주문 snapshot 불일치 | 아니요 |
 | 404 | `PAYMENT_ORDER_NOT_FOUND` | 주문 없음 또는 소유권 없음 | 아니요 |
+| 409 | `PAYMENT_CONFIRMATION_CONFLICT` | 주문의 결제키 변경/다른 주문의 결제키 재사용 | 아니요 |
+| 409 | `PAYMENT_ORDER_NOT_CONFIRMABLE` | 최초 승인 준비가 허용되지 않는 주문 상태 | 아니요 |
+| 503 | `PAYMENT_FULFILLMENT_UNAVAILABLE` | 승인 provider 미설정 | 준비 후 같은 주문 확인 |
 | 409 | `PAYMENT_ALREADY_PROCESSED` | 승인·취소가 이미 처리됨 | 최초 결과 조회 |
 | 409 | `PAYMENT_NOT_COMPLETED` | 후속 명령에 필요한 결제 미완료 | 상태 확인 |
 | 409 | `REFUND_NOT_ALLOWED` | 정책상 환불 불가 | 아니요 |
