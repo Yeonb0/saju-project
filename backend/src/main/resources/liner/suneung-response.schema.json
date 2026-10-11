@@ -31,7 +31,7 @@
         "examPeriods": {
           "type": "array", "minItems": 1,
           "items": { "type": "object", "additionalProperties": false, "required": ["period", "guidance"], "properties": {
-            "period": { "type": "string", "minLength": 1 }, "guidance": { "type": "string", "minLength": 1, "maxLength": 1000 }
+            "period": { "type": "string", "enum": ["BEFORE_ENTRY", "KOREAN", "MATH", "LUNCH", "ENGLISH", "ELECTIVES", "FINAL_CHECK"] }, "guidance": { "type": "string", "minLength": 1, "maxLength": 1000 }
           } }
         },
         "focusTips": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },

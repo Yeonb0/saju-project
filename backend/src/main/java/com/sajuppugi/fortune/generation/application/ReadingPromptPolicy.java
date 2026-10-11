@@ -58,7 +58,7 @@ public final class ReadingPromptPolicy {
             case WEALTH -> "현실의 수입·고정비·계약 조건을 우선하며 절제된 재정 습관을 제안합니다.";
             case COMPATIBILITY -> "두 사람을 우열로 비교하지 않고 공통점·차이·대화 방법을 양쪽 facts에 근거해 씁니다.";
             case SINSAL -> "신살을 사건 예언이나 낙인으로 쓰지 않고 장점과 생활 속 다스림의 관점으로 설명합니다.";
-            case SUNEUNG -> "시험 당일 준비·집중·긴장 관리에 도움이 되는 현실적 루틴을 제안합니다.";
+            case SUNEUNG -> "시험 당일 준비·집중·긴장 관리에 도움이 되는 현실적 루틴을 제안합니다. examPeriods는 BEFORE_ENTRY, KOREAN, MATH, LUNCH, ENGLISH, ELECTIVES, FINAL_CHECK 순서로 모두 작성하고 각 단계에 서로 다른 행동을 제시합니다.";
         };
     }
 }

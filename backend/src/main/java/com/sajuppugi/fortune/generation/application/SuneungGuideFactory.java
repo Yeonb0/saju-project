@@ -14,9 +14,14 @@ public final class SuneungGuideFactory {
     public static SuneungGuide fromSections(List<GeneratedSection> sections) {
         String periods = content(sections, SectionKey.EXAM_PERIODS);
         return new SuneungGuide(content(sections, SectionKey.SUMMARY), content(sections, SectionKey.EXAM_DAY),
-                List.of(new ExamPeriodGuide("BEFORE_FIRST_PERIOD", periods),
-                        new ExamPeriodGuide("BETWEEN_PERIODS", periods),
-                        new ExamPeriodGuide("FINAL_CHECK", periods)),
+                List.of(
+                        new ExamPeriodGuide("BEFORE_ENTRY", periods + " 입실 후에는 좌석과 준비물을 확인하고 첫 교시에 사용할 호흡 순서를 정하세요."),
+                        new ExamPeriodGuide("KOREAN", "첫 교시는 체감 난도보다 정해 둔 풀이 순서를 지키세요. 막힌 문항은 표시하고 다음 지문으로 이동합니다."),
+                        new ExamPeriodGuide("MATH", "수학에서는 조건과 구하려는 값을 먼저 표시하고, 계산이 길어지면 중간 값을 적어 검산 가능하게 남기세요."),
+                        new ExamPeriodGuide("LUNCH", "점심에는 답을 맞춰 보지 말고 평소 먹던 양으로 식사한 뒤 물과 화장실, 다음 교시 준비물을 확인하세요."),
+                        new ExamPeriodGuide("ENGLISH", "듣기 전 방송과 마킹 상태를 확인하고, 독해는 배점보다 본인에게 안정적인 문항 순서를 유지하세요."),
+                        new ExamPeriodGuide("ELECTIVES", "한국사와 탐구는 과목·문제지 순서를 먼저 확인하고, 과목 전환 때 답안 위치를 다시 점검하세요."),
+                        new ExamPeriodGuide("FINAL_CHECK", "종료 전에는 새 풀이를 넓히기보다 미표기 문항, 밀려 쓴 답, 수험 정보 기입을 차례로 확인하세요.")),
                 List.of(content(sections, SectionKey.FOCUS)),
                 List.of(new FoodRecommendation("평소 잘 맞았던 식사", content(sections, SectionKey.MEAL))),
                 List.of(new PreparationItem("ADMISSION_TICKET", "수험표", "DOCUMENT"),

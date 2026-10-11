@@ -26,6 +26,8 @@ public class LinerResponseValidator {
     // near-duplicates so legitimate sections with the same tone are not rejected.
     private static final double MAX_SECTION_SIMILARITY = 0.90d;
     private static final Map<SectionKey, List<String>> REQUIRED_EVIDENCE_PREFIXES = evidenceRequirements();
+    private static final List<String> REQUIRED_EXAM_PERIODS = List.of(
+            "BEFORE_ENTRY", "KOREAN", "MATH", "LUNCH", "ENGLISH", "ELECTIVES", "FINAL_CHECK");
     private static final List<Pattern> FORBIDDEN = List.of(
             Pattern.compile("100\\s*%"),
             Pattern.compile("반드시\\s+(일어난다|된다|성공한다|합격한다)"),
@@ -170,6 +172,10 @@ public class LinerResponseValidator {
                 || guide.preparationChecklist().stream().anyMatch(item -> item == null || blank(item.id())
                         || blank(item.label()) || blank(item.category()))) {
             throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "suneungGuide items are invalid");
+        }
+        if (!guide.examPeriods().stream().map(item -> item.period()).toList().equals(REQUIRED_EXAM_PERIODS)) {
+            throw new InvalidGenerationException("LINER_SCHEMA_INVALID",
+                    "examPeriods must use the stable exam-day sequence");
         }
     }
 
