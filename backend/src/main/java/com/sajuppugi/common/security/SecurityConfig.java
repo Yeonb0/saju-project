@@ -26,7 +26,7 @@ public class SecurityConfig {
             authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
             authorize.requestMatchers("/api/v1/quotes/fortune", "/api/v1/quotes/fortune/**",
                     "/api/v1/reading-purchases", "/api/v1/reading-purchases/**",
-                    "/api/v1/readings/**").authenticated();
+                    "/api/v1/readings/**", "/api/v1/people", "/api/v1/people/**").authenticated();
             if (environment.acceptsProfiles(Profiles.of("local"))) {
                 authorize.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
             }

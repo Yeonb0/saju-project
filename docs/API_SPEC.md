@@ -245,12 +245,70 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 
 - 본인과 저장한 사람 목록
 
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "profileType": "SELF",
+      "displayName": "민지",
+      "birthDate": "2008-03-12",
+      "birthTime": "13:25:00",
+      "birthTimeUnknown": false,
+      "calendarType": "SOLAR",
+      "isLeapMonth": false,
+      "gender": "FEMALE",
+      "relationType": null
+    }
+  ]
+}
+```
+
 ### `POST /people`
 
 - 인증·CSRF 필요
 - 본인 또는 타인 `PersonInput` 생성
 - 타인은 `relation`, `thirdPartyAuthorizationConfirmed=true` 필수
 - 타인 최대 10명, 초과 시 `409 PERSON_LIMIT_EXCEEDED`
+
+본인 생성 예시:
+
+```json
+{
+  "profileType": "SELF",
+  "displayName": "민지",
+  "birthDate": "2008-03-12",
+  "birthTime": "13:25",
+  "birthTimeUnknown": false,
+  "calendarType": "SOLAR",
+  "isLeapMonth": false,
+  "gender": "FEMALE",
+  "thirdPartyAuthorizationConfirmed": false
+}
+```
+
+타인 생성 예시:
+
+```json
+{
+  "profileType": "OTHER",
+  "displayName": "엄마",
+  "birthDate": "1978-05-10",
+  "birthTime": null,
+  "birthTimeUnknown": true,
+  "calendarType": "LUNAR",
+  "isLeapMonth": false,
+  "gender": "FEMALE",
+  "relationType": "FAMILY",
+  "thirdPartyAuthorizationConfirmed": true
+}
+```
+
+- `profileType`: `SELF | OTHER`
+- `relationType`: `FAMILY | FRIEND | LOVER | CRUSH | WORK_SCHOOL | OTHER`
+- 화면 관계 매핑: 엄마·아빠 → `FAMILY`, 애인 → `LOVER`, 직접 입력 → `OTHER`
+- 본인은 사용자당 활성 프로필 1개만 허용하며 중복 생성은 `409 PRIMARY_PERSON_ALREADY_EXISTS`다.
+- 개인정보는 암호화해 저장하고, 다른 사용자의 인물은 존재 여부를 숨기기 위해 `404 PERSON_NOT_FOUND`로 응답한다.
 
 ### `GET /people/{personId}`
 
@@ -259,10 +317,13 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 ### `PATCH /people/{personId}`
 
 - 전체 계산 입력이 바뀌면 이후 구매에만 반영한다. 기존 결과는 변경하지 않는다.
+- `profileType`은 변경할 수 없다.
+- 요청은 `POST /people`에서 `profileType`을 제외한 필드를 사용한다. `OTHER`는 관계와 타인 입력 동의가 계속 필수다.
 
 ### `DELETE /people/{personId}`
 
 - 기존 구매 결과는 보존하되 새 구매 대상 목록에서 제거한다.
+- 성공 응답은 `204 No Content`다. 삭제된 인물은 이후 목록·견적·구매 대상에서 제외한다.
 
 ## 5. 상품 카탈로그
 

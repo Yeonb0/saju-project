@@ -47,6 +47,8 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  person:
+    encryption-key: ${PERSON_ENCRYPTION_KEY:}
   liner:
     adapter: ${LINER_ADAPTER:fake}
     base-url: ${LINER_BASE_URL:https://platform.liner.com/api/v1}
