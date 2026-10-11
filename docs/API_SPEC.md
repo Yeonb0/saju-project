@@ -107,11 +107,15 @@ type ReadingSectionType =
   | "CHECKLIST";
 ```
 
+관계 선택 매핑(2026-10-11, B 답변+FE 회신 반영): 엄마/아빠는 FAMILY, 애인은 LOVER,
+직접 입력은 OTHER다. 직접 입력 문자열은 현재 API로 전송하지 않는다.
+이는 관계 enum 매핑이며 카테고리별 질문 문구/선택 정책(Q-26)의 최종 결정은 별도다.
+
 - 사주 원국, 간지, 십성, 12운성, 합충형파해, 대운·세운은 오픈소스 만세력 라이브러리와 서버 계산 엔진으로만 계산한다.
 - 계산 엔진 출력은 서버 내부의 구조화된 JSON으로 정규화하고 Liner API에 전달한다. Liner는 이 JSON에 근거한 사주 해석·설명 문장만 생성한다.
 - Liner에는 계산 결과, 상품·이벤트 맥락, 선택형 관심 항목, 허용 섹션을 전달한다. 원본 생년월일시와 자유 메모 등 문장 생성에 불필요한 개인정보는 전달하지 않는다.
 - 요청에는 계산 결과에 없는 필드 목록과 허용 근거 키를 포함한다. Liner가 미제공 명리 정보를 계산·보완·추론하거나 허용 범위 밖의 섹션을 반환하면 검증 실패로 처리한다.
-- 자유 메모는 저장·표시만 할 수 있으며 계산 엔진이나 Liner 입력으로 전달하지 않는다.
+- 자유 메모 수집·저장·표시 API는 현재 제공하지 않는다(2026-10-11 회신 대조). 계산 엔진이나 Liner 입력으로 전달하지 않는다.
 
 ### 내부 Liner 생성 계약
 
@@ -900,6 +904,36 @@ Query: `category=TOP_UP|FORTUNE|GIFT`, `fortuneType`
 `CREATED → DEBITED → GENERATING → FULFILLED`
 
 실패: `FAILED → REFUNDED`
+
+#### 구매 상태 조회 계약 (2026-10-11, B안 A 수용 / 미구현)
+
+- GET /api/v1/reading-purchases/{purchaseId}
+- GET /api/v1/reading-purchases/by-quote/{quoteId}
+- 실제 사용자 소유권 검사, 타인/없는 자원은 같은 404 RESOURCE_NOT_FOUND.
+- 이미 생성된 구매 조회/replay는 견적 만료와 무관하다. 최초 구매에만 만료 검사를 적용한다.
+- 공통 envelope의 data는 다음 모양이다. 현재 OpenAPI/실행 API 제공 완료가 아니다.
+
+```json
+{
+  "purchaseId": "uuid",
+  "quoteId": "uuid",
+  "status": "GENERATING",
+  "readingId": null,
+  "compensationStatus": "NOT_REQUIRED",
+  "failureCode": null,
+  "nextAction": "POLL",
+  "nextRetryAt": null,
+  "updatedAt": "2026-10-10T10:00:00Z"
+}
+```
+
+readingId는 FULFILLED에서만 값이 있다. compensationStatus는 NOT_REQUIRED/PENDING/COMPLETED/REVIEW_REQUIRED,
+nextAction은 POLL/VIEW_READING/CONTACT_SUPPORT/NONE이다. 잔액은 GET /wallet로 별도 조회한다.
+REFUNDED는 보상 receipt 확인 후에만 저장한다. 새 조회 계약의 완료 표시는
+status=REFUNDED와 compensationStatus=COMPLETED가 일치해야 하며 오류 code만으로 표시하지 않는다.
+lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦은 생성 결과를 노출하지 않는다.
+전체 상태 조합과 receipt 포트 보완 등 남은 계약은
+[10/11 회신 반영 기록](../backend/docs/TEAM_CONTRACT_DECISIONS_20261011.md)을 따른다.
 
 ### 선물 주문·선물
 

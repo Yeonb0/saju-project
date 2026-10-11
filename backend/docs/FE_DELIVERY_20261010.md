@@ -1,5 +1,8 @@
 # FE 전달: 질문 답변·반영 사항·확인 목록
 
+이 문서는 10/10 전달 당시 기록이다. FE/B 회신을 반영한 최신 내용은
+[10/11 후속 전달](FE_FOLLOWUP_20261011.md)과 [계약·할 일 기록](TEAM_CONTRACT_DECISIONS_20261011.md)을 따른다.
+
 기준: 2026-10-10, BE-A [PR #17](https://github.com/Yeonb0/saju-project/pull/17) main 병합 완료(`f47b719`).
 타입 기준: [docs/openapi/api-v1.json](https://github.com/Yeonb0/saju-project/blob/f47b719adb32900bbf8702a11e0dc578059ff9e6/docs/openapi/api-v1.json).
 아래 경로는 `/api/v1` 기준, 성공 응답은 `{data, traceId}`입니다.

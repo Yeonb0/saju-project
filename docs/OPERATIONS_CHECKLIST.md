@@ -428,6 +428,16 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-11: FE/B 회신 수용·미확정 분리와 원격 코드 대조
+
+- 사용자 제공 FE 회신과 A/B 합의 회신을 읽고 origin을 fetch했다. origin/main f704145는 FE PR #18 병합, origin/boyeon 1fcd9c0은 수능 adapter 후속, B 원격 81410c3 확인. 로컬 A eee0128에서 검토했고 최신 main을 작업 브랜치에 병합하지 않았다.
+- 적용: 6-1 소유자 조회/CSRF·인물 준비 경계, 6-2 A receipt/B 상태의 별도 커밋과 snapshot 잔액, 6-4 CREATED 중단 재개/lease/fencing/보상 완료 검증, 6-6 main/로컬/원격 FE 및 staging 준비 구분, 6-8 문의·관리자 알림 미정, 6-9 브라우저 최소 저장과 개인정보 금지.
+- B안의 책임 분리/두 구매 조회 경로/DTO/환급 판정/늦은 결과 차단을 A 측에서 수용했다. polling 권고는 A 개발 기준으로 채택했고 FE 실제 반영 확인은 후속이다. 보상 receipt 조회에 userId+quoteId+원거래 검증을 추가하는 서명은 B 재확인 대상으로 분리했다.
+- A 상품 metadata는 productName/regularPrice 필드 기준을 선택했으나 구현·OpenAPI 반영 전이다. 기존 확정 정가 정책을 변경하지 않는다. 관계 enum 매핑을 API_SPEC에 기록하고 상태 조회 계약도 미구현 표기로 반영했다.
+- FE main에서 오류 code만으로 환급 단정 제거, FULFILLED+readingId 이동 조건 및 basic/충전 adapter를 코드로 확인했다. boyeon 수능 adapter는 main 미병합, 실제 ports는 mock이며 B 세션/인물/구매 조회·fencing은 확인 범위에서 미구현이다. 최신 main backend/docs는 PR #17 이후 변경이 없다.
+- Q-37/절기 code/Q-31/정책·동의/CS/신살·부적·문구/staging 주소와 일정/팀 상점 키/PG 계약·법적 표기는 여전히 담당 확인 대기다. 사용자 제공 법률·심사 주장 자체를 독립 검증하거나 승인 완료로 간주하지 않았다.
+- 상세 계약·남은 작업은 backend/docs/TEAM_CONTRACT_DECISIONS_20261011.md, 전달 요약은 FE_FOLLOWUP_20261011.md. 기존 인계 문서에 최신 기록 링크를 추가했다. 이번에는 문서만 수정하고 테스트/E2E/운영/배포를 실행하지 않았다. 이전 테스트 수를 이번 통과 결과로 주장하지 않는다. push/PR 없음.
+
 ### 2026-10-10: A 토스 테스트 승인/조회 adapter, 기본 비활성
 
 - 기준: codex/fe-handoff-notes, 승인 요청 대응 커밋 4501b80 이후. 기존 RestClient 패턴의 TossPaymentProvider와 서버 환경 설정을 추가했다. 공식 승인 POST/주문 조회 GET과 Basic 인증·주문별 고정 멱등키를 사용하며 DB 트랜잭션/지갑 잠금/자동 재시도는 만들지 않는다.
