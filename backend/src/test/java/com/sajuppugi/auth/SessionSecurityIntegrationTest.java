@@ -64,6 +64,10 @@ class SessionSecurityIntegrationTest {
         mvc.perform(post("/api/v1/auth/logout").cookie(cookie))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_FAILED"));
+        mvc.perform(post("/api/v1/auth/logout").cookie(cookie).header("X-CSRF-Token", csrf)
+                        .header("Origin", "https://attacker.example"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_FAILED"));
         mvc.perform(post("/api/v1/auth/logout").cookie(cookie).header("X-CSRF-Token", csrf))
                 .andExpect(status().isNoContent())
                 .andExpect(result -> assertThat(result.getResponse().getHeader("Set-Cookie")).contains("Max-Age=0"));

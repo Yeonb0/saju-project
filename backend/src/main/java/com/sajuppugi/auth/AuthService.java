@@ -34,6 +34,13 @@ public class AuthService {
     boolean matchesCsrf(AuthRepository.Session session, String token) { return token != null && session != null && repository.matchesCsrf(session.id(), SecretHash.sha256(token), clock.instant()); }
     void logout(String raw) { if(raw != null) repository.revokeSession(SecretHash.sha256(raw), clock.instant()); }
     boolean isSecure() { return props.redirectUri() != null && props.redirectUri().startsWith("https://"); }
+    String frontendOrigin() {
+        URI frontend = URI.create(props.frontendBaseUrl());
+        if (frontend.getScheme() == null || frontend.getHost() == null) {
+            throw new IllegalStateException("FRONTEND_BASE_URL must be an absolute origin");
+        }
+        return frontend.getScheme() + "://" + frontend.getAuthority();
+    }
     String frontendUrl(String returnTo) { return URI.create(props.frontendBaseUrl()).resolve(safeReturnTo(returnTo)).toString(); }
     String loginFailureUrl(String returnTo, boolean cancelled) {
         return URI.create(props.frontendBaseUrl()).resolve("/login?returnTo="
