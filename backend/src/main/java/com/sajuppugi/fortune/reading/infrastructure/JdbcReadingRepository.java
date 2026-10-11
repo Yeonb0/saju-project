@@ -6,6 +6,7 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationMode;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
+import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
@@ -73,6 +74,14 @@ public class JdbcReadingRepository implements ReadingRepository {
                 debit_claim_token = NULL, debit_claimed_at = NULL
                 WHERE id = ? AND status = 'CREATED' AND debit_claim_token = ?
                 """, walletTransactionId, purchaseId, claimToken), "mark purchase debited");
+    }
+
+    @Override
+    public void saveGenerationContext(UUID purchaseId, GenerationResumeContext context) {
+        requireOne(jdbc.update("""
+                UPDATE reading_purchases SET generation_context = ?
+                WHERE id = ? AND status = 'DEBITED' AND generation_context IS NULL
+                """, json(context), purchaseId), "save generation context");
     }
 
     @Override

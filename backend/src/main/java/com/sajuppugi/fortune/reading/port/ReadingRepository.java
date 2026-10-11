@@ -2,6 +2,7 @@ package com.sajuppugi.fortune.reading.port;
 
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
+import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import java.time.Instant;
 import java.util.List;
@@ -14,6 +15,7 @@ public interface ReadingRepository {
     boolean tryClaimDebit(UUID purchaseId, UUID claimToken, Instant claimedAt, Instant staleBefore);
     void releaseDebitClaim(UUID purchaseId, UUID claimToken);
     void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId);
+    void saveGenerationContext(UUID purchaseId, GenerationResumeContext context);
     void markGenerating(UUID purchaseId);
     Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now, Instant leaseUntil);
     void releaseGenerationLease(UUID purchaseId, GenerationLease lease);

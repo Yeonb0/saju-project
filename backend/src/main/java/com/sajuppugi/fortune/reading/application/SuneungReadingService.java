@@ -13,6 +13,7 @@ import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
 import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.*;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
+import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
@@ -114,6 +115,13 @@ public class SuneungReadingService {
             compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_DEBIT_MISMATCH");
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
+        GenerationCommand command = new GenerationCommand(userId, FortuneType.SUNEUNG,
+                SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
+                subject.birthInput().birthTimeUnknown() ? List.of("pillars.hour", "tenGods.hour", "twelveStages.hour") : List.of(),
+                SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION);
+        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command,
+                ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(), null, null, null,
+                "EXAM_FOCUS", true));
         var lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
                 clock.instant().plus(generationLease.leaseDuration())).orElse(null);
         if (lease == null) {
@@ -122,10 +130,7 @@ public class SuneungReadingService {
                     quote.productSnapshot().price());
         }
         try {
-            GeneratedReading generated = generation.generate(new GenerationCommand(userId, FortuneType.SUNEUNG,
-                    SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
-                    subject.birthInput().birthTimeUnknown() ? List.of("pillars.hour", "tenGods.hour", "twelveStages.hour") : List.of(),
-                    SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION));
+            GeneratedReading generated = generation.generate(command);
             UUID readingId = UUID.randomUUID();
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(),

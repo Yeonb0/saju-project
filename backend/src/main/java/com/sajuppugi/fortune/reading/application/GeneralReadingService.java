@@ -16,6 +16,7 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedReading
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationCommand;
 import com.sajuppugi.fortune.reading.application.SuneungReadingService.PurchaseResult;
 import com.sajuppugi.fortune.reading.domain.GeneralReadingPolicy;
+import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
@@ -128,6 +129,16 @@ public class GeneralReadingService {
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
 
+        GeneralReadingPolicy.Definition policy = GeneralReadingPolicy.require(fortuneType);
+        List<String> missingFields = missingFields(subjects.primary(), subjects.counterpart());
+        GenerationCommand command = new GenerationCommand(userId, fortuneType,
+                LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
+                value(relationType), policy.allowedSections(), missingFields,
+                GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion());
+        readings.saveGenerationContext(purchase.id(), new GenerationResumeContext(command, option, personId,
+                subjects.primary().displayName(), counterpartPersonId,
+                subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
+                questionKey, option == ProductOption.READING_WITH_TALISMAN));
         var lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
                 clock.instant().plus(generationLease.leaseDuration())).orElse(null);
         if (lease == null) {
@@ -136,12 +147,7 @@ public class GeneralReadingService {
                     quote.productSnapshot().price());
         }
         try {
-            GeneralReadingPolicy.Definition policy = GeneralReadingPolicy.require(fortuneType);
-            List<String> missingFields = missingFields(subjects.primary(), subjects.counterpart());
-            GeneratedReading generated = generation.generate(new GenerationCommand(userId, fortuneType,
-                    LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
-                    value(relationType), policy.allowedSections(), missingFields,
-                    GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion()));
+            GeneratedReading generated = generation.generate(command);
             UUID readingId = UUID.randomUUID();
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     fortuneType, option, personId, subjects.primary().displayName(), counterpartPersonId,
