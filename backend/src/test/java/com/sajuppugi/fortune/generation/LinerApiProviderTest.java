@@ -34,6 +34,7 @@ class LinerApiProviderTest {
     private final AtomicReference<JsonNode> capturedBody = new AtomicReference<>();
     private volatile int responseStatus;
     private volatile String responseBody;
+    private volatile Duration responseDelay = Duration.ZERO;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -41,6 +42,13 @@ class LinerApiProviderTest {
         server.createContext("/api/v1/responses", exchange -> {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
             capturedBody.set(mapper.readTree(exchange.getRequestBody()));
+            if (!responseDelay.isZero()) {
+                try {
+                    Thread.sleep(responseDelay);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(responseStatus, bytes.length);
@@ -108,6 +116,22 @@ class LinerApiProviderTest {
                 .isInstanceOf(LinerApiException.class)
                 .hasMessage("Liner returned HTTP 429")
                 .hasMessageNotContaining("provider-private-detail")
+                .hasMessageNotContaining("test-secret-key");
+    }
+
+    @Test
+    void delayedHttpResponseIsBoundedByReadTimeout() {
+        responseStatus = 200;
+        responseBody = "{}";
+        responseDelay = Duration.ofSeconds(2);
+        provider = new LinerApiProvider(RestClient.builder(), mapper, new LinerApiProperties(
+                "http://127.0.0.1:" + server.getAddress().getPort() + "/api/v1",
+                "test-secret-key", "liner-mark",
+                Duration.ofMillis(100), Duration.ofMillis(100), 3000, "low"));
+
+        assertThatThrownBy(() -> provider.generate(request()))
+                .isInstanceOf(LinerApiException.class)
+                .hasMessage("Liner request failed")
                 .hasMessageNotContaining("test-secret-key");
     }
 
