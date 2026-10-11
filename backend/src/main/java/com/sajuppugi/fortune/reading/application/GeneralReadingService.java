@@ -11,6 +11,8 @@ import com.sajuppugi.fortune.calculation.application.SajuCalculationUseCase;
 import com.sajuppugi.fortune.calculation.domain.CalculationFacts;
 import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
 import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
+import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationFailedException;
+import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationInProgressException;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedReading;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationCommand;
@@ -162,13 +164,19 @@ public class GeneralReadingService {
                 readings.fulfill(purchase, reading, lease);
             }
             return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
-        } catch (RuntimeException failure) {
+        } catch (GenerationInProgressException inProgress) {
+            readings.releaseGenerationLease(purchase.id(), lease);
+            throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
+        } catch (GenerationFailedException failure) {
             try {
                 readings.markFailed(purchase.id(), "READING_GENERATION_FAILED", lease);
             } catch (IllegalStateException fencedOff) {
                 throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
             }
             throw new ApiException(ErrorCode.READING_GENERATION_FAILED);
+        } catch (RuntimeException transientFailure) {
+            readings.releaseGenerationLease(purchase.id(), lease);
+            throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
         }
     }
 

@@ -273,18 +273,18 @@ class SuneungReadingApiTest {
     }
 
     @Test
-    void talismanFulfillmentFailureWaitsForReceiptVerifiedRecovery() throws Exception {
+    void transientTalismanFailureKeepsPurchaseRecoverable() throws Exception {
         doThrow(new IllegalStateException("image pipeline unavailable")).when(talismans)
                 .create(any());
 
         mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
                         .header("Idempotency-Key", "talisman-failure-key")
                         .contentType(MediaType.APPLICATION_JSON).content(body()))
-                .andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.code").value("READING_GENERATION_FAILED"));
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("READING_FULFILLMENT_UNAVAILABLE"));
 
         verify(wallet, times(0)).compensate(any(), any(), any());
-        assertThatStatus("FAILED");
+        assertThatStatus("GENERATING");
     }
 
     @Test

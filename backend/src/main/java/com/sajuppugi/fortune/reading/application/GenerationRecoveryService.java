@@ -1,6 +1,8 @@
 package com.sajuppugi.fortune.reading.application;
 
 import com.sajuppugi.fortune.generation.application.ReadingGenerationService;
+import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationFailedException;
+import com.sajuppugi.fortune.generation.application.ReadingGenerationService.GenerationInProgressException;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GeneratedReading;
 import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
@@ -49,7 +51,10 @@ public class GenerationRecoveryService {
                 readings.fulfill(candidate.purchase(), reading, lease);
             }
             return Outcome.FULFILLED;
-        } catch (RuntimeException failure) {
+        } catch (GenerationInProgressException inProgress) {
+            readings.releaseGenerationLease(purchaseId, lease);
+            return Outcome.RETRY_SCHEDULED;
+        } catch (GenerationFailedException failure) {
             try {
                 readings.markFailed(purchaseId, "READING_GENERATION_FAILED", lease);
                 log.warn("Reading generation recovery failed: purchaseId={}, exception={}", purchaseId,
@@ -58,6 +63,9 @@ public class GenerationRecoveryService {
             } catch (IllegalStateException fencedOff) {
                 return Outcome.FENCED_OFF;
             }
+        } catch (RuntimeException transientFailure) {
+            readings.releaseGenerationLease(purchaseId, lease);
+            throw transientFailure;
         }
     }
 
@@ -72,5 +80,5 @@ public class GenerationRecoveryService {
                 generated.contentVersion(), generated.generationMode(), null, null, clock.instant());
     }
 
-    public enum Outcome { FULFILLED, FAILED, FENCED_OFF, CLAIMED_BY_OTHER, SKIPPED }
+    public enum Outcome { FULFILLED, FAILED, RETRY_SCHEDULED, FENCED_OFF, CLAIMED_BY_OTHER, SKIPPED }
 }
