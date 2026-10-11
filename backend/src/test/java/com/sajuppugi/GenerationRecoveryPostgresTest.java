@@ -66,6 +66,9 @@ class GenerationRecoveryPostgresTest {
                 facts, List.of(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW), List.of(), "recovery-test", "recovery-test");
         readings.saveGenerationContext(purchase, new GenerationResumeContext(command, ProductOption.READING_ONLY,
                 person, "테스트", null, null, null, "OVERALL_FLOW", false));
+        String storedContext = jdbc.queryForObject(
+                "SELECT generation_context FROM reading_purchases WHERE id = ?", String.class, purchase);
+        assertThat(storedContext).startsWith("enc:v1:").doesNotContain("테스트", "2004-03-15");
 
         var pool = Executors.newFixedThreadPool(2);
         try {

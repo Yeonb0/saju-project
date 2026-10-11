@@ -27,10 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class JdbcReadingRepository implements ReadingRepository {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final GenerationContextProtector contextProtector;
 
-    public JdbcReadingRepository(JdbcTemplate jdbc, ObjectMapper mapper) {
+    public JdbcReadingRepository(JdbcTemplate jdbc, ObjectMapper mapper, GenerationContextProtector contextProtector) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.contextProtector = contextProtector;
     }
 
     @Override
@@ -81,7 +83,7 @@ public class JdbcReadingRepository implements ReadingRepository {
         int updated = jdbc.update("""
                 UPDATE reading_purchases SET generation_context = ?
                 WHERE id = ? AND status IN ('CREATED', 'DEBITED') AND generation_context IS NULL
-                """, json(context), purchaseId);
+                """, contextProtector.encrypt(json(context)), purchaseId);
         if (updated == 1) return;
         GenerationResumeContext existing = jdbc.query("""
                 SELECT generation_context FROM reading_purchases
@@ -308,7 +310,7 @@ public class JdbcReadingRepository implements ReadingRepository {
 
     private GenerationResumeContext context(String value) throws SQLException {
         try {
-            return mapper.readValue(value, GenerationResumeContext.class);
+            return mapper.readValue(contextProtector.decrypt(value), GenerationResumeContext.class);
         } catch (JsonProcessingException exception) {
             throw new SQLException("Invalid reading generation context", exception);
         }

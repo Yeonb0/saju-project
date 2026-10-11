@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Immutable, non-PII generation input persisted before external generation starts.
+ * Immutable sensitive generation input persisted encrypted before external generation starts.
  * It lets a recovery worker resume a debited purchase without rereading mutable people or quotes.
  */
 public record GenerationResumeContext(
