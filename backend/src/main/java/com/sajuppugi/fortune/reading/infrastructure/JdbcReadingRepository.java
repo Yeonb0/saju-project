@@ -134,12 +134,6 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
-    public void markGenerating(UUID purchaseId) {
-        requireOne(jdbc.update("UPDATE reading_purchases SET status = 'GENERATING' WHERE id = ? AND status = 'DEBITED'",
-                purchaseId), "mark purchase generating");
-    }
-
-    @Override
     public Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now,
                                                           Instant leaseUntil) {
         int updated = jdbc.update("""
@@ -165,12 +159,6 @@ public class JdbcReadingRepository implements ReadingRepository {
 
     @Override
     @Transactional
-    public void fulfill(ReadingPurchase purchase, OwnedReading reading) {
-        fulfill(purchase, reading, null);
-    }
-
-    @Override
-    @Transactional
     public void fulfill(ReadingPurchase purchase, OwnedReading reading, GenerationLease lease) {
         jdbc.update("""
                 INSERT INTO readings (id, reading_result_id, owner_user_id, purchase_id, fortune_type,
@@ -186,18 +174,13 @@ public class JdbcReadingRepository implements ReadingRepository {
                 reading.generationVersion(), reading.contentVersion(), reading.generationMode().name(),
                 reading.talismanId(), reading.talismanStatus(),
                 Timestamp.from(reading.createdAt()));
-        String sql = lease == null ? """
-                UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?,
-                generation_lease_token = NULL, generation_lease_until = NULL
-                WHERE id = ? AND status = 'GENERATING'
-                """ : """
+        String sql = """
                 UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?,
                 generation_lease_token = NULL, generation_lease_until = NULL
                 WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
                 """;
-        int updated = lease == null
-                ? jdbc.update(sql, reading.id(), Timestamp.from(reading.createdAt()), purchase.id())
-                : jdbc.update(sql, reading.id(), Timestamp.from(reading.createdAt()), purchase.id(), lease.token(), lease.fence());
+        int updated = jdbc.update(sql, reading.id(), Timestamp.from(reading.createdAt()), purchase.id(),
+                lease.token(), lease.fence());
         requireOne(updated, "fulfill purchase");
     }
 

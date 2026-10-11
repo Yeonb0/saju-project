@@ -20,11 +20,6 @@ public class BundledReadingFulfillmentService {
     }
 
     @Transactional
-    public OwnedReading fulfill(ReadingPurchase purchase, OwnedReading reading, CreateTalisman command) {
-        return fulfill(purchase, reading, command, null);
-    }
-
-    @Transactional
     public OwnedReading fulfill(ReadingPurchase purchase, OwnedReading reading, CreateTalisman command,
                                 GenerationLease lease) {
         if (!reading.id().equals(command.readingId())
@@ -34,8 +29,7 @@ public class BundledReadingFulfillmentService {
         }
         var talisman = talismans.create(command);
         OwnedReading linked = reading.withTalisman(talisman.talismanId(), talisman.status().name());
-        if (lease == null) readings.fulfill(purchase, linked);
-        else readings.fulfill(purchase, linked, lease);
+        readings.fulfill(purchase, linked, lease);
         return linked;
     }
 }

@@ -20,10 +20,8 @@ public interface ReadingRepository {
     List<UUID> findExhaustedGenerationRecoveries(Instant now, int maxAttempts, int limit);
     boolean markGenerationExhausted(UUID purchaseId, Instant now, int maxAttempts);
     Optional<GenerationRecoveryCandidate> findGenerationRecoveryCandidate(UUID purchaseId);
-    void markGenerating(UUID purchaseId);
     Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now, Instant leaseUntil);
     void releaseGenerationLease(UUID purchaseId, GenerationLease lease);
-    void fulfill(ReadingPurchase purchase, OwnedReading reading);
     void fulfill(ReadingPurchase purchase, OwnedReading reading, GenerationLease lease);
     void markFailed(UUID purchaseId, String failureCode);
     void markFailed(UUID purchaseId, String failureCode, GenerationLease lease);

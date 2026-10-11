@@ -55,8 +55,9 @@ class BundledReadingFulfillmentTransactionTest {
                 null, null, null, "EXAM_FOCUS", null, new LinerResponse(List.of(), List.of()),
                 "calc-v1", "generation-v1", "content-v1", GenerationMode.LINER, null, null, now);
 
+        var lease = readings.tryClaimGeneration(purchaseId, UUID.randomUUID(), now, now.plusSeconds(120)).orElseThrow();
         assertThatThrownBy(() -> fulfillment.fulfill(purchase, reading,
-                new CreateTalisman(userId, readingId, FortuneType.SUNEUNG, facts(), "content-v1")))
+                new CreateTalisman(userId, readingId, FortuneType.SUNEUNG, facts(), "content-v1"), lease))
                 .isInstanceOf(RuntimeException.class);
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM talismans WHERE source_reading_id = ?",
@@ -84,8 +85,9 @@ class BundledReadingFulfillmentTransactionTest {
                 null, null, null, "EXAM_FOCUS", null, new LinerResponse(List.of(), List.of()),
                 "calc-v1", "generation-v1", "content-v1", GenerationMode.LINER, null, null, now);
 
+        var lease = readings.tryClaimGeneration(purchaseId, UUID.randomUUID(), now, now.plusSeconds(120)).orElseThrow();
         OwnedReading stored = fulfillment.fulfill(purchase, draft,
-                new CreateTalisman(userId, readingId, FortuneType.SUNEUNG, facts(), "content-v1"));
+                new CreateTalisman(userId, readingId, FortuneType.SUNEUNG, facts(), "content-v1"), lease);
         Instant readyAt = now.plusSeconds(5);
         talismans.markReady(stored.talismanId(), new AssetKeys("original", "thumbnail", "share"), readyAt);
 
