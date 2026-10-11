@@ -126,6 +126,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseDailyFortune" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/DailyFortune"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseFundedQuoteResponse" : {
         "properties" : {
           "data" : {
@@ -141,6 +152,17 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/LoveReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseMemberResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/MemberResponse"
           },
           "traceId" : {
             "type" : "string"
@@ -170,6 +192,28 @@
         },
         "type" : "object"
       },
+      "ApiResponsePeopleResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PeopleResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePersonResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PersonResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseProductsResponse" : {
         "properties" : {
           "data" : {
@@ -185,6 +229,17 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/PurchaseResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePurchaseStatus" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PurchaseStatus"
           },
           "traceId" : {
             "type" : "string"
@@ -214,6 +269,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseSessionResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SessionResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseSinsalReadingResponse" : {
         "properties" : {
           "data" : {
@@ -230,6 +296,15 @@
           "data" : {
             "$ref" : "#/components/schemas/SuneungQuoteResponse"
           },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseVoid" : {
+        "properties" : {
+          "data" : { },
           "traceId" : {
             "type" : "string"
           }
@@ -367,10 +442,16 @@
           "charged" : {
             "$ref" : "#/components/schemas/Charged"
           },
+          "compensationStatus" : {
+            "type" : "string"
+          },
           "contentVersion" : {
             "type" : "string"
           },
           "generationVersion" : {
+            "type" : "string"
+          },
+          "nextAction" : {
             "type" : "string"
           },
           "purchaseId" : {
@@ -405,10 +486,16 @@
           "charged" : {
             "$ref" : "#/components/schemas/Charged"
           },
+          "compensationStatus" : {
+            "type" : "string"
+          },
           "contentVersion" : {
             "type" : "string"
           },
           "generationVersion" : {
+            "type" : "string"
+          },
+          "nextAction" : {
             "type" : "string"
           },
           "purchaseId" : {
@@ -443,10 +530,16 @@
           "charged" : {
             "$ref" : "#/components/schemas/Charged"
           },
+          "compensationStatus" : {
+            "type" : "string"
+          },
           "contentVersion" : {
             "type" : "string"
           },
           "generationVersion" : {
+            "type" : "string"
+          },
+          "nextAction" : {
             "type" : "string"
           },
           "purchaseId" : {
@@ -481,10 +574,16 @@
           "charged" : {
             "$ref" : "#/components/schemas/Charged"
           },
+          "compensationStatus" : {
+            "type" : "string"
+          },
           "contentVersion" : {
             "type" : "string"
           },
           "generationVersion" : {
+            "type" : "string"
+          },
+          "nextAction" : {
             "type" : "string"
           },
           "purchaseId" : {
@@ -519,10 +618,16 @@
           "charged" : {
             "$ref" : "#/components/schemas/Charged"
           },
+          "compensationStatus" : {
+            "type" : "string"
+          },
           "contentVersion" : {
             "type" : "string"
           },
           "generationVersion" : {
+            "type" : "string"
+          },
+          "nextAction" : {
             "type" : "string"
           },
           "purchaseId" : {
@@ -758,6 +863,49 @@
         },
         "type" : "object"
       },
+      "CreatePersonRequest" : {
+        "properties" : {
+          "birthDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "birthTime" : {
+            "type" : "string"
+          },
+          "birthTimeUnknown" : {
+            "type" : "boolean"
+          },
+          "calendarType" : {
+            "enum" : [ "SOLAR", "LUNAR" ],
+            "type" : "string"
+          },
+          "displayName" : {
+            "maxLength" : 50,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "gender" : {
+            "enum" : [ "MALE", "FEMALE", "UNSPECIFIED" ],
+            "type" : "string"
+          },
+          "isLeapMonth" : {
+            "type" : "boolean"
+          },
+          "profileType" : {
+            "enum" : [ "SELF", "OTHER" ],
+            "type" : "string"
+          },
+          "relationType" : {
+            "enum" : [ "FAMILY", "FRIEND", "LOVER", "CRUSH", "WORK_SCHOOL", "OTHER" ],
+            "type" : "string"
+          },
+          "thirdPartyAuthorizationConfirmed" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "birthDate", "calendarType", "displayName", "gender", "profileType" ],
+        "type" : "object"
+      },
       "CreateRequest" : {
         "properties" : {
           "productCode" : {
@@ -769,6 +917,28 @@
         "required" : [ "productCode" ],
         "type" : "object"
       },
+      "DailyFortune" : {
+        "properties" : {
+          "calculationVersion" : {
+            "type" : "string"
+          },
+          "contentVersion" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "personId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "scores" : {
+            "$ref" : "#/components/schemas/Scores"
+          }
+        },
+        "type" : "object"
+      },
       "Event" : {
         "properties" : {
           "date" : {
@@ -776,6 +946,17 @@
             "type" : "string"
           },
           "type" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ExamPeriodGuide" : {
+        "properties" : {
+          "guidance" : {
+            "type" : "string"
+          },
+          "period" : {
             "type" : "string"
           }
         },
@@ -813,6 +994,17 @@
               "type" : "string"
             },
             "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "FoodRecommendation" : {
+        "properties" : {
+          "item" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -906,6 +1098,40 @@
         },
         "type" : "object"
       },
+      "MemberResponse" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "hasPrimaryPerson" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "scheduledDeletionAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "walletBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "withdrawalRequestedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "OrderResponse" : {
         "properties" : {
           "amount" : {
@@ -995,6 +1221,54 @@
         },
         "type" : "object"
       },
+      "PeopleResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PersonResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "PersonResponse" : {
+        "properties" : {
+          "birthDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "birthTime" : {
+            "type" : "string"
+          },
+          "birthTimeUnknown" : {
+            "type" : "boolean"
+          },
+          "calendarType" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "gender" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "isLeapMonth" : {
+            "type" : "boolean"
+          },
+          "profileType" : {
+            "type" : "string"
+          },
+          "relationType" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Pillar" : {
         "properties" : {
           "branch" : {
@@ -1022,6 +1296,20 @@
           },
           "year" : {
             "$ref" : "#/components/schemas/Pillar"
+          }
+        },
+        "type" : "object"
+      },
+      "PreparationItem" : {
+        "properties" : {
+          "category" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -1157,10 +1445,16 @@
           "charged" : {
             "$ref" : "#/components/schemas/Charged"
           },
+          "compensationStatus" : {
+            "type" : "string"
+          },
           "contentVersion" : {
             "type" : "string"
           },
           "generationVersion" : {
+            "type" : "string"
+          },
+          "nextAction" : {
             "type" : "string"
           },
           "purchaseId" : {
@@ -1178,6 +1472,46 @@
             "type" : "boolean"
           },
           "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PurchaseStatus" : {
+        "properties" : {
+          "compensationStatus" : {
+            "enum" : [ "NOT_REQUIRED", "PENDING", "COMPLETED", "REVIEW_REQUIRED" ],
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "failureCode" : {
+            "type" : "string"
+          },
+          "fulfilledAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "nextAction" : {
+            "enum" : [ "WAIT", "VIEW_READING", "RETRY_PURCHASE", "CONTACT_SUPPORT" ],
+            "type" : "string"
+          },
+          "purchaseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "readingId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "CREATED", "DEBITED", "GENERATING", "FULFILLED", "FAILED", "REFUNDED" ],
             "type" : "string"
           }
         },
@@ -1324,6 +1658,9 @@
           "subjectDisplayName" : {
             "type" : "string"
           },
+          "suneungGuide" : {
+            "$ref" : "#/components/schemas/SuneungGuide"
+          },
           "talisman" : {
             "$ref" : "#/components/schemas/Talisman"
           }
@@ -1391,6 +1728,31 @@
         },
         "type" : "object"
       },
+      "Scores" : {
+        "properties" : {
+          "condition" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "love" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "overall" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "studyWork" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "wealth" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "SectionContent" : {
         "properties" : {
           "content" : {
@@ -1401,6 +1763,31 @@
               "type" : "string"
             },
             "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "SessionResponse" : {
+        "properties" : {
+          "authenticated" : {
+            "type" : "boolean"
+          },
+          "csrfToken" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "hasPrimaryPerson" : {
+            "type" : "boolean"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "format" : "uuid",
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -1479,6 +1866,50 @@
           },
           "yinYang" : {
             "enum" : [ "YANG", "YIN" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SuneungGuide" : {
+        "properties" : {
+          "anxietyManagement" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "examDayGuide" : {
+            "type" : "string"
+          },
+          "examPeriods" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExamPeriodGuide"
+            },
+            "type" : "array"
+          },
+          "focusTips" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "foodRecommendations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FoodRecommendation"
+            },
+            "type" : "array"
+          },
+          "missingElementAdvice" : {
+            "type" : "string"
+          },
+          "preparationChecklist" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PreparationItem"
+            },
+            "type" : "array"
+          },
+          "summary" : {
             "type" : "string"
           }
         },
@@ -1595,6 +2026,45 @@
         },
         "type" : "object"
       },
+      "UpdatePersonRequest" : {
+        "properties" : {
+          "birthDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "birthTime" : {
+            "type" : "string"
+          },
+          "birthTimeUnknown" : {
+            "type" : "boolean"
+          },
+          "calendarType" : {
+            "enum" : [ "SOLAR", "LUNAR" ],
+            "type" : "string"
+          },
+          "displayName" : {
+            "maxLength" : 50,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "gender" : {
+            "enum" : [ "MALE", "FEMALE", "UNSPECIFIED" ],
+            "type" : "string"
+          },
+          "isLeapMonth" : {
+            "type" : "boolean"
+          },
+          "relationType" : {
+            "enum" : [ "FAMILY", "FRIEND", "LOVER", "CRUSH", "WORK_SCHOOL", "OTHER" ],
+            "type" : "string"
+          },
+          "thirdPartyAuthorizationConfirmed" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "birthDate", "calendarType", "displayName", "gender" ],
+        "type" : "object"
+      },
       "WalletResponse" : {
         "properties" : {
           "balance" : {
@@ -1668,6 +2138,211 @@
   },
   "openapi" : "3.1.0",
   "paths" : {
+    "/api/v1/auth/logout" : {
+      "post" : {
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/daily-fortunes/today" : {
+      "get" : {
+        "operationId" : "today",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "personId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDailyFortune"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "daily-fortune-controller" ]
+      }
+    },
     "/api/v1/fortune/basic" : {
       "post" : {
         "operationId" : "calculate",
@@ -1774,6 +2449,724 @@
           }
         },
         "tags" : [ "basic-saju-controller" ]
+      }
+    },
+    "/api/v1/me" : {
+      "delete" : {
+        "operationId" : "withdraw",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMemberResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "member-controller" ]
+      },
+      "get" : {
+        "operationId" : "get_4",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMemberResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "member-controller" ]
+      }
+    },
+    "/api/v1/people" : {
+      "get" : {
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePeopleResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "people-controller" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreatePersonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePersonResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "people-controller" ]
+      }
+    },
+    "/api/v1/people/{personId}" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "personId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "people-controller" ]
+      },
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "personId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePersonResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "people-controller" ]
+      },
+      "patch" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "personId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdatePersonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePersonResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "people-controller" ]
       }
     },
     "/api/v1/products" : {
@@ -2543,7 +3936,7 @@
     },
     "/api/v1/quotes/{quoteId}" : {
       "get" : {
-        "operationId" : "get_2",
+        "operationId" : "get_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "quoteId",
@@ -2762,6 +4155,113 @@
           }
         },
         "tags" : [ "suneung-reading-controller" ]
+      }
+    },
+    "/api/v1/reading-purchases/by-quote/{quoteId}" : {
+      "get" : {
+        "operationId" : "getByQuote",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "quoteId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePurchaseStatus"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "reading-purchase-status-controller" ]
       }
     },
     "/api/v1/reading-purchases/compatibility" : {
@@ -3346,7 +4846,7 @@
     },
     "/api/v1/readings" : {
       "get" : {
-        "operationId" : "list",
+        "operationId" : "list_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "fortuneType",
@@ -4621,7 +6121,7 @@
     },
     "/api/v1/readings/{readingId}" : {
       "get" : {
-        "operationId" : "get_1",
+        "operationId" : "get_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "readingId",
@@ -4724,6 +6224,104 @@
           }
         },
         "tags" : [ "suneung-reading-controller" ]
+      }
+    },
+    "/api/v1/session" : {
+      "get" : {
+        "operationId" : "session",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSessionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "auth-controller" ]
       }
     },
     "/api/v1/top-up-orders" : {
@@ -5090,7 +6688,7 @@
     },
     "/api/v1/wallet" : {
       "get" : {
-        "operationId" : "get",
+        "operationId" : "get_1",
         "responses" : {
           "200" : {
             "content" : {

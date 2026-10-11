@@ -47,6 +47,13 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  kakao-oauth:
+    rest-api-key: ${KAKAO_REST_API_KEY:}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+    redirect-uri: ${KAKAO_REDIRECT_URI:}
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+    session-ttl: ${KAKAO_SESSION_TTL:14d}
+    state-ttl: ${KAKAO_STATE_TTL:10m}
   person:
     encryption-key: ${PERSON_ENCRYPTION_KEY:}
   toss:
@@ -68,6 +75,19 @@ app:
       enabled: ${WALLET_RECOVERY_ENABLED:false}
       max-attempts: 5
       retry-delay: 30s
+      batch-size: 20
+      poll-delay: 30s
+  reading:
+    generation-context-protection:
+      encryption-key: ${GENERATION_CONTEXT_ENCRYPTION_KEY:}
+    generation-context-reencryption:
+      enabled: ${GENERATION_CONTEXT_REENCRYPTION_ENABLED:false}
+      batch-size: ${GENERATION_CONTEXT_REENCRYPTION_BATCH_SIZE:100}
+    generation:
+      lease-duration: ${READING_GENERATION_LEASE_DURATION:2m}
+    generation-recovery:
+      enabled: ${READING_GENERATION_RECOVERY_ENABLED:false}
+      max-attempts: 3
       batch-size: 20
       poll-delay: 30s
   liner:

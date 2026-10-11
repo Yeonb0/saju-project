@@ -256,12 +256,10 @@ class SuneungReadingApiTest {
     }
 
     @Test
-    void compensatesAndRejectsUnexpectedDebitAmount() throws Exception {
+    void marksUnexpectedDebitAmountPendingForReceiptVerifiedRecovery() throws Exception {
         UUID transactionId = UUID.randomUUID();
         doReturn(new WalletPurchasePort.DebitResult(transactionId, 14, new WalletBalance(20, 5)))
                 .when(wallet).debit(eq(userId), eq(quoteId), any());
-        when(wallet.compensate(eq(transactionId), eq("READING_DEBIT_MISMATCH"), any())).thenReturn(
-                new WalletPurchasePort.CompensationResult(UUID.randomUUID(), transactionId, new WalletBalance(34, 5)));
 
         mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
                         .header("Idempotency-Key", "mismatch-key")
@@ -270,25 +268,23 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.code").value("PURCHASE_DEBIT_MISMATCH"));
 
         verify(liner, times(0)).generate(any());
-        verify(wallet).compensate(eq(transactionId), eq("READING_DEBIT_MISMATCH"), any());
-        assertThatStatus("REFUNDED");
+        verify(wallet, times(0)).compensate(any(), any(), any());
+        assertThatStatus("FAILED");
     }
 
     @Test
-    void talismanFulfillmentFailureAlsoCompensatesPurchase() throws Exception {
+    void transientTalismanFailureKeepsPurchaseRecoverable() throws Exception {
         doThrow(new IllegalStateException("image pipeline unavailable")).when(talismans)
                 .create(any());
-        when(wallet.compensate(any(), eq("READING_GENERATION_FAILED"), any())).thenReturn(
-                new WalletPurchasePort.CompensationResult(UUID.randomUUID(), UUID.randomUUID(), new WalletBalance(35, 5)));
 
         mvc.perform(post("/api/v1/reading-purchases").with(user(userId.toString())).with(csrf())
                         .header("Idempotency-Key", "talisman-failure-key")
                         .contentType(MediaType.APPLICATION_JSON).content(body()))
-                .andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.code").value("READING_GENERATION_FAILED"));
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("READING_FULFILLMENT_UNAVAILABLE"));
 
-        verify(wallet).compensate(any(), eq("READING_GENERATION_FAILED"), any());
-        assertThatStatus("REFUNDED");
+        verify(wallet, times(0)).compensate(any(), any(), any());
+        assertThatStatus("GENERATING");
     }
 
     @Test

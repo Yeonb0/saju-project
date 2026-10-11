@@ -9,6 +9,9 @@ spring:
       minimum-idle: 1
 
 app:
+  reading:
+    generation-context-protection:
+      encryption-key: dGVzdC1nZW5lcmF0aW9uLWNvbnRleHQta2V5LTAwMDA=
   person:
     encryption-key: dGVzdC1vbmx5LXBlcnNvbi1lbmNyeXB0aW9uLWtleSE=
   liner:

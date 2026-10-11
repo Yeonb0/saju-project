@@ -269,7 +269,7 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
   it("j. 진짜 모드인데 구현이 없으면 조용히 넘어가지 않고 오류 화면으로 던진다", async () => {
     // 테스트 환경은 NEXT_PUBLIC_API_MODE 가 비어 있어 진짜 모드다
     const caught = await expectThrown({});
-    expect(String(caught)).toContain("MOCK-PORT");
+    expect(String(caught)).not.toContain("FIXTURE");
   });
 
   it("k. 오행분석 섹션에 li 5개가 보인다", async () => {

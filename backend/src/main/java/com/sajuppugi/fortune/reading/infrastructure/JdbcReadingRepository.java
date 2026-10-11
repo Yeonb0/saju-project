@@ -6,6 +6,7 @@ import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.GenerationMode;
 import com.sajuppugi.fortune.generation.domain.GenerationModels.LinerResponse;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
+import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.domain.OwnedReading.ProductOption;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
@@ -26,10 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class JdbcReadingRepository implements ReadingRepository {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final GenerationContextProtector contextProtector;
 
-    public JdbcReadingRepository(JdbcTemplate jdbc, ObjectMapper mapper) {
+    public JdbcReadingRepository(JdbcTemplate jdbc, ObjectMapper mapper, GenerationContextProtector contextProtector) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.contextProtector = contextProtector;
     }
 
     @Override
@@ -76,14 +79,87 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
-    public void markGenerating(UUID purchaseId) {
-        requireOne(jdbc.update("UPDATE reading_purchases SET status = 'GENERATING' WHERE id = ? AND status = 'DEBITED'",
-                purchaseId), "mark purchase generating");
+    public void saveGenerationContext(UUID purchaseId, GenerationResumeContext context) {
+        int updated = jdbc.update("""
+                UPDATE reading_purchases SET generation_context = ?
+                WHERE id = ? AND status IN ('CREATED', 'DEBITED') AND generation_context IS NULL
+                """, contextProtector.encrypt(json(context)), purchaseId);
+        if (updated == 1) return;
+        GenerationResumeContext existing = jdbc.query("""
+                SELECT generation_context FROM reading_purchases
+                WHERE id = ? AND status IN ('CREATED', 'DEBITED') AND generation_context IS NOT NULL
+                """, (rs, row) -> context(rs.getString(1)), purchaseId).stream().findFirst().orElse(null);
+        if (!context.equals(existing)) throw new IllegalStateException("Generation context changed for purchase");
+    }
+
+    @Override
+    public List<UUID> findReadyGenerationRecoveries(Instant now, int maxAttempts, int limit) {
+        return jdbc.query("""
+                SELECT id FROM reading_purchases
+                WHERE status IN ('DEBITED', 'GENERATING') AND generation_context IS NOT NULL
+                AND generation_attempts < ?
+                AND (status = 'DEBITED' OR generation_lease_token IS NULL OR generation_lease_until < ?)
+                ORDER BY created_at, id LIMIT ?
+                """, (rs, row) -> rs.getObject(1, UUID.class), maxAttempts, Timestamp.from(now), limit);
+    }
+
+    @Override
+    public List<UUID> findExhaustedGenerationRecoveries(Instant now, int maxAttempts, int limit) {
+        return jdbc.query("""
+                SELECT id FROM reading_purchases
+                WHERE status = 'GENERATING' AND generation_attempts >= ?
+                AND (generation_lease_token IS NULL OR generation_lease_until < ?)
+                ORDER BY created_at, id LIMIT ?
+                """, (rs, row) -> rs.getObject(1, UUID.class), maxAttempts, Timestamp.from(now), limit);
+    }
+
+    @Override
+    public boolean markGenerationExhausted(UUID purchaseId, Instant now, int maxAttempts) {
+        return jdbc.update("""
+                UPDATE reading_purchases SET status = 'FAILED', failure_code = 'GENERATION_RETRY_EXHAUSTED',
+                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END,
+                generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_attempts >= ?
+                AND (generation_lease_token IS NULL OR generation_lease_until < ?)
+                """, purchaseId, maxAttempts, Timestamp.from(now)) == 1;
+    }
+
+    @Override
+    public Optional<GenerationRecoveryCandidate> findGenerationRecoveryCandidate(UUID purchaseId) {
+        return jdbc.query("""
+                SELECT * FROM reading_purchases WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
+                AND generation_context IS NOT NULL
+                """, (rs, row) -> new GenerationRecoveryCandidate(purchase(rs), context(rs.getString("generation_context"))),
+                purchaseId).stream().findFirst();
+    }
+
+    @Override
+    public Optional<GenerationLease> tryClaimGeneration(UUID purchaseId, UUID leaseToken, Instant now,
+                                                          Instant leaseUntil) {
+        int updated = jdbc.update("""
+                UPDATE reading_purchases SET status = 'GENERATING', generation_lease_token = ?,
+                generation_lease_until = ?, generation_fence = generation_fence + 1,
+                generation_attempts = generation_attempts + 1
+                WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
+                AND (generation_lease_token IS NULL OR generation_lease_until < ?)
+                """, leaseToken, Timestamp.from(leaseUntil), purchaseId, Timestamp.from(now));
+        if (updated != 1) return Optional.empty();
+        return jdbc.query("SELECT generation_fence FROM reading_purchases WHERE id = ? AND generation_lease_token = ?",
+                (rs, row) -> new GenerationLease(leaseToken, rs.getLong("generation_fence")), purchaseId, leaseToken)
+                .stream().findFirst();
+    }
+
+    @Override
+    public void releaseGenerationLease(UUID purchaseId, GenerationLease lease) {
+        jdbc.update("""
+                UPDATE reading_purchases SET generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
+                """, purchaseId, lease.token(), lease.fence());
     }
 
     @Override
     @Transactional
-    public void fulfill(ReadingPurchase purchase, OwnedReading reading) {
+    public void fulfill(ReadingPurchase purchase, OwnedReading reading, GenerationLease lease) {
         jdbc.update("""
                 INSERT INTO readings (id, reading_result_id, owner_user_id, purchase_id, fortune_type,
                 product_option, subject_person_id, subject_display_name, counterpart_person_id,
@@ -98,20 +174,36 @@ public class JdbcReadingRepository implements ReadingRepository {
                 reading.generationVersion(), reading.contentVersion(), reading.generationMode().name(),
                 reading.talismanId(), reading.talismanStatus(),
                 Timestamp.from(reading.createdAt()));
-        requireOne(jdbc.update("""
-                UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?
-                WHERE id = ? AND status = 'GENERATING'
-                """, reading.id(), Timestamp.from(reading.createdAt()), purchase.id()), "fulfill purchase");
+        String sql = """
+                UPDATE reading_purchases SET status = 'FULFILLED', reading_id = ?, fulfilled_at = ?,
+                generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
+                """;
+        int updated = jdbc.update(sql, reading.id(), Timestamp.from(reading.createdAt()), purchase.id(),
+                lease.token(), lease.fence());
+        requireOne(updated, "fulfill purchase");
     }
 
     @Override
-    public void markFailed(UUID purchaseId, String failureCode) {
-        if (failureCode == null || failureCode.isBlank()) throw new IllegalArgumentException("failureCode is required");
+    public void markDebitMismatch(UUID purchaseId) {
         requireOne(jdbc.update("""
-                UPDATE reading_purchases SET status = 'FAILED', failure_code = ?,
+                UPDATE reading_purchases SET status = 'FAILED', failure_code = 'PURCHASE_DEBIT_MISMATCH',
                 compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END
-                WHERE id = ? AND status IN ('DEBITED', 'GENERATING')
-                """, failureCode, purchaseId), "mark purchase failed");
+                WHERE id = ? AND status = 'DEBITED'
+                """, purchaseId), "mark purchase debit mismatch");
+    }
+
+    @Override
+    public void markFailed(UUID purchaseId, String failureCode, GenerationLease lease) {
+        if (failureCode == null || failureCode.isBlank()) throw new IllegalArgumentException("failureCode is required");
+        String sql = """
+                UPDATE reading_purchases SET status = 'FAILED', failure_code = ?,
+                compensation_status = CASE WHEN wallet_transaction_id IS NULL THEN 'NOT_REQUIRED' ELSE 'PENDING' END,
+                generation_lease_token = NULL, generation_lease_until = NULL
+                WHERE id = ? AND status = 'GENERATING' AND generation_lease_token = ? AND generation_fence = ?
+                """;
+        int updated = jdbc.update(sql, failureCode, purchaseId, lease.token(), lease.fence());
+        requireOne(updated, "mark purchase failed");
     }
 
     @Override
@@ -194,6 +286,14 @@ public class JdbcReadingRepository implements ReadingRepository {
                     instant(rs, "created_at"));
         } catch (JsonProcessingException exception) {
             throw new SQLException("Invalid reading snapshot", exception);
+        }
+    }
+
+    private GenerationResumeContext context(String value) throws SQLException {
+        try {
+            return mapper.readValue(contextProtector.decrypt(value), GenerationResumeContext.class);
+        } catch (JsonProcessingException exception) {
+            throw new SQLException("Invalid reading generation context", exception);
         }
     }
 

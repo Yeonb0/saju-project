@@ -78,3 +78,21 @@ tasks.register('walletDemo', Test) {
         }
     }
 }
+
+tasks.register('generationRecoveryPostgresTest', Test) {
+    description = 'Run generation lease, restart, and context migration checks against isolated PostgreSQL.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.GenerationRecoveryPostgresTest' }
+    systemProperty 'generation.recovery.postgres', 'true'
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+    doFirst {
+        if (System.getenv('TEST_DATABASE_URL') != 'jdbc:postgresql://localhost:55432/sajuppugi_test') {
+            throw new GradleException(
+                    'generationRecoveryPostgresTest requires the isolated localhost:55432/sajuppugi_test database.')
+        }
+    }
+}

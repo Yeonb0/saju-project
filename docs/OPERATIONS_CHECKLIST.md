@@ -463,6 +463,30 @@ LIMIT 20;
   실패/오류 0, 의도적 제외 2를 확인했다. 실제 PostgreSQL migration/동시성 회귀, staging,
   실제 Toss/Liner, 브라우저 E2E와 배포는 이번 충돌 해결에서 검증하지 않았다.
 
+### 2026-10-11: 카카오 OAuth 서버 세션 기반 초안
+
+- `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`만 서버 환경에서 읽도록 구성했다. 키, 인가 코드, 카카오 access token은 DB·로그·HTTP 응답에 저장하지 않는다.
+- `/api/v1/auth/kakao/authorize`, callback, `/api/v1/session`, 로그아웃 경로와 불투명 HttpOnly 세션 쿠키를 추가했다. OAuth state는 해시와 만료 시각만 PostgreSQL에 저장·1회 소비하며, returnTo는 내부 상대 경로로 제한한다. 세션·CSRF 원문도 저장하지 않고 해시로 검증한다.
+- 적용: 6-1 세션·CSRF·returnTo·소유권 전제, 6-6 추가 Flyway migration, 6-9 닉네임 최소 저장 및 비밀값 비노출. 카카오 토큰 요청은 DB 트랜잭션 밖에서 수행한다.
+- `./gradlew test`는 H2 PostgreSQL 호환 모드에서 성공했다. 실제 PostgreSQL migration, 실제 카카오 로그인, 브라우저 쿠키/CSRF E2E, staging CORS·HTTPS cookie와 다중 인스턴스 시험은 아직 수행하지 않았다.
+- 프런트의 real session port를 Next `/api` proxy와 연결해 카카오 버튼이 전체 페이지 OAuth 시작 URL로 이동하도록 했다. `API_PROXY_TARGET=http://localhost:8080`, `NEXT_PUBLIC_API_MODE=real` 로컬 설정이 필요하다. FE vitest 556건, typegen/TypeScript 검사와 관련 Biome 검사는 통과했지만 실제 카카오 브라우저 왕복은 아직 미실행이다.
+- 2026-10-12 로컬 PostgreSQL 17.11에서 OAuth migration을 포함한 Flyway 25건 적용과 backend health, Next proxy를 거친 비로그인 `/api/v1/session`, 내부 returnTo를 지닌 카카오 authorize 302을 확인했다. 실제 카카오 계정 동의·callback·cookie 발급과 로그인 뒤 소유권/CSRF/로그아웃 브라우저 E2E는 아직 사용자 브라우저에서 확인해야 한다.
+- 실로그인 모드에서 홈이 실제 wallet adapter를 선택하지 못해 `충전 포트` 오류로 종료되는 경로를 수정했다. `GET /wallet`은 기존 adapter를 사용하며 CSRF token source는 세션 adapter와 공유한다. 세션·홈 포트 선택 회귀 20건, typegen/TypeScript 검사를 다시 통과했다.
+- 로그인 직후 본인 정보가 없는 사용자는 온보딩으로 이동하는 것이 정상이다. 실제 people adapter를 추가하여 `POST /people`의 자기 정보 생성과 `GET /people`의 마이페이지 목록을 세션 CSRF source로 연결했다. FE 전체 556건, typegen/TypeScript를 통과했다. 실제 개인정보 입력·저장 및 그 뒤 마이페이지 browser E2E는 사용자 동작으로 남아 있다.
+
+### 2026-10-12: OAuth 취소·세션 종료·계약 보완
+
+- 카카오 callback의 `error` 응답도 OAuth state를 한 번 소비하고, 로그인 화면의 `oauth=cancelled` 또는 `oauth=failed` 안내로 되돌린다. 이전 로그인 returnTo는 내부 상대 경로만 허용하는 기존 정책을 그대로 적용한다.
+- 세션 인증/CSRF 필터는 Spring Security 체인에서만 실행하도록 정리했고, `POST /api/v1/auth/logout`을 인증된 요청으로 명시했다. 중복 필터 등록으로 인증이 사라져 로그아웃이 403이 되던 결함을 제거했다.
+- 새 통합 시험은 실제 세션 쿠키/DB 해시를 사용해 CSRF 누락 403, 유효 CSRF 로그아웃 200과 Set-Cookie 만료, 이후 보호 API 401, 만료 세션의 미인증 처리를 확인했다. 기존 회원 lifecycle 시험은 탈퇴 요청에서 전체 세션 revoke, 30일 후 사용자 익명화·세션 및 인물 삭제를 계속 검증한다.
+- `exportOpenApi`로 세션·인물·회원 API 계약을 다시 생성하고 FE 타입을 재생성했다. backend H2 검증과 FE 로그인 화면 11건, Biome, TypeScript 검사는 통과했다. 전용 PostgreSQL 세션 시험은 현 셸에 테스트 DB 인증 설정이 없어 연결 전에 중단했으며, 비밀값을 조회·출력하지 않았다. 실제 카카오 로그인 계정의 취소/오류, 브라우저 쿠키, 탈퇴 후 30일 스케줄러 실행은 staging 또는 로컬 사용자 브라우저에서 별도 확인이 필요하다. 배포·push·PR은 하지 않았다.
+
+### 2026-10-12: OAuth 오류 왕복·탈퇴 정리 보강
+
+- callback 오류 통합 시험을 추가해 `access_denied`는 `/login?...&oauth=cancelled`, 다른 provider 오류는 `oauth=failed`로 돌아가며 OAuth state가 재사용되지 않는 것을 확인했다. 이 과정에서 실패 redirect가 login 경로를 안전 경로 필터로 다시 검사해 루트(`/`)로 가던 결함을 수정했다.
+- OAuth state 소비는 PostgreSQL 전용 `UPDATE ... RETURNING` 대신, 조건부 UPDATE 성공 후에만 returnTo를 읽도록 변경했다. 한 요청만 state를 소비하는 조건은 유지하면서 H2 회귀 시험에서도 callback 실패 경로를 검증할 수 있다.
+- 탈퇴 보존 기한 경과 시험은 실제 `MemberDeletionJob`을 호출하고, 삭제 대상의 인물뿐 아니라 `user_sessions` 행도 삭제됨을 확인한다. cron은 Asia/Seoul 매일 03:20이며, 실제 시간 대기나 운영 DB 삭제는 수행하지 않았다.
+
 ### 2026-10-11: Backend-B PostgreSQL CI 회원 lifecycle 회귀 수정
 
 - CI 실패의 실제 원인은 `MemberLifecycleTest` fixture가 `Instant`를 `JdbcTemplate` 인자로
@@ -723,3 +747,54 @@ LIMIT 20;
 - `docs/sql/wallet-demo-inspect.sql`을 BEGIN READ ONLY에서 실행했다. 지갑 paid=20/bonus=0/version=2, lot remaining=20, 현재 사용 가능=20, TOP_UP +20/PURCHASE -15/REFUND +15 각 1건, 거래 총액=배분 합계, REFUND가 원차감 거래 참조, 구매 REFUNDED/recovery_attempts=1을 확인했다.
 - `build/wallet-demo.json`은 마지막 실습의 가상 ID/잔액만 기록하며 Git 제외 대상이다. 실행/접속/정리/pgAdmin/직접 SQL 방법은 `backend/docs/POSTGRESQL_TEST_GUIDE.md`에 기록했다.
 - 사용자가 바로 읽어볼 수 있도록 실습 테스트 컨테이너와 가상 행을 남겼다. 개발 DB는 건드리지 않았다. 컨테이너 down 시 임시 데이터가 사라지고 예제 lot은 약 1시간 뒤 만료된다. 다시 전체 테스트할 때는 test project만 down/up해 초기화한다.
+
+### 2026-10-11: B 생성 lease/fence 1차 적용
+
+- BE-B 책임인 생성 점유와 늦은 완료 차단의 기반을 추가했다. 신규 `V202610111900`은 `reading_purchases`에 generation lease token/until, 단조 증가 fence, 시도 횟수를 저장한다. 기존 applied migration은 수정하지 않았다.
+- 적용: 6-2 상태 전이의 원자적 조건 갱신, 6-3 Liner 호출 중 DB 잠금 미보유, 6-4 stale 실행자의 완료·실패 저장 차단과 프로세스 중단 재개 기반, 6-6 추가형 migration/기본 운영 비활성 유지.
+- 일반·수능 동기 구매는 `DEBITED`/`GENERATING` 상태에서 lease를 원자적으로 점유한 실행자만 FULFILLED/FAILED로 전이할 수 있다. lease가 만료된 뒤 새 실행자가 fence를 올리면 이전 실행자의 결과는 저장되지 않는다. Liner 호출은 lease를 획득한 뒤 DB 트랜잭션 밖에서 수행한다.
+- H2에서 `GeneralReadingApiTest`, `SuneungReadingApiTest`, `BasicSajuApiTest`를 실행해 성공했다. 실제 PostgreSQL migration/경쟁 실행, OS 강제 종료 뒤 worker 재개, lease 갱신/시도 한도, 결과 불명 대사는 아직 검증·구현하지 않았다.
+- 아직 scheduler가 `DEBITED`/stale `GENERATING` 구매를 재생성하지 않으므로 이 변경만으로 중단 복구가 완성된 것은 아니다. `WALLET_PURCHASES_ENABLED`와 recovery 기본 비활성은 유지한다. 로컬 커밋 `5f834c0`, `bb99259`; push/PR/배포는 하지 않았다.
+
+### 2026-10-11: B 생성 중단 재개 worker
+
+- `V202610112000`으로 차감 직후 외부 생성 전에 확정한 generation command와 결과 메타데이터를 저장한다. 생년 원문·세션·토큰은 포함하지 않으며, 재개 시 수정·삭제된 인물이나 만료된 견적을 다시 읽지 않는다.
+- `GenerationRecoveryScheduler`는 `WALLET_PURCHASES_ENABLED=true` 및 `READING_GENERATION_RECOVERY_ENABLED=true`일 때만 실행한다. DEBITED 또는 만료 lease의 GENERATING 구매를 찾고, 새 lease/fence를 얻은 실행자만 Liner 호출 뒤 FULFILLED/FAILED로 전이할 수 있다. 외부 호출은 DB 잠금 밖에서 한다.
+- 적용: 6-2 구매 상태와 결과 저장의 fence 조건, 6-3 Liner 결과 불명 재시도 경계, 6-4 중단 뒤 재개·stale 완료 차단, 6-6 추가형 migration/기본 비활성. 생성 실패는 기존 FAILED 보상 worker가 처리하는 경로를 유지한다.
+- H2에서 일반·수능 구매 API 테스트를 재실행해 성공했다. 실제 PostgreSQL에서 두 worker 경쟁, OS 강제 종료, lease 만료 뒤 늦은 완료, Liner 지연 및 보상 대사는 아직 검증하지 않았다. 운영 활성화·배포·push는 하지 않았다.
+- 후속 실제 PostgreSQL 17 분리 DB(`localhost:55432`, fake Liner)에서 `GenerationRecoveryPostgresTest`를 실행했다. 독립 worker 2개가 동일 DEBITED 구매를 동시에 recovery해도 최종 상태 FULFILLED와 `readings` 1건만 남음을 확인했다. OS 강제 종료·lease 만료 후 늦은 완료·실제 Liner 지연/보상 대사는 여전히 미검증이다.
+- 추가 PostgreSQL 재현에서 첫 worker의 lease를 만료시키고 두 번째 worker가 더 높은 fence로 점유한 뒤, 첫 worker의 늦은 실패 저장이 거절되는지 확인했다. 두 번째 worker도 종료된 상황을 DB의 만료 lease로 재현한 후 새 recovery service 실행이 저장된 snapshot으로 FULFILLED/readings 1건에 수렴했다. 이는 SIGKILL 자체를 실행한 시험은 아니지만 프로세스 메모리에 의존하지 않는 재시작 경계를 검증한다.
+- `ReadingGenerationServiceTest`, `FailedPurchaseRecoveryTest`, 일반/수능 API suite를 함께 재실행해 provider 3회 실패 뒤 deterministic fallback, fallback까지 실패한 확정 실패, 보상 receipt 재사용·동시 recovery·bounded retry·REFUNDED 확정을 확인했다. 실제 Liner endpoint에 고의 지연을 보내거나 staging 프로세스를 SIGKILL한 것은 아니며 운영 활성화·배포도 하지 않았다.
+
+### 2026-10-11: B 생성 복구 코드 리뷰 후 운영 결함 보완
+
+- 적용: 6-2 차감/context 영속 순서, 6-3 확정 실패와 일시 오류 구분, 6-4 재시도 소진·후보별 격리, 6-9 생성 context 암호화와 탈퇴 삭제.
+- generation context를 CREATED 상태에서 지갑 차감 전에 저장하도록 순서를 바꿨다. 동일 context 재저장은 멱등 허용하고 다른 context는 거절한다. 차감 커밋 직후 중단돼 DEBITED/context 없음으로 고착되는 구간을 제거했다.
+- generation in-progress, DB/부적 저장 등 일시 오류는 lease를 해제하고 재시도한다. Liner와 deterministic fallback이 모두 실패한 `GenerationFailedException`만 FAILED/PENDING으로 전이한다.
+- 만료 lease에서 최대 시도 횟수에 도달한 GENERATING 구매는 `GENERATION_RETRY_EXHAUSTED`로 FAILED 전이한다. scheduler는 purchase별 예외를 격리해 한 손상 행이 배치 전체를 중단하지 않게 했다.
+- generation context는 기존 person AES-GCM 보호기를 이용한 `enc:v1:` 암호문으로 저장한다. PostgreSQL에서 표시 이름과 생년일 원문이 보이지 않고 복호화 recovery가 성공함을 확인했다. 회원 탈퇴 최종 익명화 때 context를 NULL로 지운다. 기존 평문 context는 혼합 배포 호환을 위해 읽을 수 있으므로 운영 배포 전 재암호화/삭제 계획이 필요하다.
+- 관련 H2 운세·생성·보상·회원 테스트와 PostgreSQL recovery 경쟁/소진 테스트를 통과했다. 실제 staging SIGKILL/live Liner/운영 부하는 확인하지 않았다. 구매 기능과 recovery 기본 비활성은 유지한다.
+- 후속 품질 보완으로 lease 없는 FULFILLED 저장 API와 직접 GENERATING 전이를 제거하고 부적 포함 완료도 현재 lease/fence를 필수화했다. 기존 구매는 견적 만료·판매 기간·현재 인물 상태보다 먼저 소유자 quote snapshot을 검증해 replay한다. 신규 구매에만 현재 만료/판매 검사를 적용한다.
+- 기동 시 generation lease가 Liner 3회 connect/read timeout 합계와 10초 완료 여유보다 긴지 검증한다. 잘못된 설정은 중복 provider 호출 위험이 있으므로 서버 기동을 거절한다. 관련 카탈로그·일반/수능·부적 트랜잭션·설정 단위 테스트를 통과했다.
+
+### 2026-10-11: B 일반·수능 구매 오케스트레이션 통합
+
+- 적용: 6-2 지갑 차감 claim과 금액 대조, 6-3 외부 생성 중 DB 잠금 미보유 및 실패 분류, 6-4 생성 lease/fence와 재시도 가능 상태 보존. schema나 운영 feature flag는 변경하지 않았다.
+- `ReadingPurchaseOrchestrator`가 generation context 선저장, 지갑 차감 claim/확정, 생성 lease 획득, Liner 생성, fenced 완료·실패 처리를 공통으로 담당한다. 일반·수능 서비스는 소유권·견적 검증, 계산 command, 결과와 부적 조립 정책만 담당한다.
+- 두 서비스에 따로 있던 상태 전이·오류 처리 143줄을 제거했다. 앞으로 한 상품만 lease 해제나 실패 분류가 달라지는 회귀 위험을 줄였으며, 지갑 차감과 Liner 호출을 하나의 장기 DB 트랜잭션으로 묶지 않았다.
+- 분리 PostgreSQL 17 테스트 DB(`localhost:55432`)에서 `check bootJar --rerun-tasks`를 실행해 성공했다. 구매·운세 관련 선별 suite도 별도로 성공했다. 실제 staging SIGKILL, live Liner 지연, 운영 부하는 이번 리팩터링에서 다시 실행하지 않았고 기존 기본 비활성 설정을 유지한다.
+- 로컬 기능 커밋 `6397c72`; push/PR/배포는 하지 않았다.
+
+### 2026-10-11: B 코드 리뷰 잔여 보안·상태 전이 보완
+
+- 적용: 6-2 차감 불일치 상태 전이 제한, 6-3 실제 HTTP 지연 timeout, 6-4 context 재개 호환, 6-6 opt-in 데이터 전환 순서, 6-9 암호화 키 분리와 원문 비노출.
+- generation context 새 쓰기는 인물 정보 보호기와 분리된 전용 32-byte 키 및 `enc:v2` 형식을 사용한다. 공통 AES-GCM 구현만 재사용하고 키는 공유하지 않는다. 기존 평문/`enc:v1`은 새 코드가 읽을 수 있으며, 기본 비활성인 batch runner가 행별 원본 값 조건을 걸어 `v2`로 재암호화한다.
+- PostgreSQL 17에서 평문 context를 `v2`로 전환하고 재실행 시 변경 0건, 이후 저장 snapshot으로 generation recovery 완료를 확인했다. 배포 순서와 잔여 행 확인 SQL은 backend README에 기록했다. 실제 운영 데이터 전환은 수행하지 않았다.
+- lease 없는 범용 `markFailed`를 제거했다. 차감 금액 불일치는 `DEBITED` 상태에만 적용되는 전용 전이이고, 생성 실패는 현재 lease token/fence가 일치해야만 저장된다.
+- 완료 구매의 quote 생성/만료 시각을 과거로 옮긴 HTTP replay 테스트에서 기존 결과를 반환하고 지갑 차감과 Liner 호출이 각각 1회인 것을 확인했다.
+- 로컬 HTTP 서버의 응답을 2초 지연하고 read timeout을 100ms로 설정해 제한 시간 내 `LinerApiException`으로 종료하며 API key/원격 본문을 노출하지 않음을 확인했다. 이는 실제 Liner endpoint나 staging 프록시 시험은 아니다.
+- 분리 PostgreSQL DB에서 전체 `clean check bootJar` 성공. 로컬 커밋 `afa5cfe`, `f09f2f5`, `4ca8c91`; push/PR/배포는 하지 않았다. 실제 staging SIGKILL과 운영 용량 측정은 환경 권한·트래픽이 필요한 별도 운영 검증으로 남는다.
+- opt-in 조건이 일반 `test` task의 JVM에 전달되지 않아 PostgreSQL recovery suite가 제외되는 검증 공백을 발견했다. 분리 DB URL을 강제하는 `generationRecoveryPostgresTest` task를 추가하고 실제 4건 실행을 확인했다. 이 과정에서 fixture의 30분 견적 제약과 Spring repository 예외 변환 기대값을 수정했으며 업무 제약을 완화하지 않았다.
+- 재검증 정적 리뷰에서 `@Repository`가 stale fence의 예외를 Spring 데이터 접근 예외로 변환해 동기 구매 오케스트레이터의 좁은 catch를 벗어날 수 있음을 발견했다. generation 실패 상태 저장의 모든 런타임 저장 실패를 `READING_FULFILLMENT_UNAVAILABLE`로 변환하고 전용 단위 테스트로 고정했다. stale 결과 자체는 DB fence가 계속 거절한다.
+- 재암호화 SQL은 평문과 `enc:v1`만 대상으로 제한했다. PostgreSQL 표본에서 평문/`v1`은 `v2`로 전환되고 임의의 미래 `enc:v3` 값은 변경되지 않음을 확인했다.
+- 수정 후 분리 PostgreSQL에서 `clean check bootJar` 성공: XML 총 412건, 통과 405, 실패/오류 0, 의도적 제외 7. 이어 전용 recovery 4건은 통과 4, 제외/실패/오류 0으로 별도 확인했다. 실제 staging 프로세스 종료와 운영 부하는 여전히 이 로컬 검증의 범위가 아니다.

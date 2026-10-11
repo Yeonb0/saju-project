@@ -18,8 +18,11 @@ import {
 } from "./index";
 
 describe("포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다 — 조용히 가짜로 바꾸지 않는다", () => {
-    expect(() => selectTopUpPort("real", undefined)).toThrow();
+  it("진짜 충전 포트는 서버 adapter를 쓰고, 미구현 결제창은 조용히 가짜로 바꾸지 않는다", () => {
+    expect(selectTopUpPort("real", undefined)).toMatchObject({
+      getWallet: expect.any(Function),
+      createOrder: expect.any(Function),
+    });
   });
 
   describe("결제창 선택 (TOSS-LAUNCHER-SWITCH)", () => {
@@ -103,8 +106,12 @@ describe("포트 선택 (MOCK-PORT)", () => {
 });
 
 describe("세션 포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다", () => {
-    expect(() => selectSessionPort("real", undefined)).toThrow();
+  it("진짜 모드는 서버 세션 adapter를 준다", () => {
+    expect(selectSessionPort("real", undefined)).toMatchObject({
+      getSession: expect.any(Function),
+      startLogin: expect.any(Function),
+      logout: expect.any(Function),
+    });
   });
 
   it("시나리오: 비우면 signed_out, 모르는 값은 던진다", () => {
@@ -116,10 +123,14 @@ describe("세션 포트 선택 (MOCK-PORT)", () => {
 });
 
 describe("인물 포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다", () => {
-    expect(() =>
+  it("진짜 모드는 서버 adapter를 준다", () => {
+    expect(
       selectPersonPort("real", createFakeAccount("signed_in")),
-    ).toThrow();
+    ).toMatchObject({
+      list: expect.any(Function),
+      createSelf: expect.any(Function),
+      createOther: expect.any(Function),
+    });
   });
 });
 

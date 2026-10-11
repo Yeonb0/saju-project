@@ -3,6 +3,9 @@ package com.sajuppugi.common.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.common.api.ApiError;
 import com.sajuppugi.common.api.ErrorCode;
+import com.sajuppugi.auth.AuthService;
+import com.sajuppugi.auth.SessionAuthenticationFilter;
+import com.sajuppugi.auth.SessionCsrfFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.context.annotation.Bean;
@@ -15,15 +18,18 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper,
-            Environment environment) throws Exception {
+            Environment environment, AuthService auth) throws Exception {
         // Authentication and business permissions will be implemented by BE-B.
         http.authorizeHttpRequests(authorize -> {
             authorize.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
+            authorize.requestMatchers("/api/v1/auth/kakao/authorize", "/api/v1/auth/kakao/callback", "/api/v1/session").permitAll();
+            authorize.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll();
             authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
             authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
@@ -39,7 +45,12 @@ public class SecurityConfig {
         });
         http.formLogin(form -> form.disable());
         http.httpBasic(basic -> basic.disable());
+        http.csrf(csrf -> csrf.disable());
         http.requestCache(cache -> cache.disable());
+        SessionAuthenticationFilter sessionAuthenticationFilter = new SessionAuthenticationFilter(auth);
+        SessionCsrfFilter sessionCsrfFilter = new SessionCsrfFilter(auth, mapper);
+        http.addFilterBefore(sessionAuthenticationFilter, AnonymousAuthenticationFilter.class);
+        http.addFilterAfter(sessionCsrfFilter, SessionAuthenticationFilter.class);
         http.exceptionHandling(errors -> errors
                 .authenticationEntryPoint((request, response, exception) ->
                         writeError(response, mapper, ErrorCode.AUTHENTICATION_REQUIRED))

@@ -14,10 +14,12 @@ import type { LoginProvider, SessionPort } from "@/lib/ports/session";
 
 export function LoginScreen({
   returnTo,
+  oauthStatus,
   port,
 }: {
   // page.tsx 에서 safeReturnTo 를 거친 값만 받는다.
   returnTo: string;
+  oauthStatus?: "cancelled" | "failed" | null;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다.
   port?: SessionPort;
 }) {
@@ -85,8 +87,16 @@ export function LoginScreen({
           data-slot="login-intro"
           className="mt-[14px] min-h-[24px] text-[20px]"
         />
+        {oauthStatus === "cancelled" ? (
+          <p role="alert" className="mt-3 text-sm">
+            카카오 로그인이 취소되었습니다.
+          </p>
+        ) : oauthStatus === "failed" ? (
+          <p role="alert" className="mt-3 text-sm">
+            카카오 로그인에 실패했습니다. 다시 시도해 주세요.
+          </p>
+        ) : null}
         {/* TODO(LOGIN-3): 네이버 · 구글 버튼 — PG 심사 요청 후 추가 (A-01). 배치는 와이어 195:774, 버튼 값 224:1087 · 195:781 */}
-        {/* TODO(BE-B 콜백 동작): OAuth 취소 · 오류 쿼리 처리 — 콜백 동작 확정 전이라 만들지 않는다 */}
         {/* 카카오 로그인 버튼 색 (카카오 디자인 가이드) — TODO(PD 아이콘): 말풍선 심볼 */}
         <button
           type="button"

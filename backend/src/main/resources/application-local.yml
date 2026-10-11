@@ -16,6 +16,10 @@ springdoc:
     tags-sorter: alpha
 
 app:
+  reading:
+    generation-context-protection:
+      # Local-only key. Shared environments must provide a distinct GENERATION_CONTEXT_ENCRYPTION_KEY.
+      encryption-key: ${GENERATION_CONTEXT_ENCRYPTION_KEY:bG9jYWwtZ2VuZXJhdGlvbi1jb250ZXh0LWtleS0wMDE=}
   person:
     # Local-only development key. Shared environments must provide PERSON_ENCRYPTION_KEY.
     encryption-key: ${PERSON_ENCRYPTION_KEY:bG9jYWwtcGVyc29uLWtleS0wMTIzNDU2Nzg5YWJjZGU=}

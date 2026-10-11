@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.member.application.MemberService;
+import com.sajuppugi.member.application.MemberDeletionJob;
 import com.sajuppugi.person.application.PersonService;
 import com.sajuppugi.person.domain.Person;
 import java.sql.Timestamp;
@@ -42,6 +43,7 @@ class MemberLifecycleTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired MemberService members;
+    @Autowired MemberDeletionJob deletionJob;
     @Autowired PersonService people;
 
     @Test
@@ -71,10 +73,11 @@ class MemberLifecycleTest {
                 NOW.minusSeconds(31L * 86400));
         UUID recent = insertUser("WITHDRAWAL_PENDING", NOW.minusSeconds(40L * 86400),
                 NOW.minusSeconds(29L * 86400));
+        insertSession(due, "d".repeat(64));
         people.create(due, Person.ProfileType.SELF, "삭제할 이름", birth(), null, false);
         people.create(recent, Person.ProfileType.SELF, "유지할 이름", birth(), null, false);
 
-        assertThat(members.purgeDueWithdrawals()).isEqualTo(1);
+        deletionJob.purgeDueWithdrawals();
 
         assertThat(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, due))
                 .isEqualTo("WITHDRAWN");
@@ -82,6 +85,8 @@ class MemberLifecycleTest {
         assertThat(jdbc.queryForObject("SELECT kakao_subject FROM users WHERE id = ?", String.class, due))
                 .isEqualTo("withdrawn:" + due);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM people WHERE owner_user_id = ?", Integer.class, due))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_sessions WHERE user_id = ?", Integer.class, due))
                 .isZero();
         assertThat(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, recent))
                 .isEqualTo("WITHDRAWAL_PENDING");

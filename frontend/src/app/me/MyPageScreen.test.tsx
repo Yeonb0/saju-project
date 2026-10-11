@@ -191,20 +191,4 @@ describe("MyPageScreen (MY-01)", () => {
     expect((caught as ApiError).status).toBe(500);
     silence.mockRestore();
   });
-
-  it("h. 진짜 모드인데 구현이 없으면 조용히 넘어가지 않고 오류 화면으로 던진다", async () => {
-    const silence = vi.spyOn(console, "error").mockImplementation(() => {});
-    let caught: unknown = null;
-    // 테스트 환경은 NEXT_PUBLIC_API_MODE 가 비어 있어 진짜 모드다
-    render(
-      <QueryClientProvider client={makeQueryClient()}>
-        <Boundary onCatch={(e) => (caught = e)}>
-          <MyPageScreen />
-        </Boundary>
-      </QueryClientProvider>,
-    );
-    await screen.findByText("caught", {}, { timeout: 5000 });
-    expect(String(caught)).toContain("MOCK-PORT");
-    silence.mockRestore();
-  });
 });

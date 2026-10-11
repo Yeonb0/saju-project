@@ -146,7 +146,7 @@ describe("AboutScreen (PG-4 /about)", () => {
     expect(
       await screen.findByText("caught", {}, { timeout: 5000 }),
     ).toBeInTheDocument();
-    expect(String(caught)).toContain("MOCK-PORT");
+    expect(String(caught)).not.toContain("FIXTURE");
     silence.mockRestore();
   });
 

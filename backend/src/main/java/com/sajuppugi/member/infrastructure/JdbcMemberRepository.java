@@ -58,6 +58,7 @@ public class JdbcMemberRepository implements MemberRepository {
         if (updated != 1) return false;
         jdbc.update("DELETE FROM user_sessions WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM people WHERE owner_user_id = ?", userId);
+        jdbc.update("UPDATE reading_purchases SET generation_context = NULL WHERE buyer_user_id = ?", userId);
         jdbc.update("""
                 UPDATE readings SET subject_display_name = '탈퇴한 사용자',
                     counterpart_display_name = CASE WHEN counterpart_display_name IS NULL THEN NULL ELSE '삭제된 인물' END
