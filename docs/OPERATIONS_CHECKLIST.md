@@ -4,6 +4,29 @@
 
 이 문서는 점검 결과와 제안이다. 팀 정책이나 확정 일정의 원본을 대체하지 않는다. 운영 서버 주소, 플랫폼 설정, 실제 DB, 트래픽 지표와 장애 로그는 확인하지 않았다. 현재 사용자 수와 운영 중인 배포 버전은 이 자료만으로 확인할 수 없다. 이번에는 코드 변경이나 테스트 재실행, 배포를 하지 않았다.
 
+### 2026-10-11: PR #21 서버 키 저장 후 FE 제외 백엔드 재검증
+
+- 기준: PR #21 `codex/fe-a-completed-handoff`, `b81076c` (기능 기준 main `8fd90e8`). 사용자가 키 저장 후 FE 제외 테스트와 같은 PR에 검증 기록 커밋을 요청했다. 적용: 6-1 인증/CSRF/소유권, 6-2 PostgreSQL 원자성/원장/중복/동시성, 6-3 외부 응답 검증/결과 불명, 6-4 lease/제한된 조회 복구, 6-6 환경 분리/migration, 6-9 비밀값 비출력/커밋 제외.
+- `backend/.env`에서 시크릿 존재와 지원 테스트 키 형식을 boolean으로만 확인했다. `TOSS_ADAPTER=disabled`, `TOSS_RECOVERY_ENABLED=false`이며 `.env`는 Git ignore 대상이다. 키를 수정하거나 출력하지 않았고, 토스 인증 유효성·상점·FE 키 세트 일치는 확인하지 않았다.
+- 기존 테스트 DB에는 다른 브랜치 migration 21개가 남아 있어 그 실행 결과를 최종 근거로 사용하지 않았다. 기존 DB를 보존하고 55432의 새 `sajuppugi_test_pr21_20261011` DB에서 재실행했다. PostgreSQL 17.11, migration 18개 모두 success=true, 충전 상품 6종 모두 비활성을 확인했다. 개발 DB는 5432의 `sajuppugi`로 분리돼 있다.
+- 새 DB에서 `check bootJar --rerun-tasks` 성공: 37 suites, 총 383건 중 380 통과, 실패/오류 0, 선택 실행 제외 3 (Liner 실제 호출, OpenAPI 선택 export, 지갑 시연). 충전/토스 7 suites 97건 모두 통과: TopUpCatalog 7, TopUpProductApi 6, TopUpOrderApi 7, TopUpConfirmationPersistence 13, TopUpPaymentFlow 24, TossPaymentConfiguration 3, TossPaymentProvider 37.
+- 가짜 PG와 실제 PostgreSQL로 CREDITED/정확한 지급·원장·잔액, 같은/다른 승인 요청키 재전송의 주문당 한 번 지급, 두 주문 동시 충전, PG 대기 중 중복 요청, 금액/소유권/인증/CSRF 거절을 검증했다. 승인 응답 유실, 승인 전 중단 상태, lease 만료와 늦은 응답, 지급 DB 오류 전체 롤백 후 조회 복구, 최대 5회 뒤 CONTACT_SUPPORT, 잘못된 PG 증거 및 거절/취소의 지급 없음도 통과했다. OS 강제 종료나 FE 취소 화면을 실제로 시험한 것은 아니다.
+- 저장된 `.env`와 local 프로필로 빌드 JAR를 실제 기동했다. 기존 개발 DB에 미적용 migration 8개가 자동 적용되어 10개에서 18개 모두 성공 상태가 됐다. 충전 상품 6종 비활성, 충전 주문/지급 receipt 0건을 확인했다. 상품을 활성화하거나 실제 지급하지 않았다.
+- 실제 HTTP: health/readiness 각각 200/UP, TOP_UP 상품 조회 200/items=[], 미로그인 지갑/주문 조회 401/AUTHENTICATION_REQUIRED, CSRF 없는 주문 생성/승인 POST 403/CSRF_FAILED. 실행 서버 OpenAPI에 생성 POST/승인 POST/소유자 GET 경로가 있음을 확인했다.
+- PG 호출은 DB 트랜잭션 밖에서 실행하고, 검증된 승인 뒤 지급분·원장·잔액·receipt·CREDITED를 한 트랜잭션으로 저장한다. 저장 실패는 함께 롤백되고, 결과 불명은 재승인 대신 기존 주문 조회로 확인한다. 자동 복구는 실제 local 설정에서 계속 꺼져 있으며 복구 테스트는 가짜 PG와 제어된 시각/명시 poll 호출이다.
+- 남음: 실제 토스 인증/승인/조회, B 실제 로그인·CSRF 발급 경로, FE adapter/결제창/완료·취소 화면, 키 세트 일치, 실제 프로세스 종료 복구, staging/운영 검증. 현재 SecurityConfig는 로그인 구현을 B에 맡기며 formLogin/httpBasic을 비활성화하므로 자동 테스트의 인증 사용자 주입을 실제 로그인 완료로 보지 않는다. 최종 확인에서 최초 백그라운드 local 서버(PID 31888)가 8080을 제공한다. 추가 기동 시도는 포트 사용 중으로 종료됐고 서버를 두 개 실행하지 않는다. PR에는 이 검증 기록만 추가하며 키·빌드 산출물은 포함하지 않는다.
+
+### 2026-10-11: FE A 1~4번 완료 회신과 선물 제외 문서 PR 준비
+
+- 사용자 요청으로 FE 요청서 5번 Q-20 선물 개발/전달은 보류했다. 기존 `codex/gift-quote-orders`의 `0f574ad`까지의 커밋은 보존하고, 최신 main `8fd90e8`에서 `codex/fe-a-completed-handoff`를 분리했다. 선물 코드/새 migration은 이번 PR에 포함하지 않는다.
+- Q-17/Q-28/Q-18/A receipt 구현은 이미 PR #19로 main 병합 완료임을 GitHub merged=true와 최신 origin/main에서 확인했다. 중복 기능 PR은 만들지 않고 최신 FE 전달 문서와 역사적 상태 안내만 묶는다.
+- 사용자 확인: 테스트 클라이언트 키는 FE 직접 전달 완료, PG 상담은 아직 전이며 개발·테스트를 우선한다. 상점/키 세트 일치·서버 시크릿 설정·실제 결제 완료를 이 답변만으로 단정하지 않는다.
+- 적용: 6-1 인증/CSRF 경계, 6-2 지급/원장/주문 실제 회귀, 6-3 결과 불명과 지급 완료 구분, 6-4 제한된 복구, 6-6 branch/main/배포·활성화 구분, 6-9 비밀값 미사용/미출력.
+- 전용 `saju-tests` PostgreSQL 17.11 컨테이너(55432)에 비어 있음을 확인한 새 DB `sajuppugi_fe_handoff_test`를 만들었다. 개발 DB 5432와 선물 검증 DB를 변경/초기화하지 않았다. main의 `check bootJar --rerun-tasks` 성공: 383건 중 380 통과, 실패/오류 0, 선택 제외 3. 읽기 전용 migration 조회에서 18개 모두 success=true였다.
+- 현재 main FE `topUp.ts`의 listTopUpProducts/confirm/getOrder는 계약 부재를 이유로 오류를 던지는 자리표시자다. 이번에는 FE 담당 코드를 변경하지 않고 제공된 BE 계약으로 연결할 것을 회신에 명시했다. 다른 FE 브랜치의 구현 진척은 확인하지 않았다.
+- 실제 토스 키 읽기/설정·실제 PG 호출·브라우저 E2E·팀 메시지 전송·배포·운영 활성화는 하지 않았다. B 로그인/CSRF, 같은 테스트 키 세트와 FE adapter 준비 후 정상/재전송/유실/취소/권한 시험이 필요하다. 상품 기본 비활성과 운영 adapter 차단은 유지한다.
+- FE 전달 문서는 `backend/docs/FE_A_STATUS_20261011.md`를 기준으로 한다. 문서 변경은 이번 PR용 단일 커밋으로 묶는다. Q-20 전체 완료, 상담 완료, 심사/운영 준비 완료로 표시하지 않는다.
+
 ## 0. PostgreSQL, MySQL, Postman부터 구분하기
 
 이 프로젝트는 PostgreSQL을 사용하도록 이미 구성돼 있다. 이유는 실사용자가 많으면 반드시 PostgreSQL이어야 해서가 아니라, 팀이 PostgreSQL을 선택했고 현재 DB 드라이버, Flyway migration, 로컬 실행, CI가 그 선택에 맞춰져 있기 때문이다. MySQL도 실제 서비스용 DB이지만 현재 코드에서 바꾸려면 드라이버뿐 아니라 SQL, 타입, migration, 동시성 테스트를 다시 확인해야 한다.
@@ -427,6 +450,142 @@ LIMIT 20;
 - [PostgreSQL EXPLAIN](https://www.postgresql.org/docs/17/using-explain.html): SQL 실행 계획을 읽는 방법.
 
 ## 9. 개발·검증 기록
+
+### 2026-10-11: 기능 경계 PR 및 계약 CI 보완
+
+- 사용자 요청에 따라 충전/상품/오류/receipt 작업을 PR #19로 발행했다. 최신 main과 로컬 merge-tree 및
+  GitHub mergeable=true를 확인했다. 실제 머지/배포/판매 활성화는 하지 않았다.
+- 최초 PR backend CI는 성공했으나 FE CI는 OpenAPI ApiError.fieldErrors의 하위 FieldError schema 참조 누락으로
+  558건 중 1건 실패했다. A OpenAPI converter를 readAll로 변경하고 하위 schema 존재 회귀 검사를 추가했다.
+  PostgreSQL OpenAPI export 재실행 성공 및 생성 JSON에서 FieldError 실제 schema/참조 일치를 확인했다.
+- 최신 main의 FE 계약 검사 코드를 PR 브랜치에 병합했다(main 자체는 변경하지 않음).
+  생성 타입 갱신 및 기존 주문 생성 adapter가 실제 읽는 필드만 Pick하도록 타입 대조를 보완한다.
+  FE UI/포트 선택/결제창/인증 동작은 변경하지 않는다. FE 전체 재검증 결과는 후속 기록을 따른다.
+- 보완 후 로컬 FE OpenAPI/충전 adapter 계약 20건, lint, 라우트 typegen 및 tsc --noEmit 모두 성공했다.
+  로컬 전체 FE 실행은 자원 부담으로 중단했고 통과로 기록하지 않는다. GitHub 전체 CI는 후속 확인한다.
+  설치 시 로컬 pnpm의 ignored-build 정책에 걸렸지만 의존성 설치 스크립트는 허용하지 않았고,
+  설치된 타입 생성기/검사기를 직접 실행했다. 의존성 버전/lockfile은 변경하지 않는다.
+- 선물 변경은 codex/gift-quote-orders의 717219b에 분리 보존했다. 전용 PostgreSQL에서 선물 견적 6건과
+  기존 QuoteWalletApiTest 9건 모두 통과했다. 견적 생성/조회만이며 차감·토큰·발송은 미구현이다.
+  주문/발송 단계와 실제 PG 시험/브라우저 E2E는 통과로 표시하지 않는다.
+- 실제 토스 키 설정/시험 전 사용자 확인, FE에 동일 세트 클라이언트 키만 전달하는 지침을 AGENTS에 기록했다.
+  키 원문을 조회·기록하거나 실제 PG 호출을 하지 않았다.
+
+### 2026-10-11: Q-17 충전 승인·원자적 지급·제한된 복구 / Q-18 오류 / A receipt 조회
+
+- 기준: codex/fe-handoff-notes 로컬 A 개발. Q-28에 이어 POST 충전 confirm과 소유자 GET의
+  processing/walletBalance/grantedShellAmount/nextAction/failureCode를 구현했다. CREDITED만 지급 완료다.
+  예정량 creditedShellAmount는 유지하며 실제 지급량/지급 직후 잔액 snapshot은 완료 전 null이다.
+- 적용: 6-1 인증/CSRF/소유권, 6-2 지급 lot/원장/잔액/receipt/주문 원자성·중복·동시 갱신,
+  6-3 PG 호출의 DB 트랜잭션 분리/증거 검증/결과 불명 조회, 6-4 실행 lease/fencing/최대 횟수,
+  6-6 추가형 migration와 기본 비활성, 6-8 문의 필요 상태, 6-9 키 해시·원문 비노출.
+- V202610111200은 실행 점유/재시도 기록과 지급 receipt를 추가한다. 주문→실행→지갑→lot 잠금,
+  DB 밖의 PG 승인/조회, 검증 후 한 트랜잭션의 지급을 사용한다. 최초 승인 이후 재시도는 조회만 하며
+  늦은 lease 결과는 무시한다. 기본 최대 5회 불명은 PAYMENT_PENDING/CONTACT_SUPPORT로 유지한다.
+- 지급 만료는 확정 정책 서울 달력 기준 유료 5년/보너스 1년이다. 윤일/보너스 0건도 검사했다.
+  저장 실패는 모든 지급 자료와 CREDITED를 롤백하고 커밋된 lease를 통해 나중에 조회한다.
+- Q-18은 ApiError.details(기본 빈 객체)와 안전한 잔액 부족 숫자, OpenAPI 공통 오류 선언을 구현했다.
+  Idempotency-Key는 코드/스키마 모두 필수다. 승인 금액의 소수/문자열/범위 초과/0·음수는 400이다.
+- WalletPurchaseReceiptPort는 소유자+견적, 보상은 추가로 원거래를 확인한다. 불일치는 empty,
+  읽기로 지갑/원장을 만들지 않는다. B 연결·최종 서명 동의와 B 구매 중단 재개는 별도다.
+- 최종 PostgreSQL 17.11의 전용 localhost:55432/sajuppugi_test 전체 회귀 XML 383건:
+  통과 380, 실패/오류 0, opt-in 제외 3(실제 Liner/OpenAPI export/walletDemo).
+  TopUpPaymentFlowTest 24건, WalletPurchasePersistenceTest 16건 모두 통과했다.
+  신규 두 suite는 기본 H2에서도 합계 40건 모두 통과했다.
+- 최종 check/bootJar/exportOpenApi --rerun-tasks 성공. OpenAPI 별도 task 4건 모두 통과했고 생성 JSON에서
+  confirm 200/202, 공통 오류 응답, 필수 Idempotency-Key, 신규 주문 필드와 ApiError.details를 확인했다.
+- 가짜 PG+실제 DB/보안 필터로 정상 승인/재전송/두 주문 동시 충전/PG 대기 중 중복 요청/응답 유실,
+  lease 만료와 늦은 완료/DB 저장 실패 롤백·조회 복구/잘못된 승인 증거/거절·취소/확인 한도를 검사했다.
+  실제 OS 강제 종료·다중 프로세스·실제 토스 결제·FE 브라우저 E2E·운영 부하를 수행한 것은 아니다.
+- 읽기 전용 SQL로 PostgreSQL 버전/전용 DB, Flyway 18건 모두 성공, 활성 충전 상품 0건을 확인했다.
+  개발 DB는 변경하지 않았다. TOSS_RECOVERY_ENABLED와 구매/복구 기본 false를 유지한다.
+- 남음: Q-20 선물, 실제 팀 상점 키 E2E, B 인증/인물·구매 재개 연결, FE adapter/브라우저 시험,
+  staging, webhook/현금 취소·환불/관리자 대사·운영 알림·rate limit. live/production adapter 차단은 유지한다.
+  키만 바꾸는 운영 전환은 아직 제공하지 않는다. push/PR/배포/실판매 활성화는 하지 않았다.
+  FE 전달 필수 계약은 backend/docs/FE_TOP_UP_DELIVERY_20261011.md에 정리했다.
+
+### 2026-10-11: 재화 표시명 등껍질 확정
+
+- 사용자 정정에 따라 재화 표시명은 등껍질로 확정하고 AGENTS.md에 기록했다. 기술 식별자 TURTLE_SHELL/기존 금액 필드는 유지한다.
+- V202610111100 신규 migration으로 A가 추가한 6종 충전 상품의 잘못된 기본 표시명만 변경했다. 기존 migration/가격/지급량/활성 상태/발급된 견적 snapshot은 변경하지 않았다. API_SPEC 예시와 FE 회신 문서도 수정했다.
+- 6-6 추가형 migration, 6-2 금액/조회 무쓰기 유지 적용. 분리된 PostgreSQL에서 TopUpProductApiTest 6개 통과, 실패/오류/제외 0. 등껍질 상품명 6종과 기존 필터/지급량을 확인했다. 이번 명칭 수정 후 전체 회귀는 재실행하지 않았다.
+- 실제 결제 전환은 키만 바꾸는 현재 기능이 아니다. 현 토스 adapter는 테스트 키만 허용하고 production/prod를 차단한다. 승인/지급/복구 완성 후 운영 키·주소·DB 분리·판매 활성화·안전장치와 실결제 검증을 별도로 확인해야 한다. 실결제 활성화/실제 PG 호출/배포는 하지 않았다.
+
+### 2026-10-11: FE 요청 Q-28 상품 표시·운세 목록 구현
+
+- A 로컬 codex/fe-handoff-notes, f02e4f6 이후 작업. GET /products에 FORTUNE/fortuneType 필터와 option/상품명/정가/판매 종료 시각을 추가했다. 충전 응답의 예정 지급량은 기존 의미를 유지한다.
+- 일반 운세/수능 견적 POST와 GET에 productName/regularPrice를 추가하고 견적 생성 시 저장한다. 카탈로그 수정 후 기존 견적의 이름·정가는 바뀌지 않는다. 기록이 없는 기존/구 버전 견적은 코드 이름과 정가 null이며 현재 카탈로그로 소급 채우지 않는다.
+- 추가형 V202610111000 migration: nullable 표시 정보와 정가 제약, 알려진 상품 metadata, 누락된 수능 상품 비활성 등록. 충전 활성화/구매 기능 설정/PG 키/개발 DB는 변경하지 않았다.
+- 적용: 6-1 상품 GET 공개 범위와 견적 소유권 유지, 6-2 조회 무쓰기/가격 및 표시 snapshot, 6-6 추가형 migration/기존 견적 null 호환/로컬과 main 구분, 6-9 키·개인정보 미사용.
+- 실제 검증: 분리된 localhost:55432/sajuppugi_test PostgreSQL 17.11에서 check/bootJar 전체 회귀 357개, 성공 354/실패·오류 0/의도적 제외 3. 실제 Liner, opt-in export 테스트, 지갑 실습 제외이며 OpenAPI export는 별도 task로 실행한다.
+- 검증 내용: 운세 옵션/이름/정가, 충전 6종 예정량 유지, 비활성·판매 기간 필터, 잘못된 category/fortuneType, 견적 가격·표시 정보 변경 후 snapshot 유지, 기록 없는 견적 null 처리, 기존 권한·잔액·원장 회귀. nullable 금액/enum은 JSON Schema 검증기로 값/null 허용과 잘못된 값 거절을 확인했다.
+- 초기 실행에서 잘못 지정한 테스트 상품명과 OpenAPI 3.1 nullable 참조 표현 문제를 발견해 수정하고 전체 재검증했다. 읽기 전용 SQL에서 새 migration success=true와 활성 충전 0개를 확인했다. 구/신 앱 동시 실행 및 staging migration/복귀 훈련은 미실행이다.
+- 남음: 충전 HTTP 승인/원자적 지급/결과 불명 worker, processing/지급 후 잔액, 선물, 실제 토스 및 로그인·인물 연결 E2E, 문의·PG 상담·고정 staging 주소. 테스트 키 준비는 사용자 회신이며 팀 상점용 여부는 아직 미확인이다. push/PR/배포/심사 제출은 하지 않았다.
+
+### 2026-10-11: FE/B 회신 수용·미확정 분리와 원격 코드 대조
+
+- 사용자 제공 FE 회신과 A/B 합의 회신을 읽고 origin을 fetch했다. origin/main f704145는 FE PR #18 병합, origin/boyeon 1fcd9c0은 수능 adapter 후속, B 원격 81410c3 확인. 로컬 A eee0128에서 검토했고 최신 main을 작업 브랜치에 병합하지 않았다.
+- 적용: 6-1 소유자 조회/CSRF·인물 준비 경계, 6-2 A receipt/B 상태의 별도 커밋과 snapshot 잔액, 6-4 CREATED 중단 재개/lease/fencing/보상 완료 검증, 6-6 main/로컬/원격 FE 및 staging 준비 구분, 6-8 문의·관리자 알림 미정, 6-9 브라우저 최소 저장과 개인정보 금지.
+- B안의 책임 분리/두 구매 조회 경로/DTO/환급 판정/늦은 결과 차단을 A 측에서 수용했다. polling 권고는 A 개발 기준으로 채택했고 FE 실제 반영 확인은 후속이다. 보상 receipt 조회에 userId+quoteId+원거래 검증을 추가하는 서명은 B 재확인 대상으로 분리했다.
+- A 상품 metadata는 productName/regularPrice 필드 기준을 선택했으나 구현·OpenAPI 반영 전이다. 기존 확정 정가 정책을 변경하지 않는다. 관계 enum 매핑을 API_SPEC에 기록하고 상태 조회 계약도 미구현 표기로 반영했다.
+- FE main에서 오류 code만으로 환급 단정 제거, FULFILLED+readingId 이동 조건 및 basic/충전 adapter를 코드로 확인했다. boyeon 수능 adapter는 main 미병합, 실제 ports는 mock이며 B 세션/인물/구매 조회·fencing은 확인 범위에서 미구현이다. 최신 main backend/docs는 PR #17 이후 변경이 없다.
+- Q-37/절기 code/Q-31/정책·동의/CS/신살·부적·문구/staging 주소와 일정/팀 상점 키/PG 계약·법적 표기는 여전히 담당 확인 대기다. 사용자 제공 법률·심사 주장 자체를 독립 검증하거나 승인 완료로 간주하지 않았다.
+- 상세 계약·남은 작업은 backend/docs/TEAM_CONTRACT_DECISIONS_20261011.md, 전달 요약은 FE_FOLLOWUP_20261011.md. 기존 인계 문서에 최신 기록 링크를 추가했다. 이번에는 문서만 수정하고 테스트/E2E/운영/배포를 실행하지 않았다. 이전 테스트 수를 이번 통과 결과로 주장하지 않는다. push/PR 없음.
+
+### 2026-10-10: A 토스 테스트 승인/조회 adapter, 기본 비활성
+
+- 기준: codex/fe-handoff-notes, 승인 요청 대응 커밋 4501b80 이후. 기존 RestClient 패턴의 TossPaymentProvider와 서버 환경 설정을 추가했다. 공식 승인 POST/주문 조회 GET과 Basic 인증·주문별 고정 멱등키를 사용하며 DB 트랜잭션/지갑 잠금/자동 재시도는 만들지 않는다.
+- 적용: 6-2 외부 호출과 DB 경계 분리, 6-3 결과 불명·지연·오류·응답 증거 검증/명시적 조회, 6-4 자동 작업 재개 미구현 구분, 6-6 기본 비활성/테스트 키 제한/운영 활성화 거절, 6-9 키·원문 오류·원본 결제키 미출력과 redirect 차단.
+- 승인 응답은 주문 ID/원래 결제키/NORMAL/KRW/정수 금액/DONE 승인 시각/잔여 금액을 확인한다. 조회 응답의 결제키는 해시만 반환하고 지급 전 Result.approves(저장 intent)로 주문·결제키·금액을 재검증해야 한다. 승인 준비의 결제키 입력도 공식 최대 200자로 제한했다.
+- PENDING/검증된 DECLINED/CANCELED와 UNKNOWN을 구분한다. HTTP 오류/timeout/JSON 오류/필수 증거 누락/불일치/과도한 크기/미지원 상태는 UNKNOWN이며 실패나 지급 완료로 확정하지 않는다. provider 메시지/몸체는 반환하지 않고 안전한 고정 코드만 사용한다. cancel은 UNKNOWN/TOSS_CANCEL_NOT_IMPLEMENTED로 반환하고 호출하지 않는다.
+- TOSS_ADAPTER 기본 disabled. 명시 api 활성화에는 test_gsk 계열 서버 키가 필요하며 누락/클라이언트 키/API 개별 키/live 키는 시작 단계에서 거절한다. production/prod에서는 테스트 adapter 활성화를 거절한다. 공식 HTTPS 주소만 허용하고 루프백은 test에서만 허용하되 staging/production 프로필과 혼합하면 거절한다. 설정 객체/결과 객체 문자열은 비밀값을 마스킹한다. 사용자 .env/키를 읽거나 수정하지 않았다.
+- 전용 PostgreSQL 17.11 localhost:55432/sajuppugi_test에서 check bootJar exportOpenApi --rerun-tasks 성공. 전체 XML 353건, 통과 350, 실패/오류 0, 선택 제외 3(실제 Liner/OpenAPI opt-in/walletDemo), export 별도 실행과 bootJar 성공. 이후 테스트에 timeout 뒤 명시적 조회 확인을 추가하고 두 신규 suite를 다시 실행해 40건(HTTP 37/설정 3) 모두 통과했다. 최종 추가는 테스트만 변경했다.
+- 신규 HTTP 시험은 가짜 키/로컬 HTTP 서버로만 수행했다. 본문/Basic 인증/고정 멱등키, 상태·증거·금액 검증, 400/401/404/409/429/500/503, 잘못된 JSON/응답 크기/redirect, read timeout 시 재승인 없음과 명시적 주문 조회의 APPROVED 확인, cancel 미호출을 검사했다. 실제 토스 승인 응답 유실이나 자동 worker 재개를 실험한 것이 아니다.
+- 읽기 전용 SQL로 테스트 DB/17.11, migration 15건 모두 성공, 활성 충전 상품 0건을 확인했다. 신규 migration/판매 활성화/지갑 지급/B 또는 FE 코드 변경은 없다. push/PR/배포는 하지 않았다.
+- 남음: 승인 실행 lease·상태/결과 영속화·재처리 대사, confirm HTTP, 승인 확인 후 원자적 lot/원장/잔액/CREDITED, webhook/현금 환불, 팀 상점 merchant/FE SDK 실제 테스트키 E2E와 운영 부하. adapter 활성화만으로 충전 완료를 제공하지 않는다. 공식 문서와 설정·한계는 backend/docs/TOP_UP_IMPLEMENTATION.md에 기록했다.
+
+### 2026-10-10: A 충전 승인 요청의 영속 대응과 검증
+
+- 기준: codex/fe-handoff-notes, 충전 상품 조회 커밋 871c866 이후. 내부 TopUpConfirmationService.prepare와 V202610101000을 추가했다. HTTP confirm/실제 토스 승인/지갑 지급 구현은 아니다.
+- 적용: 6-1 주문 소유권/타인·없는 주문 동일 404, 6-2 짧은 독립 트랜잭션/주문 잠금/unique 경쟁/부분 저장 롤백, 6-3 원본 요청 대응과 승인 완료 구분, 6-4 영속 재사용과 자동 재개 미완료 구분, 6-6 추가형 migration/전용 PostgreSQL 테스트, 6-9 결제키·요청키 해시 저장과 객체 문자열 마스킹.
+- 저장 주문 금액과 일치하고 PAYMENT_PENDING인 주문에 최초 intent를 등록한다. 주문당 intent 한 건, 결제키 해시 전체 unique, 사용자+요청키 primary key가 동일 요청 재사용과 서로 다른 요청 충돌을 조정한다. intent와 request는 함께 커밋/롤백한다. 다른 주문의 unique 경쟁은 롤백 후 새 읽기 트랜잭션에서 요청키 충돌을 구분한다. 외부 호출/지갑 잠금은 없다.
+- 최초 PostgreSQL 신규 11건에서 반환 객체의 시간 정밀도 차이로 재사용 비교 4건이 실패했다. 저장 시각을 PostgreSQL 마이크로초 정밀도로 맞춘 뒤 11건 모두 통과했고, 추가 실패 주입/동일 주문 다른 결제키 경쟁을 포함한 최종 13건도 통과했다.
+- 최종 localhost:55432/sajuppugi_test의 PostgreSQL 17.11에서 check bootJar exportOpenApi --rerun-tasks 성공: XML 총 313, 통과 310, 실패/오류 0, 선택 제외 3(실제 Liner/OpenAPI opt-in/walletDemo). export task에서 OpenAPI 별도 실행 성공, bootJar 성공. 기본 H2에서는 신규 13건 모두 통과했다.
+- 신규 테스트는 금액/소유권/상태/입력 거절, 원본 intent/새 서비스 인스턴스 재사용, 해시/문자열 마스킹, 동일 주문 중복 및 다른 결제키 경쟁, 다른 주문의 요청키/결제키 경쟁, 두 번째 INSERT 실패 후 전체 롤백과 정상 재시도, 주문 PAYMENT_PENDING/지갑·원장 미변경을 확인했다. 실패 주입은 실제 DB 트랜잭션에서 수행했으며 OS 프로세스 강제 종료/다중 프로세스 실험은 아니다.
+- 읽기 전용 SQL로 전용 테스트 DB와 Flyway 15건 모두 success=true 및 신규 2개 테이블을 확인했다. 개발 DB는 수정하지 않았고 판매/구매/복구 기본 비활성은 유지한다. B/FE 코드 변경, push/PR/배포는 없다.
+- 제한: 저장 intent 반환은 현재 주문의 승인 실행 허가나 완료 증거가 아니다. 후속 실행에는 상태/점유 확인이 필요하다. 원본 결제키는 복원할 수 없으며 아직 실행 lease/재시도·조회 worker/중단 자동 재개는 없다. 다음은 토스 adapter의 승인·조회 및 결과 검증, 이후 원자적 지급과 복구 경로다. 이번에는 API 키 설정/실제 토스/실제 FE E2E/운영 부하를 시험하지 않았다.
+
+### 2026-10-10: A 충전 상품 HTTP 조회와 테스트 연결 풀
+
+- 기준: codex/fe-handoff-notes, main 병합 이후 로컬 A 개발. GET /api/v1/products?category=TOP_UP을 추가했다. 로그인 없는 읽기 전용 조회이며 서버 가격/유료분/보너스분/총 지급량을 반환한다. 기본 비활성 상태에서는 items=[]다. 전체 FORTUNE/GIFT 카탈로그는 미구현이고 미지원 필터는 400이다.
+- 적용: 6-1 공개 상품 정보만 GET 허용/기존 주문 소유권·CSRF 유지, 6-2 조회 시 주문/원장/lot 미변경과 테스트 connection pool, 6-6 개발/테스트 DB 분리/판매 비활성 유지, 6-9 PG 키 미사용·미출력. 신규 migration이나 판매 활성화 변경은 없다.
+- H2 관련 18건 통과 후 실제 PostgreSQL 전체 실행에서 테스트 context마다 기본 연결 풀이 누적돼 SQLSTATE 53300(too many clients)로 B 수능 HTTP 8건이 초기화 실패했다. 테스트 프로필만 최대 연결 6/최소 유휴 1로 제한하고 재실행했다. 운영 DB 연결 한도/부하를 검증했다는 의미는 아니다.
+- 최종 PostgreSQL 17.11의 localhost:55432/sajuppugi_test에서 check bootJar exportOpenApi --rerun-tasks 성공. XML 총 300건, 통과 297, 실패/오류 0, 선택 제외 3(실제 Liner/OpenAPI opt-in/walletDemo). OpenAPI export는 별도 task에서 성공했다. 신규 상품 HTTP 4건은 실제 catalog/DB/보안 필터를 사용하며 6종 금액/지급량/순서, 비활성·판매 기간 필터, 잘못된 query, 미인증 조회, 주문/원장/lot 미변경을 확인했다.
+- 읽기 전용 SQL로 테스트 DB/버전, Flyway 14건 모두 success=true, 활성 충전 상품 0건을 확인했다. 상품 활성화 fixture는 테스트 트랜잭션 종료 시 롤백하며 개발 DB는 변경하지 않았다.
+- 토스 승인/조회 adapter, 실제 충전 지급, 결과 불명 복구, 실키 테스트 결제, FE 실제 adapter/E2E, 운영 배포·부하는 미검증/미완료다. B 코드/FE 코드를 변경하지 않았고 구매/복구 기본 비활성은 유지한다. 토스 문서 예제키 확보와 본인 상점 승인 완료는 구분한다. push/PR/배포는 하지 않았다.
+
+### 2026-10-10: 팀 전달 문서 간소화
+
+- FE_DELIVERY_20261010.md를 질문 답변/미구현 경계/주의사항/FE 확인·회신 목록만 담은 전달용으로 추가했다. 기존 FE_HANDOFF는 상세 참고용으로 유지한다.
+- A_B_PURCHASE_HANDOFF에 PR #17 기준과 B 회신 요청 5항목(담당/조회/중단 재개/환급/연결 준비)을 추가해 단독 협의 자료로 사용할 수 있게 했다. 팀 공동 확정/구현 완료로 표시하지 않았다.
+- 적용: 6-2 중복/예정량·지급 구분, 6-4 환급 확인/재개 대기, 6-6 병합·실연결 구분, 6-9 민감정보 미포함. 문서만 변경했고 테스트 재실행/팀 메시지 전송/push/PR/배포는 하지 않았다.
+
+### 2026-10-10: 구매 확인/복구 실패 사용자 흐름 선택
+
+- 사용자가 추천 두 방향을 선택했다: 생성 중 응답 유실/새로고침은 새 구매 대신 기존 구매 확인, 자동 복구 실패/한도 초과는 '처리 확인 중'과 문의 경로 제공. 환급 완료는 확정 상태 확인 전 약속하지 않는다.
+- A 측 인계 기준이며 B/FE/PD 공동 승인이나 구현 완료는 아니다. 조회 API/키→구매 ID 확인, 생성 재개/lease, 문의 연락처/처리 기한/문구/관리자·알림 담당은 후속 합의다.
+- A_B_PURCHASE_HANDOFF.md와 FE_HANDOFF_20261010.md에 선택 및 응답 유실/중복/복구 실패/뒤늦은 성공 테스트 기준을 기록했다. 적용: 6-2 중복 차감, 6-3 결과 불명, 6-4 재개/복구 한도, 6-8 문의 식별자, 6-9 민감정보 미보존.
+- 문서만 변경했다. 위 시나리오 테스트를 새로 수행하거나 B/FE 기능을 구현하지 않았으며 push/PR/배포 없음.
+
+### 2026-10-10: FE 전달 답변과 병합 상태 정리
+
+- 10/9 사용자 승인으로 PR #17을 생성하고 최신 main/B의 merge-tree 충돌 없음, GitHub backend PostgreSQL CI 및 frontend lint/typecheck/test/build 성공을 확인한 뒤 main에 merge했다. 병합 커밋 f47b719, 검증 head 2c7c631. 구매/복구 기본 false 유지. 이전 항목의 push/PR 없음은 당시 작업 단계 기록이다.
+- 이번 문서 기준 원격 main f47b719, FE boyeon 0ab2472. main 코드/FE 개인 진행 문서와 사용자 제공 B 답변 2종을 대조했다. FE 개인 문서나 FE 코드는 수정하지 않았다.
+- backend/docs/FE_HANDOFF_20261010.md에 Q-34 구현, Q-35 B 답변/실제 코드, Q-33/Q-36 담당별 결정, FE 우선 반영 순서와 실연결 제약을 정리했다. Q-34.4 충전 예정량은 주문 API에 구현됐지만 승인/지급 완료 응답은 여전히 미구현이다.
+- B 답변의 일반 결과 순서/summary/궁합 enum 매핑을 반영했다. 수능 key→type만으로 FE 구조화 items가 생기지 않음을 구분했다. PURCHASE_DEBIT_MISMATCH의 정상 보상 후 반환 흐름과 READING_GENERATION_FAILED의 복구 실패 가능성을 분리하고 receipt/환급 상태 확인 후속을 명시했다.
+- 적용: 6-1 인증/CSRF/소유권 인계, 6-2 영속 주문/중복/예정량과 지급 구분, 6-4 중단 재개/환급 미확정, 6-6 병합과 서비스 활성화 분리, 6-9 민감정보 미포함. 법률/심사 판단은 재검증하지 않았다.
+- FE 주요 화면/목업은 상당수 구현됐지만 ports/index.ts의 real은 noRealYet이며 실제 adapter/결제/세션/인물/E2E는 대기다. boyeon의 추가 FE 변경도 목업/잔액 조회 보완이며 real adapter가 아니다. 완료율 숫자를 추정하지 않았다.
+- 이번에는 문서/코드/원격 대조만 수행했고 테스트 재실행이나 배포/추가 PR/push는 하지 않았다. 기존 테스트 기록과 CI 결과를 출처/시점과 함께 인계했다.
 
 ### 2026-10-09: A 충전 주문 생성/조회와 B 합의안
 

@@ -369,7 +369,7 @@ export function ShellCheckout({
         <>
           {/* 서버 견적 값만 표시한다 (P-03 · P-09). TODO(PD 문구): 항목 이름 · 단위 */}
           <dl className={INFO_CLASS}>
-            {/* TODO(Q-28): 견적에 상품 이름이 없다 — 서버가 주기 전에는 줄을 그리지 않는다 */}
+            {/* 서버 견적의 productName (Q-28 해결, PR #19). null 은 가짜 · 옛 응답 대비 — 줄을 그리지 않는다 */}
             {current.productName !== null ? (
               <Row label="상품">{current.productName}</Row>
             ) : null}

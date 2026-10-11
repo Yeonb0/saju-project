@@ -33,6 +33,12 @@ class OpenApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/quotes/{quoteId}'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/wallet'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/top-up-orders/{orderId}/confirm'].post.responses['202']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/top-up-orders/{orderId}/confirm'].post.responses['409'].content['application/json'].schema['$ref']")
+                        .value("#/components/schemas/ApiError"))
+                .andExpect(jsonPath("$.components.schemas.ApiError.properties.details").exists())
+                .andExpect(jsonPath("$.components.schemas.FieldError.properties.field").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/products'].get.operationId").value("listTopUpProducts"))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         Map<String, Object> schema = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         Path output = Path.of(System.getProperty("openapi.export.path"));
@@ -77,6 +83,32 @@ class OpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/actuator/health']").doesNotExist())
                 .andExpect(jsonPath("$.components.securitySchemes.sessionCookie.name").value("JSESSIONID"))
                 .andExpect(jsonPath("$.components.securitySchemes.csrfHeader.name").value("X-CSRF-Token"));
+    }
+
+    @Test
+    void catalogNullableDisplayFieldsAcceptBothMoneyAndNull() throws Exception {
+        String json = mvc.perform(get("/v3/api-docs/v1")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        var root = mapper.readTree(json);
+        var factory = com.networknt.schema.JsonSchemaFactory.getInstance(
+                com.networknt.schema.SpecVersion.VersionFlag.V202012);
+        for (String name : java.util.List.of("ProductResponse", "FundedQuoteResponse", "CategoryQuoteResponse", "SuneungQuoteResponse")) {
+            var schema = mapper.createObjectNode();
+            schema.set("components", root.get("components"));
+            schema.set("oneOf", root.path("components").path("schemas").path(name)
+                    .path("properties").path("regularPrice").get("oneOf"));
+            var validator = factory.getSchema(schema);
+            org.assertj.core.api.Assertions.assertThat(validator.validate(mapper.readTree("null"))).isEmpty();
+            org.assertj.core.api.Assertions.assertThat(validator.validate(
+                    mapper.readTree("{\"currency\":\"TURTLE_SHELL\",\"amount\":20}"))).isEmpty();
+            org.assertj.core.api.Assertions.assertThat(validator.validate(mapper.readTree("\"20\""))).isNotEmpty();
+        }
+        for (String field : java.util.List.of("fortuneType", "option")) {
+            var validator = factory.getSchema(root.path("components").path("schemas")
+                    .path("ProductResponse").path("properties").path(field));
+            org.assertj.core.api.Assertions.assertThat(validator.validate(mapper.readTree("null"))).isEmpty();
+            org.assertj.core.api.Assertions.assertThat(validator.validate(mapper.readTree("\"UNKNOWN\""))).isNotEmpty();
+        }
     }
 
     @Test

@@ -5,7 +5,7 @@
 // - 이 모델은 FE 모델이다. 백엔드 타입이 아니며, 진짜 구현(adapters)이 OpenAPI 생성 타입을 이 모양으로 바꾼다.
 // - 금액 · 등껍질 수량 · 구매 후 잔액은 서버(또는 가짜 구현)가 준 값만 표시한다. 화면에서 계산하지 않는다 (P-03 · P-09).
 // - 견적 필드: OpenAPI SuneungQuoteResponse · FundedQuoteResponse 이름을 따른다 — quoteId · productCode · charged(차감 예정) · walletBalance · balanceAfter · shortage · recommendedTopUp · expiresAt (Q-34).
-//   견적에 상품 이름(productName)은 없다 — 서버 값이 없으면 null 이고 지어내지 않는다 (Q-28).
+//   견적의 productName 은 서버 필수 값이다 (Q-28 해결, PR #19). null 은 가짜 · 옛 응답 대비이며 지어내지 않는다.
 // - 고민 입력(interestKey · memo)은 F-04 · Q-26 확정 전이라 넣지 않는다. talismanType 은 T-01 자동생성으로 빠졌다.
 // - 실패는 src/lib/api/errors.ts 의 ApiError · ApiNetworkError · ApiContractError 로 던진다 (가짜도 같다).
 import type { Money } from "./topUp";
@@ -63,7 +63,7 @@ export type FortuneSelection = Readonly<{
 export type FortuneQuote = Readonly<{
   quoteId: string;
   productCode: string;
-  // 견적에 상품 이름이 없다 — 서버 값이 없으면 null (Q-28)
+  // 서버 견적의 productName (Q-28 해결, PR #19). null 은 가짜 · 옛 응답 대비
   productName: string | null;
   // 차감 예정 금액 (OpenAPI 이름, Q-34)
   charged: Money;

@@ -86,7 +86,17 @@ export function createTopUpAdapter(client: ApiClient): TopUpPort {
         paidShellAmount: parsed.data.paidShellAmount,
         bonusShellAmount: parsed.data.bonusShellAmount,
         creditedShellAmount: parsed.data.creditedShellAmount,
-      } satisfies Omit<components["schemas"]["OrderResponse"], "status">;
+      } satisfies Pick<
+        components["schemas"]["OrderResponse"],
+        | "orderId"
+        | "productCode"
+        | "orderName"
+        | "amount"
+        | "currency"
+        | "paidShellAmount"
+        | "bonusShellAmount"
+        | "creditedShellAmount"
+      >;
       // 예정 지급량(paid · bonus · credited ShellAmount)은 포트에 넣지 않는다 (TOPUP-DONE, BE-A 10/10)
       return {
         orderId: wire.orderId,

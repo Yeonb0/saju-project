@@ -23,6 +23,9 @@ const SUNEUNG: FortuneSelection = {
 const quoteData = (overrides: Record<string, unknown> = {}) => ({
   quoteId: QUOTE_ID,
   productCode: "FIXTURE_SUNEUNG",
+  // 픽스처일 뿐 — 실제 상품 이름 · 정가와 무관하다
+  productName: "FIXTURE_PRODUCT_NAME",
+  regularPrice: { currency: "TURTLE_SHELL", amount: 20 },
   charged: { currency: "TURTLE_SHELL", amount: 13 },
   expiresAt: "2099-01-01T00:00:00Z",
   walletBalance: 20,
@@ -117,7 +120,7 @@ describe("운세 adapter — 견적 (createQuote)", () => {
     expect(quote).toEqual({
       quoteId: QUOTE_ID,
       productCode: "FIXTURE_SUNEUNG",
-      productName: null,
+      productName: "FIXTURE_PRODUCT_NAME",
       charged: { currency: "TURTLE_SHELL", amount: 13 },
       walletBalance: 20,
       balanceAfter: null,
@@ -166,11 +169,51 @@ describe("운세 adapter — 견적 (createQuote)", () => {
     ],
     ["expiresAt 이 날짜가 아님", () => quoteData({ expiresAt: "내일" })],
     ["POST 응답에 event 없음", () => without(quoteData(), "event")],
+    ["productName 키 없음", () => without(quoteData(), "productName")],
+    ["productName 빈 문자열", () => quoteData({ productName: "" })],
+    ["productName null", () => quoteData({ productName: null })],
+    ["regularPrice 키 없음", () => without(quoteData(), "regularPrice")],
+    [
+      "regularPrice.amount 음수",
+      () =>
+        quoteData({ regularPrice: { currency: "TURTLE_SHELL", amount: -1 } }),
+    ],
   ])("c. 응답 위반(%s)은 ApiContractError", async (_name, make) => {
     const { adapter } = setup(ok(make()));
     await expect(adapter.createQuote(SUNEUNG)).rejects.toBeInstanceOf(
       ApiContractError,
     );
+  });
+});
+
+describe("운세 adapter — 견적 productName · regularPrice (PG-1)", () => {
+  it.each([
+    ["regularPrice null", null],
+    ["regularPrice 객체", { currency: "TURTLE_SHELL", amount: 20 }],
+  ])("%s 도 통과하고 포트 결과에는 regularPrice 키가 없다", async (_name, regularPrice) => {
+    const { adapter } = setup(
+      ok(quoteData({ regularPrice })),
+      ok(quoteData({ regularPrice })),
+    );
+    const created = await adapter.createQuote(SUNEUNG);
+    const fetched = await adapter.getQuote(QUOTE_ID);
+    expect(created.productName).toBe("FIXTURE_PRODUCT_NAME");
+    expect(fetched.productName).toBe("FIXTURE_PRODUCT_NAME");
+    expect("regularPrice" in created).toBe(false);
+    expect("regularPrice" in fetched).toBe(false);
+  });
+});
+
+describe("운세 adapter — regularPrice 통화 (PG-1)", () => {
+  it("e. regularPrice.currency 가 처음 보는 값이어도 createQuote · getQuote 가 통과한다", async () => {
+    // 픽스처일 뿐 — 실제 통화 코드가 아니다
+    const regularPrice = { currency: "FIXTURE_UNKNOWN_CURRENCY", amount: 20 };
+    const { adapter } = setup(
+      ok(quoteData({ regularPrice })),
+      ok(quoteData({ regularPrice })),
+    );
+    await expect(adapter.createQuote(SUNEUNG)).resolves.toBeDefined();
+    await expect(adapter.getQuote(QUOTE_ID)).resolves.toBeDefined();
   });
 });
 
@@ -184,7 +227,7 @@ describe("운세 adapter — 견적 재확인 (getQuote)", () => {
     expect(init?.method).toBe("GET");
     expect(init?.body).toBeUndefined();
     expect(quote.quoteId).toBe(QUOTE_ID);
-    expect(quote.productName).toBeNull();
+    expect(quote.productName).toBe("FIXTURE_PRODUCT_NAME");
   });
 
   it("d. quoteId 는 encodeURIComponent 로 경로에 넣는다", async () => {
@@ -195,6 +238,23 @@ describe("운세 adapter — 견적 재확인 (getQuote)", () => {
 
   it("d. 응답 위반은 ApiContractError", async () => {
     const { adapter } = setup(ok(without(quoteData(), "charged")));
+    await expect(adapter.getQuote(QUOTE_ID)).rejects.toBeInstanceOf(
+      ApiContractError,
+    );
+  });
+
+  it.each([
+    ["productName 키 없음", () => without(quoteData(), "productName")],
+    ["productName 빈 문자열", () => quoteData({ productName: "" })],
+    ["productName null", () => quoteData({ productName: null })],
+    ["regularPrice 키 없음", () => without(quoteData(), "regularPrice")],
+    [
+      "regularPrice.amount 음수",
+      () =>
+        quoteData({ regularPrice: { currency: "TURTLE_SHELL", amount: -1 } }),
+    ],
+  ])("d. 응답 위반(%s)은 ApiContractError", async (_name, make) => {
+    const { adapter } = setup(ok(make()));
     await expect(adapter.getQuote(QUOTE_ID)).rejects.toBeInstanceOf(
       ApiContractError,
     );

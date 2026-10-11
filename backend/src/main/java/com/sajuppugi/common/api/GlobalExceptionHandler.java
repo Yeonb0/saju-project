@@ -20,7 +20,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ApiError> handleApiException(ApiException exception) {
         return ResponseEntity.status(exception.errorCode().status())
-                .body(ApiError.of(exception.errorCode()));
+                .body(ApiError.of(exception.errorCode(), List.of(), exception.details()));
     }
 
     @ExceptionHandler(Exception.class)

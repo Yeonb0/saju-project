@@ -1,7 +1,8 @@
 // 수능운 구매 진짜 adapter — POST /api/v1/quotes/fortune · GET /api/v1/quotes/{quoteId} · POST /api/v1/reading-purchases.
 // 근거: ADAPTER-HTTP (createApiClient 로 요청하고 응답 data 를 zod 로 런타임 검사한 뒤 포트 모델로 바꾼다. 생성 타입은 이 파일 안에서만 쓴다),
 // MOCK-PORT (포트 모델은 FE 모델), Q-04 · P-03 (수능운 요청은 personId — 구매는 + quoteId — 만 보낸다. fortuneType · productOption · questionKey ·
-// relationType · counterpartPersonId 중 하나라도 있으면 BE 가 수능 요청으로 보지 않는다), Q-28 (견적에 상품 이름이 없다 → null),
+// relationType · counterpartPersonId 중 하나라도 있으면 BE 가 수능 요청으로 보지 않는다), Q-28 해결 (PR #19, API_SPEC 5장: 견적 productName 은 서버 필수 값 — 견적 생성 때의 snapshot),
+// Q-22 · P-03 (regularPrice 정가 표시 방식 · 문구는 미정 — 응답 검사만 하고 포트에 넣지 않는다),
 // Q-38 (readingId · balance · charged 의 null 을 0 이나 완료로 바꾸지 않는다, 모르는 status 는 UNKNOWN),
 // I-05 (구매 키와 본문은 createKeyedCommand 로 고정, 키는 호출하는 쪽이 준 것만), Q-37 (reading · reused · *Version 은 쓰지 않는다).
 // 일반 운세 5종은 요청 필드(productOption · questionKey · relationType)가 확정되지 않아 이번 범위 밖이다 (Q-26 · Q-35 2).
@@ -32,12 +33,16 @@ const money = z.object({ currency: text, amount: count });
 const quoteFields = {
   quoteId: z.uuid(),
   productCode: text,
+  // Q-28 해결 (PR #19): 서버 필수 값, 견적 생성 때의 snapshot. 키 없음 · 빈 문자열 · null 은 계약 위반
+  productName: text,
   charged: money,
   expiresAt: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
   walletBalance: count,
   shortage: count,
   balanceAfter: count.nullable(),
   recommendedTopUp: text.nullable(),
+  // TODO(Q-22): 정가 표시 방식 · 문구가 정해지면 포트에 넣는다 — 지금은 계약 검사만 (null 허용, 키는 있어야 한다)
+  regularPrice: money.nullable(),
 };
 // event 는 포트에 넣지 않지만 계약 위반은 막는다
 const suneungQuoteSchema = z.object({
@@ -62,18 +67,24 @@ function toQuote(data: QuoteData): FortuneQuote {
   const wire = {
     quoteId: data.quoteId,
     productCode: data.productCode,
+    productName: data.productName,
     charged: { currency: data.charged.currency, amount: data.charged.amount },
     expiresAt: data.expiresAt,
     walletBalance: data.walletBalance,
     shortage: data.shortage,
     balanceAfter: data.balanceAfter,
     recommendedTopUp: data.recommendedTopUp,
-  } satisfies components["schemas"]["FundedQuoteResponse"];
+    // regularPrice.currency 는 생성 타입이 enum(KRW · TURTLE_SHELL) 이다 — 모르는 통화도 계약 위반으로 치지 않고, 쓰지 않는 필드라 enum 대조에서 뺀다
+    // (topUp adapter 의 status 와 같은 방식, ADAPTER-HTTP). 키 존재 · 모양은 zod 가 검사한다
+  } satisfies Omit<
+    components["schemas"]["FundedQuoteResponse"],
+    "regularPrice"
+  >;
   return {
     quoteId: wire.quoteId,
     productCode: wire.productCode,
-    // TODO(Q-28): 견적에 상품 이름이 없다 — 서버가 주기 전에는 null
-    productName: null,
+    // 서버 견적의 productName 그대로 (Q-28 해결, PR #19). regularPrice 는 포트에 넣지 않는다 (TODO(Q-22))
+    productName: wire.productName,
     charged: wire.charged,
     walletBalance: wire.walletBalance,
     balanceAfter: wire.balanceAfter,
