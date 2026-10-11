@@ -781,6 +781,16 @@
         },
         "type" : "object"
       },
+      "FieldError" : {
+        "properties" : {
+          "field" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
       "FiveElements" : {
         "properties" : {
           "counts" : {

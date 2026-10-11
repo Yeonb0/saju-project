@@ -74,7 +74,7 @@ public class OpenApiConfig {
     }
 
     private static void commonErrors(OpenAPI api) {
-        io.swagger.v3.core.converter.ModelConverters.getInstance().read(ApiError.class)
+        io.swagger.v3.core.converter.ModelConverters.getInstance().readAll(ApiError.class)
                 .forEach(api.getComponents()::addSchemas);
         api.getPaths().values().forEach(path -> path.readOperations().forEach(operation -> {
             for (String status : List.of("400", "401", "403", "404", "409", "422", "500", "503")) {

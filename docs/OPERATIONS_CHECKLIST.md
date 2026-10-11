@@ -428,6 +428,26 @@ LIMIT 20;
 
 ## 9. 개발·검증 기록
 
+### 2026-10-11: 기능 경계 PR 및 계약 CI 보완
+
+- 사용자 요청에 따라 충전/상품/오류/receipt 작업을 PR #19로 발행했다. 최신 main과 로컬 merge-tree 및
+  GitHub mergeable=true를 확인했다. 실제 머지/배포/판매 활성화는 하지 않았다.
+- 최초 PR backend CI는 성공했으나 FE CI는 OpenAPI ApiError.fieldErrors의 하위 FieldError schema 참조 누락으로
+  558건 중 1건 실패했다. A OpenAPI converter를 readAll로 변경하고 하위 schema 존재 회귀 검사를 추가했다.
+  PostgreSQL OpenAPI export 재실행 성공 및 생성 JSON에서 FieldError 실제 schema/참조 일치를 확인했다.
+- 최신 main의 FE 계약 검사 코드를 PR 브랜치에 병합했다(main 자체는 변경하지 않음).
+  생성 타입 갱신 및 기존 주문 생성 adapter가 실제 읽는 필드만 Pick하도록 타입 대조를 보완한다.
+  FE UI/포트 선택/결제창/인증 동작은 변경하지 않는다. FE 전체 재검증 결과는 후속 기록을 따른다.
+- 보완 후 로컬 FE OpenAPI/충전 adapter 계약 20건, lint, 라우트 typegen 및 tsc --noEmit 모두 성공했다.
+  로컬 전체 FE 실행은 자원 부담으로 중단했고 통과로 기록하지 않는다. GitHub 전체 CI는 후속 확인한다.
+  설치 시 로컬 pnpm의 ignored-build 정책에 걸렸지만 의존성 설치 스크립트는 허용하지 않았고,
+  설치된 타입 생성기/검사기를 직접 실행했다. 의존성 버전/lockfile은 변경하지 않는다.
+- 선물 변경은 codex/gift-quote-orders의 717219b에 분리 보존했다. 전용 PostgreSQL에서 선물 견적 6건과
+  기존 QuoteWalletApiTest 9건 모두 통과했다. 견적 생성/조회만이며 차감·토큰·발송은 미구현이다.
+  주문/발송 단계와 실제 PG 시험/브라우저 E2E는 통과로 표시하지 않는다.
+- 실제 토스 키 설정/시험 전 사용자 확인, FE에 동일 세트 클라이언트 키만 전달하는 지침을 AGENTS에 기록했다.
+  키 원문을 조회·기록하거나 실제 PG 호출을 하지 않았다.
+
 ### 2026-10-11: Q-17 충전 승인·원자적 지급·제한된 복구 / Q-18 오류 / A receipt 조회
 
 - 기준: codex/fe-handoff-notes 로컬 A 개발. Q-28에 이어 POST 충전 confirm과 소유자 GET의

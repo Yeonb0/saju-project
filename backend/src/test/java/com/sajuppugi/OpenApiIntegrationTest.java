@@ -37,6 +37,7 @@ class OpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/top-up-orders/{orderId}/confirm'].post.responses['409'].content['application/json'].schema['$ref']")
                         .value("#/components/schemas/ApiError"))
                 .andExpect(jsonPath("$.components.schemas.ApiError.properties.details").exists())
+                .andExpect(jsonPath("$.components.schemas.FieldError.properties.field").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/products'].get.operationId").value("listTopUpProducts"))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         Map<String, Object> schema = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
