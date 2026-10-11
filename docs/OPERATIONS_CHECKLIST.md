@@ -729,3 +729,11 @@ LIMIT 20;
 - 관련 H2 운세·생성·보상·회원 테스트와 PostgreSQL recovery 경쟁/소진 테스트를 통과했다. 실제 staging SIGKILL/live Liner/운영 부하는 확인하지 않았다. 구매 기능과 recovery 기본 비활성은 유지한다.
 - 후속 품질 보완으로 lease 없는 FULFILLED 저장 API와 직접 GENERATING 전이를 제거하고 부적 포함 완료도 현재 lease/fence를 필수화했다. 기존 구매는 견적 만료·판매 기간·현재 인물 상태보다 먼저 소유자 quote snapshot을 검증해 replay한다. 신규 구매에만 현재 만료/판매 검사를 적용한다.
 - 기동 시 generation lease가 Liner 3회 connect/read timeout 합계와 10초 완료 여유보다 긴지 검증한다. 잘못된 설정은 중복 provider 호출 위험이 있으므로 서버 기동을 거절한다. 관련 카탈로그·일반/수능·부적 트랜잭션·설정 단위 테스트를 통과했다.
+
+### 2026-10-11: B 일반·수능 구매 오케스트레이션 통합
+
+- 적용: 6-2 지갑 차감 claim과 금액 대조, 6-3 외부 생성 중 DB 잠금 미보유 및 실패 분류, 6-4 생성 lease/fence와 재시도 가능 상태 보존. schema나 운영 feature flag는 변경하지 않았다.
+- `ReadingPurchaseOrchestrator`가 generation context 선저장, 지갑 차감 claim/확정, 생성 lease 획득, Liner 생성, fenced 완료·실패 처리를 공통으로 담당한다. 일반·수능 서비스는 소유권·견적 검증, 계산 command, 결과와 부적 조립 정책만 담당한다.
+- 두 서비스에 따로 있던 상태 전이·오류 처리 143줄을 제거했다. 앞으로 한 상품만 lease 해제나 실패 분류가 달라지는 회귀 위험을 줄였으며, 지갑 차감과 Liner 호출을 하나의 장기 DB 트랜잭션으로 묶지 않았다.
+- 분리 PostgreSQL 17 테스트 DB(`localhost:55432`)에서 `check bootJar --rerun-tasks`를 실행해 성공했다. 구매·운세 관련 선별 suite도 별도로 성공했다. 실제 staging SIGKILL, live Liner 지연, 운영 부하는 이번 리팩터링에서 다시 실행하지 않았고 기존 기본 비활성 설정을 유지한다.
+- 로컬 기능 커밋 `6397c72`; push/PR/배포는 하지 않았다.
