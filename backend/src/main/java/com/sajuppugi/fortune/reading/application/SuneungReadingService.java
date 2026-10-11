@@ -45,6 +45,7 @@ public class SuneungReadingService {
     private final ReadingRepository readings;
     private final BundledReadingFulfillmentService bundledFulfillment;
     private final SuneungQuoteContext quoteContext;
+    private final GenerationLeaseProperties generationLease;
     private final Clock clock;
 
     public SuneungReadingService(CatalogUseCase catalog, ObjectProvider<WalletPurchasePort> walletProvider,
@@ -52,7 +53,8 @@ public class SuneungReadingService {
                                  SajuCalculationUseCase calculation, ReadingGenerationService generation,
                                  SuneungPurchaseClaimService claims, ReadingRepository readings,
                                  BundledReadingFulfillmentService bundledFulfillment,
-                                 SuneungQuoteContext quoteContext, Clock clock) {
+                                 SuneungQuoteContext quoteContext, GenerationLeaseProperties generationLease,
+                                 Clock clock) {
         this.catalog = catalog;
         this.walletProvider = walletProvider;
         this.subjectProvider = subjectProvider;
@@ -62,6 +64,7 @@ public class SuneungReadingService {
         this.readings = readings;
         this.bundledFulfillment = bundledFulfillment;
         this.quoteContext = quoteContext;
+        this.generationLease = generationLease;
         this.clock = clock;
     }
 
@@ -111,7 +114,13 @@ public class SuneungReadingService {
             compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_DEBIT_MISMATCH");
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
-        readings.markGenerating(purchase.id());
+        var lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
+                clock.instant().plus(generationLease.leaseDuration())).orElse(null);
+        if (lease == null) {
+            ReadingPurchase current = readings.findPurchaseByQuote(userId, quoteId).orElseThrow();
+            return new PurchaseResult(current.id(), current.readingId(), current.status(), null, null, true,
+                    quote.productSnapshot().price());
+        }
         try {
             GeneratedReading generated = generation.generate(new GenerationCommand(userId, FortuneType.SUNEUNG,
                     SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
@@ -125,10 +134,14 @@ public class SuneungReadingService {
                     generated.generationVersion(), generated.contentVersion(), generated.generationMode(), null,
                     null, clock.instant());
             reading = bundledFulfillment.fulfill(purchase, reading, new CreateTalisman(
-                    userId, readingId, FortuneType.SUNEUNG, facts, SuneungEventPolicy.CONTENT_VERSION));
+                    userId, readingId, FortuneType.SUNEUNG, facts, SuneungEventPolicy.CONTENT_VERSION), lease);
             return completed(reading, debit.balance().balance(), false, quote.productSnapshot().price());
         } catch (RuntimeException generationFailure) {
-            readings.markFailed(purchase.id(), "READING_GENERATION_FAILED");
+            try {
+                readings.markFailed(purchase.id(), "READING_GENERATION_FAILED", lease);
+            } catch (IllegalStateException fencedOff) {
+                throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
+            }
             try {
                 compensate(wallet, debit.transactionId(), debitKey, purchase.id(), "READING_GENERATION_FAILED");
             } catch (RuntimeException compensationFailure) {

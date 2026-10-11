@@ -3,6 +3,7 @@ package com.sajuppugi.fortune.reading.application;
 import com.sajuppugi.fortune.reading.domain.OwnedReading;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
+import com.sajuppugi.fortune.reading.port.ReadingRepository.GenerationLease;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateTalisman;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,12 @@ public class BundledReadingFulfillmentService {
 
     @Transactional
     public OwnedReading fulfill(ReadingPurchase purchase, OwnedReading reading, CreateTalisman command) {
+        return fulfill(purchase, reading, command, null);
+    }
+
+    @Transactional
+    public OwnedReading fulfill(ReadingPurchase purchase, OwnedReading reading, CreateTalisman command,
+                                GenerationLease lease) {
         if (!reading.id().equals(command.readingId())
                 || !reading.ownerUserId().equals(command.ownerUserId())
                 || reading.fortuneType() != command.fortuneType()) {
@@ -27,7 +34,8 @@ public class BundledReadingFulfillmentService {
         }
         var talisman = talismans.create(command);
         OwnedReading linked = reading.withTalisman(talisman.talismanId(), talisman.status().name());
-        readings.fulfill(purchase, linked);
+        if (lease == null) readings.fulfill(purchase, linked);
+        else readings.fulfill(purchase, linked, lease);
         return linked;
     }
 }

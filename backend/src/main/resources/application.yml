@@ -70,6 +70,9 @@ app:
       retry-delay: 30s
       batch-size: 20
       poll-delay: 30s
+  reading:
+    generation:
+      lease-duration: ${READING_GENERATION_LEASE_DURATION:2m}
   liner:
     adapter: ${LINER_ADAPTER:fake}
     base-url: ${LINER_BASE_URL:https://platform.liner.com/api/v1}
