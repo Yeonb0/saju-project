@@ -1,6 +1,7 @@
 package com.sajuppugi;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
@@ -80,4 +81,54 @@ class GenerationRecoveryPostgresTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM readings WHERE purchase_id = ?", Integer.class, purchase))
                 .isEqualTo(1);
     }
+
+    @Test
+    void restartReclaimsExpiredLeaseAndRejectsLateWorkerMutation() {
+        Fixture fixture = fixture();
+        Instant firstStart = Instant.now().minusSeconds(120);
+        var firstLease = readings.tryClaimGeneration(fixture.purchase(), UUID.randomUUID(), firstStart,
+                firstStart.plusSeconds(30)).orElseThrow();
+        var secondLease = readings.tryClaimGeneration(fixture.purchase(), UUID.randomUUID(), Instant.now(),
+                Instant.now().plusSeconds(120)).orElseThrow();
+
+        assertThat(secondLease.fence()).isGreaterThan(firstLease.fence());
+        assertThatThrownBy(() -> readings.markFailed(fixture.purchase(), "LATE_WORKER_FAILURE", firstLease))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT status FROM reading_purchases WHERE id = ?", String.class,
+                fixture.purchase())).isEqualTo("GENERATING");
+
+        // Simulate a process dying while holding the second lease, then a restarted worker polling after expiry.
+        jdbc.update("UPDATE reading_purchases SET generation_lease_until = ? WHERE id = ?",
+                Timestamp.from(Instant.now().minusSeconds(1)), fixture.purchase());
+        assertThat(recovery.recover(fixture.purchase())).isEqualTo(GenerationRecoveryService.Outcome.FULFILLED);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM readings WHERE purchase_id = ?", Integer.class,
+                fixture.purchase())).isEqualTo(1);
+    }
+
+    private Fixture fixture() {
+        UUID user = UUID.randomUUID();
+        UUID product = UUID.randomUUID();
+        UUID quote = UUID.randomUUID();
+        UUID purchase = UUID.randomUUID();
+        UUID person = UUID.randomUUID();
+        Instant now = Instant.now();
+        String code = "RESTART_" + product;
+        jdbc.update("INSERT INTO products(id, code, category, price_currency, price_amount, active, catalog_version) VALUES (?, ?, 'READING', 'TURTLE_SHELL', 15, true, 'test')", product, code);
+        jdbc.update("""
+                INSERT INTO purchase_quotes(id, requester_user_id, product_id, product_code, category, price_currency,
+                price_amount, active, catalog_version, context_hash, created_at, expires_at, purchase_id)
+                VALUES (?, ?, ?, ?, 'READING', 'TURTLE_SHELL', 15, true, 'test', ?, ?, ?, ?)
+                """, quote, user, product, code, "b".repeat(64), Timestamp.from(now), Timestamp.from(now.plusSeconds(60)), purchase);
+        jdbc.update("INSERT INTO reading_purchases(id, buyer_user_id, product_id, quote_id, subject_person_id, status, created_at) VALUES (?, ?, ?, ?, ?, 'DEBITED', ?)",
+                purchase, user, product, quote, person, Timestamp.from(now));
+        var facts = new DeterministicSajuEngine().calculate(new BirthInput(LocalDate.of(2004, 3, 15),
+                LocalTime.of(14, 32), false, BirthInput.CalendarType.SOLAR, false, BirthInput.Gender.FEMALE), CalculationPolicy.CURRENT);
+        var command = new GenerationCommand(user, FortuneType.OVERALL, LocalDate.of(2026, 10, 11), "OVERALL_FLOW",
+                facts, List.of(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW), List.of(), "restart-test", "restart-test");
+        readings.saveGenerationContext(purchase, new GenerationResumeContext(command, ProductOption.READING_ONLY,
+                person, "테스트", null, null, null, "OVERALL_FLOW", false));
+        return new Fixture(purchase);
+    }
+
+    private record Fixture(UUID purchase) {}
 }
