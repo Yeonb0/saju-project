@@ -3,12 +3,13 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "@/lib/api/errors";
+import { ApiContractError, ApiError, ApiNetworkError } from "@/lib/api/errors";
 import { loginHref } from "@/lib/auth/returnTo";
 import type {
   FortunePort,
   FortuneQuote,
   FortuneSelection,
+  ReadingPurchaseState,
 } from "@/lib/ports/fortune";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import {
@@ -49,6 +50,7 @@ function setup(
     port?: FortunePort;
     topUpPort?: TopUpPort;
     resumeQuoteId?: string | null;
+    resumePurchaseKey?: string | null;
   } = {},
 ) {
   const wallet = createFakeWallet(options.balance ?? 100);
@@ -59,6 +61,7 @@ function setup(
   const createQuote = vi.spyOn(port, "createQuote");
   const getQuote = vi.spyOn(port, "getQuote");
   const onPurchased = vi.fn();
+  const onOpenChange = vi.fn();
   const topUpPort = options.topUpPort ?? createFakeTopUpPort();
   const listTopUpProducts = vi.spyOn(topUpPort, "listTopUpProducts");
   const reportMismatch = vi.fn();
@@ -69,11 +72,12 @@ function setup(
     <QueryClientProvider client={client}>
       <ShellCheckout
         open
-        onOpenChange={vi.fn()}
+        onOpenChange={onOpenChange}
         selection={SELECTION}
         targetName="FIXTURE"
         optionLabel="FIXTURE 옵션"
         resumeQuoteId={options.resumeQuoteId}
+        resumePurchaseKey={options.resumePurchaseKey}
         returnPath="/suneung"
         onPurchased={onPurchased}
         port={port}
@@ -90,12 +94,32 @@ function setup(
     createQuote,
     getQuote,
     onPurchased,
+    onOpenChange,
     listTopUpProducts,
     reportMismatch,
   };
 }
 
 const useButton = () => screen.findByRole("button", { name: "사용하기" });
+
+// 픽스처일 뿐이며 실제 서버 응답과 무관하다
+const purchaseState = (
+  overrides: Partial<ReadingPurchaseState> = {},
+): ReadingPurchaseState => ({
+  purchaseId: "FIXTURE",
+  readingId: null,
+  status: "FAILED",
+  compensationStatus: "NOT_REQUIRED",
+  nextAction: "RETRY_PURCHASE",
+  ...overrides,
+});
+const purchaseResult = (overrides: Partial<ReadingPurchaseState> = {}) => ({
+  ...purchaseState(overrides),
+  charged: { currency: "TURTLE_SHELL", amount: 0 },
+  balance: null,
+});
+const REFUND_TEXT = "사용한 등껍질은 돌려드렸습니다";
+const SUPPORT_TEXT = "고객센터로 문의해 주세요";
 
 describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
   it("서버 견적 값(상품 · 대상 · 옵션 · 보유 · 사용 · 구매 후)을 그대로 보인다", async () => {
@@ -130,7 +154,9 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     await user.dblClick(button);
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(purchase).toHaveBeenCalledTimes(1);
-    expect(onPurchased.mock.calls[0][0].status).toBe("FULFILLED");
+    expect(onPurchased).toHaveBeenCalledWith({
+      readingId: expect.any(String),
+    });
     expect(loadPurchaseSelection()).toBeNull();
   });
 
@@ -277,6 +303,10 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
         traceId: null,
       }),
     );
+    // 오류 자체로는 실패 화면을 그리지 않는다 — 자동 상태 조회 결과(FAILED · RETRY_PURCHASE)로 그린다
+    vi.spyOn(port, "getPurchaseStatus").mockResolvedValueOnce(
+      purchaseState({ status: "FAILED", nextAction: "RETRY_PURCHASE" }),
+    );
     setup({ port });
     await user.click(await useButton());
     expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
@@ -292,6 +322,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: null,
       status: "REFUNDED",
+      compensationStatus: "COMPLETED",
+      nextAction: "RETRY_PURCHASE",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });
@@ -310,6 +342,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: null,
       status: "GENERATING",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "WAIT",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });
@@ -339,6 +373,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: null,
       status: "FULFILLED",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "VIEW_READING",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });
@@ -356,6 +392,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: "FIXTURE-READING",
       status: "GENERATING",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "WAIT",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });
@@ -436,6 +474,10 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
               }),
             );
         }),
+    );
+    // 생성 실패 오류 뒤 자동 상태 조회가 실패 상태를 알려 준다 (PURCHASE-STATUS-UI)
+    vi.spyOn(port, "getPurchaseStatus").mockResolvedValueOnce(
+      purchaseState({ status: "FAILED", nextAction: "RETRY_PURCHASE" }),
     );
     setup({ port });
     await user.click(await useButton());
@@ -609,5 +651,553 @@ describe("ShellCheckout — 상품 줄 (Q-28)", () => {
     await setupWith("FIXTURE 상품");
     expect(screen.getByText("상품")).toBeInTheDocument();
     expect(screen.getByText("FIXTURE 상품")).toBeInTheDocument();
+  });
+});
+
+describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT 해제 · PURCHASE-STATUS-UI)", () => {
+  const retryButton = () => screen.queryByRole("button", { name: "다시 시도" });
+  const checkButton = () => screen.findByRole("button", { name: "결과 확인" });
+
+  it("fulfilled: 구매 1번, onPurchased 는 { readingId } 로 한 번, 복원 값 삭제, 상태 조회 없음", async () => {
+    const user = userEvent.setup();
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId: "FIXTURE-QUOTE",
+      selection: SELECTION,
+    });
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const lookup = vi.spyOn(port, "getPurchaseStatus");
+    const { purchase, onPurchased } = setup({ port });
+    await user.click(await useButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(onPurchased).toHaveBeenCalledWith({ readingId: expect.any(String) });
+    expect(purchase).toHaveBeenCalledTimes(1);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(loadPurchaseSelection()).toBeNull();
+  });
+
+  it("generating: 처리 중 + 결과 확인 → 누르면 상태 조회 1번 · 구매 재전송 0번 → onPurchased", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({
+      scenario: "generating",
+      wallet: createFakeWallet(100),
+    });
+    const lookup = vi.spyOn(port, "getPurchaseStatus");
+    const { purchase, onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(onPurchased).not.toHaveBeenCalled();
+    expect(lookup).not.toHaveBeenCalled();
+
+    await user.click(await checkButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(onPurchased).toHaveBeenCalledWith({ readingId: expect.any(String) });
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(purchase).toHaveBeenCalledTimes(1);
+  });
+
+  it("processing_409: 자동 상태 조회 1번(null) → 처리 중 · 구매 1번. 결과 확인 → null → 같은 키로 재전송 → onPurchased, 구매 2번", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({
+      scenario: "processing_409",
+      wallet: createFakeWallet(100),
+    });
+    const lookup = vi.spyOn(port, "getPurchaseStatus");
+    const { purchase, onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+    expect(await lookup.mock.results[0].value).toBeNull();
+    expect(purchase).toHaveBeenCalledTimes(1);
+    expect(onPurchased).not.toHaveBeenCalled();
+
+    await user.click(await checkButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(lookup).toHaveBeenCalledTimes(2);
+    expect(purchase).toHaveBeenCalledTimes(2);
+    expect(purchase.mock.calls[1][1]).toBe(purchase.mock.calls[0][1]);
+    expect(purchase.mock.calls[1][0]).toEqual(purchase.mock.calls[0][0]);
+  });
+
+  it("구매가 ApiNetworkError → 자동 상태 조회가 FULFILLED → 구매 재전송 없이 onPurchased", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const purchase = vi
+      .spyOn(port, "purchase")
+      .mockRejectedValueOnce(new ApiNetworkError());
+    const lookup = vi.spyOn(port, "getPurchaseStatus").mockResolvedValueOnce(
+      purchaseState({
+        status: "FULFILLED",
+        readingId: "FIXTURE-READING",
+        nextAction: "VIEW_READING",
+      }),
+    );
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(onPurchased).toHaveBeenCalledWith({ readingId: "FIXTURE-READING" });
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(purchase).toHaveBeenCalledTimes(1);
+  });
+
+  it("구매가 500 READING_GENERATION_FAILED → 자동 상태 조회 REFUNDED · COMPLETED · RETRY_PURCHASE → 실패 + 환급 문장 + 다시 시도", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockRejectedValueOnce(
+      new ApiError({
+        status: 500,
+        code: "READING_GENERATION_FAILED",
+        traceId: null,
+      }),
+    );
+    vi.spyOn(port, "getPurchaseStatus").mockResolvedValueOnce(
+      purchaseState({
+        status: "REFUNDED",
+        compensationStatus: "COMPLETED",
+        nextAction: "RETRY_PURCHASE",
+      }),
+    );
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.getByText(REFUND_TEXT)).toBeVisible();
+    expect(retryButton()).not.toBeNull();
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("생성 실패 오류인데 상태 조회가 null 이면 실패 화면을 그리지 않고 처리 중", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockRejectedValueOnce(
+      new ApiError({
+        status: 500,
+        code: "READING_GENERATION_FAILED",
+        traceId: null,
+      }),
+    );
+    const lookup = vi.spyOn(port, "getPurchaseStatus");
+    setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("결과를 만들지 못했습니다")).toBeNull();
+  });
+
+  it("refunded: 환급 문장 + 다시 시도, 잔액 되돌림", async () => {
+    const user = userEvent.setup();
+    const { wallet, onPurchased } = setup({ scenario: "refunded" });
+    await user.click(await useButton());
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.getByText(REFUND_TEXT)).toBeVisible();
+    expect(retryButton()).not.toBeNull();
+    expect(wallet.balance()).toBe(100);
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("REFUNDED · PENDING · RETRY_PURCHASE 는 환급 문장 없이 실패 + 다시 시도", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockResolvedValueOnce(
+      purchaseResult({
+        status: "REFUNDED",
+        compensationStatus: "PENDING",
+        nextAction: "RETRY_PURCHASE",
+      }),
+    );
+    setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.queryByText(REFUND_TEXT)).toBeNull();
+    expect(retryButton()).not.toBeNull();
+  });
+
+  it("review_required: 실패 + 문의 문장, 다시 시도 버튼 없음, 닫기 가능", async () => {
+    const user = userEvent.setup();
+    const { onOpenChange, onPurchased } = setup({
+      scenario: "review_required",
+    });
+    await user.click(await useButton());
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.getByText(SUPPORT_TEXT)).toBeVisible();
+    expect(retryButton()).toBeNull();
+    const close = screen.getByRole("button", { name: "닫기" });
+    expect(close).toBeEnabled();
+    await user.click(close);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("FAILED · PENDING · WAIT (보상 진행 중) 는 실패 화면이 아니라 처리 중", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockResolvedValueOnce(
+      purchaseResult({
+        status: "FAILED",
+        compensationStatus: "PENDING",
+        nextAction: "WAIT",
+      }),
+    );
+    setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(screen.queryByText("결과를 만들지 못했습니다")).toBeNull();
+    expect(screen.getByRole("button", { name: "결과 확인" })).toBeEnabled();
+  });
+
+  it("FAILED · 모르는 nextAction 은 문의 안내 (다시 시도 없음)", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockResolvedValueOnce(
+      purchaseResult({ status: "FAILED", nextAction: "UNKNOWN" }),
+    );
+    setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText(SUPPORT_TEXT)).toBeVisible();
+    expect(retryButton()).toBeNull();
+  });
+
+  it("상태 조회가 500 이면 알림 문장이 나오고 처리 중 · 결과 확인이 남는다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({
+      scenario: "processing_409",
+      wallet: createFakeWallet(100),
+    });
+    vi.spyOn(port, "getPurchaseStatus").mockRejectedValue(
+      new ApiError({ status: 500, code: "INTERNAL_ERROR", traceId: null }),
+    );
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(
+      await screen.findByText("확인하지 못했습니다. 다시 확인해 주세요"),
+    ).toBeVisible();
+    expect(screen.getByText("처리 중입니다")).toBeVisible();
+    expect(screen.getByRole("button", { name: "결과 확인" })).toBeEnabled();
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("상태 조회가 계약 위반이면 오류 화면으로 던진다", async () => {
+    const silence = vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
+    let caught: unknown = null;
+    class Boundary extends Component<
+      { children: ReactNode },
+      { failed: boolean }
+    > {
+      state = { failed: false };
+      static getDerivedStateFromError() {
+        return { failed: true };
+      }
+      componentDidCatch(error: unknown) {
+        caught = error;
+      }
+      render() {
+        return this.state.failed ? <p>caught</p> : this.props.children;
+      }
+    }
+    const port = createFakeFortunePort({
+      scenario: "processing_409",
+      wallet: createFakeWallet(100),
+    });
+    vi.spyOn(port, "getPurchaseStatus").mockRejectedValue(
+      new ApiContractError(200, "픽스처"),
+    );
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <Boundary>
+          <ShellCheckout
+            open
+            onOpenChange={vi.fn()}
+            selection={SELECTION}
+            targetName="FIXTURE"
+            optionLabel="FIXTURE 옵션"
+            returnPath="/suneung"
+            onPurchased={vi.fn()}
+            port={port}
+            topUpPort={createFakeTopUpPort()}
+          />
+        </Boundary>
+      </QueryClientProvider>,
+    );
+    await user.click(await useButton());
+    expect(await screen.findByText("caught")).toBeInTheDocument();
+    expect(caught).toBeInstanceOf(ApiContractError);
+    silence.mockRestore();
+  });
+
+  it("상태 조회로 끝난 뒤에도 잔액 조회가 무효화된다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({
+      scenario: "generating",
+      wallet: createFakeWallet(100),
+    });
+    const { client, onPurchased } = setup({ port });
+    await user.click(await useButton());
+    await user.click(await checkButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
+  });
+
+  it("자동 상태 조회가 null 이면 구매를 다시 보내지 않는다 (반복 방지)", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockRejectedValue(
+      new ApiError({
+        status: 409,
+        code: "IDEMPOTENCY_REQUEST_PROCESSING",
+        traceId: null,
+      }),
+    );
+    // 실제 네트워크처럼 조회가 늦게 끝난다 — 앞 구매 요청 정리가 끝난 뒤에 null 이 와도 재전송하지 않아야 한다
+    const lookup = vi
+      .spyOn(port, "getPurchaseStatus")
+      .mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve(null), 10)),
+      );
+    const { purchase, onPurchased } = setup({ port });
+    await user.click(await useButton());
+    await checkButton();
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+    // 조회 결과가 반영될 시간을 준다 — 이 사이에 재전송이 일어나면 안 된다
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(purchase).toHaveBeenCalledTimes(1);
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("구매 오류 뒤 상태 조회로 끝나도 잔액 조회가 무효화된다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    vi.spyOn(port, "purchase").mockRejectedValueOnce(new ApiNetworkError());
+    vi.spyOn(port, "getPurchaseStatus").mockResolvedValueOnce(
+      purchaseState({
+        status: "FULFILLED",
+        readingId: "FIXTURE-READING",
+        nextAction: "VIEW_READING",
+      }),
+    );
+    const { client, onPurchased } = setup({ port });
+    await user.click(await useButton());
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
+  });
+
+  it("완료를 넘긴 뒤 앞 화면이 새 onPurchased 로 다시 그려도 한 번만 넘긴다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const first = vi.fn();
+    const second = vi.fn();
+    const client = makeQueryClient();
+    const view = (onPurchased: (r: { readingId: string }) => void) => (
+      <QueryClientProvider client={client}>
+        <ShellCheckout
+          open
+          onOpenChange={vi.fn()}
+          selection={SELECTION}
+          targetName="FIXTURE"
+          optionLabel="FIXTURE 옵션"
+          returnPath="/suneung"
+          onPurchased={onPurchased}
+          port={port}
+          topUpPort={createFakeTopUpPort()}
+        />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view(first));
+    await user.click(await useButton());
+    await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
+    rerender(view(second));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  it("처리 중 · 상태 조회 중에는 팝업이 닫히지 않는다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({
+      scenario: "generating",
+      wallet: createFakeWallet(100),
+    });
+    let release: (state: ReadingPurchaseState | null) => void = () => {};
+    vi.spyOn(port, "getPurchaseStatus").mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { onOpenChange } = setup({ port });
+    await user.click(await useButton());
+    // 처리 중
+    await screen.findByText("처리 중입니다");
+    expect(screen.getByRole("button", { name: "닫기" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    // 상태 조회 중
+    await user.click(screen.getByRole("button", { name: "결과 확인" }));
+    expect(screen.getByRole("button", { name: "결과 확인" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "닫기" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).not.toHaveBeenCalled();
+    release(null);
+  });
+});
+
+describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", () => {
+  // 픽스처일 뿐이다
+  const KEY = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  // 서버에 구매 기록이 있는 견적을 만든다 (setup 의 spy 는 이 호출 뒤에 걸려 횟수에 들어가지 않는다)
+  async function boughtQuote(port: FortunePort) {
+    const quote = await port.createQuote(SELECTION);
+    await port.purchase({ quoteId: quote.quoteId, selection: SELECTION }, KEY);
+    return quote.quoteId;
+  }
+
+  it("사용하기를 누르면 구매 직전에 저장값에 그 견적 ID 와 그 구매 키가 들어간다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({
+      scenario: "generating",
+      wallet: createFakeWallet(100),
+    });
+    const real = port.purchase.bind(port);
+    let seen: ReturnType<typeof loadPurchaseSelection> = null;
+    vi.spyOn(port, "purchase").mockImplementationOnce(async (input, key) => {
+      seen = loadPurchaseSelection();
+      return real(input, key);
+    });
+    const { purchase } = setup({ port });
+    await user.click(await useButton());
+    await screen.findByText("처리 중입니다");
+    const [input, key] = purchase.mock.calls[0];
+    expect(seen).toMatchObject({
+      returnPath: "/suneung",
+      quoteId: input.quoteId,
+      purchaseKey: key,
+    });
+    // 결과를 모르는 동안은 저장값이 남는다
+    expect(loadPurchaseSelection()?.purchaseKey).toBe(key);
+  });
+
+  it("재개 · 상태 FULFILLED → 견적 조회와 구매 0번, onPurchased({ readingId }), 저장값 삭제", async () => {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const quoteId = await boughtQuote(port);
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId,
+      selection: SELECTION,
+      purchaseKey: KEY,
+    });
+    const { createQuote, getQuote, purchase, onPurchased } = setup({
+      port,
+      resumeQuoteId: quoteId,
+      resumePurchaseKey: KEY,
+    });
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(onPurchased).toHaveBeenCalledWith({ readingId: expect.any(String) });
+    expect(createQuote).not.toHaveBeenCalled();
+    expect(getQuote).not.toHaveBeenCalled();
+    expect(purchase).not.toHaveBeenCalled();
+    expect(loadPurchaseSelection()).toBeNull();
+  });
+
+  it("재개 · 상태 null → getQuote(resumeQuoteId) 로 견적을 받고, 사용하기는 resumePurchaseKey 로 보낸다", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const quote = await port.createQuote(SELECTION);
+    const lookup = vi.spyOn(port, "getPurchaseStatus");
+    const { getQuote, purchase, onPurchased } = setup({
+      port,
+      resumeQuoteId: quote.quoteId,
+      resumePurchaseKey: KEY,
+    });
+    await user.click(await useButton());
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(lookup).toHaveBeenCalledWith(quote.quoteId);
+    expect(getQuote).toHaveBeenCalledWith(quote.quoteId);
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(purchase).toHaveBeenCalledTimes(1);
+    expect(purchase.mock.calls[0][1]).toBe(KEY);
+    expect(purchase.mock.calls[0][0].quoteId).toBe(quote.quoteId);
+  });
+
+  it("재개 · 상태 GENERATING → 견적 조회 0번, 정보 줄 없이 처리 중 + 결과 확인 → 누르면 상태 조회 → 완료", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const quoteId = await boughtQuote(port);
+    const lookup = vi
+      .spyOn(port, "getPurchaseStatus")
+      .mockResolvedValueOnce(
+        purchaseState({ status: "GENERATING", nextAction: "WAIT" }),
+      );
+    const { createQuote, getQuote, purchase, onPurchased } = setup({
+      port,
+      resumeQuoteId: quoteId,
+      resumePurchaseKey: KEY,
+    });
+    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(screen.queryByText("보유")).toBeNull();
+    expect(screen.queryByRole("button", { name: "사용하기" })).toBeNull();
+    expect(screen.getByRole("button", { name: "닫기" })).toBeDisabled();
+    expect(createQuote).not.toHaveBeenCalled();
+    expect(getQuote).not.toHaveBeenCalled();
+    expect(onPurchased).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "결과 확인" }));
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(lookup).toHaveBeenCalledTimes(2);
+    expect(purchase).not.toHaveBeenCalled();
+    expect(getQuote).not.toHaveBeenCalled();
+  });
+
+  it("재개 · 상태 FAILED · RETRY_PURCHASE → 실패 화면, 저장값 삭제", async () => {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const quoteId = await boughtQuote(port);
+    vi.spyOn(port, "getPurchaseStatus").mockResolvedValueOnce(
+      purchaseState({ status: "FAILED", nextAction: "RETRY_PURCHASE" }),
+    );
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId,
+      selection: SELECTION,
+      purchaseKey: KEY,
+    });
+    const { onPurchased } = setup({
+      port,
+      resumeQuoteId: quoteId,
+      resumePurchaseKey: KEY,
+    });
+    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeEnabled();
+    expect(loadPurchaseSelection()).toBeNull();
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("재개 · 상태 조회 오류 → 처리 중 + 알림 + 결과 확인, 견적은 받지 않는다", async () => {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const quoteId = await boughtQuote(port);
+    vi.spyOn(port, "getPurchaseStatus").mockRejectedValueOnce(
+      new ApiError({ status: 500, code: "INTERNAL_ERROR", traceId: null }),
+    );
+    const { createQuote, getQuote } = setup({
+      port,
+      resumeQuoteId: quoteId,
+      resumePurchaseKey: KEY,
+    });
+    expect(
+      await screen.findByText("확인하지 못했습니다. 다시 확인해 주세요"),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "결과 확인" })).toBeEnabled();
+    expect(createQuote).not.toHaveBeenCalled();
+    expect(getQuote).not.toHaveBeenCalled();
+  });
+
+  it("재개가 아닌 팝업은 열 때 상태 조회를 하지 않는다", async () => {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const lookup = vi.spyOn(port, "getPurchaseStatus");
+    // 견적 ID 만 있고 키가 없는 충전 복귀도 재개가 아니다
+    const quote = await port.createQuote(SELECTION);
+    setup({ port, resumeQuoteId: quote.quoteId });
+    await useButton();
+    expect(lookup).not.toHaveBeenCalled();
   });
 });

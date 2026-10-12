@@ -24,7 +24,7 @@ describe("GenerationScene", () => {
 
   it("실패(refunded): 대기 블록 없이 alert 와 환급 문장", () => {
     const { container } = render(
-      <GenerationScene failure={{ refunded: true }} />,
+      <GenerationScene failure={{ refunded: true, next: "retry" }} />,
     );
     expect(container.querySelector('[data-slot="generation-wait"]')).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent(
@@ -34,8 +34,27 @@ describe("GenerationScene", () => {
   });
 
   it("실패(refunded 아님): 환급 문장이 없다", () => {
-    render(<GenerationScene failure={{ refunded: false }} />);
+    render(<GenerationScene failure={{ refunded: false, next: "retry" }} />);
     expect(screen.getByRole("alert")).toBeVisible();
     expect(screen.queryByText("사용한 등껍질은 돌려드렸습니다")).toBeNull();
+  });
+
+  it("next 가 contact_support 면 문의 문장, retry 면 없다", () => {
+    const { rerender } = render(
+      <GenerationScene
+        failure={{ refunded: false, next: "contact_support" }}
+      />,
+    );
+    expect(screen.getByText("고객센터로 문의해 주세요")).toBeVisible();
+    rerender(<GenerationScene failure={{ refunded: false, next: "retry" }} />);
+    expect(screen.queryByText("고객센터로 문의해 주세요")).toBeNull();
+  });
+
+  it("문의 안내와 환급 문장은 서로 독립 — 환급됐어도 문의일 수 있다", () => {
+    render(
+      <GenerationScene failure={{ refunded: true, next: "contact_support" }} />,
+    );
+    expect(screen.getByText("사용한 등껍질은 돌려드렸습니다")).toBeVisible();
+    expect(screen.getByText("고객센터로 문의해 주세요")).toBeVisible();
   });
 });

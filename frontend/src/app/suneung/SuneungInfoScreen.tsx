@@ -54,6 +54,10 @@ export function SuneungInfoScreen({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   // 충전 후 복귀면 저장해 둔 견적 ID — 팝업을 닫으면 비운다 (다음 열기는 새 견적)
   const [resumeQuoteId, setResumeQuoteId] = useState<string | null>(null);
+  // 저장해 둔 구매 키 (PURCHASE-KEY-STORE) — 견적 ID 와 함께 팝업에 넘기면 상태 조회부터 한다
+  const [resumePurchaseKey, setResumePurchaseKey] = useState<string | null>(
+    null,
+  );
   const restored = useRef(false);
 
   // 판매 중인 상품은 서버 active 기준이다 (F-07). 날짜로 판단하지 않는다
@@ -81,6 +85,7 @@ export function SuneungInfoScreen({
     }
     setSelectedId(target.personId);
     setResumeQuoteId(saved.quoteId);
+    setResumePurchaseKey(saved.purchaseKey);
     setCheckoutOpen(true);
   }, [people.data, products.data, product]);
 
@@ -155,7 +160,10 @@ export function SuneungInfoScreen({
           open={checkoutOpen}
           onOpenChange={(next) => {
             setCheckoutOpen(next);
-            if (!next) setResumeQuoteId(null);
+            if (!next) {
+              setResumeQuoteId(null);
+              setResumePurchaseKey(null);
+            }
           }}
           selection={{
             fortuneType: "SUNEUNG",
@@ -167,6 +175,7 @@ export function SuneungInfoScreen({
           // TODO(PD 문구)
           optionLabel="사주+부적"
           resumeQuoteId={resumeQuoteId}
+          resumePurchaseKey={resumePurchaseKey}
           returnPath={RETURN_PATH}
           onPurchased={(result) =>
             router.push(`/suneung/r/${encodeURIComponent(result.readingId)}`)

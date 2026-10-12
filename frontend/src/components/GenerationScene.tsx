@@ -1,5 +1,5 @@
 // 결과 생성 대기 · 실패 안내 (Phase 4 LoadingScene — TODAY-01 · FORT-05 · FORT-08 · CSAT-02 의 대기 장면).
-// 근거: F-06 (구매 직후 동기 생성 — 대기는 구매 요청이 걸린 동안), COMMON 4.8 (최종 실패는 환급 · 재시도 안내).
+// 근거: F-06 (구매 직후 동기 생성 — 대기는 구매 요청이 걸린 동안), COMMON 4.8 (최종 실패는 환급 · 재시도 안내), Q-38 답 (nextAction 이 문의면 문의 안내).
 // 캐릭터 · 연출은 PG 심사 요청 후 (PG-FIRST) — 지금은 문구 자리만. 문구는 전부 TODO(PD 문구).
 import type { ReactNode } from "react";
 import { LoadingScene } from "@/components/LoadingScene";
@@ -46,6 +46,10 @@ export function GenerationScene({
       {failure.refunded ? (
         // 서버가 환급을 알려 준 경우에만 (COMMON 4.8). TODO(PD 문구)
         <p>사용한 등껍질은 돌려드렸습니다</p>
+      ) : null}
+      {failure.next === "contact_support" ? (
+        // 다시 시도를 열지 않는 실패 (Q-38 상태표). TODO(PD 문구) · TODO(Q-38 g 문의 채널)
+        <p>고객센터로 문의해 주세요</p>
       ) : null}
       {actions}
     </>

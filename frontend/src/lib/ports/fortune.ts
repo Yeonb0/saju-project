@@ -1,6 +1,8 @@
 // 운세 구매 포트 — 등껍질 차감 확인 팝업(CHECKOUT-POPUP)이 부르는 함수 모양. 근거: docs/FRONTEND.md 1-1 · 1-2 (MOCK-PORT),
 // API_SPEC 5장 · 8장 초안 (GET /products · POST /quotes/fortune · GET /quotes/{quoteId} · POST /reading-purchases),
 // Q-07 해결 (견적 유효 30분 · GET /quotes/{quoteId} 재확인 · 409 QUOTE_EXPIRED 면 새 견적), P-06 · P-09.
+// 구매 상태: Q-38 답 (API_SPEC 8장 "GET /reading-purchases/by-quote/{quoteId}" 상태표, PR #20), PURCHASE-STATUS-WAIT 해제 (2026-10-12 — OpenAPI 반영).
+// 화면 분기는 status, 버튼 · 안내는 nextAction 이다. 구매 기록이 없으면 서버가 404 PURCHASE_NOT_FOUND 를 준다 (ErrorCode · ReadingPurchaseStatusService).
 //
 // - 이 모델은 FE 모델이다. 백엔드 타입이 아니며, 진짜 구현(adapters)이 OpenAPI 생성 타입을 이 모양으로 바꾼다.
 // - 금액 · 등껍질 수량 · 구매 후 잔액은 서버(또는 가짜 구현)가 준 값만 표시한다. 화면에서 계산하지 않는다 (P-03 · P-09).
@@ -97,17 +99,61 @@ export function toReadingPurchaseStatus(raw: string): ReadingPurchaseStatus {
     : "UNKNOWN";
 }
 
-export type ReadingPurchaseResult = Readonly<{
+// API_SPEC 8장 상태표 — 버튼 · 안내를 정하는 값. 모르는 값은 UNKNOWN
+export const PURCHASE_NEXT_ACTIONS = [
+  "WAIT",
+  "VIEW_READING",
+  "RETRY_PURCHASE",
+  "CONTACT_SUPPORT",
+] as const;
+
+export type PurchaseNextAction =
+  | (typeof PURCHASE_NEXT_ACTIONS)[number]
+  | "UNKNOWN";
+
+export function toPurchaseNextAction(raw: string): PurchaseNextAction {
+  return (PURCHASE_NEXT_ACTIONS as readonly string[]).includes(raw)
+    ? (raw as PurchaseNextAction)
+    : "UNKNOWN";
+}
+
+// API_SPEC 8장 상태표 — 환급 보상 진행. 모르는 값은 UNKNOWN
+export const COMPENSATION_STATUSES = [
+  "NOT_REQUIRED",
+  "PENDING",
+  "COMPLETED",
+  "REVIEW_REQUIRED",
+] as const;
+
+export type CompensationStatus =
+  | (typeof COMPENSATION_STATUSES)[number]
+  | "UNKNOWN";
+
+export function toCompensationStatus(raw: string): CompensationStatus {
+  return (COMPENSATION_STATUSES as readonly string[]).includes(raw)
+    ? (raw as CompensationStatus)
+    : "UNKNOWN";
+}
+
+// 구매 상태 조회 · 구매 응답이 함께 가진 부분. 화면 분기는 status, 버튼 · 안내는 nextAction (API_SPEC 8장).
+// failureCode 는 목록이 정해지지 않아 넣지 않는다 — TODO(Q-38 c)
+export type ReadingPurchaseState = Readonly<{
   purchaseId: string;
   // 처리 중 · 재요청 응답에서 null 일 수 있다 — null 을 0 · 완료로 바꾸지 않는다 (Q-38, BE-A 10/10)
   readingId: string | null;
   status: ReadingPurchaseStatus;
-  // 처리 중 응답에서 null 일 수 있다 — 0 으로 바꾸지 않는다 (Q-38)
-  charged: Money | null;
-  // 구매 응답의 서버 잔액. 처리 중 · 재요청 응답에서 null 일 수 있다 (Q-38, BE-A 10/10)
-  balance: number | null;
-  // refunded 는 두지 않는다 — OpenAPI PurchaseResponse 에 refunded 가 없고, 오류 code 만으로 환급을 단정하지 않는다 (Q-38)
+  compensationStatus: CompensationStatus;
+  nextAction: PurchaseNextAction;
 }>;
+
+export type ReadingPurchaseResult = ReadingPurchaseState &
+  Readonly<{
+    // 처리 중 응답에서 null 일 수 있다 — 0 으로 바꾸지 않는다 (Q-38)
+    charged: Money | null;
+    // 구매 응답의 서버 잔액. 처리 중 · 재요청 응답에서 null 일 수 있다 (Q-38, BE-A 10/10)
+    balance: number | null;
+    // refunded 는 두지 않는다 — OpenAPI PurchaseResponse 에 refunded 가 없고, 오류 code 만으로 환급을 단정하지 않는다 (Q-38)
+  }>;
 
 // 결과 화면으로 보내도 되는 구매 응답 — FULFILLED 이고 readingId 가 있을 때만 (Q-38)
 export type FulfilledReadingPurchase = ReadingPurchaseResult & {
@@ -125,4 +171,6 @@ export type FortunePort = {
     input: Readonly<{ quoteId: string; selection: FortuneSelection }>,
     idempotencyKey: string,
   ): Promise<ReadingPurchaseResult>;
+  // null = 서버에 이 견적의 구매 기록이 없다 — 같은 키로 구매를 다시 보내도 된다. 견적 만료와 무관하다
+  getPurchaseStatus(quoteId: string): Promise<ReadingPurchaseState | null>;
 };
