@@ -1,5 +1,20 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-12: 충전 환불·Webhook 대사·지갑 운영 기반
+
+- 기준 main `7bac2a1`, branch `codex/payment-refund-reconciliation`. 사용자 요청으로 관리자 API/권한·수동 조정과 선물은 제외했다. 실제 사용자/팀 공동 테스트는 후순위이며 실제 키·PG·배포를 사용하지 않았다.
+- 적용: 6-1 소유권/CSRF/공개 Webhook 경계, 6-2 원장·잔액·회수·소멸/중복/경쟁/롤백, 6-3 조회 증거/결과 불명/취소, 6-4 영속 큐/lease/제한 재시도, 6-6 환경 분리/추가 migration/혼합 버전 제한, 6-8 검토 기록, 6-9 비밀/본문 비저장.
+- 구현: 정책 gate가 있는 미사용 전액 환불 POST/GET, 회수 예약과 별칭 요청키 저장, 토스 조회/취소 멱등키, 확인 뒤 REFUNDED 원자적 저장, 최대 5회 복구. 부분 환불 수수료 등 미정 정책은 구현 완료로 표시하지 않는다.
+- PAYMENT_STATUS_CHANGED Webhook은 알려진 주문의 조회 작업만 만든다. 본문 상태/결제키는 신뢰하지 않으며 raw body를 저장하지 않는다. 주문당 큐 dedupe, 16 KiB 스트림 제한, PG 증거 재검증, 외부/부분 취소 검토와 지갑 사용 제한을 추가했다.
+- 지갑 지급분/원장/거래 합계/잔액 검사와 이상 기록, 정상 지갑의 만료분·EXPIRY 원장·잔액 원자적 정리를 추가했다. 외부 취소 검토 지갑을 자동 해제하거나 관리자 없이 원장을 임의 수리하지 않는다.
+- 별도 PostgreSQL 17.11/55432의 새 `saju_payment_ops_final_20261012`에서 check/bootJar/exportOpenApi 성공. 447건 중 440 통과, 실패/오류 0, 선택 제외 7 (Liner 실호출 1, B opt-in PG 복구 4, OpenAPI export 1, 지갑 시연 1). export는 별도 task 성공. 최종 보완 후 금융 기능 69건 모두 통과와 bootJar/BE 전용 export를 재확인했다. migration 29개 모두 성공이다.
+- 소유권/CSRF, 중복/별칭 키/동시 경쟁, PG 대기 중 중복, 예약·완료 저장 실패 롤백, stale lease, 조회 복구/한도, 위조 신호, 외부/부분 취소 검토, 동시 만료와 이상 원장을 검사했다. OS 프로세스 강제 종료나 실제 PG 거절을 시험한 것은 아니다.
+- 동일 테스트 DB 재실행의 B 고정 fixture unique 충돌은 기존 DB를 지우지 않고 새 DB로 분리했다. 개발 DB를 실행/수정하거나 사용자 .env를 직접 열어 비밀값을 확인·출력·변경하지 않았다.
+- 최종 사용자 지시에 따라 FE adapter/테스트/타입/설정 변경을 모두 제거했고 frontend diff는 없다. 기존 FE가 모르는 REFUND_PENDING을 CREDITED로 오인하지 않는 경로를 코드 대조했다. 실제 환불 FE 화면·adapter·생성 타입 도입은 FE 담당 후속이며 브라우저 연동 성공은 미확인이다.
+- 기존 공유 OpenAPI와 FE 생성 타입은 보존하고 `backend/docs/openapi/payment-operations-v1.json`을 별도 export했다. 전달 문서: `backend/docs/PAYMENT_OPERATIONS_HANDOFF_20261012.md`. 문서는 구현 커밋 이후 마지막에 기록한다.
+- TOSS_REFUNDS_ENABLED/TOSS_WEBHOOKS_ENABLED/TOSS_OPERATIONS_ENABLED/WALLET_OPERATIONS_ENABLED 기본 false. 정책 확정·분리 환경·같은 테스트 키 세트·worker/FE 준비 뒤 활성화한다. 활성 예약이 있는 상태의 구버전 혼합 배포/단순 rollback은 금지하며 외부 취소는 DB rollback으로 되돌릴 수 없다.
+- 남음: 정책/부분 환불/가상계좌 환불 계좌, 실제 PG·카카오·FE E2E, 프로세스 중단·부하·백업 복원, 운영 live adapter, 검토 수동 해제·회수분 반환/관리자/외부 알림. PR 생성은 merge/배포 승인이 아니다.
+
 확인일: 2026-10-09. 기준: GitHub main `381787b98bd536200865f4d54c342fd1271d563e`, BE-A PR #14, BE-B PR #15, FE PR #16, FE PROGRESS, 전달된 Q-33~36.
 
 이 문서는 점검 결과와 제안이다. 팀 정책이나 확정 일정의 원본을 대체하지 않는다. 운영 서버 주소, 플랫폼 설정, 실제 DB, 트래픽 지표와 장애 로그는 확인하지 않았다. 현재 사용자 수와 운영 중인 배포 버전은 이 자료만으로 확인할 수 없다. 이번에는 코드 변경이나 테스트 재실행, 배포를 하지 않았다.
