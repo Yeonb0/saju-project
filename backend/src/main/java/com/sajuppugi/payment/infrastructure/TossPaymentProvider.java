@@ -84,8 +84,46 @@ public class TossPaymentProvider implements PaymentProviderPort {
 
     @Override
     public Result cancel(UUID orderId, UUID refundId, int amountKrw, String reasonCode) {
-        // Cash refund policy and persistence are not connected yet; never perform a partial implementation.
-        return unknown(orderId, "TOSS_CANCEL_NOT_IMPLEMENTED");
+        Objects.requireNonNull(orderId);
+        Objects.requireNonNull(refundId);
+        if (amountKrw <= 0 || !"UNUSED_TOP_UP".equals(reasonCode)) return unknown(orderId, "TOSS_CANCEL_INVALID");
+        try {
+            // Resolve the raw provider key transiently; only its hash is stored in our database.
+            JsonNode payment = client.get().uri("/v1/payments/orders/{id}", orderId)
+                    .exchange((request, response) -> readPayment(response));
+            if (payment == null || !orderId.toString().equals(text(payment, "orderId"))
+                    || !"KRW".equals(text(payment, "currency")) || !"NORMAL".equals(text(payment, "type"))
+                    || !payment.path("totalAmount").isIntegralNumber() || !payment.path("totalAmount").canConvertToInt()
+                    || payment.path("totalAmount").intValue() != amountKrw) return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
+            String key = text(payment, "paymentKey");
+            if (key == null || !key.matches("[A-Za-z0-9_-]{1,200}")) return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
+            if ("CANCELED".equals(text(payment, "status")) && zeroBalance(payment))
+                return new Result(Outcome.CANCELED, orderId, hash(key), amountKrw, "KRW", null);
+            if (!"DONE".equals(text(payment, "status")) || !payment.path("balanceAmount").isIntegralNumber()
+                    || payment.path("balanceAmount").longValue() != amountKrw) return unknown(orderId, "TOSS_CANCEL_REVIEW_REQUIRED");
+            return client.post().uri("/v1/payments/{key}/cancel", key)
+                    .header("Idempotency-Key", "top-up-refund-" + refundId)
+                    .body(Map.of("cancelReason", "Unused top-up refund", "cancelAmount", amountKrw))
+                    .exchange((request, response) -> {
+                        JsonNode canceled = readPayment(response);
+                        if (canceled == null || !orderId.toString().equals(text(canceled, "orderId"))
+                                || !key.equals(text(canceled, "paymentKey")) || !"KRW".equals(text(canceled, "currency"))
+                                || !"NORMAL".equals(text(canceled, "type")) || !"CANCELED".equals(text(canceled, "status"))
+                                || !zeroBalance(canceled) || !canceled.path("totalAmount").isIntegralNumber()
+                                || !canceled.path("totalAmount").canConvertToInt()
+                                || canceled.path("totalAmount").longValue() != amountKrw) return unknown(orderId, "TOSS_CANCEL_UNVERIFIED");
+                        return new Result(Outcome.CANCELED, orderId, hash(key), amountKrw, "KRW", null);
+                    });
+        } catch (RuntimeException failure) { return unknown(orderId, "TOSS_TRANSPORT_ERROR"); }
+    }
+
+    private JsonNode readPayment(ClientHttpResponse response) throws IOException {
+        if (response.getStatusCode().value() != 200) return null;
+        byte[] body = response.getBody().readNBytes(MAX_RESPONSE_BYTES + 1);
+        return body.length > MAX_RESPONSE_BYTES ? null : mapper.readTree(body);
+    }
+    private boolean zeroBalance(JsonNode payment) {
+        return payment.path("balanceAmount").isIntegralNumber() && payment.path("balanceAmount").canConvertToInt() && payment.path("balanceAmount").intValue() == 0;
     }
 
     private Result parse(UUID orderId, Confirmation expected, ClientHttpResponse response) throws IOException {
@@ -107,6 +145,12 @@ public class TossPaymentProvider implements PaymentProviderPort {
                             || expected.amountKrw() != amount.intValue()))) {
                 return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
             }
+            if ("PARTIAL_CANCELED".equals(text(payment, "status"))) {
+                JsonNode balance = payment.path("balanceAmount");
+                if (!balance.isIntegralNumber() || !balance.canConvertToInt() || balance.intValue() <= 0 || balance.intValue() >= amount.intValue())
+                    return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
+                return new Result(Outcome.UNKNOWN, orderId, hash(paymentKey), amount.intValue(), "KRW", "PAYMENT_PARTIAL_CANCEL_REVIEW");
+            }
             Outcome outcome = switch (Objects.toString(text(payment, "status"), "")) {
                 case "DONE" -> Outcome.APPROVED;
                 case "READY", "IN_PROGRESS", "WAITING_FOR_DEPOSIT" -> Outcome.PENDING;
@@ -115,6 +159,7 @@ public class TossPaymentProvider implements PaymentProviderPort {
                 default -> Outcome.UNKNOWN;
             };
             if (outcome == Outcome.UNKNOWN) return unknown(orderId, "TOSS_STATUS_UNSUPPORTED");
+            if (outcome == Outcome.CANCELED && !zeroBalance(payment)) return unknown(orderId, "TOSS_CANCEL_UNVERIFIED");
             if (outcome == Outcome.APPROVED) {
                 JsonNode balance = payment.path("balanceAmount");
                 if (!balance.isIntegralNumber() || !balance.canConvertToInt()

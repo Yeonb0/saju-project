@@ -57,6 +57,9 @@ app:
   person:
     encryption-key: ${PERSON_ENCRYPTION_KEY:}
   toss:
+    refunds-enabled: ${TOSS_REFUNDS_ENABLED:false}
+    webhooks-enabled: ${TOSS_WEBHOOKS_ENABLED:false}
+    operations-enabled: ${TOSS_OPERATIONS_ENABLED:false}
     adapter: ${TOSS_ADAPTER:disabled}
     base-url: https://api.tosspayments.com
     secret-key: ${TOSS_SECRET_KEY:}
@@ -70,6 +73,7 @@ app:
       batch-size: 20
       poll-delay: 30s
   wallet:
+    operations-enabled: ${WALLET_OPERATIONS_ENABLED:false}
     purchases-enabled: ${WALLET_PURCHASES_ENABLED:false}
     recovery:
       enabled: ${WALLET_RECOVERY_ENABLED:false}

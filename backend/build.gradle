@@ -57,7 +57,7 @@ tasks.register('exportOpenApi', Test) {
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform()
     filter { includeTestsMatching 'com.sajuppugi.OpenApiIntegrationTest' }
-    systemProperty 'openapi.export.path', file('../docs/openapi/api-v1.json').absolutePath
+    systemProperty 'openapi.export.path', file(findProperty('openApiOutput') ?: '../docs/openapi/api-v1.json').absolutePath
     defaultCharacterEncoding = 'UTF-8'
     outputs.upToDateWhen { false }
 }

@@ -73,6 +73,17 @@ public class WalletOperationsService {
                 ? jdbc.query("SELECT user_id FROM wallets ORDER BY user_id LIMIT ?", (rs, row) -> rs.getObject(1, UUID.class), size)
                 : jdbc.query("SELECT user_id FROM wallets WHERE user_id > ? ORDER BY user_id LIMIT ?", (rs, row) -> rs.getObject(1, UUID.class), cursor, size);
     }
+    public void assertUsable(UUID user) {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM wallet_integrity_findings WHERE wallet_user_id = ? AND kind = 'EXTERNAL_CANCEL_REVIEW' AND resolved_at IS NULL", Integer.class, user);
+        if (count != null && count > 0) throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.WALLET_REVIEW_REQUIRED);
+    }
+
+    @Transactional(timeout = 5)
+    public void flagExternalCancellation(UUID user) {
+        wallets.lock(user);
+        if (jdbc.update("UPDATE wallet_integrity_findings SET resolved_at = NULL WHERE wallet_user_id = ? AND kind = 'EXTERNAL_CANCEL_REVIEW'", user) == 0)
+            jdbc.update("INSERT INTO wallet_integrity_findings(wallet_user_id, kind, detected_at) VALUES (?, 'EXTERNAL_CANCEL_REVIEW', ?)", user, Timestamp.from(clock.instant()));
+    }
 
     private boolean inspect(WalletRepository.LockedWallet wallet, Instant now) {
         var problems = new ArrayList<String>();
@@ -93,10 +104,8 @@ public class WalletOperationsService {
         if (invalid != null && invalid > 0) problems.add("TRANSACTION_MISMATCH");
         for (String kind : List.of("BALANCE_MISMATCH", "LOT_LEDGER_MISMATCH", "TRANSACTION_MISMATCH")) {
             if (problems.contains(kind)) {
-                jdbc.update("""
-                        INSERT INTO wallet_integrity_findings(wallet_user_id, kind, detected_at) VALUES (?, ?, ?)
-                        ON CONFLICT (wallet_user_id, kind) DO UPDATE SET resolved_at = NULL
-                        """, wallet.userId(), kind, Timestamp.from(now));
+                if (jdbc.update("UPDATE wallet_integrity_findings SET resolved_at = NULL WHERE wallet_user_id = ? AND kind = ?", wallet.userId(), kind) == 0)
+                    jdbc.update("INSERT INTO wallet_integrity_findings(wallet_user_id, kind, detected_at) VALUES (?, ?, ?)", wallet.userId(), kind, Timestamp.from(now));
             } else jdbc.update("UPDATE wallet_integrity_findings SET resolved_at = ? WHERE wallet_user_id = ? AND kind = ? AND resolved_at IS NULL",
                     Timestamp.from(now), wallet.userId(), kind);
         }
