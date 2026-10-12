@@ -947,6 +947,22 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - 불투명 난수 ID를 사용하며 공개용 제목·설명·이미지·서비스 CTA만 반환한다.
 - 회원 ID, reading/talisman 내부 ID와 생년정보는 반환하지 않는다. 공개할 결과 범위는 `TBD(G-11)`에 따른다.
 
+### `POST /daily-fortunes/today/share?personId={personId}`
+
+- 인증·CSRF·인물 소유권 확인이 필요하다.
+- 날짜, 지수 5개, 한줄 운세, 행운 색·아이템·장소만 비식별 스냅샷으로 저장한다.
+- 같은 사용자·인물·KST 날짜의 철회되지 않고 만료되지 않은 공유는 같은 링크를 반환한다.
+- 응답은 `shareId`, 공개 `token`, `expiresAt`, 비식별 `fortune`이며 이름·생년월일시·성별·personId·userId를 포함하지 않는다.
+
+### `GET /daily-fortune-shares/{token}`
+
+- 인증 없이 조회한다. 32바이트 난수 기반 URL-safe token을 사용한다.
+- 생성 시점의 비식별 스냅샷만 반환한다. 24시간이 지나면 `SHARE_EXPIRED`, 철회되면 `SHARE_REVOKED`다.
+
+### `DELETE /daily-fortune-shares/{shareId}`
+
+- 인증·CSRF가 필요하며 생성자만 철회할 수 있다. 타인 또는 없는 shareId는 동일한 `SHARE_NOT_FOUND`다.
+
 ### `POST /talismans/{talismanId}/claim`
 
 - 로그인한 선물 수신자가 공개 토큰으로 열람한 부적을 계정에 연결한다.

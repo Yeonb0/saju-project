@@ -315,7 +315,7 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 | 410 | `SHARE_REVOKED` | 사용자가 공유를 철회함 |
 | 422 | `SHARE_SCOPE_NOT_ALLOWED` | 개인정보 또는 허용되지 않은 섹션 요청 |
 
-`SHARE_EXPIRED`, `SHARE_REVOKED`의 사용 시점은 공유 정책 `TBD(G-11)` 확정 후 활성화한다.
+`SHARE_EXPIRED`, `SHARE_REVOKED`는 오늘의 운세 공유에서 사용한다. 일반 결과·부적 공유에는 해당 범위의 `G-11` 정책 확정 후 적용한다.
 
 ### 4.12 관리자
 
