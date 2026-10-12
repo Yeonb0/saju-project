@@ -206,8 +206,11 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 ```json
 {
   "authenticated": true,
-  "user": { "id": "uuid", "nickname": "윤진" },
-  "expiresAt": "2026-10-31T00:00:00Z"
+  "userId": "uuid",
+  "nickname": "윤진",
+  "hasPrimaryPerson": true,
+  "expiresAt": "2026-10-31T00:00:00Z",
+  "csrfToken": "세션별 토큰"
 }
 ```
 
@@ -215,7 +218,7 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 
 - 인증·CSRF 필요
 - 현재 세션 즉시 폐기
-- 응답: `204`
+- 응답: `200`, 공통 응답의 `data: null`
 
 ### `GET /sessions`
 
@@ -769,8 +772,12 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
     "summary": "...",
     "examDayGuide": "...",
     "examPeriods": [
-      { "period": "BEFORE_FIRST_PERIOD", "guidance": "..." },
-      { "period": "BETWEEN_PERIODS", "guidance": "..." },
+      { "period": "BEFORE_ENTRY", "guidance": "..." },
+      { "period": "KOREAN", "guidance": "..." },
+      { "period": "MATH", "guidance": "..." },
+      { "period": "LUNCH", "guidance": "..." },
+      { "period": "ENGLISH", "guidance": "..." },
+      { "period": "ELECTIVES", "guidance": "..." },
       { "period": "FINAL_CHECK", "guidance": "..." }
     ],
     "focusTips": ["..."],
@@ -1055,24 +1062,20 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ## 12. 관리자 API
 
-모든 요청은 관리자 세션·CSRF·역할 검사와 감사 사유를 요구한다.
+아래는 PR #25 기준 **구현된** 관리자 금융 API다. 기본 비활성이며 실제 로그인 세션과 DB 운영자 권한이 필요하다. 조회도 감사 기록을 남기고 POST에는 CSRF·복구 권한·사유·요청키가 필요하다. 전체 경로는 `/api/v1` 기준이다.
 
-| Method | Path | 역할 | 기능 |
-|---|---|---|---|
-| GET | `/admin/users/{id}` | ADMIN/CS | 마스킹 계정 상태 |
-| GET | `/admin/orders/{id}` | ADMIN/CS | 주문·결제 상태 |
-| GET | `/admin/wallets/{userId}/transactions` | ADMIN/CS | 원장 조회 |
-| POST | `/admin/wallets/{userId}/adjustments` | ADMIN/제한 CS | 보상·조정 |
-| POST | `/admin/refunds` | ADMIN/제한 CS | 전액·부분 환불 |
-| POST | `/admin/gifts/{giftId}/revoke` | ADMIN/CS | 토큰 폐기 |
-| POST | `/admin/gifts/{giftId}/link-reissues` | ADMIN/CS | 토큰 재발급 |
-| POST | `/admin/gifts/{giftId}/deliveries` | ADMIN/CS | 알림톡 재발송 |
-| POST | `/admin/gifts/{giftId}/recipient-reset` | ADMIN/CS | 입력 잠금 초기화 |
-| POST | `/admin/content-versions/{version}/deploy` | ADMIN | 콘텐츠 배포 |
-| POST | `/admin/content-versions/{version}/rollback` | ADMIN | 롤백 |
-| GET | `/admin/audit-logs` | ADMIN | 감사 로그 |
+| Method | Path | 기능 |
+|---|---|---|
+| GET | `/admin/top-up-orders` | 충전 주문 조회 |
+| GET | `/admin/refunds` | 현금 환불 상태 조회 |
+| GET | `/admin/wallets/{userId}` | 지갑 저장 잔액·사용 가능 지급분 점검 |
+| GET | `/admin/wallets/{userId}/transactions` | 원장 조회 |
+| GET | `/admin/incidents` | 운영 이상 조회 |
+| GET | `/admin/audit-events` | 감사 기록 조회 |
+| POST | `/admin/top-up-orders/{orderId}/reconcile` | PG 조회에 근거한 주문·환불 상태 재확인. 새 PG 승인/취소 호출 없음 |
+| GET | `/admin/recovery-commands/{commandId}` | 재확인 작업 결과 조회 |
 
-- 관리자 API로 사용자의 생년정보를 수정할 수 없다.
+관리자 전용 계약은 `backend/docs/openapi/admin-operations-v1.json`에 있다. 부분 환불, 임의 잔액 조정, 지갑 제한 해제, 사용자 생년정보 수정, 고객센터 접수 건의 **최초 현금 환불 실행**은 제공하지 않는다. 1차 환불 신청은 고객센터 문의로 결정됐으므로 운영자 권한·감사·중복 처리를 갖춘 접수 명령은 BE-A 후속 구현이 필요하다.
 
 ## 13. 상태 머신
 
@@ -1088,13 +1091,12 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 실패: `FAILED → REFUNDED`
 
-#### 구매 상태 조회 계약 (2026-10-11, B안 A 수용 / 미구현)
+#### 구매 상태 조회 계약 (2026-10-12 실행 코드 기준)
 
-- GET /api/v1/reading-purchases/{purchaseId}
-- GET /api/v1/reading-purchases/by-quote/{quoteId}
-- 실제 사용자 소유권 검사, 타인/없는 자원은 같은 404 RESOURCE_NOT_FOUND.
+- GET /api/v1/reading-purchases/by-quote/{quoteId}만 제공한다. purchaseId 단독 GET은 없다.
+- 실제 사용자 소유권을 검사한다. 없는 구매/타인 견적은 404 PURCHASE_NOT_FOUND다.
 - 이미 생성된 구매 조회/replay는 견적 만료와 무관하다. 최초 구매에만 만료 검사를 적용한다.
-- 공통 envelope의 data는 다음 모양이다. 현재 OpenAPI/실행 API 제공 완료가 아니다.
+- 공통 envelope의 data는 다음 모양이다. 8장의 상태표와 실행 API를 기준으로 한다.
 
 ```json
 {
@@ -1104,19 +1106,18 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "readingId": null,
   "compensationStatus": "NOT_REQUIRED",
   "failureCode": null,
-  "nextAction": "POLL",
-  "nextRetryAt": null,
-  "updatedAt": "2026-10-10T10:00:00Z"
+  "nextAction": "WAIT",
+  "createdAt": "2026-10-10T10:00:00Z",
+  "fulfilledAt": null
 }
 ```
 
 readingId는 FULFILLED에서만 값이 있다. compensationStatus는 NOT_REQUIRED/PENDING/COMPLETED/REVIEW_REQUIRED,
-nextAction은 POLL/VIEW_READING/CONTACT_SUPPORT/NONE이다. 잔액은 GET /wallet로 별도 조회한다.
+nextAction은 WAIT/VIEW_READING/RETRY_PURCHASE/CONTACT_SUPPORT다. 잔액은 GET /wallet로 별도 조회한다.
 REFUNDED는 보상 receipt 확인 후에만 저장한다. 새 조회 계약의 완료 표시는
 status=REFUNDED와 compensationStatus=COMPLETED가 일치해야 하며 오류 code만으로 표시하지 않는다.
 lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦은 생성 결과를 노출하지 않는다.
-전체 상태 조합과 receipt 포트 보완 등 남은 계약은
-[10/11 회신 반영 기록](../backend/docs/TEAM_CONTRACT_DECISIONS_20261011.md)을 따른다.
+전체 상태 조합은 8장 표를 따른다. 지갑 차감/보상 receipt는 BE-A, 구매 상태와 결과 생성은 BE-B가 담당한다.
 
 ### 선물 주문·선물
 
