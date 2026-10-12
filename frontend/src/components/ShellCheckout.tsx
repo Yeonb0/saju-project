@@ -7,7 +7,9 @@ import * as Sentry from "@sentry/nextjs";
 // I-05 (구매 의도 = 견적 하나에 키 하나, 재시도에도 같은 키), PURCHASE-RESTORE (충전 가기 전 선택 저장 · 구매 성공 때 삭제),
 // COMMON 7장 (409 IDEMPOTENCY_REQUEST_PROCESSING 이면 버튼을 다시 열지 않고 상태 확인), F-08 (결제 버튼 위 고지),
 // Q-38 답 (API_SPEC 8장 상태표 — 화면 분기는 status, 버튼 · 안내는 nextAction), PURCHASE-STATUS-WAIT 해제,
-// 결정 PURCHASE-STATUS-UI (2026-10-12, 사용자 — 처리 중 자동 반복 조회 없음, 결과 확인은 상태 조회), F-06, COMMON 4.8.
+// 결정 PURCHASE-STATUS-UI (2026-10-12, 사용자 — 처리 중 자동 반복 조회 없음, 결과 확인은 상태 조회), F-06, COMMON 4.8,
+// PURCHASE-KEY-STORE (2026-10-10 결정, 2026-10-12 구현 — 상태 조회가 OpenAPI 에 들어옴): 구매를 보내기 직전 견적 ID 와 구매 키만 저장해 두고,
+// 돌아오면 그 키로 상태 조회부터 한다 (frontend/CLAUDE.md 브라우저 저장소: 키 · 견적 ID 만, 생년정보 · 가격 · 잔액 금지).
 // 앞 화면(CSAT-01 · FORT-02 · 03 · MATCH-03 · FORT-07)이 띄운다. 디자인 요소 없음 (PG-FIRST).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -89,6 +91,46 @@ function reportMismatchToSentry(productCode: string) {
 
 type Intent = { quoteId: string; key: string };
 
+// 결과를 아직 모를 때의 안내 + 결과 확인 버튼. 견적이 있는 화면과 없는 화면(재개 중)이 같은 문구 · 같은 동작을 쓴다
+function PendingNotice({
+  loginRequired,
+  lookupFailed,
+  returnPath,
+  onCheck,
+  disabled,
+}: {
+  loginRequired: boolean;
+  lookupFailed: boolean;
+  returnPath: string;
+  onCheck: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <>
+      {/* TODO(PD 문구) */}
+      <output className={`block ${NOTE_CLASS}`}>처리 중입니다</output>
+      {loginRequired ? (
+        <p className={NOTE_CLASS}>
+          {/* TODO(PD 문구) */}
+          <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
+        </p>
+      ) : lookupFailed ? (
+        // TODO(PD 문구)
+        <p role="alert" className={NOTE_CLASS}>
+          확인하지 못했습니다. 다시 확인해 주세요
+        </p>
+      ) : null}
+      {/* 상태 조회 → 서버에 기록이 없으면 같은 키 · 같은 본문으로 다시 보낸다 (I-05, PURCHASE-STATUS-UI) */}
+      <div className="flex justify-center">
+        <Button variant="popup" onClick={onCheck} disabled={disabled}>
+          {/* TODO(PD 문구) */}
+          결과 확인
+        </Button>
+      </div>
+    </>
+  );
+}
+
 // 구매 명령 뒤 다시 받은 견적에 붙이는 안내 (값은 서버 견적, 문구는 PD)
 type Notice = "requoted" | null;
 
@@ -99,6 +141,7 @@ export function ShellCheckout({
   targetName,
   optionLabel,
   resumeQuoteId = null,
+  resumePurchaseKey = null,
   returnPath,
   onPurchased,
   port,
@@ -114,6 +157,9 @@ export function ShellCheckout({
   optionLabel: string;
   // 충전 후 복귀(PURCHASE-RESTORE)면 저장해 둔 견적 ID — 새로 만들지 않고 GET /quotes/{quoteId} 로 재확인
   resumeQuoteId?: string | null;
+  // 충전·새로고침 뒤 복귀 때 저장해 둔 구매 키 (PURCHASE-KEY-STORE). resumeQuoteId 와 함께 올 때만 뜻이 있다 —
+  // 둘 다 있으면 견적보다 먼저 상태 조회를 하고, 구매 기록이 없을 때만 견적을 받아 이 키로 다시 보낸다 (I-05)
+  resumePurchaseKey?: string | null;
   // 충전 후 돌아올 앞 화면 경로 (safeReturnTo 를 거쳐 저장된다)
   returnPath: string;
   // 서버 상태가 완료(FULFILLED + readingId)일 때 결과 ID 만 넘긴다 (구매 응답이든 상태 조회든). 생성 실패(FAILED · REFUNDED)와
@@ -132,6 +178,11 @@ export function ShellCheckout({
   // 0 이면 첫 견적(복귀면 재확인), 올라가면 새 견적
   const [round, setRound] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
+
+  const resuming = resumeQuoteId !== null && resumePurchaseKey !== null;
+  // 재개 조회가 null 로 끝났다 = 구매가 서버에 닿지 않았다. 이때부터 견적을 받는다
+  const [resumeSettled, setResumeSettled] = useState(false);
+  const resumeStarted = useRef(false);
 
   const quote = useQuery({
     queryKey: [
@@ -155,7 +206,8 @@ export function ShellCheckout({
       }
       return fortune().createQuote(selection);
     },
-    enabled: open,
+    // 결과를 모르는 구매가 있을 수 있는 동안(재개 조회가 null 로 끝나기 전)에는 새 견적 · 새 구매를 열지 않는다
+    enabled: open && (!resuming || resumeSettled),
     // 견적은 매번 서버 값을 새로 받는다 — 저장한 값을 표시 근거로 쓰지 않는다
     retry: false,
     staleTime: 0,
@@ -182,6 +234,7 @@ export function ShellCheckout({
         queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
         return;
       }
+      setResumeSettled(true);
       // 서버에 이 견적의 구매 기록이 없다. 자동 조회면 처리 중 + 결과 확인을 그대로 둔다 (반복 방지).
       // 사용자가 누른 결과 확인이면 같은 의도(같은 견적 · 같은 키)로 다시 보낸다 — 기록이 없어 이중 차감이 없다 (I-05)
       if (!v.auto) send(v.quoteId);
@@ -229,6 +282,21 @@ export function ShellCheckout({
     onPurchased({ readingId: fulfilledReadingId });
   }, [fulfilledReadingId, onPurchased]);
 
+  // 재개 (PURCHASE-KEY-STORE): 저장해 둔 견적 ID · 구매 키로 처음 한 번 상태를 조회한다. 같은 키로 이어 가므로 새 키를 만들지 않는다 (I-05)
+  const startLookup = lookup.mutate;
+  useEffect(() => {
+    if (!open || !resuming || resumeStarted.current) return;
+    resumeStarted.current = true;
+    intent.current = { quoteId: resumeQuoteId, key: resumePurchaseKey };
+    startLookup({ quoteId: resumeQuoteId, auto: true });
+  }, [open, resuming, resumeQuoteId, resumePurchaseKey, startLookup]);
+
+  // 실패가 확정되면 저장해 둔 선택 · 키를 지운다 (재견적은 지우지 않는다)
+  const failedNow = outcome?.kind === "failed";
+  useEffect(() => {
+    if (failedNow) clearPurchaseSelection();
+  }, [failedNow]);
+
   // 새 견적을 기다리는 동안에는 지난 견적 값을 보이지 않는다
   const current = quote.isFetching ? null : (quote.data ?? null);
   const insufficient = current !== null && current.shortage > 0;
@@ -272,8 +340,10 @@ export function ShellCheckout({
     lookupKind === "login_required" || lookupKind === "csrf_failed";
   // 결과를 아직 모른다 — 버튼을 다시 열지 않고 상태 확인만 한다. 서버 상태가 처리 중이거나(GENERATING 등, FULFILLED 인데 readingId null,
   // 보상 진행 중), 상태를 아직 못 안 채 결과 불명 오류 · 생성 실패 오류가 났을 때 (Q-38)
+  const resumePending = resuming && !resumeSettled && known === null;
   const outcomePending =
     outcome?.kind === "pending" ||
+    resumePending ||
     (known === null &&
       (errorKind === "request_processing" ||
         errorKind === "outcome_unknown" ||
@@ -286,6 +356,13 @@ export function ShellCheckout({
       intent.current = { quoteId, key: createIdempotencyKey() };
     }
     submitting.current = true;
+    // 보내기 직전에 견적 ID 와 구매 키만 저장한다 — 결과를 모른 채 닫히거나 새로고침돼도 같은 키로 이어 간다 (PURCHASE-KEY-STORE)
+    savePurchaseSelection({
+      returnPath,
+      quoteId: intent.current.quoteId,
+      selection,
+      purchaseKey: intent.current.key,
+    });
     purchase.mutate(intent.current, {
       onSettled: () => {
         submitting.current = false;
@@ -321,6 +398,7 @@ export function ShellCheckout({
     purchase.reset();
     lookup.reset();
     setKnown(null);
+    setResumeSettled(true);
     delivered.current = false;
     setNotice(null);
     setRound((n) => n + 1);
@@ -364,6 +442,20 @@ export function ShellCheckout({
           </p>
           <div className={ACTIONS_CLASS}>
             <CloseButton onClick={() => onOpenChange(false)} />
+          </div>
+        </>
+      ) : outcomePending && !current ? (
+        // 견적 없이 처리 중 (재개 중 · 서버 상태가 처리 중) — 정보 줄 없이 처리 중 블록과 닫기만
+        <>
+          <PendingNotice
+            loginRequired={lookupLoginRequired}
+            lookupFailed={lookup.isError}
+            returnPath={returnPath}
+            onCheck={onCheckResult}
+            disabled={busy}
+          />
+          <div className={ACTIONS_CLASS}>
+            <CloseButton onClick={() => onOpenChange(false)} disabled />
           </div>
         </>
       ) : !current ? (
@@ -430,28 +522,13 @@ export function ShellCheckout({
           {/* TODO(F-08 · PD 문구): 결제 버튼 위 재미 · 참고용 콘텐츠 고지 */}
           <p data-slot="disclaimer" className={NOTE_CLASS} />
           {outcomePending ? (
-            <>
-              {/* TODO(PD 문구) */}
-              <output className={`block ${NOTE_CLASS}`}>처리 중입니다</output>
-              {lookupLoginRequired ? (
-                <p className={NOTE_CLASS}>
-                  {/* TODO(PD 문구) */}
-                  <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
-                </p>
-              ) : lookup.isError ? (
-                // TODO(PD 문구)
-                <p role="alert" className={NOTE_CLASS}>
-                  확인하지 못했습니다. 다시 확인해 주세요
-                </p>
-              ) : null}
-              {/* 상태 조회 → 서버에 기록이 없으면 같은 키 · 같은 본문으로 다시 보낸다 (I-05, PURCHASE-STATUS-UI) */}
-              <div className="flex justify-center">
-                <Button variant="popup" onClick={onCheckResult} disabled={busy}>
-                  {/* TODO(PD 문구) */}
-                  결과 확인
-                </Button>
-              </div>
-            </>
+            <PendingNotice
+              loginRequired={lookupLoginRequired}
+              lookupFailed={lookup.isError}
+              returnPath={returnPath}
+              onCheck={onCheckResult}
+              disabled={busy}
+            />
           ) : errorKind === "login_required" || errorKind === "csrf_failed" ? (
             <p className={NOTE_CLASS}>
               {/* TODO(PD 문구) */}

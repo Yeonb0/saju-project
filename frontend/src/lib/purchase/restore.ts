@@ -5,6 +5,8 @@
 // - 구매 성공 · 로그아웃 때 지운다 (clearPurchaseSelection).
 // - 가격 · 잔액은 저장하지 않는다. 복귀하면 quoteId 로 서버 견적을 다시 받는다 (GET /quotes/{quoteId}).
 // - 전역 상태가 아니며 Zustand 를 쓰지 않는다.
+// - PURCHASE-KEY-STORE (2026-10-10 결정, 2026-10-12 구현): 구매를 보낸 뒤 결과를 모르는 의도의 Idempotency-Key 와 견적 ID 만 둔다.
+//   같은 24시간 · 완료 · 실패 · 로그아웃 때 지운다. 복귀하면 이 키로 상태 조회(Q-38 답 by-quote)부터 하고, 기록이 없을 때만 같은 키로 다시 보낸다 (I-05).
 // 저장소를 쓸 수 없는 환경(사파리 개인 정보 보호 모드 등)에서는 조용히 저장하지 않는다 — 복원은 편의 기능이다.
 import { z } from "zod";
 import { safeReturnTo } from "@/lib/auth/returnTo";
@@ -18,11 +20,11 @@ export type PurchaseSelection = Readonly<{
   returnPath: string;
   quoteId: string;
   selection: FortuneSelection;
+  // 구매를 보낸 뒤 결과를 모르는 의도의 Idempotency-Key. 보낸 적 없으면 null (PURCHASE-KEY-STORE)
+  purchaseKey: string | null;
 }>;
 
-const storedSchema = z.object({
-  // v: 2 — selection 에 fortuneType 추가. v: 1 저장값은 모양이 달라 읽을 때 지운다
-  v: z.literal(2),
+const storedBase = {
   savedAt: z.number().int().nonnegative(),
   returnPath: z.string(),
   quoteId: z.string().min(1),
@@ -33,7 +35,16 @@ const storedSchema = z.object({
     personId: z.string().min(1),
     counterpartPersonId: z.string().min(1).nullable(),
   }),
-});
+};
+// v: 3 — purchaseKey 추가. v: 2 (배포 전 충전 복귀 값)는 purchaseKey null 로 읽는다. v: 1 등 그 밖은 모양이 달라 읽을 때 지운다
+const storedSchema = z.discriminatedUnion("v", [
+  z.object({
+    v: z.literal(3),
+    ...storedBase,
+    purchaseKey: z.string().min(1).nullable(),
+  }),
+  z.object({ v: z.literal(2), ...storedBase }),
+]);
 
 function storage(): Storage | null {
   try {
@@ -44,14 +55,17 @@ function storage(): Storage | null {
 }
 
 export function savePurchaseSelection(
-  value: PurchaseSelection,
+  // purchaseKey 를 생략하면 null
+  value: Omit<PurchaseSelection, "purchaseKey"> & {
+    purchaseKey?: string | null;
+  },
   now: number = Date.now(),
 ): void {
   const store = storage();
   if (!store) return;
   // 필요한 값만 골라 담는다 — 호출하는 쪽이 다른 값을 섞어 넘겨도 저장되지 않게
-  const stored: z.infer<typeof storedSchema> = {
-    v: 2,
+  const stored: Extract<z.infer<typeof storedSchema>, { v: 3 }> = {
+    v: 3,
     savedAt: now,
     returnPath: safeReturnTo(value.returnPath),
     quoteId: value.quoteId,
@@ -61,6 +75,7 @@ export function savePurchaseSelection(
       personId: value.selection.personId,
       counterpartPersonId: value.selection.counterpartPersonId,
     },
+    purchaseKey: value.purchaseKey ?? null,
   };
   try {
     store.setItem(PURCHASE_SELECTION_KEY, JSON.stringify(stored));
@@ -99,7 +114,12 @@ export function loadPurchaseSelection(
     return null;
   }
   const { returnPath, quoteId, selection } = result.data;
-  return { returnPath: safeReturnTo(returnPath), quoteId, selection };
+  return {
+    returnPath: safeReturnTo(returnPath),
+    quoteId,
+    selection,
+    purchaseKey: result.data.v === 3 ? result.data.purchaseKey : null,
+  };
 }
 
 export function clearPurchaseSelection(): void {

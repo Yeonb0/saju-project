@@ -85,6 +85,10 @@ export function FortuneQuestionsScreen({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   // 충전 후 복귀면 저장해 둔 견적 ID — 팝업을 닫으면 비운다 (다음 열기는 새 견적)
   const [resumeQuoteId, setResumeQuoteId] = useState<string | null>(null);
+  // 저장해 둔 구매 키 (PURCHASE-KEY-STORE) — 견적 ID 와 함께 팝업에 넘기면 상태 조회부터 한다
+  const [resumePurchaseKey, setResumePurchaseKey] = useState<string | null>(
+    null,
+  );
   const restored = useRef(false);
   const redirected = useRef(false);
 
@@ -146,6 +150,7 @@ export function FortuneQuestionsScreen({
     }
     setChosenCode(saved.selection.productCode);
     setResumeQuoteId(saved.quoteId);
+    setResumePurchaseKey(saved.purchaseKey);
     setCheckoutOpen(true);
   }, [
     people.data,
@@ -262,7 +267,10 @@ export function FortuneQuestionsScreen({
               open={checkoutOpen}
               onOpenChange={(next) => {
                 setCheckoutOpen(next);
-                if (!next) setResumeQuoteId(null);
+                if (!next) {
+                  setResumeQuoteId(null);
+                  setResumePurchaseKey(null);
+                }
               }}
               selection={{
                 fortuneType,
@@ -273,6 +281,7 @@ export function FortuneQuestionsScreen({
               targetName={targetName}
               optionLabel={chosenLabel}
               resumeQuoteId={resumeQuoteId}
+              resumePurchaseKey={resumePurchaseKey}
               returnPath={returnPath}
               onPurchased={(result) =>
                 router.push(
