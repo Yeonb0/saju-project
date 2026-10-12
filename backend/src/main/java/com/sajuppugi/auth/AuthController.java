@@ -2,6 +2,7 @@ package com.sajuppugi.auth;
 
 import com.sajuppugi.common.api.ApiResponse;
 import com.sajuppugi.person.port.PersonRepository;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Instant;
@@ -41,6 +42,7 @@ class AuthController {
         return ApiResponse.of(session==null ? new SessionResponse(false,null,null,null,null,null) : new SessionResponse(true,session.userId(),session.nickname(),people.activeSelfExists(session.userId()),session.expiresAt(),auth.csrf(session)));
     }
     @PostMapping("/auth/logout") @ResponseBody
+    @Operation(summary = "현재 세션 로그아웃", responses = @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "세션과 쿠키를 폐기했습니다."))
     ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         auth.logout(SessionAuthenticationFilter.cookie(request, AuthService.COOKIE));
         response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(AuthService.COOKIE, "").httpOnly(true).secure(auth.isSecure()).sameSite("Lax").path("/").maxAge(0).build().toString());

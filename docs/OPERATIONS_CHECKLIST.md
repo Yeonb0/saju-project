@@ -1,5 +1,13 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-13: FE 10/12 요청서 기준 BE-B 계약·스테이징 설정 점검
+
+- 적용 점검: 6-1 OAuth callback/세션/CSRF와 내부 returnTo, 6-6 고정 staging origin과 환경 분리, 6-9 OAuth·Liner 비밀값의 저장소 비노출.
+- 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정했다. 고정 OpenAPI 파일도 controller에서 다시 export해야 한다.
+- 카카오 callback은 고정 프론트 origin의 `/api/v1/auth/kakao/callback`으로 등록하고, 같은 origin을 `FRONTEND_BASE_URL`에 설정해야 한다. Next.js `/api/v1` 프록시를 거치면 세션 쿠키가 프론트 origin에 설정된다. 이 설정값과 카카오 Developers 등록, Railway/Vercel 배포는 외부 계정 권한이 필요해 이 저장소에서 수행·검증하지 않았다.
+- tracked 파일에서 Liner API 키·카카오 client secret의 실제 값은 발견하지 않았고, `.env`와 `.env.*`는 Git ignore다. 기존 대화나 외부 콘솔 노출값의 실제 회전 여부는 키 원문을 열람하지 않고는 검증할 수 없으므로 공급자 콘솔에서 별도 완료해야 한다.
+- 오늘의 운세 API는 현재 소유한 활성 인물에 대해 KST 날짜와 5개 지수만 반환한다. 한줄 운세·행운 항목·공유의 1차 포함 여부는 PD/제품 결정이므로 임의로 추가하지 않았다.
+
 확인일: 2026-10-09. 기준: GitHub main `381787b98bd536200865f4d54c342fd1271d563e`, BE-A PR #14, BE-B PR #15, FE PR #16, FE PROGRESS, 전달된 Q-33~36.
 
 이 문서는 점검 결과와 제안이다. 팀 정책이나 확정 일정의 원본을 대체하지 않는다. 운영 서버 주소, 플랫폼 설정, 실제 DB, 트래픽 지표와 장애 로그는 확인하지 않았다. 현재 사용자 수와 운영 중인 배포 버전은 이 자료만으로 확인할 수 없다. 이번에는 코드 변경이나 테스트 재실행, 배포를 하지 않았다.

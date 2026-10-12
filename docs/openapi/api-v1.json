@@ -302,15 +302,6 @@
         },
         "type" : "object"
       },
-      "ApiResponseVoid" : {
-        "properties" : {
-          "data" : { },
-          "traceId" : {
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
       "ApiResponseWalletResponse" : {
         "properties" : {
           "data" : {
@@ -2142,15 +2133,8 @@
       "post" : {
         "operationId" : "logout",
         "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseVoid"
-                }
-              }
-            },
-            "description" : "OK"
+          "204" : {
+            "description" : "세션과 쿠키를 폐기했습니다."
           },
           "400" : {
             "content" : {
@@ -2233,6 +2217,7 @@
             "description" : "Common error envelope; branch on code, not message."
           }
         },
+        "summary" : "현재 세션 로그아웃",
         "tags" : [ "auth-controller" ]
       }
     },

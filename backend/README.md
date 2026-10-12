@@ -131,6 +131,12 @@ jq . build/liner-live-response.json
 | `DB_USERNAME` | DB 사용자 |
 | `DB_PASSWORD` | DB 비밀번호 |
 | `PORT` | HTTP 포트, 기본 8080 |
+| `KAKAO_REST_API_KEY` | 카카오 REST API 키. 서버 환경에만 설정 |
+| `KAKAO_CLIENT_SECRET` | 카카오 클라이언트 시크릿. 서버 환경에만 설정 |
+| `KAKAO_REDIRECT_URI` | 카카오 Developers에 등록한 정확한 콜백 URI |
+| `FRONTEND_BASE_URL` | 로그인 완료 이동과 CSRF Origin 검증에 쓸 프론트엔드 고정 origin |
+| `KAKAO_SESSION_TTL` | 서버 세션 TTL, 기본 `14d` |
+| `KAKAO_STATE_TTL` | OAuth state TTL, 기본 `10m` |
 | `PERSON_ENCRYPTION_KEY` | 인물 정보용 Base64 32-byte 키. 기존 키를 임의 교체하지 않는다 |
 | `GENERATION_CONTEXT_ENCRYPTION_KEY` | 생성 복구 context 전용 Base64 32-byte 키. 인물 키와 다른 값을 사용한다 |
 | `GENERATION_CONTEXT_REENCRYPTION_ENABLED` | 기존 평문/`enc:v1` context의 `enc:v2` 전환 실행. 기본 `false` |
@@ -154,6 +160,36 @@ $env:DB_PASSWORD = '<configured-password>'
 ```
 
 로컬 프로필은 프로젝트의 `backend/.env`를 선택적으로 읽는다. 이 파일은 Git에서 제외되며 `LINER_API_KEY=...` 형식으로 저장한다. staging·production은 실제 Liner 어댑터가 기본이고 키가 없으면 시작에 실패한다. 운영 키는 반드시 배포 플랫폼의 비밀 환경변수로 등록하며 토스/OAuth/R2 키도 소스나 로그에 기록하지 않는다.
+
+### 스테이징: 프론트 프록시·카카오 로그인 연결
+
+스테이징 주소는 바뀌지 않는 프론트 production 도메인 하나를 먼저 정한다. Vercel의
+preview URL처럼 브랜치마다 달라지는 주소는 카카오 Redirect URI로 쓰지 않는다. 예를 들어
+프론트 origin이 `https://staging.example.com`이면 다음 두 값은 각각 정확히 설정한다.
+
+```text
+FRONTEND_BASE_URL=https://staging.example.com
+KAKAO_REDIRECT_URI=https://staging.example.com/api/v1/auth/kakao/callback
+```
+
+카카오 Developers에도 **같은** `KAKAO_REDIRECT_URI`를 등록한다. Vercel은
+`/api/v1/*`를 스테이징 백엔드의 `API_PROXY_TARGET`으로 프록시해야 한다. 이 구성에서
+OAuth 콜백의 `Set-Cookie`는 프론트 origin에 발급되어 브라우저의 이후 `/api/v1/*` 요청에
+함께 전송된다. 백엔드 Railway 주소를 Redirect URI로 등록하면 프록시 경로와 쿠키 출처가
+분리되므로 사용하지 않는다.
+
+배포 전에 Railway와 Vercel의 값을 서로 대조하되, 키 원문은 채팅·로그·화면 공유에 적지
+않는다. `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, `TOSS_SECRET_KEY`, `LINER_API_KEY`,
+DB 비밀번호와 암호화 키는 Railway 비밀 환경변수만 사용한다. FE에는 Toss의 대응되는
+테스트 client key만 제공하며 server secret은 제공하지 않는다. 이 저장소의 `.env`는
+Git ignore 대상이지만, 과거 대화나 외부 콘솔에 노출된 키의 회전은 각 공급자 콘솔에서
+별도로 완료해야 한다.
+
+스테이징 E2E 전에는 `TOSS_ADAPTER`, `WALLET_PURCHASES_ENABLED`,
+`WALLET_RECOVERY_ENABLED`, `READING_GENERATION_RECOVERY_ENABLED`의 실제 값을 두
+담당자가 함께 확인한다. 등껍질 지급·구매 기능은 기본 비활성이므로, PostgreSQL migration과
+복구 설정을 확인하기 전에 켜지지 않는다. 실제 토스 테스트 결제는 보안 설정을 사용자와
+확인한 뒤에만 수행한다.
 
 기존 generation context를 전환할 때는 먼저 모든 새 인스턴스에 기존 `PERSON_ENCRYPTION_KEY`와 별도의
 `GENERATION_CONTEXT_ENCRYPTION_KEY`를 함께 설정한다. 새 버전 배포 후 한 인스턴스에서만

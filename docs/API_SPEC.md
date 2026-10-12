@@ -206,16 +206,26 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 ```json
 {
   "authenticated": true,
-  "user": { "id": "uuid", "nickname": "윤진" },
-  "expiresAt": "2026-10-31T00:00:00Z"
+  "userId": "uuid",
+  "nickname": "윤진",
+  "hasPrimaryPerson": true,
+  "expiresAt": "2026-10-31T00:00:00Z",
+  "csrfToken": "opaque-token"
 }
 ```
+
+- 응답은 공통 envelope의 `data` 안에 위 필드를 담는다.
+- 비로그인일 때 `authenticated=false`이며 나머지 필드는 `null`이다. 이 조회는 401로
+  처리하지 않는다.
+- 로그인 상태에서 매 조회마다 새 `csrfToken`을 발급한다. 상태 변경 요청은
+  `X-CSRF-Token` 헤더로 가장 최근 토큰을 보낸다.
 
 ### `POST /auth/logout`
 
 - 인증·CSRF 필요
 - 현재 세션 즉시 폐기
-- 응답: `204`
+- 세션 쿠키를 만료시킨다.
+- 응답: body 없는 `204 No Content`
 
 ### `GET /sessions`
 
@@ -769,8 +779,12 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
     "summary": "...",
     "examDayGuide": "...",
     "examPeriods": [
-      { "period": "BEFORE_FIRST_PERIOD", "guidance": "..." },
-      { "period": "BETWEEN_PERIODS", "guidance": "..." },
+      { "period": "BEFORE_ENTRY", "guidance": "..." },
+      { "period": "KOREAN", "guidance": "..." },
+      { "period": "MATH", "guidance": "..." },
+      { "period": "LUNCH", "guidance": "..." },
+      { "period": "ENGLISH", "guidance": "..." },
+      { "period": "ELECTIVES", "guidance": "..." },
       { "period": "FINAL_CHECK", "guidance": "..." }
     ],
     "focusTips": ["..."],
@@ -1088,13 +1102,13 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 실패: `FAILED → REFUNDED`
 
-#### 구매 상태 조회 계약 (2026-10-11, B안 A 수용 / 미구현)
+#### 구매 상태 조회 계약
 
-- GET /api/v1/reading-purchases/{purchaseId}
-- GET /api/v1/reading-purchases/by-quote/{quoteId}
-- 실제 사용자 소유권 검사, 타인/없는 자원은 같은 404 RESOURCE_NOT_FOUND.
+- GET /api/v1/reading-purchases/by-quote/{quoteId}만 제공한다. `purchaseId` 단건
+  조회 endpoint는 제공하지 않는다.
+- 실제 사용자 소유권 검사, 구매가 없거나 다른 사용자의 quote는 `404 PURCHASE_NOT_FOUND`다.
 - 이미 생성된 구매 조회/replay는 견적 만료와 무관하다. 최초 구매에만 만료 검사를 적용한다.
-- 공통 envelope의 data는 다음 모양이다. 현재 OpenAPI/실행 API 제공 완료가 아니다.
+- 공통 envelope의 `data`는 다음 모양이다.
 
 ```json
 {
@@ -1104,14 +1118,14 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "readingId": null,
   "compensationStatus": "NOT_REQUIRED",
   "failureCode": null,
-  "nextAction": "POLL",
-  "nextRetryAt": null,
-  "updatedAt": "2026-10-10T10:00:00Z"
+  "nextAction": "WAIT",
+  "createdAt": "2026-10-10T10:00:00Z",
+  "fulfilledAt": null
 }
 ```
 
 readingId는 FULFILLED에서만 값이 있다. compensationStatus는 NOT_REQUIRED/PENDING/COMPLETED/REVIEW_REQUIRED,
-nextAction은 POLL/VIEW_READING/CONTACT_SUPPORT/NONE이다. 잔액은 GET /wallet로 별도 조회한다.
+nextAction은 WAIT/VIEW_READING/RETRY_PURCHASE/CONTACT_SUPPORT다. 잔액은 GET /wallet로 별도 조회한다.
 REFUNDED는 보상 receipt 확인 후에만 저장한다. 새 조회 계약의 완료 표시는
 status=REFUNDED와 compensationStatus=COMPLETED가 일치해야 하며 오류 code만으로 표시하지 않는다.
 lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦은 생성 결과를 노출하지 않는다.
