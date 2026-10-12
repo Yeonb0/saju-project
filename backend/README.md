@@ -192,6 +192,42 @@ Git ignore 대상이지만, 과거 대화나 외부 콘솔에 노출된 키의 �
 복구 설정을 확인하기 전에 켜지지 않는다. 실제 토스 테스트 결제는 보안 설정을 사용자와
 확인한 뒤에만 수행한다.
 
+### 로컬 E2E: 활성 상품과 실제 모드의 구분
+
+기본 local DB는 충전 6종과 수능운 상품이 비활성이고 `TOSS_ADAPTER=disabled`라서
+목록이 비거나 견적/충전이 막히는 것이 정상이다. 일상 개발 DB를 켜지 말고, 아래처럼
+별도 PostgreSQL DB를 만든 뒤에만 활성화 상태를 바꾼다.
+
+```sh
+DB_NAME=sajuppugi_e2e DB_PORT=55433 docker compose -p sajuppugi-e2e up -d --wait db
+```
+
+해당 셸 또는 별도 Git-ignore `backend/.env`에서 `DB_URL`을 55433의
+`sajuppugi_e2e`로 설정한 뒤 `./gradlew bootRun`을 한 번 실행해 Flyway migration을
+적용한다. 그 DB 안에서만 다음 SQL로 필요한 카탈로그를 활성화한다. shared/staging DB나
+기존 개발 DB에 이 SQL을 적용하지 않는다.
+
+```sql
+BEGIN;
+UPDATE products
+SET active = TRUE
+WHERE category = 'TOP_UP'
+   OR code = 'SUNEUNG_READING_WITH_TALISMAN';
+COMMIT;
+```
+
+생성·구매 상태 머신과 PostgreSQL 원장 흐름만 확인할 때는
+`LINER_ADAPTER=fake`, `WALLET_PURCHASES_ENABLED=true`,
+`WALLET_RECOVERY_ENABLED=true`, `READING_GENERATION_RECOVERY_ENABLED=true`를
+명시한다. `TOSS_ADAPTER=disabled` 상태에서는 실제 충전 승인 흐름을 검증할 수 없다.
+
+실제 토스 **테스트** 승인까지 확인하려면 먼저 사용자와 안전한 로컬 설정을 확인한다.
+그 뒤에만 서버 비밀 환경변수의 `TOSS_ADAPTER=api`, 테스트용 `TOSS_SECRET_KEY`,
+`TOSS_RECOVERY_ENABLED=true`와 대응되는 FE test client key를 같은 테스트 상점으로
+설정한다. secret key는 FE/채팅/로그에 넣지 않는다. 승인 결과 불명은 새 주문을 만들지
+말고 기존 주문 조회·복구로 확인한다. 이 절차는 실제 결제/지갑 상태를 바꾸므로, 실행
+전후 주문·원장·lot·잔액·구매 상태를 함께 대사한다.
+
 기존 generation context를 전환할 때는 먼저 모든 새 인스턴스에 기존 `PERSON_ENCRYPTION_KEY`와 별도의
 `GENERATION_CONTEXT_ENCRYPTION_KEY`를 함께 설정한다. 새 버전 배포 후 한 인스턴스에서만
 `GENERATION_CONTEXT_REENCRYPTION_ENABLED=true`로 기동한다. 작업은 최대 100행씩 독립 트랜잭션으로
@@ -239,10 +275,10 @@ docker build -t sajuppugi-backend .
 
 운세 견적·구매·결과 및 오행분석 HTTP API와 Liner adapter가 있다. 견적 응답/재조회에는
 현재 잔액·부족분·추천을 포함하고 지갑 HTTP 조회는 유료·보너스 사용 가능 잔액을 반환한다.
-지갑 내부 차감·원장·원거래 복구 adapter를 추가했지만 기본 비활성이다.
-확정 FAILED 구매의 복구 재처리와 기본 비활성 scheduler가 있다.
-DEBITED/GENERATING 중단 복구, HTTP 멱등 계약, 실제 충전 지급, OAuth와 인물 저장소 adapter는 아직 미연결이다.
-`WALLET_PURCHASES_ENABLED`는 기본 false이며 구매 복구 경로와 A/B 리뷰 완료 전 운영에서 켜지 않는다.
+지갑 내부 차감·원장·원거래 복구 adapter, 확정 FAILED 구매의 복구 재처리, DEBITED/GENERATING
+생성 재개 scheduler가 있다. 모두 기본 비활성이다. OAuth·인물 저장소·구매 HTTP 멱등 계약은
+연결되어 있다. `WALLET_PURCHASES_ENABLED`는 기본 false이며, 실제 PG/브라우저 E2E와
+운영 검토가 끝나기 전 staging/production에서 켜지 않는다.
 상세 범위는 `docs/WALLET_PURCHASE_IMPLEMENTATION.md`를 참고한다.
 실제 PostgreSQL 자동 테스트 및 SQL 실습은 `docs/POSTGRESQL_TEST_GUIDE.md`를 참고한다.
 자동 복구 scheduler의 `WALLET_RECOVERY_ENABLED`도 기본 false다.
