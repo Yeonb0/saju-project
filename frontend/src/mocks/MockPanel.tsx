@@ -38,6 +38,9 @@ const FORTUNE_HELP: Record<FakeFortuneScenario, string> = {
   generation_failed: "생성 실패(환급)",
   processing_409: "처리 중 409",
   quote_expired: "견적 만료",
+  generating: "생성 중(조회로 완료)",
+  review_required: "확인 필요",
+  refunded: "환급 완료",
 };
 
 const SHORTCUTS = [

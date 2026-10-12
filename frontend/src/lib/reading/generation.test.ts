@@ -13,6 +13,14 @@ const result = (
   purchaseId: "p",
   readingId: "r",
   status,
+  // API_SPEC 8장 상태표에 맞춘 픽스처 값
+  compensationStatus: status === "REFUNDED" ? "COMPLETED" : "NOT_REQUIRED",
+  nextAction:
+    status === "FULFILLED"
+      ? "VIEW_READING"
+      : status === "FAILED" || status === "REFUNDED"
+        ? "RETRY_PURCHASE"
+        : "WAIT",
   charged: { currency: "TURTLE_SHELL", amount: 0 },
   balance: 0,
 });

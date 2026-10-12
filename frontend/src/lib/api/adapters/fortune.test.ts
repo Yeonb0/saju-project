@@ -44,6 +44,8 @@ const purchaseData = (overrides: Record<string, unknown> = {}) => ({
   status: "FULFILLED",
   charged: { currency: "TURTLE_SHELL", amount: 13 },
   balance: 7,
+  compensationStatus: "NOT_REQUIRED",
+  nextAction: "VIEW_READING",
   // 포트에 넣지 않는 값 (Q-37)
   reused: false,
   generationVersion: "FIXTURE",
@@ -293,9 +295,42 @@ describe("운세 adapter — 구매 (purchase)", () => {
       purchaseId: PURCHASE_ID,
       readingId: READING_ID,
       status: "FULFILLED",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "VIEW_READING",
       charged: { currency: "TURTLE_SHELL", amount: 13 },
       balance: 7,
     });
+  });
+
+  it("e. 응답의 compensationStatus · nextAction 이 결과에 들어간다", async () => {
+    const { adapter } = setup(
+      ok(
+        purchaseData({
+          status: "FAILED",
+          readingId: null,
+          compensationStatus: "REVIEW_REQUIRED",
+          nextAction: "CONTACT_SUPPORT",
+        }),
+      ),
+    );
+    const result = await adapter.purchase(
+      { quoteId: QUOTE_ID, selection: SUNEUNG },
+      KEY,
+    );
+    expect(result.compensationStatus).toBe("REVIEW_REQUIRED");
+    expect(result.nextAction).toBe("CONTACT_SUPPORT");
+  });
+
+  it("e. 모르는 compensationStatus · nextAction 은 UNKNOWN", async () => {
+    const { adapter } = setup(
+      ok(purchaseData({ compensationStatus: "LATER", nextAction: "DANCE" })),
+    );
+    const result = await adapter.purchase(
+      { quoteId: QUOTE_ID, selection: SUNEUNG },
+      KEY,
+    );
+    expect(result.compensationStatus).toBe("UNKNOWN");
+    expect(result.nextAction).toBe("UNKNOWN");
   });
 
   it("e. 202 GENERATING 의 readingId · balance · charged null 은 null 로 남는다 (0 이 아님)", async () => {
@@ -333,6 +368,11 @@ describe("운세 adapter — 구매 (purchase)", () => {
     ["purchaseId 없음", () => without(purchaseData(), "purchaseId")],
     ["readingId 키 없음", () => without(purchaseData(), "readingId")],
     ["balance 키 없음", () => without(purchaseData(), "balance")],
+    [
+      "compensationStatus 키 없음",
+      () => without(purchaseData(), "compensationStatus"),
+    ],
+    ["nextAction 키 없음", () => without(purchaseData(), "nextAction")],
   ])("f. 응답 위반(%s)은 ApiContractError", async (_name, make) => {
     const { adapter } = setup(ok(make()));
     await expect(
@@ -519,6 +559,127 @@ describe("운세 adapter — 상품 목록", () => {
   ])("계약 위반 (%s) 은 ApiContractError", async (_name, data) => {
     const { adapter } = setup(ok(data));
     await expect(adapter.listProducts("SUNEUNG")).rejects.toBeInstanceOf(
+      ApiContractError,
+    );
+  });
+});
+
+describe("운세 adapter — 구매 상태 (getPurchaseStatus)", () => {
+  // 픽스처일 뿐이며 실제 서버 응답과 무관하다
+  const statusData = (overrides: Record<string, unknown> = {}) => ({
+    purchaseId: PURCHASE_ID,
+    quoteId: QUOTE_ID,
+    readingId: READING_ID,
+    status: "FULFILLED",
+    compensationStatus: "NOT_REQUIRED",
+    nextAction: "VIEW_READING",
+    // 포트에 넣지 않는 값 (TODO(Q-38 c))
+    failureCode: null,
+    createdAt: "2099-01-01T00:00:00Z",
+    fulfilledAt: "2099-01-01T00:00:05Z",
+    ...overrides,
+  });
+
+  it("경로 · 인코딩 · GET · CSRF · 멱등 키 헤더 없음", async () => {
+    const { adapter, fetchMock } = setup(ok(statusData({ quoteId: "a/b c" })));
+    await adapter.getPurchaseStatus("a/b c").catch(() => undefined);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/reading-purchases/by-quote/a%2Fb%20c");
+    expect(init?.method).toBe("GET");
+    expect(init?.body).toBeUndefined();
+    expect(headersOf(init)["Idempotency-Key"]).toBeUndefined();
+  });
+
+  it("CSRF 토큰을 읽기 요청에는 붙이지 않는다 — 공통 클라이언트 규칙 그대로", async () => {
+    const { adapter, fetchMock } = setup(ok(statusData()));
+    await adapter.getPurchaseStatus(QUOTE_ID);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/api/v1/reading-purchases/by-quote/${QUOTE_ID}`);
+    expect(headersOf(init)["X-CSRF-Token"]).toBeUndefined();
+  });
+
+  it("상태 전체를 옮긴다 — failureCode · createdAt · fulfilledAt 은 없다", async () => {
+    const { adapter } = setup(ok(statusData()));
+    expect(await adapter.getPurchaseStatus(QUOTE_ID)).toEqual({
+      purchaseId: PURCHASE_ID,
+      readingId: READING_ID,
+      status: "FULFILLED",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "VIEW_READING",
+    });
+  });
+
+  it("readingId null 은 null 로 남는다", async () => {
+    const { adapter } = setup(
+      ok(
+        statusData({
+          readingId: null,
+          status: "GENERATING",
+          nextAction: "WAIT",
+          fulfilledAt: null,
+        }),
+      ),
+    );
+    const state = await adapter.getPurchaseStatus(QUOTE_ID);
+    expect(state?.readingId).toBeNull();
+    expect(state?.nextAction).toBe("WAIT");
+  });
+
+  it("모르는 status · compensationStatus · nextAction 은 UNKNOWN", async () => {
+    const { adapter } = setup(
+      ok(
+        statusData({
+          status: "PAUSED",
+          compensationStatus: "LATER",
+          nextAction: "DANCE",
+        }),
+      ),
+    );
+    expect(await adapter.getPurchaseStatus(QUOTE_ID)).toMatchObject({
+      status: "UNKNOWN",
+      compensationStatus: "UNKNOWN",
+      nextAction: "UNKNOWN",
+    });
+  });
+
+  it("404 PURCHASE_NOT_FOUND 는 null", async () => {
+    const { adapter } = setup(failure(404, "PURCHASE_NOT_FOUND"));
+    expect(await adapter.getPurchaseStatus(QUOTE_ID)).toBeNull();
+  });
+
+  it("404 RESOURCE_NOT_FOUND 는 null 이 아니라 ApiError 로 던진다", async () => {
+    const { adapter } = setup(failure(404, "RESOURCE_NOT_FOUND"));
+    const error = await adapter
+      .getPurchaseStatus(QUOTE_ID)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).code).toBe("RESOURCE_NOT_FOUND");
+  });
+
+  it("500 은 ApiError", async () => {
+    const { adapter } = setup(failure(500, "INTERNAL_ERROR"));
+    const error = await adapter
+      .getPurchaseStatus(QUOTE_ID)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(500);
+  });
+
+  it.each([
+    ["quoteId 가 요청과 다름", () => statusData({ quoteId: OTHER_ID })],
+    ["purchaseId 가 uuid 아님", () => statusData({ purchaseId: "not-uuid" })],
+    ["readingId 키 없음", () => without(statusData(), "readingId")],
+    ["status 키 없음", () => without(statusData(), "status")],
+    [
+      "compensationStatus 키 없음",
+      () => without(statusData(), "compensationStatus"),
+    ],
+    ["nextAction 키 없음", () => without(statusData(), "nextAction")],
+  ])("계약 위반 (%s) 은 ApiContractError", async (_name, make) => {
+    const { adapter } = setup(ok(make()));
+    await expect(adapter.getPurchaseStatus(QUOTE_ID)).rejects.toBeInstanceOf(
       ApiContractError,
     );
   });

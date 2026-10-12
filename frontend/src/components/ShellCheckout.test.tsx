@@ -292,6 +292,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: null,
       status: "REFUNDED",
+      compensationStatus: "COMPLETED",
+      nextAction: "RETRY_PURCHASE",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });
@@ -310,6 +312,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: null,
       status: "GENERATING",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "WAIT",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });
@@ -339,6 +343,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: null,
       status: "FULFILLED",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "VIEW_READING",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });
@@ -356,6 +362,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       purchaseId: "FIXTURE",
       readingId: "FIXTURE-READING",
       status: "GENERATING",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "WAIT",
       charged: { currency: "TURTLE_SHELL", amount: 0 },
       balance: null,
     });

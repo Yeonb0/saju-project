@@ -143,7 +143,159 @@ describe("가짜 운세 구매 포트 (MOCK-PORT)", () => {
     const { quoteId } = await port.createQuote(selection);
     const result = await port.purchase({ quoteId, selection }, "key-1");
     expect(result.status).toBe("FAILED");
+    expect(result.readingId).toBeNull();
+    expect(result.compensationStatus).toBe("NOT_REQUIRED");
+    expect(result.nextAction).toBe("RETRY_PURCHASE");
     expect(wallet.balance()).toBe(100);
+  });
+
+  it("fulfilled: FULFILLED · NOT_REQUIRED · VIEW_READING, readingId 있음", async () => {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const { selection } = await selectionFor(port);
+    const { quoteId } = await port.createQuote(selection);
+    const result = await port.purchase({ quoteId, selection }, "key-1");
+    expect(result).toMatchObject({
+      status: "FULFILLED",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "VIEW_READING",
+    });
+    expect(result.readingId).toEqual(expect.any(String));
+  });
+
+  it("review_required: FAILED · REVIEW_REQUIRED · CONTACT_SUPPORT, 차감을 되돌리지 않는다", async () => {
+    const wallet = createFakeWallet(100);
+    const port = createFakeFortunePort({
+      scenario: "review_required",
+      wallet,
+    });
+    const { product, selection } = await selectionFor(port);
+    const { quoteId } = await port.createQuote(selection);
+    const result = await port.purchase({ quoteId, selection }, "key-1");
+    expect(result).toMatchObject({
+      status: "FAILED",
+      compensationStatus: "REVIEW_REQUIRED",
+      nextAction: "CONTACT_SUPPORT",
+      readingId: null,
+    });
+    expect(wallet.balance()).toBe(100 - product.price.amount);
+  });
+
+  it("refunded: REFUNDED · COMPLETED · RETRY_PURCHASE, 차감을 되돌린다", async () => {
+    const wallet = createFakeWallet(100);
+    const port = createFakeFortunePort({ scenario: "refunded", wallet });
+    const { selection } = await selectionFor(port);
+    const { quoteId } = await port.createQuote(selection);
+    const result = await port.purchase({ quoteId, selection }, "key-1");
+    expect(result).toMatchObject({
+      status: "REFUNDED",
+      compensationStatus: "COMPLETED",
+      nextAction: "RETRY_PURCHASE",
+      readingId: null,
+    });
+    expect(wallet.balance()).toBe(100);
+  });
+
+  describe("getPurchaseStatus", () => {
+    it("generating: 구매 응답은 GENERATING · WAIT · readingId null, 차감한다", async () => {
+      const wallet = createFakeWallet(100);
+      const port = createFakeFortunePort({ scenario: "generating", wallet });
+      const { product, selection } = await selectionFor(port);
+      const { quoteId } = await port.createQuote(selection);
+      const result = await port.purchase({ quoteId, selection }, "key-1");
+      expect(result).toMatchObject({
+        status: "GENERATING",
+        compensationStatus: "NOT_REQUIRED",
+        nextAction: "WAIT",
+        readingId: null,
+      });
+      expect(wallet.balance()).toBe(100 - product.price.amount);
+    });
+
+    it("generating: 조회하면 그때 결과를 만들고 FULFILLED · VIEW_READING, 이후 조회도 같은 값", async () => {
+      let created = 0;
+      const port = createFakeFortunePort({
+        scenario: "generating",
+        wallet: createFakeWallet(100),
+        onFulfilled: () => `FIXTURE-READING-${++created}`,
+      });
+      const { selection } = await selectionFor(port);
+      const { quoteId } = await port.createQuote(selection);
+      const bought = await port.purchase({ quoteId, selection }, "key-1");
+      expect(created).toBe(0);
+
+      const first = await port.getPurchaseStatus(quoteId);
+      expect(first).toEqual({
+        purchaseId: bought.purchaseId,
+        readingId: "FIXTURE-READING-1",
+        status: "FULFILLED",
+        compensationStatus: "NOT_REQUIRED",
+        nextAction: "VIEW_READING",
+      });
+      expect(await port.getPurchaseStatus(quoteId)).toEqual(first);
+      expect(created).toBe(1);
+      // charged · balance 는 상태에 없다
+      expect(first).not.toHaveProperty("charged");
+      expect(first).not.toHaveProperty("balance");
+    });
+
+    it("구매 기록이 없으면 null", async () => {
+      const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+      const { selection } = await selectionFor(port);
+      const { quoteId } = await port.createQuote(selection);
+      expect(await port.getPurchaseStatus(quoteId)).toBeNull();
+      expect(await port.getPurchaseStatus("FIXTURE-UNKNOWN")).toBeNull();
+    });
+
+    it("견적마다 자기 구매 상태만 준다", async () => {
+      const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+      const { selection } = await selectionFor(port);
+      const first = await port.createQuote(selection);
+      const bought = await port.purchase(
+        { quoteId: first.quoteId, selection },
+        "key-1",
+      );
+      const second = await port.createQuote(selection);
+      expect(await port.getPurchaseStatus(second.quoteId)).toBeNull();
+      expect((await port.getPurchaseStatus(first.quoteId))?.purchaseId).toBe(
+        bought.purchaseId,
+      );
+    });
+
+    it("processing_409 로 끝난 첫 요청은 기록이 없다 → null, 같은 키 재요청 뒤에는 상태가 있다", async () => {
+      const port = createFakeFortunePort({
+        scenario: "processing_409",
+        wallet: createFakeWallet(100),
+      });
+      const { selection } = await selectionFor(port);
+      const { quoteId } = await port.createQuote(selection);
+      await expect(
+        port.purchase({ quoteId, selection }, "key-1"),
+      ).rejects.toBeInstanceOf(ApiError);
+      expect(await port.getPurchaseStatus(quoteId)).toBeNull();
+      await port.purchase({ quoteId, selection }, "key-1");
+      expect(await port.getPurchaseStatus(quoteId)).toMatchObject({
+        status: "FULFILLED",
+      });
+    });
+
+    it("견적이 만료돼도 조회된다", async () => {
+      let now = 0;
+      const port = createFakeFortunePort({
+        wallet: createFakeWallet(100),
+        now: () => now,
+      });
+      const { selection } = await selectionFor(port);
+      const { quoteId } = await port.createQuote(selection);
+      await port.purchase({ quoteId, selection }, "key-1");
+      now = 31 * 60 * 1000;
+      await expect(port.getQuote(quoteId)).rejects.toSatisfy(
+        (e) => codeOf(e) === "QUOTE_EXPIRED",
+      );
+      expect(await port.getPurchaseStatus(quoteId)).toMatchObject({
+        status: "FULFILLED",
+        nextAction: "VIEW_READING",
+      });
+    });
   });
 
   describe("추천 충전 상품 — 가짜 서버가 BE-A 규칙으로 계산 (P-06 · MOCK-PORT)", () => {
