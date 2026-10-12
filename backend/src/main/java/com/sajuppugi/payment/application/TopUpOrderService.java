@@ -19,11 +19,14 @@ public class TopUpOrderService {
     private final JdbcTopUpOrders orders;
     private final CatalogUseCase catalog;
     private final Clock clock;
+    private final com.sajuppugi.wallet.application.WalletOperationsService walletOperations;
 
-    public TopUpOrderService(JdbcTopUpOrders orders, CatalogUseCase catalog, Clock clock) {
+    public TopUpOrderService(JdbcTopUpOrders orders, CatalogUseCase catalog, Clock clock,
+            com.sajuppugi.wallet.application.WalletOperationsService walletOperations) {
         this.orders = orders;
         this.catalog = catalog;
         this.clock = clock;
+        this.walletOperations = walletOperations;
     }
 
     public TopUpOrder create(UUID user, String productCode, String key) {
@@ -34,6 +37,7 @@ public class TopUpOrderService {
         String hash = hash(key);
         var existing = orders.findByKey(user, hash);
         if (existing.isPresent()) return match(existing.get(), productCode);
+        walletOperations.assertUsable(user);
         var product = catalog.availableTopUps().stream()
                 .filter(value -> value.product().code().equals(productCode)).findFirst()
                 .orElseThrow(() -> new ApiException(ErrorCode.PRODUCT_NOT_AVAILABLE));

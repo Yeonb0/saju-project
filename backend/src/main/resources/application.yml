@@ -47,6 +47,13 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  operations:
+    alerts:
+      enabled: ${OPERATIONS_ALERTS_ENABLED:false}
+      adapter: ${OPERATIONS_ALERTS_ADAPTER:disabled}
+      webhook-url: ${OPERATIONS_ALERTS_WEBHOOK_URL:}
+      webhook-token: ${OPERATIONS_ALERTS_WEBHOOK_TOKEN:}
+      stalled-after: ${OPERATIONS_ALERTS_STALLED_AFTER:15m}
   kakao-oauth:
     rest-api-key: ${KAKAO_REST_API_KEY:}
     client-secret: ${KAKAO_CLIENT_SECRET:}
@@ -57,6 +64,9 @@ app:
   person:
     encryption-key: ${PERSON_ENCRYPTION_KEY:}
   toss:
+    refunds-enabled: ${TOSS_REFUNDS_ENABLED:false}
+    webhooks-enabled: ${TOSS_WEBHOOKS_ENABLED:false}
+    operations-enabled: ${TOSS_OPERATIONS_ENABLED:false}
     adapter: ${TOSS_ADAPTER:disabled}
     base-url: https://api.tosspayments.com
     secret-key: ${TOSS_SECRET_KEY:}
@@ -70,6 +80,7 @@ app:
       batch-size: 20
       poll-delay: 30s
   wallet:
+    operations-enabled: ${WALLET_OPERATIONS_ENABLED:false}
     purchases-enabled: ${WALLET_PURCHASES_ENABLED:false}
     recovery:
       enabled: ${WALLET_RECOVERY_ENABLED:false}

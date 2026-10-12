@@ -35,6 +35,8 @@ public class JdbcWalletRepository implements WalletRepository {
                 new LockedWallet(userId, rs.getLong("version"),
                         new WalletBalance(rs.getInt("paid_balance"), rs.getInt("bonus_balance")), List.of()), userId);
         if (rows.isEmpty()) throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
+        Integer blocked = jdbc.queryForObject("SELECT COUNT(*) FROM wallet_integrity_findings WHERE wallet_user_id = ? AND kind = 'EXTERNAL_CANCEL_REVIEW' AND resolved_at IS NULL", Integer.class, userId);
+        if (blocked != null && blocked > 0) throw new ApiException(ErrorCode.WALLET_REVIEW_REQUIRED);
         var lots = jdbc.query("SELECT * FROM wallet_lots WHERE wallet_user_id = ? ORDER BY id FOR UPDATE",
                 (rs, row) -> new WalletLot(rs.getObject("id", UUID.class),
                         WalletLot.BalanceType.valueOf(rs.getString("balance_type")), rs.getInt("granted_amount"),

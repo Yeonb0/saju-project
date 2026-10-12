@@ -14,7 +14,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class SessionCsrfFilter extends OncePerRequestFilter {
     private final AuthService auth; private final ObjectMapper mapper;
     public SessionCsrfFilter(AuthService auth, ObjectMapper mapper) { this.auth=auth; this.mapper=mapper; }
-    protected boolean shouldNotFilter(HttpServletRequest request) { return "GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()) || "OPTIONS".equals(request.getMethod()); }
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return "GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()) || "OPTIONS".equals(request.getMethod())
+                || ("POST".equals(request.getMethod()) && (request.getContextPath() + "/api/v1/webhooks/toss").equals(request.getRequestURI()));
+    }
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         String raw=SessionAuthenticationFilter.cookie(req, AuthService.COOKIE); AuthRepository.Session session=auth.session(raw);
         String token=req.getHeader("X-CSRF-Token");
