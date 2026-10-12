@@ -22,7 +22,8 @@ public class AuthService {
         configured(); Instant now=clock.instant(); String returnTo = consumeReturnTo(state, now);
         KakaoOAuthClient.KakaoUser user = kakao.userForCode(required(code)); UUID userId=repository.upsertActiveMember(user.subject(), user.nickname(), now);
         String token=SecretHash.randomToken(); UUID sessionId=UUID.randomUUID(); Instant expires=now.plus(props.sessionTtl());
-        repository.createSession(sessionId,userId,SecretHash.sha256(token),SecretHash.sha256(SecretHash.randomToken()),expires,now);
+        repository.createSession(sessionId,userId,SecretHash.sha256(token),SecretHash.sha256(SecretHash.randomToken()),
+                expires,now,props.maxActiveSessions());
         // The provider exchange occurs before database writes. Only revoke an existing browser session after its
         // replacement was stored, so a provider or storage failure does not unnecessarily sign the user out.
         if (previousRawSession != null) repository.revokeSession(SecretHash.sha256(previousRawSession), now);

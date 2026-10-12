@@ -108,10 +108,35 @@ class SessionSecurityPostgresTest {
                 Boolean.class, stateHash)).isTrue();
     }
 
+    @Test
+    void concurrentSessionCreationKeepsAtMostFiveActiveSessionsOnPostgres() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("sajuppugi_test");
+        userId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at)
+                VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+                """, userId, "session-limit-" + userId, "세션 제한", timestamp(NOW), timestamp(NOW));
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(6)) {
+            var futures = java.util.stream.IntStream.range(0, 6).mapToObj(index -> executor.submit(() -> {
+                start.await();
+                repository.createSession(UUID.randomUUID(), userId, SecretHash.sha256("limit-token-" + index),
+                        SecretHash.sha256("limit-csrf-" + index), NOW.plusSeconds(3600), NOW.plusSeconds(index), 5);
+                return null;
+            })).toList();
+            start.countDown();
+            for (var future : futures) future.get();
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_sessions WHERE user_id = ? AND revoked_at IS NULL",
+                Integer.class, userId)).isEqualTo(5);
+    }
+
     @AfterEach
     void cleanUpSyntheticRows() {
-        if (sessionId != null) jdbc.update("DELETE FROM user_sessions WHERE id = ?", sessionId);
-        if (userId != null) jdbc.update("DELETE FROM users WHERE id = ?", userId);
+        if (userId != null) {
+            jdbc.update("DELETE FROM user_sessions WHERE user_id = ?", userId);
+            jdbc.update("DELETE FROM users WHERE id = ?", userId);
+        }
         if (stateHash != null) jdbc.update("DELETE FROM oauth_login_states WHERE state_hash = ?", stateHash);
     }
 

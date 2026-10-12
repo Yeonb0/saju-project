@@ -20,6 +20,8 @@
 ### 인증
 
 - 서버 세션 ID를 `HttpOnly + Secure + SameSite=Lax` 쿠키로 전달한다.
+- 세션은 기본 30일 뒤 만료한다. 동시 활성 세션은 5개까지이며 새 로그인은 유지하고,
+  한도를 넘으면 가장 오래 사용하지 않은 기존 세션부터 폐기한다.
 - 인증 필요 엔드포인트는 세션이 없으면 `401 AUTHENTICATION_REQUIRED`를 반환한다.
 - 소유권이 없으면 존재 여부를 숨겨야 하는 리소스는 `404`, 그 외는 `403`을 사용한다.
 - 상태 변경 요청은 CSRF 토큰 및 Origin 검증을 적용한다.
@@ -604,13 +606,21 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
     "studyWork": 80,
     "condition": 58
   },
+  "content": {
+    "oneLineFortune": "작은 자신감을 행동으로 옮기기 좋은 하루예요.",
+    "luckyColor": "민트",
+    "luckyItem": "책갈피",
+    "luckyPlace": "편안한 휴식 공간",
+    "todayAction": "비교보다 지금 할 수 있는 한 걸음에 집중해 보세요."
+  },
   "calculationVersion": "manse-2026.10-v1",
-  "contentVersion": "daily-score-2026.10-v1"
+  "contentVersion": "daily-2026.10-v2"
 }
 ```
 
 - 모든 지수는 0~100 정수다.
-- 장문 본문은 반환하지 않는다.
+- `content`는 한줄 운세, 행운 색·아이템·장소, 오늘의 행동을 담는다. 값은 UI 표시용
+  짧은 문자열이며 장문 생성 결과나 개인 출생 입력을 포함하지 않는다.
 - 동일 인물·날짜·계산/content 버전의 결과는 항상 같다.
 - Liner API를 호출하지 않고 서버의 결정론적 만세력 계산 결과와 KST 날짜만 사용한다.
 - 인물 없음·삭제·소유권 없음은 존재 여부를 숨기기 위해 `404 PERSON_NOT_FOUND`로 응답한다.

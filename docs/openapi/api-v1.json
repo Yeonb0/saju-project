@@ -908,10 +908,33 @@
         "required" : [ "productCode" ],
         "type" : "object"
       },
+      "DailyContent" : {
+        "properties" : {
+          "luckyColor" : {
+            "type" : "string"
+          },
+          "luckyItem" : {
+            "type" : "string"
+          },
+          "luckyPlace" : {
+            "type" : "string"
+          },
+          "oneLineFortune" : {
+            "type" : "string"
+          },
+          "todayAction" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "DailyFortune" : {
         "properties" : {
           "calculationVersion" : {
             "type" : "string"
+          },
+          "content" : {
+            "$ref" : "#/components/schemas/DailyContent"
           },
           "contentVersion" : {
             "type" : "string"

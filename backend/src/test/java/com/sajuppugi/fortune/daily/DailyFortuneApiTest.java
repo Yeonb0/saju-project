@@ -53,7 +53,12 @@ class DailyFortuneApiTest {
                 .andExpect(jsonPath("$.data.date").value("2026-10-11"))
                 .andExpect(jsonPath("$.data.personId").value(person.id().toString()))
                 .andExpect(jsonPath("$.data.calculationVersion").isString())
-                .andExpect(jsonPath("$.data.contentVersion").value("daily-score-2026.10-v1"))
+                .andExpect(jsonPath("$.data.contentVersion").value("daily-2026.10-v2"))
+                .andExpect(jsonPath("$.data.content.oneLineFortune").isNotEmpty())
+                .andExpect(jsonPath("$.data.content.luckyColor").isNotEmpty())
+                .andExpect(jsonPath("$.data.content.luckyItem").isNotEmpty())
+                .andExpect(jsonPath("$.data.content.luckyPlace").isNotEmpty())
+                .andExpect(jsonPath("$.data.content.todayAction").isNotEmpty())
                 .andReturn().getResponse().getContentAsString();
         String second = mvc.perform(get("/api/v1/daily-fortunes/today")
                         .param("personId", person.id().toString()).with(user(owner.toString())))

@@ -135,8 +135,9 @@ jq . build/liner-live-response.json
 | `KAKAO_CLIENT_SECRET` | 카카오 클라이언트 시크릿. 서버 환경에만 설정 |
 | `KAKAO_REDIRECT_URI` | 카카오 Developers에 등록한 정확한 콜백 URI |
 | `FRONTEND_BASE_URL` | 로그인 완료 이동과 CSRF Origin 검증에 쓸 프론트엔드 고정 origin |
-| `KAKAO_SESSION_TTL` | 서버 세션 TTL, 기본 `14d` |
+| `KAKAO_SESSION_TTL` | 서버 세션 TTL, 기본 `30d` |
 | `KAKAO_STATE_TTL` | OAuth state TTL, 기본 `10m` |
+| `KAKAO_MAX_ACTIVE_SESSIONS` | 사용자별 활성 세션 한도, 기본 `5`. 새 로그인은 유지하고 가장 오래 사용하지 않은 기존 세션부터 폐기 |
 | `PERSON_ENCRYPTION_KEY` | 인물 정보용 Base64 32-byte 키. 기존 키를 임의 교체하지 않는다 |
 | `GENERATION_CONTEXT_ENCRYPTION_KEY` | 생성 복구 context 전용 Base64 32-byte 키. 인물 키와 다른 값을 사용한다 |
 | `GENERATION_CONTEXT_REENCRYPTION_ENABLED` | 기존 평문/`enc:v1` context의 `enc:v2` 전환 실행. 기본 `false` |

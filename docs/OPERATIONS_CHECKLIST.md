@@ -6,7 +6,8 @@
 - 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정했다. 고정 OpenAPI 파일도 controller에서 다시 export해야 한다.
 - 카카오 callback은 고정 프론트 origin의 `/api/v1/auth/kakao/callback`으로 등록하고, 같은 origin을 `FRONTEND_BASE_URL`에 설정해야 한다. Next.js `/api/v1` 프록시를 거치면 세션 쿠키가 프론트 origin에 설정된다. 이 설정값과 카카오 Developers 등록, Railway/Vercel 배포는 외부 계정 권한이 필요해 이 저장소에서 수행·검증하지 않았다.
 - tracked 파일에서 Liner API 키·카카오 client secret의 실제 값은 발견하지 않았고, `.env`와 `.env.*`는 Git ignore다. 기존 대화나 외부 콘솔 노출값의 실제 회전 여부는 키 원문을 열람하지 않고는 검증할 수 없으므로 공급자 콘솔에서 별도 완료해야 한다.
-- 오늘의 운세 API는 현재 소유한 활성 인물에 대해 KST 날짜와 5개 지수만 반환한다. 한줄 운세·행운 항목·공유의 1차 포함 여부는 PD/제품 결정이므로 임의로 추가하지 않았다.
+- 오늘의 운세 API는 현재 소유한 활성 인물에 대해 KST 날짜, 5개 지수, 한줄 운세, 행운 색·아이템·장소, 오늘의 행동을 결정론적으로 반환한다. Liner 호출이나 원문 출생 입력을 새로 노출하지 않는다. 공유 landing은 G-11의 공개 범위·만료·철회 정책이 아직 미정이라 이번 API에 포함하지 않았다.
+- 세션 기본 TTL을 팀 결정과 같이 30일로 맞췄고, 활성 세션은 사용자별 5개로 제한한다. 새 로그인은 유지하며 한도를 넘으면 최근 사용 시각이 가장 오래된 기존 세션부터 짧은 PostgreSQL 트랜잭션에서 폐기한다. 외부 카카오 호출은 이 잠금/트랜잭션 밖에 있다. 분리 PostgreSQL 17.11에서 동시 6개 세션 생성 후 활성 세션 5개를 확인했다.
 
 확인일: 2026-10-09. 기준: GitHub main `381787b98bd536200865f4d54c342fd1271d563e`, BE-A PR #14, BE-B PR #15, FE PR #16, FE PROGRESS, 전달된 Q-33~36.
 

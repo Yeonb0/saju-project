@@ -105,4 +105,30 @@ class KakaoCallbackFailureIntegrationTest {
         jdbc.update("DELETE FROM user_sessions WHERE user_id = ?", previousUser);
         jdbc.update("DELETE FROM users WHERE id = ?", previousUser);
     }
+
+    @Test
+    void retainsNewLoginAndOnlyFourMostRecentlyUsedOlderSessions() {
+        UUID userId = UUID.randomUUID();
+        Instant now = Instant.now();
+        jdbc.update("""
+                INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at)
+                VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+                """, userId, "session-limit-" + userId, "세션 제한", Timestamp.from(now), Timestamp.from(now));
+        UUID oldest = null;
+        try {
+            for (int i = 0; i < 6; i++) {
+                UUID sessionId = UUID.randomUUID();
+                if (i == 0) oldest = sessionId;
+                repository.createSession(sessionId, userId, SecretHash.sha256("session-" + i),
+                        SecretHash.sha256("csrf-" + i), now.plusSeconds(3600), now.plusSeconds(i), 5);
+            }
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_sessions WHERE user_id = ? AND revoked_at IS NULL",
+                    Integer.class, userId)).isEqualTo(5);
+            assertThat(jdbc.queryForObject("SELECT revoked_at IS NOT NULL FROM user_sessions WHERE id = ?", Boolean.class,
+                    oldest)).isTrue();
+        } finally {
+            jdbc.update("DELETE FROM user_sessions WHERE user_id = ?", userId);
+            jdbc.update("DELETE FROM users WHERE id = ?", userId);
+        }
+    }
 }
