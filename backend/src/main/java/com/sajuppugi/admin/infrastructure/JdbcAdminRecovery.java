@@ -34,7 +34,9 @@ public class JdbcAdminRecovery {
     public UUID begin(UUID actor, UUID order, String key, Reason reason) {
         access.require(actor, true);
         if (key == null || key.isBlank() || key.length() > 512 || reason == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
-        if (jdbc.queryForObject("SELECT COUNT(*) FROM top_up_orders WHERE id = ?", Integer.class, order) != 1) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        // Match finish's order-first lock order before FK checks take member key-share locks.
+        if (jdbc.query("SELECT id FROM top_up_orders WHERE id = ? FOR UPDATE",
+                (rs, row) -> rs.getObject(1, UUID.class), order).isEmpty()) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
         String request = hash(order + ":" + reason.name());
         UUID id = UUID.randomUUID();
         int inserted = jdbc.update("INSERT INTO admin_recovery_commands(id,operator_id,order_id,key_hash,request_hash,reason_code,state,next_attempt_at,created_at) VALUES (?,?,?,?,?,?,'READY',?,?) ON CONFLICT DO NOTHING",
@@ -70,7 +72,7 @@ public class JdbcAdminRecovery {
                 (rs, row) -> rs.getInt(1), lease.id(), lease.token(), Timestamp.from(now));
         if (attempts.isEmpty()) return;
         // Lock the role and member rows until the financial update/audit commit; revocation cannot race the commit.
-        var roles = jdbc.query("SELECT g.user_id FROM admin_operator_grants g JOIN users u ON u.id = g.user_id WHERE g.user_id = ? AND g.active = TRUE AND g.can_recover = TRUE AND u.status = 'ACTIVE' FOR UPDATE",
+        var roles = jdbc.query("SELECT g.user_id FROM admin_operator_grants g JOIN users u ON u.id = g.user_id WHERE g.user_id = ? AND g.active = TRUE AND g.can_recover = TRUE AND u.status = 'ACTIVE' FOR NO KEY UPDATE OF g, u",
                 (rs, row) -> rs.getObject(1, UUID.class), lease.actor());
         String result = roles.isEmpty() ? "OPERATOR_AUTHORIZATION_REVOKED" : payments.apply(lease.order(), evidence);
         boolean completed = List.of("CREDITED","ALREADY_CREDITED","REFUNDED","CANCELED","ALREADY_CLOSED").contains(result);

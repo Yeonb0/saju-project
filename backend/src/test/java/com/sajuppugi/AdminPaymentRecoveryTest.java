@@ -100,7 +100,7 @@ class AdminPaymentRecoveryTest {
         assertThatThrownBy(() -> service.request(operator, first, "same", Reason.CUSTOMER_INQUIRY)).isInstanceOf(RuntimeException.class);
         verify(provider, times(1)).lookup(any());
     }
-    @Test void simultaneousDifferentCommandsStillCreditTheSameOrderOnlyOnce() throws Exception {
+    @RepeatedTest(10) void simultaneousDifferentCommandsStillCreditTheSameOrderOnlyOnce() throws Exception {
         UUID order = order(false);
         try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
             var one = pool.submit(() -> service.request(operator, order, "one", Reason.SYSTEM_RECOVERY));
@@ -110,6 +110,21 @@ class AdminPaymentRecoveryTest {
         }
         assertThat(balance()).isEqualTo(56);
         assertThat(count("SELECT COUNT(*) FROM wallet_top_up_receipts WHERE order_id = ?", order)).isEqualTo(1);
+    }
+    @Test void memberForeignKeyReadersDoNotBlockRecovery() throws Exception {
+        UUID order = order(false);
+        UUID command = commands.begin(operator, order, "key-share", Reason.SYSTEM_RECOVERY);
+        var lease = commands.claim(command).orElseThrow();
+        try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            new TransactionTemplate(transactions).executeWithoutResult(tx -> {
+                jdbc.query("SELECT id FROM users WHERE id = ? FOR KEY SHARE", (rs, row) -> rs.getObject(1, UUID.class), operator);
+                var completion = pool.submit(() -> commands.finish(lease, evidence(order, Outcome.APPROVED)));
+                try { completion.get(3, TimeUnit.SECONDS); }
+                catch (Exception failure) { throw new AssertionError("Recovery must not wait for member FK key-share locks", failure); }
+            });
+        }
+        assertThat(commands.view(operator, command).state()).isEqualTo("COMPLETED");
+        assertThat(balance()).isEqualTo(56);
     }
     @Test void wrongEvidenceIsBoundedAndNeverChangesWalletOrResetsFinancialRetryCounters() {
         UUID order = order(false);
