@@ -1,5 +1,15 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-12: PR #24 환불 반환·운영 알림 보완
+
+- 사용자 요청으로 남은 개발을 계속했다. 환불/대사/원장 운영과 같은 기능 범위라 PR #24를 merge하지 않고 확장했다. 관리자·선물·FE 변경은 이 PR에 추가하지 않는다.
+- 최초 취소 요청의 명시적 REFUND_REJECTED와 재조회 동일 결제 DONE 증거, 유효 lease를 모두 확인한 경우 회수분 ADJUSTMENT/반환 receipt/거절 resolution을 한 트랜잭션으로 저장한다. 원래 lot·만료일을 유지하며 REJECTED는 현금 환불 완료가 아니다.
+- 이전 결과 불명/늦은 응답/모호한 취소 에러는 자동 반환하지 않는다. 반환 뒤 외부 취소는 검토 및 지갑 제한으로 전환한다. 실패 주입에서 반환 원장·receipt·거절 상태의 전체 롤백을 확인했다.
+- 운영 incident와 알림 outbox, 동일 문제 dedupe/해결·재발 generation, lease/fencing/5회 재시도, 해결 후 미전송 취소를 구현했다. 외부 HTTPS/Bearer 수신기에 최소 식별 payload만 전송하는 adapter는 기본 비활성이다. at-least-once 전송이므로 수신기 alertId 중복 제거가 필요하다.
+- 새 전용 PostgreSQL 17.11/55432 DB saju_ops_followup_20261012에서 check bootJar와 BE 전용 OpenAPI export 성공: 467건 중 460 통과, 실패/오류 0, 선택 제외 7. 외부 PG·실제 알림 채널·로그인/FE E2E·OS 강제 종료·배포는 미실행이다.
+- 추가 migration 2개(반환 receipt/resolution, operations incident/delivery). 코드 `cbf0767`, `5917414`를 먼저 커밋하고 문서를 마지막에 기록했다. 기존 FE/공유 schema와 .env 변경 없음. OPS 알림 flag/adapter 기본 비활성 유지.
+- 남음: 이전 불명 환불의 수동 해결/반환, 관리자 권한·감사·안전한 재처리, 부분 환불 정책, 수신기 실제 연결과 운영 live adapter, 실환경·부하·복원 검증. 현재 PR과 다른 권한 범위는 별도 기능 PR로 진행한다.
+
 ### 2026-10-12: 충전 환불·Webhook 대사·지갑 운영 기반
 
 - 기준 main `7bac2a1`, branch `codex/payment-refund-reconciliation`. 사용자 요청으로 관리자 API/권한·수동 조정과 선물은 제외했다. 실제 사용자/팀 공동 테스트는 후순위이며 실제 키·PG·배포를 사용하지 않았다.

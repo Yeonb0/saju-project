@@ -11,7 +11,8 @@ FE 소스·생성 타입·설정과 기존 `docs/openapi/api-v1.json`은 변경�
 - 사용 후 구매 보상으로 수량이 복구됐더라도 사용 이력이 있으면 자동 현금 환불을 거절한다.
 - 7일/미사용 조건은 정책 초안에 대응하는 제한적 구현이다. 정책 확정 전에는 활성화하지 않는다.
 - 부분 환불 금액·수수료·사용한 보너스 처리, 가상계좌 환불 계좌 입력, 운영 live 키 지원은 미구현이다.
-- 검토 상태의 수동 해제·환불 거절 확정 후 회수분 반환은 관리자 후속 범위다. UNKNOWN을 실패로 단정해 반환하지 않는다.
+- 검토 상태의 수동 해제와 이전 결과 불명이 있는 회수분의 반환은 관리자 후속 범위다. UNKNOWN을 실패로 단정해 반환하지 않는다.
+- 첫 취소 시도의 명시적 REFUND_REJECTED와 재조회 DONE/동일 결제 증거가 함께 확인되면 회수분을 원래 lot·만료로 한 번 반환한다. NOT_CANCELABLE_PAYMENT 같은 모호한 오류는 반환 근거가 아니다.
 
 ## 트랜잭션과 중복 처리
 
@@ -40,6 +41,12 @@ FE 소스·생성 타입·설정과 기존 `docs/openapi/api-v1.json`은 변경�
 | RESERVED / IN_FLIGHT / RETRY | POLL | 처리 중, 같은 환불 GET 조회 |
 | REFUNDED | NONE | completedAt도 있는 경우만 현금 환불 완료 |
 | REVIEW_REQUIRED | CONTACT_SUPPORT | 완료·실패·회수분 반환을 단정하지 않고 주문 ID로 문의 |
+| REJECTED | CONTACT_SUPPORT | 현금 환불 거절 확인 및 예약 회수분 반환. 현금 환불 완료로 표시하지 않음 |
+
+REJECTED는 첫 시도, 유효한 lease, 동일 주문/결제키 해시/금액, 명시적 거절을 모두 확인한 경우만 반환한다.
+이전 UNKNOWN 시도가 있거나 lease가 바뀌었으면 자동 반환하지 않는다. 반환의 ADJUSTMENT 원장/receipt와 거절 resolution을 함께 저장한다.
+만료된 lot도 원래 만료일을 유지하므로 반환이 사용 기한 연장을 의미하지 않는다. 반환 후 외부 취소가 발견되면 지갑을 다시 검토 제한한다.
+REJECTED일 때 충전 주문의 공개 상태는 다시 CREDITED이며, 현재 사용 가능 잔액은 지갑 API로 조회한다.
 
 충전 주문 GET/confirm은 환불 미완료/검토가 있으면 응답용 `REFUND_PENDING` 상태와 null 지급량·잔액을 반환한다.
 이는 DB 주문 상태를 새 enum으로 바꾸는 것이 아니라 환불 행을 결합한 공개 projection이다.
@@ -74,7 +81,17 @@ FE의 기존 CSRF/HTTP/envelope/요청키 방식과 코드상 호환성을 대�
 - 지급분 잔량과 지급분별 원장 합계, 거래 총량과 배분 합계, 사용 가능/만료분을 고려한 잔액 projection을 검사한다.
 - 불일치는 wallet_integrity_findings에 기록한다. 잘못된 원장을 자동으로 고치거나 만료 처리를 계속하지 않는다.
 - 정상 지갑의 만료분은 잔량 0, 음수 EXPIRY 원장, 잔액을 함께 저장한다. 동시 실행·재실행에도 추가 소멸이 없다.
-- 외부 취소 검토 표시는 자동 해제하지 않는다. 관리자 검토·알림 연동·부하/복원 검증은 후속이다.
+- 외부 취소 검토 표시는 자동 해제하지 않는다. 관리자 검토·부하/복원 검증은 후속이다.
+
+## 운영 알림
+
+- 환불/충전 검토, 15분 이상 미처리 작업, 결제 대사 검토, 지갑 원장 이상을 operations_incidents에 기록한다.
+- 문제당 OPEN episode/generation으로 중복 감지를 합치고, 문제가 해소되면 RESOLVED, 재발하면 새 generation을 만든다.
+- 감지와 전송 예약은 함께 저장한다. 알림은 DB 밖에서 전송하며 lease, 30초 retry, 최대 5회와 REVIEW_REQUIRED를 적용한다.
+- 해결된 문제의 미전송 알림은 취소한다. 100개 감지/해결 scan과 20개 전송으로 한 번의 작업량을 제한한다.
+- HTTPS/Bearer 인증 수신기로 alertId, kind, resourceId, generation, detectedAt만 전송한다. 결제키/키 원문/금액/이름/외부 오류 본문은 보내지 않는다.
+- 전송은 at-least-once다. 수신기가 alertId/Idempotency-Key로 중복 제거해야 하며 DELIVERED는 수신 서버의 접수이지 담당자의 열람/해결 확인이 아니다.
+- 실제 Slack/메일/문의 시스템은 연결하지 않았다. 별도 신뢰 수신기·토큰·접근 정책이 필요하다. 관리자 화면/API, 경보 승인·수동 재전송은 후속이다.
 
 ## 활성화와 배포
 
@@ -85,10 +102,14 @@ TOSS_REFUNDS_ENABLED=false
 TOSS_WEBHOOKS_ENABLED=false
 TOSS_OPERATIONS_ENABLED=false
 WALLET_OPERATIONS_ENABLED=false
+OPERATIONS_ALERTS_ENABLED=false
+OPERATIONS_ALERTS_ADAPTER=disabled
 ```
 
 환불 자동 복구·Webhook 처리는 TOSS_OPERATIONS_ENABLED가 켜져야 진행된다. 정책·키·상품·FE가 준비된 분리 환경에서만 활성화한다.
-새 migration 4개는 추가형이다. 모든 인스턴스를 새 코드로 바꾼 뒤 기능을 켜야 한다.
+운영 알림은 OPERATIONS_ALERTS_ENABLED, webhook adapter, OPERATIONS_ALERTS_WEBHOOK_URL/TOKEN을 설정해야 전송된다. 기본은 비활성이다.
+OPERATIONS_ALERTS_STALLED_AFTER는 기본 15m이며 1분~7일만 허용한다. 실제 처리 시간/worker 간격에 맞춰 조정한다.
+새 migration 6개는 추가형이다. 모든 인스턴스를 새 코드로 바꾼 뒤 기능을 켜야 한다.
 환불 예약 이후에는 이전 코드가 해당 상태를 모르므로 구버전 혼합 운영/단순 앱 rollback을 하지 않는다. 외부 취소는 DB rollback으로 취소할 수 없다.
 
 ## 실제 검증 결과
@@ -101,3 +122,10 @@ WALLET_OPERATIONS_ENABLED=false
 - 실제 토스 키 사용/PG 요청, 실제 로그인, FE E2E, OS 종료 복구, staging/production 배포·부하·복원·알림은 미실행이다.
 
 토스 계약 참고: [결제 취소](https://docs.tosspayments.com/guides/v2/cancel-payment), [Webhook 이벤트](https://docs.tosspayments.com/reference/using-api/webhook-events).
+
+### 2026-10-12 추가 구현 검증
+
+- 환불 거절 반환 `cbf0767`, 운영 알림 `5917414`를 같은 PR #24에 추가했다. 기능이 같은 범위라 merge하지 않고 이어갔다.
+- 새 전용 PostgreSQL 17.11 DB saju_ops_followup_20261012에서 check/bootJar/별도 exportOpenApi 성공: 467건 중 460 통과, 실패/오류 0, 선택 제외 7.
+- 최초 거절/이전 UNKNOWN/만료 유지/반환 롤백/반환 뒤 외부 취소, 알림 동시 감지/5회 한도/늦은 응답/해결·재발/100개 초과 공정한 scan/HTTP 오류·안전 설정을 검사했다.
+- FE 코드·기존 공유 OpenAPI·사용자 .env·실제 알림 수신기·배포는 변경하지 않았다. 관리자/부분 환불 정책/live PG/실제 팀 통합은 여전히 후속이다.
