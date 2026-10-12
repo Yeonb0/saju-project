@@ -9,6 +9,10 @@ export type IdempotentCommand = Readonly<{
   body: string;
 }>;
 
+export type KeyOnlyIdempotentCommand = Readonly<{
+  key: string;
+}>;
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -43,6 +47,14 @@ export function createKeyedCommand(
     throw new Error("멱등 키가 UUID 형식이 아니다");
   }
   return Object.freeze({ key, body: JSON.stringify(payload) });
+}
+
+// 본문 없이 Idempotency-Key 만 요구하는 명령(충전 환불 신청 등).
+export function createKeyOnlyCommand(key: string): KeyOnlyIdempotentCommand {
+  if (!UUID_PATTERN.test(key)) {
+    throw new Error("멱등 키가 UUID 형식이 아니다");
+  }
+  return Object.freeze({ key });
 }
 
 // 포트(MOCK-PORT) 호출용 키. 구매 의도 하나(버튼을 눌러 시작한 명령 하나)에 한 번만 만들고,
