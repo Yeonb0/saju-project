@@ -7,12 +7,12 @@
 ## 현재 상태
 
 - **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** + **진짜 adapter(ADAPTER-HTTP)**. 최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA) — 글꼴 · 손그림 외곽선 · 색 토큰은 팀 문서 반영(Q-32) · 적용 시작(사용자 결정) 전까지 넣지 않는다. 캐릭터 · 아이콘 · 이미지 에셋은 자리만, 와이어 문구는 자리표시. 코드는 Claude Code, 웹 대화는 명세 · 검토 · 작업 공간 재현 · 변이 확인 (CODE-BY-CC · SCREEN-CHECK)
-- **위험 (10/12, `boyeon` `afcd0b3` · `main` `b3a114b`)**: FE 진짜 연결 **코드는 끝났지만 실제 브라우저에서 확인한 API 는 아직 0개다** — 스테이징이 없다 (R-06).
+- **위험 (10/12 저녁, `boyeon` = `main` `30780c8`)**: FE 진짜 연결 **코드는 끝났지만 실제 브라우저에서 확인한 API 는 아직 0개다** — 스테이징이 없다 (R-06).
   - BE 는 `main` 에 다 들어왔다: 카카오 OAuth · 서버 세션 · CSRF · `GET /session` · 인물 · 구매 상태 조회 · 수능 결과 구조 · 충전 승인 · 주문 조회 · 상품 목록 (PR #19 ~ #23), 충전 환불 · 대사 (PR #24, 기능 꺼짐)
   - 로컬 진짜 모드 확인은 하지 않기로 했다(10/12 사용자 — "코드 작업 먼저"). 사용자 PC 에 PostgreSQL 18 서비스가 5432 에 있고 Docker 가 없어 백엔드 `bootRun` 이 DB 인증에서 멈췄다. 로컬 시드는 상품이 `active = FALSE`, 토스는 `TOSS_ADAPTER=disabled` 라 로컬에서는 충전 · 수능운 흐름이 어차피 막힌다 (Q-39 4)
   - 스테이징 callback 은 프론트 주소 경유로 등록해야 세션 쿠키가 프론트 출처에 남는다 (R-04). 미리보기 브랜치 주소에서는 진짜 로그인 불가
   - **10/12 심사용 사이트는 못 했다. 10/14 카드사 심사 요청은 스테이징이 나오는 날에 달렸다** — 나오면 바로 실제 확인(아래 다음 작업 2) → 토스 2단계. 늦어지면 10/20 PG 미승인 대안 판단을 앞당겨 검토
-- **10/11 오후 ~ 10/12 새로 들어온 것**: `main` PR #22(`boyeon` 15d98ff 병합, 10/11 15:35), PR #23(BE-B — 카카오 OAuth · 세션 · CSRF · 인물 실제 연결 · 생성 lease · 공유 OpenAPI 재생성 `75350c6`, FE 세션 · 인물 adapter 초안 포함, 병합 `7bac2a1`), PR #24(BE-A — 충전 환불 · 결제 대사 · 지갑 운영 · 운영 알림, 10/12 15:59 `b3a114b`. FE 파일 · 공유 OpenAPI 변경 없음, 환불 계약은 별도 `backend/docs/openapi/payment-operations-v1.json` → Q-41). `boyeon` 은 10/12 에 `main` `7bac2a1` 로 fast-forward 했고, 그 뒤 `main` 에는 PR #24 만 — 미리 합쳐 본 결과 충돌 없음
+- **10/11 오후 ~ 10/12 새로 들어온 것**: `main` PR #22(`boyeon` 15d98ff 병합, 10/11 15:35), PR #23(BE-B — 카카오 OAuth · 세션 · CSRF · 인물 실제 연결 · 생성 lease · 공유 OpenAPI 재생성 `75350c6`, FE 세션 · 인물 adapter 초안 포함, 병합 `7bac2a1`), PR #24(BE-A — 충전 환불 · 결제 대사 · 지갑 운영 · 운영 알림, 10/12 15:59 `b3a114b`. FE 파일 · 공유 OpenAPI 변경 없음, 환불 계약은 별도 `backend/docs/openapi/payment-operations-v1.json` → Q-41). `boyeon` → `main` PR #26 병합(`30780c8`, 10/12 19:16) 뒤 `boyeon` 을 `main` 으로 fast-forward — 둘이 같다. PR #24 에서 FE 가 지금 연결할 것은 없다(10/12 저녁 코드 대조 — 아래 다음 작업 1)
 - **마지막으로 끝낸 작업** (10/12, `boyeon` `78952fe` ~ `afcd0b3`, 7커밋): 매 단계 웹 대화가 작업 공간에서 diff 재현 · 검사 · 변이 확인 후 커밋
   - 세션 · 인물 adapter 를 공통 클라이언트(`createApiClient`) · zod · 생성 타입 대조로 맞춤 — 세션이 CSRF 출처(`createRealSession` → `{ port, csrf }`), 로그인은 백엔드 `authorize` 로 이동(`returnTo` 는 `safeReturnTo`), 로그아웃 뒤 토큰 비움. 인물 관계 대응(엄마 · 아빠 → FAMILY, 애인 → LOVER, 직접 입력 → OTHER) (`78952fe`)
   - `ports/index.ts` 가 모든 포트를 진짜 adapter 에 연결 — 진짜 세션은 탭 하나에 하나(`getRealSession`)로 모든 adapter 가 같은 CSRF 토큰을 본다. 운세 상품 목록 `GET /products?category=FORTUNE&fortuneType=` (`e781919`)
@@ -26,9 +26,9 @@
   - 보류: TODAY-01 · 02 (Q-31 부분 — API 는 지수 5종만, X-02 의 한줄 운세 · 행운 · 공유 없음), GIFT-06 ~ 08 · MY-02 (팀 결정)
   - 규칙으로 막음: GIFT-01 ~ 05 · RECV-* · FORT-08 · 09 · CSAT-07 · TALBOX — 선물 · 부적은 OpenAPI 전 가짜 포트로도 만들지 않는다
 - **다음 작업** (막힌 것은 건너뛴다 — 지금 FE 가 답 없이 할 수 있는 코드 작업은 없다)
-  1. (사용자) `boyeon` → `main` PR (`main` `b3a114b` 와 충돌 없음). 병합되면 `boyeon` 을 `main` 으로 fast-forward
+  1. (확인 10/12 저녁) PR #24 연결 점검 — 지금 연결할 것 없음. 환불은 Q-41, `REFUND_PENDING` 은 지금 코드로 안전(UNKNOWN · null 허용 · 완료 표시 없음), `WALLET_REVIEW_REQUIRED` 는 COMMON 등재 뒤(Q-41 5). 미병합 관리자 브랜치는 FE 범위 밖
   2. (BE-B · BE-A → FE) 스테이징 + 카카오 callback 프론트 주소 등록(R-04 · R-06) + 스테이징 상품 활성 → `API_PROXY_TARGET` · 진짜 모드로 실제 확인: 로그인 → 본인 등록 → 지갑 → 충전(토스 2단계 — 실제 승인 · 지급 수량) → 수능운 견적 · 구매 → 결과 · 준비물 체크 → 구매 상태(새로고침 복귀) → 로그아웃. 그다음 운영 도메인 실기기 (PG-5)
-  3. (FE, 답 오면) 일반 운세 5종 adapter (Q-26 보강), 오늘의 운세 (Q-31 범위), 문구 (Q-40 · Q-25 · Q-33), 환불 (Q-41), PAY-03 유료 · 보너스 내역 칸 (BE-A 차감 순서)
+  3. (FE, 답 오면) 일반 운세 5종 adapter (Q-26 보강), 오늘의 운세 (Q-31 범위), 문구 (Q-40 · Q-25 · Q-33), 환불 (Q-41), `WALLET_REVIEW_REQUIRED` 문의 안내 (Q-41 5), PAY-03 유료 · 보너스 내역 칸 (BE-A 차감 순서)
   4. (FE) 푸터 남은 값 4개(R-07) · 정책 원고(Q-21 · Q-36) 오면 넣기
   5. (사용자) 미리보기 실기기 (Android Chrome · 카카오톡 인앱), Q-32 동의 · 디자인 적용 시작 시점
 - **`main` 배포 주의**: `main` 배포는 진짜 모드다(가짜 금지). 스테이징이 연결되기 전에는 API 호출 화면이 오류(프록시 대상 없음)로 보인다. 팀 확인은 `boyeon` 미리보기 주소(가짜 모드)로만 한다. 진짜 로그인은 고정 스테이징 · 운영 도메인에서만 된다 (R-04)
@@ -43,6 +43,7 @@
   - PAY-01 동의 · 안내 문구(토스 결제창 자체 필수 동의 포함), PAY-05 취소 · 실패 문구, 다시 결제 시 상품 유지 — Q-25 · Q-33 · Q-21
   - PAY-03 유료 · 보너스 내역 칸 — 가짜 지갑이 잔액 하나뿐, BE-A 차감 순서 규칙 필요. 충전 `nextAction` CONTACT_SUPPORT 즉시 안내 문구 — PD
   - 충전 환불 · `REFUND_PENDING` 화면 — Q-41 (와이어 없음 · 정책 미확정 · BE 기능 꺼짐)
+  - `WALLET_REVIEW_REQUIRED`(409) 문의 안내 — Q-41 5 (COMMON 미등재, 운영 플래그가 켜져야 난다). 지금은 일반 409 — 구매 팝업 "구매하지 못했습니다" · 충전 "결제를 시작하지 못했습니다"
   - 정책 원고 · 시행일 · 가입 약관 동의 · 만 14세 — Q-36 · Q-21 · R-07
   - 신살 — 1차 판매 여부 PD (Q-05 · F-03, 10/15)
   - 타인 정보 입력(MY-02 · 궁합 상대 새로 입력) — 권한 확인 문구 PD 후. 본인 수정 경로 Q-29. 인물 관계 이름(직접 입력)은 서버에 보내지 않는다 (`TODO(A-07 · BE-B)`)
@@ -51,7 +52,7 @@
   - 선물 위저드 · 선물 결제 · 부적 화면 — OpenAPI 대기 (Q-20), 가짜 포트로도 만들지 않는다 (선택지 B)
   - iOS Safari 실기기 — iPhone 확보 후 (R-03). Sentry 소스맵 — Phase 7
 - **막힌 점 · 전달할 것**
-  - 팀에 받을 것: BE — 스테이징 · callback · 상품 활성(R-04 · R-06), API_SPEC 정리(Q-39 1 ~ 3), 로컬 확인 방법(Q-39 4), Q-38 f, 환불 OpenAPI 합치기(Q-41 2), Q-26 보강 대응표. PD — Q-40 · Q-25 · Q-33 · Q-21 · Q-31 범위 · Q-41 1 · 3 · R-07 · Q-32. 세부는 `TEAM-QUESTIONS.md`
+  - 팀에 받을 것: BE — 스테이징 · callback · 상품 활성(R-04 · R-06), API_SPEC 정리(Q-39 1 ~ 3), 로컬 확인 방법(Q-39 4), Q-38 f, 환불 OpenAPI 합치기 · 새 오류 코드 COMMON 등재(Q-41 2 · 5), Q-26 보강 대응표. PD — Q-40 · Q-25 · Q-33 · Q-21 · Q-31 범위 · Q-41 1 · 3 · R-07 · Q-32. 세부는 `TEAM-QUESTIONS.md`
   - **비밀값 교체 (사용자 → BE)**: 10/12 웹 대화에 `backend/.env` 가 붙여 넣어졌다 — Liner API 키 · 카카오 클라이언트 시크릿 교체 권고. 값은 어떤 문서에도 옮기지 않는다
   - FE 가 팀 문서 PR 로 고칠 것 (DOCS-TEAM-PR, 사용자 동의 후): A-01 개발 범위(심사 전 카카오만 · 심사 후 구글 · 네이버, Q-36 3), Q-19 답(T-01 · T-02, PD 확인 후), Q-32 디자인 시스템
   - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person · signed_in_with_other, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired · generating · review_required · refunded, 비우면 fulfilled), `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER`(toss 또는 비움), `NEXT_PUBLIC_TOSS_CLIENT_KEY`(문서용 테스트 키 — 원문은 문서 · Git · 스크린샷에 넣지 않는다). 미리보기에서는 왼쪽 아래 "가짜" 조작판이 우선 (MOCK-PANEL). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로
@@ -158,6 +159,7 @@
 
 ## 세션 로그
 
+- 2026-10-12 (저녁) · 1 ~ 2단계: PR #26 병합(`30780c8`) 확인, `boyeon` 을 `main` 으로 fast-forward · push(`5edf304..30780c8`, FE · 공유 OpenAPI 차이 없음, stash@{0} 그대로). PR #24 · 미병합 `codex/admin-financial-recovery` 의 FE 연결 점검 → 연결할 것 없음, `WALLET_REVIEW_REQUIRED` 범위를 Q-41 5 로(이 문서 갱신). 코드 변경 없음
 - 2026-10-12 · 1 ~ 16단계: `main` PR #23(BE-B 카카오 OAuth · 세션 · CSRF · 인물 · OpenAPI 재생성) 확인, `boyeon` 을 `main` `7bac2a1` 로 fast-forward. 로컬 진짜 모드 확인 시도 → 사용자 PC PostgreSQL 인증에서 멈추고 "코드 작업 먼저" 로 전환. 세션 · 인물 adapter 정리(`78952fe`), 모든 포트 진짜 연결 · 운세 상품 목록(`e781919`), 결정 RESULT-GUIDE-MODEL → 결과 포트 · 화면(`086ed90`) · 결과 adapter(`a352829`), 구매 상태 조회(`9f1366e`), 결정 PURCHASE-STATUS-UI → 구매 팝업(`9addcee`), PURCHASE-KEY-STORE 구현(`afcd0b3`). 매 단계 작업 공간 재현 · 변이 확인. 오후 `main` PR #24(BE-A 충전 환불 · 대사, FE 변경 없음) → Q-41. 문서(PROGRESS · PHASES v3.3 · TEAM-QUESTIONS Q-39 ~ Q-41 · CLAUDE). 테스트 73 파일 · 833 개
 - 2026-10-11 (오후) · `main` 76b7f67(PR #19 · #21) 병합 + 수능운 `productName` · `regularPrice`(`41f93af`), 충전 adapter 상품 목록 · 승인 · 주문 조회(`b7af91a`), 토스 V2 결제창 + 가짜 모드 스위치(`ecaaba4`, 결정 TOSS-LAUNCHER-SWITCH · TOSS-ANONYMOUS), PAY-03 지급 수량(`15d98ff`). 토스 1단계 로컬 시험(사용자 PC Chrome, 문서용 테스트 키) 통과 — 결제창 표시 · 결제 · `/pay/success` 복귀. `boyeon` → `main` PR #22 병합. 테스트 69 파일 · 674 개
 - 2026-10-11 (오전) · 1 ~ 5단계: 원격 확인 · BE ↔ FE 연결 점검(브라우저에서 성공하는 API 0개 — 인증 · 세션 · CSRF · 인물 · 토스 없음, R-06), `boyeon` 을 `main` f704145 로 fast-forward, 결정 SUNEUNG-ADAPTER-FIRST → 운세 포트 수능운 계약 · 수능운 adapter(`1fcd9c0`, 작업 공간 재현 · 변이 22개). 팀 요청서 "뿌기사주 팀 요청서 (FE, 10/11)"(claude.ai 문서). 세션 마무리 문서(PROGRESS · PHASES v3.2 · TEAM-QUESTIONS · CLAUDE). 테스트 68 파일 · 610 개
