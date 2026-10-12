@@ -146,6 +146,27 @@ public class JdbcCashRefunds {
                 (rs, row) -> rs.getObject(1, UUID.class), Timestamp.from(now));
     }
     @Transactional(timeout = 10)
+    public boolean resolveReservedCancellation(UUID order, PaymentProviderPort.Result evidence, Instant now) {
+        var owner = lockOrder(order, null);
+        var intents = jdbc.query("SELECT * FROM top_up_confirmation_intents WHERE order_id = ?", (rs, row) ->
+                new TopUpConfirmationIntent(order, rs.getString("payment_key_hash"), rs.getInt("amount_krw"), rs.getTimestamp("created_at").toInstant()), order);
+        if (intents.isEmpty() || evidence == null || !evidence.matches(intents.getFirst()) || evidence.outcome() != PaymentProviderPort.Outcome.CANCELED) return false;
+        var held = jdbc.query("""
+                SELECT r.id FROM top_up_refunds r WHERE r.order_id = ? AND r.reason_code = 'UNUSED_TOP_UP' AND r.resolution IS NULL
+                AND r.state IN ('RESERVED','RETRY','IN_FLIGHT','REVIEW_REQUIRED')
+                AND NOT EXISTS (SELECT 1 FROM wallet_cash_refund_returns x WHERE x.refund_id = r.id)
+                AND EXISTS (SELECT 1 FROM wallet_top_up_receipts g WHERE g.order_id = r.order_id AND g.wallet_user_id = r.user_id)
+                AND EXISTS (SELECT 1 FROM wallet_transactions t WHERE t.reference_id = r.id AND t.wallet_user_id = r.user_id AND t.type = 'REFUND' AND t.total_amount = ?)
+                AND NOT EXISTS (SELECT 1 FROM wallet_transaction_lines l JOIN wallet_top_up_receipts g ON g.transaction_id = l.transaction_id
+                    JOIN wallet_lots lot ON lot.id = l.lot_id WHERE g.order_id = r.order_id AND lot.remaining_amount <> 0)
+                FOR UPDATE
+                """, (rs, row) -> rs.getObject(1, UUID.class), order, -Math.addExact(owner.paid(), owner.bonus()));
+        if (held.isEmpty()) return false;
+        jdbc.update("UPDATE top_up_refunds SET state = 'REFUNDED', completed_at = ?, lease_token = NULL, lease_until = NULL WHERE order_id = ?", Timestamp.from(now), order);
+        jdbc.update("UPDATE top_up_orders SET status = 'REFUNDED' WHERE id = ?", order);
+        return true;
+    }
+    @Transactional(timeout = 10)
     public void flagPartialCancellation(UUID order, Instant now) {
         var owner = lockOrder(order, null);
         wallets.flagExternalCancellation(owner.user());
