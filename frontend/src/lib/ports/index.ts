@@ -1,5 +1,6 @@
 // 포트 구현 선택은 이 파일 한 곳에서만 한다 (docs/FRONTEND.md 1-2, MOCK-PORT).
-// 진짜 구현(src/lib/api/adapters)은 OpenAPI 수령 후 만든다. 그 전에 진짜 모드로 부르면 조용히 넘어가지 않고 던진다.
+// 진짜 구현(src/lib/api/adapters)은 모든 포트에 연결돼 있다. 진짜 모드는 가짜로 돌아가지 않는다.
+// 예외: 일반 운세 5종의 견적 · 구매는 운세 adapter 가 요청 전에 던진다 (SUNEUNG-ADAPTER-FIRST, Q-26).
 // 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
 // 모르는 값은 기본값으로 덮지 않고 던진다.
@@ -8,6 +9,7 @@
 import { createBasicSajuAdapter } from "@/lib/api/adapters/basicSaju";
 import { createFortuneAdapter } from "@/lib/api/adapters/fortune";
 import { createPersonAdapter } from "@/lib/api/adapters/person";
+import { createReadingAdapter } from "@/lib/api/adapters/reading";
 import { createRealSession } from "@/lib/api/adapters/session";
 import { createTopUpAdapter } from "@/lib/api/adapters/topUp";
 import { createApiClient } from "@/lib/api/http";
@@ -60,12 +62,6 @@ export function resolveTopUpScenario(
     return raw as FakeTopUpScenario;
   }
   throw new Error(`NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO 값이 잘못됐다: ${raw}`);
-}
-
-function noRealYet(name: string): never {
-  throw new Error(
-    `${name} 의 진짜 구현이 아직 없다 — OpenAPI 수령 후 adapters 에서 만든다 (MOCK-PORT)`,
-  );
 }
 
 export function selectTopUpPort(
@@ -162,8 +158,10 @@ export function selectReadingPort(
   mode: ApiMode,
   readings: FakeReadings,
 ): ReadingPort {
-  // TODO(Q-37 결과 adapter): 결과 응답 계약이 정해진 뒤 진짜 구현을 연결한다
-  if (mode !== "mock") return noRealYet("결과 포트");
+  if (mode === "real")
+    return createReadingAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return readings.port;
 }
 

@@ -196,8 +196,14 @@ describe("운세 구매 포트 선택 (MOCK-PORT)", () => {
 });
 
 describe("결과 포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다", () => {
-    expect(() => selectReadingPort("real", createFakeReadings())).toThrow();
+  it("진짜 모드는 서버로 요청한다 — 가짜로 바꾸지 않는다", async () => {
+    const fetchMock = stubFetch({});
+    await selectReadingPort("real", createFakeReadings())
+      .getReading("66666666-6666-4666-8666-666666666666")
+      .catch(() => {});
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/v1/readings/66666666-6666-4666-8666-666666666666",
+    );
   });
 
   it("가짜 구매가 만든 결과를 가짜 결과 포트로 다시 연다", async () => {
