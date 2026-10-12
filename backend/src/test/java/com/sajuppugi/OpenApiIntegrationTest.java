@@ -34,6 +34,7 @@ class OpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/quotes/{quoteId}'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/wallet'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/top-up-orders/{orderId}/confirm'].post.responses['202']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/top-up-orders'].get.operationId").value("listTopUpOrders"))
                 .andExpect(jsonPath("$.paths['/api/v1/top-up-orders/{orderId}/confirm'].post.responses['409'].content['application/json'].schema['$ref']")
                         .value("#/components/schemas/ApiError"))
                 .andExpect(jsonPath("$.components.schemas.ApiError.properties.details").exists())

@@ -4,6 +4,8 @@ import com.sajuppugi.payment.domain.TopUpOrder;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,6 +38,22 @@ public class JdbcTopUpOrders {
     public Optional<TopUpOrder> findOwned(UUID user, UUID id) {
         return jdbc.query("SELECT * FROM top_up_orders WHERE user_id = ? AND id = ?",
                 (rs, row) -> map(rs), user, id).stream().findFirst();
+    }
+
+    @Transactional(readOnly = true, timeout = 5)
+    public List<TopUpOrder> findOwnedPage(UUID user, Instant beforeCreatedAt, UUID beforeId, int limit) {
+        if (beforeCreatedAt == null) {
+            return jdbc.query("""
+                    SELECT * FROM top_up_orders WHERE user_id = ?
+                    ORDER BY created_at DESC, id DESC LIMIT ?
+                    """, (rs, row) -> map(rs), user, limit);
+        }
+        return jdbc.query("""
+                SELECT * FROM top_up_orders WHERE user_id = ?
+                AND (created_at < ? OR (created_at = ? AND id < ?))
+                ORDER BY created_at DESC, id DESC LIMIT ?
+                """, (rs, row) -> map(rs), user, Timestamp.from(beforeCreatedAt),
+                Timestamp.from(beforeCreatedAt), beforeId, limit);
     }
 
     private TopUpOrder map(ResultSet rs) throws SQLException {

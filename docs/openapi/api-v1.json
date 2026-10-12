@@ -181,6 +181,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseOrderListResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/OrderListResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseOrderResponse" : {
         "properties" : {
           "data" : {
@@ -1185,6 +1196,24 @@
         },
         "type" : "object"
       },
+      "OrderListResponse" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OrderResponse"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
       "OrderResponse" : {
         "properties" : {
           "amount" : {
@@ -1194,6 +1223,10 @@
           "bonusShellAmount" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
           },
           "creditedShellAmount" : {
             "format" : "int32",
@@ -1239,7 +1272,7 @@
             "type" : [ "integer", "null" ]
           }
         },
-        "required" : [ "amount", "bonusShellAmount", "creditedShellAmount", "currency", "failureCode", "grantedShellAmount", "nextAction", "orderId", "orderName", "paidShellAmount", "processing", "productCode", "status", "walletBalance" ],
+        "required" : [ "amount", "bonusShellAmount", "createdAt", "creditedShellAmount", "currency", "failureCode", "grantedShellAmount", "nextAction", "orderId", "orderName", "paidShellAmount", "processing", "productCode", "status", "walletBalance" ],
         "type" : "object"
       },
       "OverallReadingResponse" : {
@@ -6372,6 +6405,119 @@
       }
     },
     "/api/v1/top-up-orders" : {
+      "get" : {
+        "description" : "Lists only the authenticated user's top-up orders, newest first.",
+        "operationId" : "listTopUpOrders",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "top-up-order-controller" ]
+      },
       "post" : {
         "operationId" : "createTopUpOrder",
         "parameters" : [ {

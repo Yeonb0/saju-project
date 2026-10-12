@@ -580,7 +580,14 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 ### `GET /top-up-orders/{orderId}`
 
 - 인증 필요, 타인/없는 주문은 동일 RESOURCE_NOT_FOUND(404). 생성/승인과 동일 응답 DTO다.
-- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`
+- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`. 활성 환불 절차가 있으면 공개 projection은 `REFUND_PENDING`일 수 있다.
+
+### `GET /top-up-orders`
+
+- 인증한 사용자가 소유한 충전 주문만 `createdAt DESC, orderId DESC` 순서로 반환한다.
+- `size` 기본값은 20, 허용 범위는 1~50이다. `cursor`는 서버가 반환한 불투명 문자열을 그대로 사용한다.
+- 응답은 `{ items, nextCursor, hasNext }`이며 각 항목은 단건 조회와 같은 상태 projection 및 `createdAt`을 포함한다.
+- 결제키, 멱등키 원문·해시, 공급자 원문과 다른 사용자의 주문은 반환하지 않는다.
 
 ### `POST /webhooks/toss-payments`
 
