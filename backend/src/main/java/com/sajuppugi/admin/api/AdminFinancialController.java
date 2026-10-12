@@ -26,6 +26,10 @@ public class AdminFinancialController {
     public ApiResponse<Page<AdminLedger>> ledger(Authentication auth, @PathVariable UUID userId, @RequestParam(required = false) UUID after, @RequestParam(defaultValue = "50") int limit) {
         return ApiResponse.of(queries.ledger(UUID.fromString(auth.getName()), userId, after, limit));
     }
+    @GetMapping("/wallets/{userId}")
+    public ApiResponse<AdminWallet> wallet(Authentication auth, @PathVariable UUID userId) {
+        return ApiResponse.of(queries.wallet(UUID.fromString(auth.getName()), userId));
+    }
     @GetMapping("/incidents")
     public ApiResponse<Page<AdminIncident>> incidents(Authentication auth, @RequestParam(required = false) UUID after, @RequestParam(defaultValue = "50") int limit) {
         return ApiResponse.of(queries.incidents(UUID.fromString(auth.getName()), after, limit));

@@ -100,6 +100,13 @@ public class WalletOperationsService {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM wallet_integrity_findings WHERE wallet_user_id = ? AND kind = 'EXTERNAL_CANCEL_REVIEW' AND resolved_at IS NULL", Integer.class, user);
         if (count != null && count > 0) throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.WALLET_REVIEW_REQUIRED);
     }
+    @Transactional(timeout = 10)
+    public boolean inspectForRecovery(UUID user) {
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM wallets WHERE user_id = ?", Integer.class, user) == 0) return true;
+        try { assertUsable(user); }
+        catch (com.sajuppugi.common.api.ApiException restricted) { return false; }
+        return inspect(wallets.lock(user), clock.instant());
+    }
 
     @Transactional(timeout = 5)
     public void flagExternalCancellation(UUID user) {

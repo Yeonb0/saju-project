@@ -34,7 +34,7 @@ public class SecurityConfig {
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/webhooks/toss").permitAll();
             authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->
                     new org.springframework.security.authorization.AuthorizationDecision(admin.allows(authentication.get(),
-                            !"GET".equals(context.getRequest().getMethod()))));
+                            !java.util.List.of("GET", "HEAD", "OPTIONS").contains(context.getRequest().getMethod()))));
             authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
             authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
             authorize.requestMatchers("/api/v1/top-up-orders", "/api/v1/top-up-orders/**").authenticated();

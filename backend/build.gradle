@@ -62,6 +62,18 @@ tasks.register('exportOpenApi', Test) {
     outputs.upToDateWhen { false }
 }
 
+tasks.register('exportAdminOpenApi', Test) {
+    description = 'Export the separately gated backend-owned admin API contract.'
+    group = 'documentation'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.AdminOpenApiIntegrationTest' }
+    systemProperty 'admin.openapi.output', file('docs/openapi/admin-operations-v1.json').absolutePath
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+}
+
 tasks.register('walletDemo', Test) {
     description = 'Retain a synthetic debit/refund example in the isolated local PostgreSQL test database.'
     group = 'verification'

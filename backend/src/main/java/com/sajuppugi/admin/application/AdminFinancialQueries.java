@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional(timeout = 5)
+@Transactional(isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ, timeout = 5)
 public class AdminFinancialQueries {
     private final JdbcTemplate jdbc;
     private final AdminAccessService access;
@@ -58,6 +58,19 @@ public class AdminFinancialQueries {
         append(actor, "ADMIN_INCIDENT_VIEW", "INCIDENT_LIST", actor);
         return page(rows, limit, v -> v.incidentId());
     }
+    public AdminWallet wallet(UUID actor, UUID user) {
+        access.require(actor, false);
+        var now = java.sql.Timestamp.from(clock.instant());
+        var rows = jdbc.query("SELECT paid_balance, bonus_balance FROM wallets WHERE user_id = ?", (rs, row) -> new int[]{rs.getInt(1), rs.getInt(2)}, user);
+        if (rows.isEmpty()) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        int paid = jdbc.queryForObject("SELECT COALESCE(SUM(remaining_amount),0) FROM wallet_lots WHERE wallet_user_id = ? AND balance_type = 'PAID' AND created_at <= ? AND expires_at > ?",
+                Integer.class, user, now, now);
+        int bonus = jdbc.queryForObject("SELECT COALESCE(SUM(remaining_amount),0) FROM wallet_lots WHERE wallet_user_id = ? AND balance_type = 'BONUS' AND created_at <= ? AND expires_at > ?",
+                Integer.class, user, now, now);
+        var findings = jdbc.query("SELECT kind FROM wallet_integrity_findings WHERE wallet_user_id = ? AND resolved_at IS NULL ORDER BY kind", (rs, row) -> rs.getString(1), user);
+        append(actor, "ADMIN_WALLET_VIEW", "WALLET", user);
+        return new AdminWallet(user, rows.getFirst()[0], rows.getFirst()[1], paid, bonus, findings);
+    }
     private void authorize(UUID actor, int limit) {
         access.require(actor, false);
         if (limit < 1 || limit > 100) throw new ApiException(ErrorCode.INVALID_REQUEST);
@@ -79,10 +92,13 @@ public class AdminFinancialQueries {
         var values = rows.stream().limit(limit).toList();
         return new Page<>(values, hasNext, hasNext ? id.apply(values.getLast()) : null);
     }
-    public record Page<T>(List<T> items, boolean hasNext, UUID nextCursor) {}
+    @io.swagger.v3.oas.annotations.media.Schema(requiredProperties = {"items", "hasNext", "nextCursor"})
+    public record Page<T>(List<T> items, boolean hasNext,
+            @io.swagger.v3.oas.annotations.media.Schema(types = {"string", "null"}, format = "uuid") UUID nextCursor) {}
     public record AdminOrder(UUID orderId, UUID userId, int amount, String status, Instant createdAt, String refundState) {}
     public record AdminRefund(UUID refundId, UUID orderId, UUID userId, String state, int amount, int attempts, Instant createdAt) {}
     public record AdminLedger(UUID transactionId, String type, int amount, UUID referenceId, UUID reversalOfId, Instant createdAt) {}
     public record AdminIncident(UUID incidentId, String kind, UUID resourceId, String state, int generation, Instant detectedAt) {}
     public record AdminAuditEvent(UUID eventId, UUID operatorId, String action, String targetType, UUID targetId, String reasonCode, Instant occurredAt) {}
+    public record AdminWallet(UUID userId, int storedPaidBalance, int storedBonusBalance, int usablePaidBalance, int usableBonusBalance, List<String> unresolvedFindings) {}
 }

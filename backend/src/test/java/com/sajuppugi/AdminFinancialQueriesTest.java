@@ -30,6 +30,7 @@ class AdminFinancialQueriesTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired AdminFinancialQueries queries;
+    @Autowired com.sajuppugi.wallet.application.WalletTopUpPort wallet;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @MockitoBean Clock clock;
     @MockitoSpyBean JdbcAdminAudit audit;
@@ -44,6 +45,11 @@ class AdminFinancialQueriesTest {
         jdbc.update("DELETE FROM admin_audit_events WHERE operator_id IN (?, ?)", operator, customer);
         jdbc.update("DELETE FROM admin_operator_grants WHERE user_id IN (?, ?)", operator, customer);
         jdbc.update("DELETE FROM top_up_orders WHERE user_id IN (?, ?)", operator, customer);
+        jdbc.update("DELETE FROM wallet_integrity_findings WHERE wallet_user_id = ?", customer);
+        jdbc.update("DELETE FROM wallet_transaction_lines WHERE wallet_user_id = ?", customer);
+        jdbc.update("DELETE FROM wallet_transactions WHERE wallet_user_id = ?", customer);
+        jdbc.update("DELETE FROM wallet_lots WHERE wallet_user_id = ?", customer);
+        jdbc.update("DELETE FROM wallets WHERE user_id = ?", customer);
         jdbc.update("DELETE FROM user_sessions WHERE user_id IN (?, ?)", operator, customer);
         jdbc.update("DELETE FROM users WHERE id IN (?, ?)", operator, customer);
     }
@@ -53,7 +59,8 @@ class AdminFinancialQueriesTest {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/admin/top-up-orders").with(user(operator.toString())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.items").isArray());
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_events WHERE operator_id = ?", Integer.class, operator)).isEqualTo(1);
+        mvc.perform(head("/api/v1/admin/top-up-orders").with(user(operator.toString()))).andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_events WHERE operator_id = ?", Integer.class, operator)).isEqualTo(2);
     }
     @Test void revokedOrWithdrawnOperatorsLoseAccessImmediately() throws Exception {
         jdbc.update("UPDATE admin_operator_grants SET active = FALSE WHERE user_id = ?", operator);
@@ -88,6 +95,19 @@ class AdminFinancialQueriesTest {
                 doThrow(new IllegalStateException("Synthetic audit failure")).when(audit).append(any()));
         mvc.perform(get("/api/v1/admin/top-up-orders").with(user(operator.toString()))).andExpect(status().isInternalServerError());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_events WHERE operator_id = ?", Integer.class, operator)).isZero();
+    }
+    @Test void walletInspectionShowsProjectionAndUsableLotsWithoutRepairingThem() {
+        UUID order = UUID.randomUUID();
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx -> {
+            jdbc.update("INSERT INTO top_up_orders(id,user_id,key_hash,product_code,amount_krw,paid_shells,bonus_shells,status,created_at) VALUES (?,?,?,'TEST',1000,50,6,'CREDITED',?)", order, customer, order.toString(), Timestamp.from(NOW));
+            wallet.credit(customer, order, 50, 6);
+        });
+        jdbc.update("UPDATE wallets SET paid_balance = 99 WHERE user_id = ?", customer);
+        var view = queries.wallet(operator, customer);
+        assertThat(view.storedPaidBalance()).isEqualTo(99); assertThat(view.usablePaidBalance()).isEqualTo(50);
+        assertThat(jdbc.queryForObject("SELECT paid_balance FROM wallets WHERE user_id = ?", Integer.class, customer)).isEqualTo(99);
+        assertThat(queries.ledger(operator, customer, null, 10).items()).hasSize(1);
+        assertThat(queries.audits(operator, null, 10).items()).isNotEmpty();
     }
     private UUID member() {
         UUID id = UUID.randomUUID();
