@@ -73,6 +73,29 @@ public class WalletOperationsService {
                 ? jdbc.query("SELECT user_id FROM wallets ORDER BY user_id LIMIT ?", (rs, row) -> rs.getObject(1, UUID.class), size)
                 : jdbc.query("SELECT user_id FROM wallets WHERE user_id > ? ORDER BY user_id LIMIT ?", (rs, row) -> rs.getObject(1, UUID.class), cursor, size);
     }
+    @Transactional(timeout = 10)
+    public void returnRejectedCashRefund(UUID user, UUID refund) {
+        var before = wallets.lock(user);
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM wallet_cash_refund_returns WHERE refund_id = ?", Integer.class, refund) != 0) return;
+        Instant now = clock.instant();
+        if (!inspect(before, now)) throw new IllegalStateException("Refund return requires a consistent wallet");
+        var originals = jdbc.query("SELECT id, total_amount FROM wallet_transactions WHERE wallet_user_id = ? AND reference_id = ? AND type = 'REFUND' AND total_amount < 0 AND reversal_of_id IS NULL",
+                (rs, row) -> new Original(rs.getObject(1, UUID.class), rs.getInt(2)), user, refund);
+        if (originals.size() != 1) throw new IllegalStateException("Refund reservation must have one original ledger entry");
+        var original = originals.getFirst();
+        var lines = jdbc.query("SELECT lot_id, amount FROM wallet_transaction_lines WHERE transaction_id = ? AND wallet_user_id = ?",
+                (rs, row) -> new WalletTransaction.Allocation(rs.getObject(1, UUID.class), -rs.getInt(2)), original.id(), user);
+        var deltas = lines.stream().collect(java.util.stream.Collectors.toMap(WalletTransaction.Allocation::lotId, WalletTransaction.Allocation::amount));
+        if (!before.lots().stream().map(WalletLot::id).toList().containsAll(deltas.keySet())) throw new IllegalStateException("Refund return has missing lots");
+        var after = before.lots().stream().map(l -> new WalletLot(l.id(), l.balanceType(), l.grantedAmount(),
+                Math.addExact(l.remainingAmount(), deltas.getOrDefault(l.id(), 0)), l.expiresAt(), l.createdAt())).toList();
+        UUID transaction = UUID.randomUUID();
+        wallets.record(before, after, balance(after, now), new WalletTransaction(transaction, user,
+                WalletTransaction.Type.ADJUSTMENT, -original.amount(), refund, original.id(), lines, now));
+        jdbc.update("INSERT INTO wallet_cash_refund_returns(refund_id, original_transaction_id, transaction_id, created_at) VALUES (?, ?, ?, ?)",
+                refund, original.id(), transaction, Timestamp.from(now));
+    }
+    private record Original(UUID id, int amount) {}
     public void assertUsable(UUID user) {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM wallet_integrity_findings WHERE wallet_user_id = ? AND kind = 'EXTERNAL_CANCEL_REVIEW' AND resolved_at IS NULL", Integer.class, user);
         if (count != null && count > 0) throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.WALLET_REVIEW_REQUIRED);

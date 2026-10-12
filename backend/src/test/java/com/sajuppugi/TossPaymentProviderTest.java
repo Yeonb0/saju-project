@@ -47,6 +47,7 @@ class TossPaymentProviderTest {
     private TossPaymentProvider provider;
     private volatile String body;
     private volatile String cancelBody;
+    private volatile int cancelStatus = 200;
     private volatile int status;
     private volatile long delay;
 
@@ -70,7 +71,7 @@ class TossPaymentProviderTest {
                 if (status == 302) exchange.getResponseHeaders().set("Location", baseUrl() + "/redirected");
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 byte[] response = (exchange.getRequestURI().getPath().endsWith("/cancel") && cancelBody != null ? cancelBody : body).getBytes(StandardCharsets.UTF_8);
-                exchange.sendResponseHeaders(status, response.length);
+                exchange.sendResponseHeaders(exchange.getRequestURI().getPath().endsWith("/cancel") ? cancelStatus : status, response.length);
                 exchange.getResponseBody().write(response);
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
@@ -248,6 +249,22 @@ class TossPaymentProviderTest {
     }
     @Test void overflowingCancellationAmountCannotWrapToExpectedAmount() throws Exception {
         cancelBody = payment("CANCELED").put("totalAmount", new java.math.BigInteger("18446744073709556616")).toString();
+        assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.UNKNOWN);
+    }
+    @Test void explicitRefundRejectionNeedsFreshUnchangedApprovalBeforeReturningFunds() throws Exception {
+        cancelStatus = 400;
+        cancelBody = "{\"code\":\"REFUND_REJECTED\",\"message\":\"private provider detail\"}";
+        var result = provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID());
+        assertThat(result.outcome()).isEqualTo(Outcome.CANCEL_REJECTED);
+        assertThat(result.matches(intent(orderId, "payment", 5000))).isTrue();
+        assertThat(result.safeFailureCode()).isEqualTo("CASH_REFUND_REJECTED");
+        assertThat(result.toString()).doesNotContain("private provider detail");
+        assertThat(requests.get()).isEqualTo(4);
+    }
+    @ParameterizedTest @ValueSource(strings = {"NOT_CANCELABLE_PAYMENT", "NOT_CANCELABLE_AMOUNT", "PROVIDER_ERROR", "ALREADY_REFUND_PAYMENT"})
+    void ambiguousCancelErrorsCannotAuthorizeRestoringFunds(String code) throws Exception {
+        cancelStatus = 400;
+        cancelBody = "{\"code\":\"" + code + "\"}";
         assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.UNKNOWN);
     }
 

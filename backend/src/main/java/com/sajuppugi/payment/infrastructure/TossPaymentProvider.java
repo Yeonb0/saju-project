@@ -105,6 +105,17 @@ public class TossPaymentProvider implements PaymentProviderPort {
                     .header("Idempotency-Key", "top-up-refund-" + refundId)
                     .body(Map.of("cancelReason", "Unused top-up refund", "cancelAmount", amountKrw))
                     .exchange((request, response) -> {
+                        if (response.getStatusCode().value() == 400) {
+                            byte[] error = response.getBody().readNBytes(MAX_RESPONSE_BYTES + 1);
+                            if (error.length <= MAX_RESPONSE_BYTES && "REFUND_REJECTED".equals(text(mapper.readTree(error), "code"))) {
+                                Result stillPaid = lookup(orderId);
+                                if (stillPaid.outcome() == Outcome.CANCELED) return stillPaid;
+                                if (stillPaid.outcome() == Outcome.APPROVED && hash(key).equals(stillPaid.paymentKeyHash())
+                                        && stillPaid.amountKrw() == amountKrw)
+                                    return new Result(Outcome.CANCEL_REJECTED, orderId, hash(key), amountKrw, "KRW", "CASH_REFUND_REJECTED");
+                            }
+                            return unknown(orderId, "TOSS_CANCEL_UNVERIFIED");
+                        }
                         JsonNode canceled = readPayment(response);
                         if (canceled == null || !orderId.toString().equals(text(canceled, "orderId"))
                                 || !key.equals(text(canceled, "paymentKey")) || !"KRW".equals(text(canceled, "currency"))

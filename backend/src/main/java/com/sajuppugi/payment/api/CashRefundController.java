@@ -24,7 +24,7 @@ public class CashRefundController {
     public ResponseEntity<ApiResponse<JdbcCashRefunds.View>> request(Authentication auth, @PathVariable UUID orderId,
             @RequestHeader("Idempotency-Key") String key) {
         var view = refunds.request(user(auth), orderId, key);
-        return ResponseEntity.status("REFUNDED".equals(view.state()) || "REVIEW_REQUIRED".equals(view.state()) ? 200 : 202).body(ApiResponse.of(view));
+        return ResponseEntity.status(java.util.List.of("REFUNDED", "REVIEW_REQUIRED", "REJECTED").contains(view.state()) ? 200 : 202).body(ApiResponse.of(view));
     }
     @GetMapping
     @Operation(operationId = "getTopUpRefund")

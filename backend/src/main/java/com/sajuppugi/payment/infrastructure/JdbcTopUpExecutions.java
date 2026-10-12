@@ -39,7 +39,7 @@ public class JdbcTopUpExecutions {
         var order = orders.findOwned(user, id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         var receipts = jdbc.query("SELECT paid_balance, bonus_balance FROM wallet_top_up_receipts WHERE order_id = ? AND wallet_user_id = ?",
                 (rs, row) -> new WalletBalance(rs.getInt(1), rs.getInt(2)), id, user);
-        var refunds = jdbc.query("SELECT state FROM top_up_refunds WHERE order_id = ?", (rs, row) -> rs.getString(1), id);
+        var refunds = jdbc.query("SELECT state FROM top_up_refunds WHERE order_id = ? AND resolution IS NULL", (rs, row) -> rs.getString(1), id);
         if (!refunds.isEmpty()) {
             String state = refunds.getFirst();
             if (!"REFUNDED".equals(state)) order = new TopUpOrder(order.id(), order.userId(), order.productCode(),

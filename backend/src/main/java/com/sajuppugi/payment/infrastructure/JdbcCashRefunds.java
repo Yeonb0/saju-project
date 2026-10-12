@@ -88,11 +88,18 @@ public class JdbcCashRefunds {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
     public void apply(Lease lease, PaymentProviderPort.Result result, Instant now) {
-        lockOrder(lease.order(), null);
+        var owner = lockOrder(lease.order(), null);
         var rows = jdbc.query("""
                 SELECT attempts FROM top_up_refunds WHERE order_id = ? AND state = 'IN_FLIGHT' AND lease_token = ? AND lease_until > ? FOR UPDATE
                 """, (rs, row) -> rs.getInt(1), lease.order(), lease.token(), Timestamp.from(now));
         if (rows.isEmpty()) return;
+        if (rows.getFirst() == 1 && result != null && result.matches(lease.intent())
+                && result.outcome() == PaymentProviderPort.Outcome.CANCEL_REJECTED
+                && "CASH_REFUND_REJECTED".equals(result.safeFailureCode())) {
+            wallets.returnRejectedCashRefund(owner.user(), lease.refund());
+            jdbc.update("UPDATE top_up_refunds SET state = 'REVIEW_REQUIRED', resolution = 'CANCEL_REJECTED', lease_token = NULL, lease_until = NULL WHERE order_id = ?", lease.order());
+            return;
+        }
         boolean refunded = result != null && result.matches(lease.intent()) && result.outcome() == PaymentProviderPort.Outcome.CANCELED;
         String state = refunded ? "REFUNDED" : rows.getFirst() >= 5 ? "REVIEW_REQUIRED" : "RETRY";
         jdbc.update("""
@@ -110,6 +117,11 @@ public class JdbcCashRefunds {
         if (intent.isEmpty() || evidence == null || !evidence.matches(intent.getFirst()) || evidence.outcome() != PaymentProviderPort.Outcome.CANCELED) return false;
         var existing = find(order);
         if (existing.isPresent()) {
+            if ("REJECTED".equals(existing.get().state())) {
+                wallets.flagExternalCancellation(owner.user());
+                jdbc.update("UPDATE top_up_refunds SET resolution = NULL WHERE order_id = ?", order);
+                return false;
+            }
             if ("REVIEW_REQUIRED".equals(existing.get().state())) return false;
             jdbc.update("UPDATE top_up_refunds SET state = 'REFUNDED', completed_at = ?, lease_token = NULL, lease_until = NULL WHERE order_id = ?",
                     Timestamp.from(now), order);
@@ -139,7 +151,7 @@ public class JdbcCashRefunds {
         wallets.flagExternalCancellation(owner.user());
         if (find(order).isEmpty()) insert(UUID.randomUUID(), order, owner.user(), hash("partial-cancel-" + order),
                 "REVIEW_REQUIRED", owner.amount(), "PARTIAL_CANCEL", now);
-        else jdbc.update("UPDATE top_up_refunds SET state = 'REVIEW_REQUIRED', completed_at = NULL, lease_token = NULL, lease_until = NULL WHERE order_id = ?", order);
+        else jdbc.update("UPDATE top_up_refunds SET state = 'REVIEW_REQUIRED', resolution = NULL, completed_at = NULL, lease_token = NULL, lease_until = NULL WHERE order_id = ?", order);
     }
     private void insert(UUID id, UUID order, UUID user, String hash, String state, int amount, String reason, Instant now) {
         jdbc.update("""
@@ -161,9 +173,9 @@ public class JdbcCashRefunds {
         catch (NoSuchAlgorithmException failure) { throw new IllegalStateException("SHA-256 unavailable"); }
     }
     private View view(ResultSet rs) throws SQLException {
-        String state = rs.getString("state");
+        String state = "CANCEL_REJECTED".equals(rs.getString("resolution")) ? "REJECTED" : rs.getString("state");
         return new View(rs.getObject("id", UUID.class), rs.getObject("order_id", UUID.class), state,
-                rs.getInt("amount_krw"), "REFUNDED".equals(state) ? "NONE" : "REVIEW_REQUIRED".equals(state) ? "CONTACT_SUPPORT" : "POLL",
+                rs.getInt("amount_krw"), "REFUNDED".equals(state) ? "NONE" : List.of("REVIEW_REQUIRED", "REJECTED").contains(state) ? "CONTACT_SUPPORT" : "POLL",
                 rs.getTimestamp("completed_at") == null ? null : rs.getTimestamp("completed_at").toInstant());
     }
     private Order lockOrder(UUID order, UUID user) {

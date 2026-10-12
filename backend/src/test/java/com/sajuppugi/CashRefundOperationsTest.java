@@ -64,6 +64,7 @@ class CashRefundOperationsTest {
         when(provider.cancel(any(), any(), anyInt(), anyString())).thenAnswer(c -> { assertNoTransaction(); return evidence(c.getArgument(0), Outcome.CANCELED); });
     }
     @AfterEach void cleanup() {
+        jdbc.update("DELETE FROM wallet_cash_refund_returns WHERE refund_id IN (SELECT id FROM top_up_refunds WHERE user_id = ?)", user);
         jdbc.update("DELETE FROM payment_reconciliation_jobs WHERE order_id IN (SELECT id FROM top_up_orders WHERE user_id = ?)", user);
         jdbc.update("DELETE FROM top_up_refund_requests WHERE user_id = ?", user);
         jdbc.update("DELETE FROM top_up_refunds WHERE user_id = ?", user);
@@ -88,6 +89,68 @@ class CashRefundOperationsTest {
         assertThat(count("SELECT COUNT(*) FROM wallet_transactions WHERE wallet_user_id = ? AND type = 'REFUND'", user)).isEqualTo(1);
         assertThat(payments.get(user, order).order().status().name()).isEqualTo("REFUNDED");
         verify(provider, times(1)).cancel(eq(order), eq(a.refundId()), eq(1000), eq("UNUSED_TOP_UP"));
+    }
+    @Test void firstAttemptVerifiedRejectionRestoresOriginalLotsOnceAndKeepsCashPaid() {
+        UUID order = credit();
+        doReturn(new Result(Outcome.CANCEL_REJECTED, order, hash(order), 1000, "KRW", "CASH_REFUND_REJECTED"))
+                .when(provider).cancel(eq(order), any(), anyInt(), anyString());
+        var refund = service.request(user, order, "refund");
+        assertThat(refund.state()).isEqualTo("REJECTED");
+        assertThat(refund.completedAt()).isNull();
+        assertThat(balance()).isEqualTo(56);
+        assertThat(payments.get(user, order).order().status().name()).isEqualTo("CREDITED");
+        service.request(user, order, "alias");
+        service.recover(order);
+        assertThat(count("SELECT COUNT(*) FROM wallet_cash_refund_returns WHERE refund_id = ?", refund.refundId())).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM wallet_transactions WHERE wallet_user_id = ? AND type = 'ADJUSTMENT'", user)).isEqualTo(1);
+        verify(provider, times(1)).cancel(any(), any(), anyInt(), anyString());
+        assertThat(wallets.inspectAndExpire(user)).isTrue();
+    }
+    @Test void rejectionAfterUnknownEarlierAttemptCannotReleaseReservation() {
+        UUID order = credit();
+        doReturn(null).when(provider).cancel(any(), any(), anyInt(), anyString());
+        service.request(user, order, "refund");
+        when(clock.instant()).thenReturn(NOW.plusSeconds(31));
+        doReturn(new Result(Outcome.CANCEL_REJECTED, order, hash(order), 1000, "KRW", "CASH_REFUND_REJECTED"))
+                .when(provider).cancel(eq(order), any(), anyInt(), anyString());
+        service.recover(order);
+        assertThat(service.get(user, order).state()).isEqualTo("RETRY");
+        assertThat(balance()).isZero();
+    }
+    @Test void restoringAfterExpiryNeverExtendsTheOriginalGrantLifetime() {
+        UUID order = credit();
+        refunds.prepare(user, order, "refund", NOW);
+        Instant later = NOW.plusSeconds(6L * 366 * 86400);
+        var lease = refunds.claim(order, later).orElseThrow();
+        when(clock.instant()).thenReturn(later);
+        refunds.apply(lease, new Result(Outcome.CANCEL_REJECTED, order, hash(order), 1000, "KRW", "CASH_REFUND_REJECTED"), later);
+        assertThat(service.get(user, order).state()).isEqualTo("REJECTED");
+        assertThat(balance()).isZero();
+        assertThat(wallets.inspectAndExpire(user)).isTrue();
+        assertThat(count("SELECT SUM(remaining_amount) FROM wallet_lots WHERE wallet_user_id = ?", user)).isZero();
+    }
+    @Test void externalCancellationAfterRestorationRequiresReviewAndFreezesWallet() {
+        UUID order = credit();
+        doReturn(new Result(Outcome.CANCEL_REJECTED, order, hash(order), 1000, "KRW", "CASH_REFUND_REJECTED"))
+                .when(provider).cancel(eq(order), any(), anyInt(), anyString());
+        service.request(user, order, "refund");
+        jobs.signal(order, NOW);
+        when(provider.lookup(order)).thenReturn(evidence(order, Outcome.CANCELED));
+        operations.reconcile(order);
+        assertThat(service.get(user, order).state()).isEqualTo("REVIEW_REQUIRED");
+        assertThatThrownBy(() -> wallets.assertUsable(user)).isInstanceOf(ApiException.class);
+    }
+    @Test void returnPersistenceFailureRollsBackRestorationAndRejectionTogether() {
+        UUID order = credit();
+        refunds.prepare(user, order, "refund", NOW);
+        var lease = refunds.claim(order, NOW).orElseThrow();
+        doAnswer(call -> { call.callRealMethod(); throw new IllegalStateException("Synthetic return failure"); })
+                .when(wallets).returnRejectedCashRefund(eq(user), eq(lease.refund()));
+        assertThatThrownBy(() -> refunds.apply(lease,
+                new Result(Outcome.CANCEL_REJECTED, order, hash(order), 1000, "KRW", "CASH_REFUND_REJECTED"), NOW)).isInstanceOf(RuntimeException.class);
+        assertThat(service.get(user, order).state()).isEqualTo("IN_FLIGHT");
+        assertThat(balance()).isZero();
+        assertThat(count("SELECT COUNT(*) FROM wallet_cash_refund_returns WHERE refund_id = ?", lease.refund())).isZero();
     }
     @Test void timeoutDoesNotDeclareRefundAndLookupAfterRestartCompletesWithoutAnotherCancel() {
         UUID order = credit();

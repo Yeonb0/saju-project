@@ -21,7 +21,7 @@ public interface PaymentProviderPort {
         return cancel(intent.orderId(), refundId, intent.amountKrw(), "UNUSED_TOP_UP");
     }
 
-    enum Outcome { APPROVED, DECLINED, CANCELED, PENDING, UNKNOWN }
+    enum Outcome { APPROVED, DECLINED, CANCELED, CANCEL_REJECTED, PENDING, UNKNOWN }
 
     record Result(Outcome outcome, UUID orderId, String paymentKeyHash, int amountKrw,
                   String currency, String safeFailureCode) {
