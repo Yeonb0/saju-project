@@ -1,5 +1,24 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-12: PR #25 머지 전 교착 보완과 전체 재검증
+
+- 사용자 요청으로 관리자 PR #25 머지를 준비했다. 최신 main merge-tree 무충돌을 확인했지만 최초 Backend CI 1건 실패를 발견하여 바로 merge하지 않았다.
+- CI 로그의 command INSERT FK KEY SHARE와 완료 order/member FOR UPDATE 교착을 분석했다. 등록도 order-first로 맞추고 member/grant FOR NO KEY UPDATE로 권한 변경은 차단하되 FK 읽기와 공존하게 수정했다 (`45d292d`).
+- 적용: 6-1 권한/철회, 6-2 PG 잠금·동시 처리, 6-3 DB 밖 PG 조회, 6-4 lease/중복 방지, 6-8 감사. 새 PostgreSQL 17.11 DB saju_admin_merge_20261012에서 check/bootJar 성공: 496건 중 488 통과, 8 선택 제외, 실패/오류 0. 동시 같은 주문 10회 및 member FK 읽기 공존 회귀 포함.
+- 관리자 화면 없는 관리 도구 절차를 문서화했다. 사용자 정정 정책은 신청 기반 전액 환불이며 부분 환불 미제공이다. FE/실제 관리자/키/.env/활성화/배포 변경 없음. 실제 PG·OAuth·브라우저·부하·복원은 미실행이다. GitHub 최신 head CI와 충돌을 다시 확인한 뒤 merge한다.
+
+### 2026-10-12: PR #24 머지 및 관리자 금융 운영 분리
+
+- 사용자 조건부 merge 요청에 따라 같은 환불/운영 알림 기능은 PR #24에 묶었다. head b94e5d1의 CI/Backend CI success, GitHub mergeable=true, 최신 main merge-tree 무충돌, expected head 일치를 확인하고 merge했다. merge commit b3a114b, 관리자 코드는 codex/admin-financial-recovery로 분리했다.
+- 관리자 DB grant/회원 ACTIVE 조건과 조회·복구 capability, 기본 비활성 gate를 구현했다. 클라이언트 ROLE/header는 권한 근거가 아니다. 실제 운영자 지정/self-service 권한 부여는 하지 않았다.
+- 주문·환불·지갑 projection/usable lot·원장·incident·감사 조회는 bounded UUID cursor와 snapshot을 사용한다. 감사 저장이 실패하면 응답을 차단한다. 원문 결제키/세션/개인정보를 노출하지 않는다.
+- 영속 관리자 명령/사유/요청키/INTENT 감사, DB 밖 PG 조회, 재처리 lease/fencing/3회 한도, 재조회 후 권한 재검사와 role/member 잠금을 추가했다. 검증된 지급/예약 환불 완료와 최종 감사/command 완료를 함께 저장한다. 새 PG 승인/취소, 임의 조정/제한 해제는 하지 않는다.
+- 적용: 6-1 실제 테스트 세션·CSRF·권한·철회, 6-2 동시 지급/원장 검사/rollback, 6-3 PG lookup 증거/결과 불명, 6-4 command lease와 재개/한도, 6-6 분리 DB/추가 migration/gate, 6-8 감사/조회/복구, 6-9 정보 최소화.
+- 새 전용 PostgreSQL 17.11/55432 saju_admin_verified_20261012에서 check bootJar exportAdminOpenApi 성공: 486건 중 478 통과, 실패/오류 0, 선택 제외 8. 최종 GET/HEAD 처리 보완 후 관리자 19건 중 18 통과/선택 export 1 제외, 별도 export 2건 통과 및 bootJar 성공. migration 33개 모두 성공이다.
+- 가상 계정으로 실제 opaque cookie/CSRF, 가짜 ROLE 거절/조회·복구 권한/즉시 철회·탈퇴, pagination/감사 실패 차단, 키 대응/동시 한 번 지급/잘못된 증거/3회 한도/PG lookup 중 철회/stale lease/금융·감사 rollback/예약 환불 종료/불명 환불 유지/원장 이상 중단을 검사했다. 실제 OAuth/PG/운영자/브라우저/OS 중단/배포·부하·복원은 미실행이다.
+- bf19607, 4eceb99 코드 커밋 후 문서를 마지막에 기록한다. 전달: backend/docs/ADMIN_FINANCIAL_OPERATIONS_20261012.md, 별도 admin OpenAPI. frontend/기존 공유 schema/.env/실제 권한 설정 변경 없음. ADMIN_OPERATIONS_ENABLED/ADMIN_RECOVERY_ENABLED 기본 false.
+- 남음: 정책 미정 부분 환불/계좌/live PG, 불명 회수분 강제 반환/권한 관리/제한 해제/임의 조정/알림 운영 절차, 실제 팀 통합·배포 검증. 관리자 PR 생성은 자동 merge/활성화 승인이 아니다.
+
 ### 2026-10-12: PR #24 환불 반환·운영 알림 보완
 
 - 사용자 요청으로 남은 개발을 계속했다. 환불/대사/원장 운영과 같은 기능 범위라 PR #24를 merge하지 않고 확장했다. 관리자·선물·FE 변경은 이 PR에 추가하지 않는다.

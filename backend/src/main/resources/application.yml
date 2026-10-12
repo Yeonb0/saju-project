@@ -47,6 +47,9 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  admin:
+    enabled: ${ADMIN_OPERATIONS_ENABLED:false}
+    recovery-enabled: ${ADMIN_RECOVERY_ENABLED:false}
   operations:
     alerts:
       enabled: ${OPERATIONS_ALERTS_ENABLED:false}
