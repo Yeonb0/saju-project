@@ -134,4 +134,4 @@ OPERATIONS_ALERTS_STALLED_AFTER는 기본 15m이며 1분~7일만 허용한다. �
 
 ### 2026-10-12 FE 요청 후속
 
-사용자 결정으로 고객센터 신청 기반 전액 환불과 부분 환불 미제공이 확정됐다. FE 타입 생성용 공유 `docs/openapi/api-v1.json`에 환불 GET/POST와 `REFUND_PENDING`을 반영했다. 고객센터 접수 건을 실행하는 관리자 명령은 아직 없으며 `backend/docs/FE_REQUEST_RESPONSES_20261012.md`에 범위와 다음 작업을 기록했다. 실제 FE 연결·PG 검증·관리자 권한 활성화는 하지 않았다.
+사용자 결정으로 고객센터 신청 기반 전액 환불과 부분 환불 미제공이 확정됐다. 환불 GET/POST와 `REFUND_PENDING`은 백엔드 전용 `backend/docs/openapi/payment-operations-v1.json`에 있다. FE 타입은 공유 `docs/openapi/api-v1.json`에서 생성되므로 두 파일을 함께 갱신할 FE 담당 PR이 필요하다. 공유 파일만 변경한 CI에서는 FE 생성 타입 동기화 검사가 실패했고, FE 코드 수정 금지 조건에 따라 공유 파일은 유지했다. 고객센터 접수 건을 실행하는 관리자 명령은 아직 없으며 `backend/docs/FE_REQUEST_RESPONSES_20261012.md`에 범위와 다음 작업을 기록했다. 실제 FE 연결·PG 검증·관리자 권한 활성화는 하지 않았다.
