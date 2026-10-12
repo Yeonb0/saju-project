@@ -403,9 +403,123 @@ describe("운세 adapter — 구매 (purchase)", () => {
 });
 
 describe("운세 adapter — 상품 목록", () => {
-  it("h. listProducts 는 요청하지 않고 던진다 (Q-28)", async () => {
+  const productData = (overrides: Record<string, unknown> = {}) => ({
+    code: "FIXTURE_PRODUCT",
+    category: "FORTUNE",
+    fortuneType: "SUNEUNG",
+    option: "READING_ONLY",
+    productName: "FIXTURE_PRODUCT_NAME",
+    price: { currency: "TURTLE_SHELL", amount: 13 },
+    regularPrice: { currency: "TURTLE_SHELL", amount: 20 },
+    paidAmount: null,
+    bonusAmount: null,
+    creditedAmount: null,
+    active: true,
+    saleEndsAt: null,
+    ...overrides,
+  });
+
+  it.each([
+    "SUNEUNG",
+    "LOVE",
+  ] as const)("%s 요청 URL 이 정확하고 GET, CSRF · 멱등 키 헤더 없음", async (fortuneType) => {
+    const { adapter, fetchMock } = setup(
+      ok({ items: [productData({ fortuneType })] }),
+    );
+    await adapter.listProducts(fortuneType);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      `/api/v1/products?category=FORTUNE&fortuneType=${fortuneType}`,
+    );
+    expect(init?.method).toBe("GET");
+    expect(headersOf(init)["X-CSRF-Token"]).toBeUndefined();
+    expect(headersOf(init)["Idempotency-Key"]).toBeUndefined();
+  });
+
+  it("항목 두 개를 포트 모델로 옮기고 서버 순서를 지킨다 — productName · regularPrice · 지급량은 없다", async () => {
+    const { adapter } = setup(
+      ok({
+        items: [
+          productData({ code: "FIXTURE_B" }),
+          productData({
+            code: "FIXTURE_A",
+            option: "READING_WITH_TALISMAN",
+            active: false,
+            saleEndsAt: "2099-01-01T00:00:00Z",
+            regularPrice: null,
+          }),
+        ],
+      }),
+    );
+    await expect(adapter.listProducts("SUNEUNG")).resolves.toEqual([
+      {
+        code: "FIXTURE_B",
+        fortuneType: "SUNEUNG",
+        option: "READING_ONLY",
+        price: { currency: "TURTLE_SHELL", amount: 13 },
+        active: true,
+        saleEndsAt: null,
+      },
+      {
+        code: "FIXTURE_A",
+        fortuneType: "SUNEUNG",
+        option: "READING_WITH_TALISMAN",
+        price: { currency: "TURTLE_SHELL", amount: 13 },
+        active: false,
+        saleEndsAt: "2099-01-01T00:00:00Z",
+      },
+    ]);
+  });
+
+  it("모르는 option 은 UNKNOWN 으로 남고 성공", async () => {
+    const { adapter } = setup(
+      ok({ items: [productData({ option: "FIXTURE_NEW_OPTION" })] }),
+    );
+    const [product] = await adapter.listProducts("SUNEUNG");
+    expect(product.option).toBe("UNKNOWN");
+  });
+
+  it("items 가 빈 배열이면 []", async () => {
+    const { adapter } = setup(ok({ items: [] }));
+    await expect(adapter.listProducts("LOVE")).resolves.toEqual([]);
+  });
+
+  it("UNKNOWN 인자는 던지고 fetch 안 함", async () => {
     const { adapter, fetchMock } = setup();
-    await expect(adapter.listProducts("SUNEUNG")).rejects.toThrow();
+    await expect(adapter.listProducts("UNKNOWN")).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["category TOP_UP", { items: [productData({ category: "TOP_UP" })] }],
+    [
+      "fortuneType 이 요청과 다름",
+      { items: [productData({ fortuneType: "LOVE" })] },
+    ],
+    [
+      "price.currency KRW",
+      { items: [productData({ price: { currency: "KRW", amount: 13 } })] },
+    ],
+    [
+      "price.amount 0",
+      {
+        items: [
+          productData({ price: { currency: "TURTLE_SHELL", amount: 0 } }),
+        ],
+      },
+    ],
+    ["paidAmount 가 숫자", { items: [productData({ paidAmount: 10 })] }],
+    ["productName 빈 문자열", { items: [productData({ productName: "" })] }],
+    [
+      "saleEndsAt 날짜 아님",
+      { items: [productData({ saleEndsAt: "not-a-date" })] },
+    ],
+    ["items 없음", {}],
+  ])("계약 위반 (%s) 은 ApiContractError", async (_name, data) => {
+    const { adapter } = setup(ok(data));
+    await expect(adapter.listProducts("SUNEUNG")).rejects.toBeInstanceOf(
+      ApiContractError,
+    );
   });
 });

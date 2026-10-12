@@ -1,7 +1,6 @@
 // 오행분석 진짜 adapter — POST /api/v1/fortune/basic. 근거: Q-30 · Q-35 (personId 단독 입력), API_SPEC 8장,
 // OpenAPI BasicSajuRequest · BasicSajuResult (docs/openapi/api-v1.json), ADAPTER-HTTP (createApiClient 로 요청하고
 // 응답 data 를 zod 로 런타임 검사한 뒤 포트 모델로 바꾼다. openapi-fetch 는 쓰지 않는다), BASIC-SAJU-PORT.
-// TODO(PG-2 세션 adapter): ports/index.ts 연결은 CSRF 출처인 세션 adapter 가 생긴 뒤에 한다.
 import { z } from "zod";
 import { ApiContractError } from "@/lib/api/errors";
 import type { ApiClient } from "@/lib/api/http";

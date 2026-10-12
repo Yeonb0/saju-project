@@ -1,21 +1,24 @@
-// 수능운 구매 진짜 adapter — POST /api/v1/quotes/fortune · GET /api/v1/quotes/{quoteId} · POST /api/v1/reading-purchases.
+// 운세 구매 진짜 adapter — GET /api/v1/products?category=FORTUNE · POST /api/v1/quotes/fortune · GET /api/v1/quotes/{quoteId} · POST /api/v1/reading-purchases.
 // 근거: ADAPTER-HTTP (createApiClient 로 요청하고 응답 data 를 zod 로 런타임 검사한 뒤 포트 모델로 바꾼다. 생성 타입은 이 파일 안에서만 쓴다),
 // MOCK-PORT (포트 모델은 FE 모델), Q-04 · P-03 (수능운 요청은 personId — 구매는 + quoteId — 만 보낸다. fortuneType · productOption · questionKey ·
 // relationType · counterpartPersonId 중 하나라도 있으면 BE 가 수능 요청으로 보지 않는다), Q-28 해결 (PR #19, API_SPEC 5장: 견적 productName 은 서버 필수 값 — 견적 생성 때의 snapshot),
 // Q-22 · P-03 (regularPrice 정가 표시 방식 · 문구는 미정 — 응답 검사만 하고 포트에 넣지 않는다),
 // Q-38 (readingId · balance · charged 의 null 을 0 이나 완료로 바꾸지 않는다, 모르는 status 는 UNKNOWN),
 // I-05 (구매 키와 본문은 createKeyedCommand 로 고정, 키는 호출하는 쪽이 준 것만), Q-37 (reading · reused · *Version 은 쓰지 않는다).
-// 일반 운세 5종은 요청 필드(productOption · questionKey · relationType)가 확정되지 않아 이번 범위 밖이다 (Q-26 · Q-35 2).
-// TODO(PG-2 세션 adapter): ports/index.ts 연결은 CSRF 출처인 세션 adapter 가 생긴 뒤에 한다.
+// 일반 운세 5종은 요청 필드(productOption · questionKey · relationType)가 확정되지 않아 견적 · 구매만 범위 밖이다 (상품 목록은 5종 모두) (Q-26 · Q-35 2).
+// 상품 목록: API_SPEC 5장 GET /products (PR #19), F-07 (서버가 판매 중인 상품만 준다 — 화면이 active 를 본다), P-03 (운세는 등껍질로만 산다), Q-22 (정가 표시는 미정 — 검사만).
 import { z } from "zod";
 import { ApiContractError } from "@/lib/api/errors";
 import type { ApiClient } from "@/lib/api/http";
 import { createKeyedCommand } from "@/lib/api/idempotency";
 import {
   type FortunePort,
+  type FortuneProduct,
   type FortuneQuote,
   type FortuneSelection,
   type ReadingPurchaseResult,
+  toFortuneType,
+  toProductOption,
   toReadingPurchaseStatus,
 } from "@/lib/ports/fortune";
 import type { components, paths } from "@/types/api";
@@ -23,6 +26,7 @@ import type { components, paths } from "@/types/api";
 const QUOTE_PATH = "/api/v1/quotes/fortune" satisfies keyof paths;
 const QUOTE_BY_ID_PATH = "/api/v1/quotes/{quoteId}" satisfies keyof paths;
 const PURCHASE_PATH = "/api/v1/reading-purchases" satisfies keyof paths;
+const PRODUCTS_PATH = "/api/v1/products" satisfies keyof paths;
 
 const count = z.number().int().min(0);
 const text = z.string().min(1);
@@ -59,6 +63,30 @@ const purchaseSchema = z.object({
   charged: money.nullable(),
   balance: count.nullable(),
 });
+
+// 운세 상품 한 항목. fortuneType · option 은 모르는 값도 받고, 요청한 fortuneType 과의 일치는 호출할 때 검사한다.
+// 운세는 등껍질로만 산다 (P-03) — 지급량(paidAmount · bonusAmount · creditedAmount)은 null 이어야 한다. 정가는 검사만 한다 (TODO(Q-22))
+const productSchema = z.object({
+  code: text,
+  category: z.literal("FORTUNE"),
+  fortuneType: text,
+  option: text,
+  productName: text,
+  price: z.object({
+    currency: z.literal("TURTLE_SHELL"),
+    amount: count.min(1),
+  }),
+  regularPrice: z.object({ currency: text, amount: count }).nullable(),
+  paidAmount: z.null(),
+  bonusAmount: z.null(),
+  creditedAmount: z.null(),
+  active: z.boolean(),
+  saleEndsAt: z
+    .string()
+    .refine((value) => !Number.isNaN(Date.parse(value)))
+    .nullable(),
+});
+const productsSchema = z.object({ items: z.array(productSchema) });
 
 type QuoteData = z.infer<typeof fundedQuoteSchema>;
 
@@ -109,11 +137,52 @@ function assertSuneung(selection: FortuneSelection) {
 
 export function createFortuneAdapter(client: ApiClient): FortunePort {
   return {
-    // TODO(Q-28): 상품 목록 API 가 OpenAPI 에 없다
-    async listProducts() {
-      throw new Error(
-        "listProducts 의 진짜 계약이 아직 없다 — GET /products 없음 (Q-28)",
-      );
+    async listProducts(fortuneType): Promise<readonly FortuneProduct[]> {
+      if (fortuneType === "UNKNOWN") {
+        throw new Error("UNKNOWN 운세 종류의 상품 목록은 요청할 수 없다");
+      }
+      const { status, data } = await client.request({
+        method: "GET",
+        path: `${PRODUCTS_PATH}?category=FORTUNE&fortuneType=${fortuneType}`,
+      });
+      const parsed = productsSchema.safeParse(data);
+      if (!parsed.success) {
+        throw new ApiContractError(status, "운세 상품 목록 응답 모양이 다르다");
+      }
+      return parsed.data.items.map((item) => {
+        if (item.fortuneType !== fortuneType) {
+          throw new ApiContractError(
+            status,
+            "요청한 운세 종류와 다른 상품이 왔다",
+          );
+        }
+        // fortuneType · option · price(통화)는 모르는 값도 받으므로 생성 타입의 enum 대조에서 뺀다 (topUp adapter 의 status 와 같은 이유).
+        // 이름 · 모양은 나머지로 대조한다. productName · regularPrice · 지급량은 포트에 넣지 않는다
+        const wire = {
+          code: item.code,
+          category: item.category,
+          productName: item.productName,
+          paidAmount: item.paidAmount,
+          bonusAmount: item.bonusAmount,
+          creditedAmount: item.creditedAmount,
+          active: item.active,
+          saleEndsAt: item.saleEndsAt,
+        } satisfies Omit<
+          components["schemas"]["ProductResponse"],
+          "regularPrice" | "fortuneType" | "option" | "price"
+        >;
+        return {
+          code: wire.code,
+          fortuneType: toFortuneType(item.fortuneType),
+          option: toProductOption(item.option),
+          price: {
+            currency: item.price.currency,
+            amount: item.price.amount,
+          },
+          active: wire.active,
+          saleEndsAt: wire.saleEndsAt,
+        };
+      });
     },
 
     async createQuote(selection): Promise<FortuneQuote> {

@@ -5,6 +5,8 @@
 // 모르는 값은 기본값으로 덮지 않고 던진다.
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
 
+import { createBasicSajuAdapter } from "@/lib/api/adapters/basicSaju";
+import { createFortuneAdapter } from "@/lib/api/adapters/fortune";
 import { createPersonAdapter } from "@/lib/api/adapters/person";
 import { createRealSession } from "@/lib/api/adapters/session";
 import { createTopUpAdapter } from "@/lib/api/adapters/topUp";
@@ -145,7 +147,10 @@ export function selectFortunePort(
   wallet?: FakeWallet,
   readings?: FakeReadings,
 ): FortunePort {
-  if (mode !== "mock") return noRealYet("운세 구매 포트");
+  if (mode === "real")
+    return createFortuneAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return createFakeFortunePort({
     scenario: resolveFortuneScenario(scenarioRaw),
     wallet,
@@ -157,6 +162,7 @@ export function selectReadingPort(
   mode: ApiMode,
   readings: FakeReadings,
 ): ReadingPort {
+  // TODO(Q-37 결과 adapter): 결과 응답 계약이 정해진 뒤 진짜 구현을 연결한다
   if (mode !== "mock") return noRealYet("결과 포트");
   return readings.port;
 }
@@ -237,7 +243,10 @@ export function selectBasicSajuPort(
   mode: ApiMode,
   account: FakeAccount,
 ): BasicSajuPort {
-  if (mode !== "mock") return noRealYet("오행분석 포트");
+  if (mode === "real")
+    return createBasicSajuAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return createFakeBasicSajuPort(account);
 }
 
