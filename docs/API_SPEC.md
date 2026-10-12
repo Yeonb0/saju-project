@@ -1,9 +1,9 @@
 # 뿌기사주 API 명세서
 
-> 버전: Draft v0.2
+> 버전: v1 구현 계약
 > 작성일: 2026-10-01
-> 최종 수정: 2026-10-03
-> 상태: P0 정책 결정 전 초안
+> 최종 수정: 2026-10-13
+> 상태: 실행 코드·생성 OpenAPI 기준. 별도로 미구현이라 표시한 항목은 목표 계약이다.
 > 참조: [`PRD.md`](./PRD.md), [`FUNCTIONAL_SPEC.md`](./FUNCTIONAL_SPEC.md), [`PENDING_DECISIONS.md`](./PENDING_DECISIONS.md), [`COMMON_RESPONSE_AND_ERROR_CODES.md`](./COMMON_RESPONSE_AND_ERROR_CODES.md)
 
 ## 1. 기본 규약
@@ -231,11 +231,14 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 
 ### `GET /sessions`
 
-- 활성 기기 세션 목록. 토큰·세션 ID는 노출하지 않는다.
+- 목표 계약이며 현재 실행 API/OpenAPI에는 없다.
+- 활성 기기 세션 목록을 제공하려면 사용자가 구분할 수 있는 기기 표시값과 폐기용 공개 ID
+  계약을 먼저 확정해야 한다. 원문 세션 토큰은 노출하지 않는다.
 
 ### `DELETE /sessions/{sessionId}`
 
-- 특정 기기 로그아웃. 현재 세션 삭제도 허용한다.
+- 목표 계약이며 현재 실행 API/OpenAPI에는 없다. 공개 폐기 ID 계약 전에는 FE가 호출하지 않는다.
+- 현재 제공되는 로그아웃은 `POST /auth/logout`으로 현재 브라우저 세션만 폐기한다.
 
 ## 4. 사용자·인물
 
@@ -642,8 +645,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 - `personId`와 원문 생년 필드를 함께 보내거나 두 입력 모두 누락하면 `400 VALIDATION_FAILED`다.
 - 서버는 로그인한 사용자의 인물만 조회한다. 타인/미존재는 같은 `404 RESOURCE_NOT_FOUND`다.
-- 실제 인물 저장소 adapter가 미연결이면 `503 READING_FULFILLMENT_UNAVAILABLE`이다.
-  이번 구현은 인물 입력 계약 추가이며 OAuth·인물 저장 기능 자체를 완성한 것은 아니다.
+- 실제 인물 저장소 adapter로 현재 사용자가 소유한 활성 인물을 조회한다. 저장소 의존성 장애는
+  `503 READING_FULFILLMENT_UNAVAILABLE`로 처리할 수 있지만, 정상 구성에서 미연결 상태는 아니다.
 - 저장된 절기 경계일 인물의 출생 시간이 미상이면 원문 입력과 같은 `422 BIRTH_TIME_REQUIRED_AT_TERM`이다.
 
 기존 원문 입력도 유지한다.

@@ -3,7 +3,7 @@
 ### 2026-10-13: FE 10/12 요청서 기준 BE-B 계약·스테이징 설정 점검
 
 - 적용 점검: 6-1 OAuth callback/세션/CSRF와 내부 returnTo, 6-6 고정 staging origin과 환경 분리, 6-9 OAuth·Liner 비밀값의 저장소 비노출.
-- 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정했다. 고정 OpenAPI 파일도 controller에서 다시 export해야 한다.
+- 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정하고 고정 OpenAPI 파일을 다시 export했다.
 - 카카오 callback은 고정 프론트 origin의 `/api/v1/auth/kakao/callback`으로 등록하고, 같은 origin을 `FRONTEND_BASE_URL`에 설정해야 한다. Next.js `/api/v1` 프록시를 거치면 세션 쿠키가 프론트 origin에 설정된다. 이 설정값과 카카오 Developers 등록, Railway/Vercel 배포는 외부 계정 권한이 필요해 이 저장소에서 수행·검증하지 않았다.
 - tracked 파일에서 Liner API 키·카카오 client secret의 실제 값은 발견하지 않았고, `.env`와 `.env.*`는 Git ignore다. 기존 대화나 외부 콘솔 노출값의 실제 회전 여부는 키 원문을 열람하지 않고는 검증할 수 없으므로 공급자 콘솔에서 별도 완료해야 한다.
 - 오늘의 운세 API는 현재 소유한 활성 인물에 대해 KST 날짜, 5개 지수, 한줄 운세, 행운 색·아이템·장소, 오늘의 행동을 결정론적으로 반환한다. Liner 호출이나 원문 출생 입력을 새로 노출하지 않는다. 공유 landing은 G-11의 공개 범위·만료·철회 정책이 아직 미정이라 이번 API에 포함하지 않았다.
@@ -258,7 +258,9 @@ Q-35의 “자동 보상”은 환급 성공이 서버 상태로 확인된 때�
 
 **정상 결과:** 타인 조회·변경은 거절되고 개인정보가 응답에 없다. 미인증과 CSRF 오류가 계약에 맞게 반환된다. 외부 returnTo는 허용되지 않는다. 세션 저장 방식과 만료 정책이 분명하다. 재시작 시 로그아웃은 정책에 따라 가능하지만, 의도하지 않은 반복 로그아웃이나 서버별 로그인 상태 차이는 없어야 한다.
 
-**현재 다음 개발:** OAuth·세션·CSRF 발급·인물 소유권 연결. 다중 인스턴스라면 메모리 세션에만 의존하지 않는 저장 방식도 정한다.
+**현재 다음 개발:** DB 기반 OAuth state·세션·CSRF·인물 소유권은 구현됐다. 고정 staging
+프론트 proxy를 통한 실제 카카오 callback/cookie, 두 브라우저 A/B 소유권, 서버 재시작·다중
+인스턴스 동작을 실제 환경에서 확인한다.
 
 ### 6-2. DB와 지갑: 동시에 구매해도 돈이 맞는가?
 
@@ -408,7 +410,9 @@ LIMIT 20;
 
 **정상 결과:** 필요한 곳에 필요한 값만 남고 로그·분석·외부 전송에 불필요한 원문이 없다. 암호화 키는 데이터와 분리해 관리한다. 삭제/보존 정책을 설명할 수 있다.
 
-**현재 다음 개발:** 인물 정보 저장·암호화·삭제, 실제 외부 요청 검증과 보존 기간 확정. FE URL 마스킹과 수집 최소화 기반은 이미 있다.
+**현재 다음 개발:** 인물 정보 암호화 저장·soft delete·탈퇴 정리와 Liner facts-only 전송 기반은
+구현됐다. 실제 staging 로그/Sentry/분석/outbox의 가상 식별값 검색, 백업 보존·삭제 재반영,
+공급자 키 회전과 법정 보존기간 확정은 남아 있다.
 
 ### 6-10. 사용자 수가 늘어날 때: 어느 부분부터 느려지는가?
 

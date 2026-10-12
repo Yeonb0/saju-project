@@ -67,7 +67,9 @@ FE 타입 생성용 고정 OpenAPI 파일은 `docs/openapi/api-v1.json`이며 ba
 `./gradlew exportOpenApi` (Windows: `.\gradlew.bat exportOpenApi`)로 재생성한다.
 테스트 컨텍스트에서 실제 controller 문서를 내보내며 외부 Liner/PG를 호출하지 않는다.
 
-인증 구현 전에는 health와 local API 문서만 허용하고 나머지 요청은 거절한다. 폼/Basic 로그인과 기본 개발 사용자 로그인을 제공하지 않는다. CSRF 보호는 유지한다. 카카오 로그인, 세션, B가 결정한 CSRF 발급 계약은 후속 구현 대상이다.
+카카오 OAuth, DB 기반 opaque 세션, `GET /session`의 CSRF 토큰 발급, Origin 검사와 로그아웃이
+구현돼 있다. 폼/Basic 로그인과 기본 개발 사용자 로그인은 제공하지 않는다. 실제 카카오
+로그인은 고정 프론트 도메인·프록시·카카오 Developers callback을 맞춘 staging E2E가 남아 있다.
 
 ## 테스트와 빌드
 
@@ -282,5 +284,6 @@ docker build -t sajuppugi-backend .
 상세 범위는 `docs/WALLET_PURCHASE_IMPLEMENTATION.md`를 참고한다.
 실제 PostgreSQL 자동 테스트 및 SQL 실습은 `docs/POSTGRESQL_TEST_GUIDE.md`를 참고한다.
 자동 복구 scheduler의 `WALLET_RECOVERY_ENABLED`도 기본 false다.
-경로의 인증/CSRF 요구는 유지하며 인물·지갑 구매 dependency 미연결은 실패로 응답한다.
+경로의 인증/CSRF와 서버 소유권 검사를 유지한다. 지갑 구매·생성 복구 기능은 연결돼 있지만
+운영 feature flag는 검증 전까지 기본 비활성이다.
 미정 정책을 임의로 확정하지 않는다. FE 질문별 구현 범위는 `docs/FE_REQUESTS_20261009.md`를 참고한다.
