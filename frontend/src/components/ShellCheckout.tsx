@@ -5,7 +5,9 @@ import * as Sentry from "@sentry/nextjs";
 // 등껍질 차감 확인 팝업 + 잔액 부족 팝업 (CHECKOUT-POPUP, FRONTEND.md 3장 "Checkout — 등껍질 차감").
 // 근거: P-06 · P-09 (부족분 · 추천 충전 · 구매 후 잔액은 서버 견적 값만), Q-07 (견적 재확인 · QUOTE_EXPIRED 면 선택 유지 + 새 견적),
 // I-05 (구매 의도 = 견적 하나에 키 하나, 재시도에도 같은 키), PURCHASE-RESTORE (충전 가기 전 선택 저장 · 구매 성공 때 삭제),
-// COMMON 7장 (409 IDEMPOTENCY_REQUEST_PROCESSING 이면 버튼을 다시 열지 않고 같은 키로 상태 확인), F-08 (결제 버튼 위 고지).
+// COMMON 7장 (409 IDEMPOTENCY_REQUEST_PROCESSING 이면 버튼을 다시 열지 않고 상태 확인), F-08 (결제 버튼 위 고지),
+// Q-38 답 (API_SPEC 8장 상태표 — 화면 분기는 status, 버튼 · 안내는 nextAction), PURCHASE-STATUS-WAIT 해제,
+// 결정 PURCHASE-STATUS-UI (2026-10-12, 사용자 — 처리 중 자동 반복 조회 없음, 결과 확인은 상태 조회), F-06, COMMON 4.8.
 // 앞 화면(CSAT-01 · FORT-02 · 03 · MATCH-03 · FORT-07)이 띄운다. 디자인 요소 없음 (PG-FIRST).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -22,8 +24,7 @@ import type {
   FortunePort,
   FortuneQuote,
   FortuneSelection,
-  FulfilledReadingPurchase,
-  ReadingPurchaseResult,
+  ReadingPurchaseState,
 } from "@/lib/ports/fortune";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import {
@@ -31,8 +32,8 @@ import {
   savePurchaseSelection,
 } from "@/lib/purchase/restore";
 import {
-  generationFailureOfError,
-  generationFailureOfResult,
+  isGenerationFailureError,
+  purchaseOutcomeOf,
 } from "@/lib/reading/generation";
 import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 
@@ -88,13 +89,6 @@ function reportMismatchToSentry(productCode: string) {
 
 type Intent = { quoteId: string; key: string };
 
-// 결과로 보내도 되는 응답 — FULFILLED 이고 readingId 가 있을 때만 (Q-38)
-function isFulfilled(
-  result: ReadingPurchaseResult,
-): result is FulfilledReadingPurchase {
-  return result.status === "FULFILLED" && result.readingId !== null;
-}
-
 // 구매 명령 뒤 다시 받은 견적에 붙이는 안내 (값은 서버 견적, 문구는 PD)
 type Notice = "requoted" | null;
 
@@ -122,9 +116,9 @@ export function ShellCheckout({
   resumeQuoteId?: string | null;
   // 충전 후 돌아올 앞 화면 경로 (safeReturnTo 를 거쳐 저장된다)
   returnPath: string;
-  // 완료(FULFILLED + readingId)인 구매 응답 그대로 (결과 화면으로 보낼 때). 생성 실패(FAILED · REFUNDED · READING_GENERATION_FAILED)와
-  // 결과를 아직 모르는 응답(처리 중 등)은 이 팝업이 안내하고 넘기지 않는다
-  onPurchased: (result: FulfilledReadingPurchase) => void;
+  // 서버 상태가 완료(FULFILLED + readingId)일 때 결과 ID 만 넘긴다 (구매 응답이든 상태 조회든). 생성 실패(FAILED · REFUNDED)와
+  // 결과를 아직 모르는 상태(처리 중 등)는 이 팝업이 안내하고 넘기지 않는다 (Q-38)
+  onPurchased: (fulfilled: Readonly<{ readingId: string }>) => void;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다.
   port?: FortunePort;
   topUpPort?: TopUpPort;
@@ -173,20 +167,36 @@ export function ShellCheckout({
   // 같은 틱의 두 번째 탭은 렌더 전이라 isPending 이 아직 false 다 — ref 로 한 번 더 막는다
   const submitting = useRef(false);
 
+  // 이번 구매 의도에서 마지막으로 안 서버 상태 (구매 응답 또는 상태 조회). 화면은 이 값의 status · nextAction 으로 가른다 (Q-38)
+  const [known, setKnown] = useState<ReadingPurchaseState | null>(null);
+  const outcome = known ? purchaseOutcomeOf(known) : null;
+  const delivered = useRef(false);
+
+  // 구매 상태 조회 (GET by-quote). auto = 오류 직후 한 번 자동으로 부른 조회 (PURCHASE-STATUS-UI: 자동 반복 없음)
+  const lookup = useMutation({
+    mutationFn: (v: { quoteId: string; auto: boolean }) =>
+      fortune().getPurchaseStatus(v.quoteId),
+    onSuccess: (state, v) => {
+      if (state) {
+        setKnown(state);
+        queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
+        return;
+      }
+      // 서버에 이 견적의 구매 기록이 없다. 자동 조회면 처리 중 + 결과 확인을 그대로 둔다 (반복 방지).
+      // 사용자가 누른 결과 확인이면 같은 의도(같은 견적 · 같은 키)로 다시 보낸다 — 기록이 없어 이중 차감이 없다 (I-05)
+      if (!v.auto) send(v.quoteId);
+    },
+  });
+
   const purchase = useMutation({
     mutationFn: (next: Intent) =>
       fortune().purchase({ quoteId: next.quoteId, selection }, next.key),
     onSuccess: (result) => {
       // 구매 요청이 끝났다 — 잔액은 서버에서 다시 받는다 (생성 실패 환급 포함, P-09 · Q-22: 클라이언트에서 차감 · 합산하지 않는다)
       queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
-      // 생성 실패는 팝업 안에서 실패 · 재시도 안내 (F-06 · COMMON 4.8)
-      if (generationFailureOfResult(result)) return;
-      // 결과를 아직 모르는 응답은 넘기지 않고 선택도 지우지 않는다 — "결과 확인" 으로 같은 키 재요청 (Q-38 · I-05)
-      if (!isFulfilled(result)) return;
-      clearPurchaseSelection();
-      onPurchased(result);
+      setKnown(result);
     },
-    onError: (error) => {
+    onError: (error, next) => {
       const kind = classifyApiError(error);
       // 서버가 잔액 · 가격 · 견적이 달라졌다고 하면 새 견적으로 다시 확인받는다 (값은 새 견적)
       if (
@@ -196,9 +206,28 @@ export function ShellCheckout({
       ) {
         setNotice("requoted");
         setRound((n) => n + 1);
+        return;
+      }
+      // 결과를 모르는 오류는 서버 상태를 한 번 조회한다. 생성 실패 오류도 환급 여부 · 다음 행동은 상태로 안다 (Q-38)
+      if (
+        kind === "request_processing" ||
+        kind === "outcome_unknown" ||
+        isGenerationFailureError(error)
+      ) {
+        lookup.mutate({ quoteId: next.quoteId, auto: true });
       }
     },
   });
+
+  // 서버 상태가 완료가 되면 한 번만 결과를 넘긴다
+  const fulfilledReadingId =
+    outcome?.kind === "fulfilled" ? outcome.readingId : null;
+  useEffect(() => {
+    if (fulfilledReadingId === null || delivered.current) return;
+    delivered.current = true;
+    clearPurchaseSelection();
+    onPurchased({ readingId: fulfilledReadingId });
+  }, [fulfilledReadingId, onPurchased]);
 
   // 새 견적을 기다리는 동안에는 지난 견적 값을 보이지 않는다
   const current = quote.isFetching ? null : (quote.data ?? null);
@@ -231,28 +260,30 @@ export function ShellCheckout({
   if (quote.error && !quoteLoginRequired) throw quote.error;
   if (topUps.error) throw topUps.error;
   if (purchase.error instanceof ApiContractError) throw purchase.error;
+  if (lookup.error instanceof ApiContractError) throw lookup.error;
 
   const errorKind = purchase.error ? classifyApiError(purchase.error) : null;
   const requoting =
     errorKind === "insufficient_balance" ||
     errorKind === "quote_expired" ||
     errorKind === "price_changed";
-  // 결과를 아직 모른다 — 버튼을 다시 열지 않고 같은 키로 확인만 한다.
-  // 오류(처리 중 · 결과 불명)뿐 아니라 실패도 완료도 아닌 성공 응답(GENERATING 등, FULFILLED 인데 readingId null)도 포함 (Q-38)
+  const lookupKind = lookup.error ? classifyApiError(lookup.error) : null;
+  const lookupLoginRequired =
+    lookupKind === "login_required" || lookupKind === "csrf_failed";
+  // 결과를 아직 모른다 — 버튼을 다시 열지 않고 상태 확인만 한다. 서버 상태가 처리 중이거나(GENERATING 등, FULFILLED 인데 readingId null,
+  // 보상 진행 중), 상태를 아직 못 안 채 결과 불명 오류 · 생성 실패 오류가 났을 때 (Q-38)
   const outcomePending =
-    errorKind === "request_processing" ||
-    errorKind === "outcome_unknown" ||
-    (purchase.data !== undefined &&
-      generationFailureOfResult(purchase.data) === null &&
-      !isFulfilled(purchase.data));
+    outcome?.kind === "pending" ||
+    (known === null &&
+      (errorKind === "request_processing" ||
+        errorKind === "outcome_unknown" ||
+        isGenerationFailureError(purchase.error)));
+  const busy = purchase.isPending || lookup.isPending;
 
-  function send(current: FortuneQuote) {
+  function send(quoteId: string) {
     if (purchase.isPending || submitting.current) return;
-    if (intent.current?.quoteId !== current.quoteId) {
-      intent.current = {
-        quoteId: current.quoteId,
-        key: createIdempotencyKey(),
-      };
+    if (intent.current?.quoteId !== quoteId) {
+      intent.current = { quoteId, key: createIdempotencyKey() };
     }
     submitting.current = true;
     purchase.mutate(intent.current, {
@@ -263,9 +294,9 @@ export function ShellCheckout({
   }
 
   function onConfirm(current: FortuneQuote) {
-    if (outcomePending) return;
+    if (outcomePending || busy) return;
     setNotice(null);
-    send(current);
+    send(current.quoteId);
   }
 
   function onTopUp(current: FortuneQuote) {
@@ -277,15 +308,20 @@ export function ShellCheckout({
     router.push("/wallet");
   }
 
-  const failure = purchase.data
-    ? generationFailureOfResult(purchase.data)
-    : purchase.error
-      ? generationFailureOfError(purchase.error)
-      : null;
+  // 사용자가 누른 결과 확인 — 상태 조회, 기록이 없으면 같은 키로 재전송 (lookup.onSuccess)
+  function onCheckResult() {
+    if (busy || intent.current === null) return;
+    lookup.mutate({ quoteId: intent.current.quoteId, auto: false });
+  }
+
+  const failure = outcome?.kind === "failed" ? outcome.failure : null;
 
   // 생성이 끝난 구매는 다시 보내지 않는다 — 다시 시도는 새 견적(새 구매 의도 · 새 키)으로
   function retryAfterFailure() {
     purchase.reset();
+    lookup.reset();
+    setKnown(null);
+    delivered.current = false;
     setNotice(null);
     setRound((n) => n + 1);
   }
@@ -295,7 +331,7 @@ export function ShellCheckout({
       open={open}
       onOpenChange={(next) => {
         // 구매 명령이 나간 동안에는 닫지 않는다 — 결과를 놓치지 않게
-        if (!next && (purchase.isPending || outcomePending)) return;
+        if (!next && (busy || outcomePending)) return;
         onOpenChange(next);
       }}
       layout={purchase.isPending ? "screen" : "popup"}
@@ -310,10 +346,12 @@ export function ShellCheckout({
           failure={failure}
           actions={
             <div className={ACTIONS_CLASS}>
-              <Button variant="popup" onClick={retryAfterFailure}>
-                {/* TODO(PD 문구) */}
-                다시 시도
-              </Button>
+              {failure.next === "retry" ? (
+                <Button variant="popup" onClick={retryAfterFailure}>
+                  {/* TODO(PD 문구) */}
+                  다시 시도
+                </Button>
+              ) : null}
               <CloseButton onClick={() => onOpenChange(false)} />
             </div>
           }
@@ -395,13 +433,20 @@ export function ShellCheckout({
             <>
               {/* TODO(PD 문구) */}
               <output className={`block ${NOTE_CLASS}`}>처리 중입니다</output>
-              {/* 같은 키 · 같은 본문으로 다시 보내 결과를 확인한다 (I-05) */}
+              {lookupLoginRequired ? (
+                <p className={NOTE_CLASS}>
+                  {/* TODO(PD 문구) */}
+                  <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
+                </p>
+              ) : lookup.isError ? (
+                // TODO(PD 문구)
+                <p role="alert" className={NOTE_CLASS}>
+                  확인하지 못했습니다. 다시 확인해 주세요
+                </p>
+              ) : null}
+              {/* 상태 조회 → 서버에 기록이 없으면 같은 키 · 같은 본문으로 다시 보낸다 (I-05, PURCHASE-STATUS-UI) */}
               <div className="flex justify-center">
-                <Button
-                  variant="popup"
-                  onClick={() => send(current)}
-                  disabled={purchase.isPending}
-                >
+                <Button variant="popup" onClick={onCheckResult} disabled={busy}>
                   {/* TODO(PD 문구) */}
                   결과 확인
                 </Button>
@@ -412,7 +457,7 @@ export function ShellCheckout({
               {/* TODO(PD 문구) */}
               <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
             </p>
-          ) : errorKind !== null && !requoting && failure === null ? (
+          ) : errorKind !== null && !requoting ? (
             // TODO(PD 문구): 오류 종류별 안내
             <p role="alert" className={NOTE_CLASS}>
               구매하지 못했습니다
@@ -422,16 +467,14 @@ export function ShellCheckout({
             <Button
               variant="popup"
               onClick={() => onConfirm(current)}
-              disabled={
-                purchase.isPending || outcomePending || purchase.isSuccess
-              }
+              disabled={busy || outcomePending || known !== null}
             >
               {/* TODO(PD 문구) */}
               사용하기
             </Button>
             <CloseButton
               onClick={() => onOpenChange(false)}
-              disabled={purchase.isPending || outcomePending}
+              disabled={busy || outcomePending}
             />
           </div>
         </>
