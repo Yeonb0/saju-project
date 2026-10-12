@@ -6,10 +6,7 @@
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
 
 import { createPersonAdapter } from "@/lib/api/adapters/person";
-import {
-  createSessionAdapter,
-  sessionCsrfSource,
-} from "@/lib/api/adapters/session";
+import { createRealSession } from "@/lib/api/adapters/session";
 import { createTopUpAdapter } from "@/lib/api/adapters/topUp";
 import { createApiClient } from "@/lib/api/http";
 import { createTossPaymentLauncher } from "@/lib/payment/tossPaymentLauncher";
@@ -45,6 +42,14 @@ import type { ReadingPort } from "./reading";
 import type { SessionPort } from "./session";
 import type { TopUpPort } from "./topUp";
 
+// 진짜 세션은 탭 하나에 하나 — 세션 · 충전 · 인물 adapter 가 같은 CSRF 토큰을 본다
+let realSession: ReturnType<typeof createRealSession> | null = null;
+
+function getRealSession() {
+  realSession ??= createRealSession();
+  return realSession;
+}
+
 export function resolveTopUpScenario(
   raw: string | undefined,
 ): FakeTopUpScenario {
@@ -67,7 +72,7 @@ export function selectTopUpPort(
   wallet?: FakeWallet,
 ): TopUpPort {
   if (mode === "real")
-    return createTopUpAdapter(createApiClient({ csrf: sessionCsrfSource }));
+    return createTopUpAdapter(createApiClient({ csrf: getRealSession().csrf }));
   return createFakeTopUpPort({
     scenario: resolveTopUpScenario(scenarioRaw),
     wallet,
@@ -210,7 +215,7 @@ export function selectSessionPort(
   scenarioRaw: string | undefined,
   account?: FakeAccount,
 ): SessionPort {
-  if (mode === "real") return createSessionAdapter();
+  if (mode === "real") return getRealSession().port;
   return createFakeSessionPort({
     scenario: resolveSessionScenario(scenarioRaw),
     account,
@@ -222,7 +227,9 @@ export function selectPersonPort(
   account: FakeAccount,
 ): PersonPort {
   if (mode === "real")
-    return createPersonAdapter(createApiClient({ csrf: sessionCsrfSource }));
+    return createPersonAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return createFakePersonPort(account);
 }
 

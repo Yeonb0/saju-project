@@ -114,6 +114,12 @@ describe("세션 포트 선택 (MOCK-PORT)", () => {
     });
   });
 
+  it("진짜 세션은 한 번만 만든다 — 세션 · 충전 · 인물 adapter 가 같은 CSRF 토큰을 본다", () => {
+    expect(selectSessionPort("real", undefined)).toBe(
+      selectSessionPort("real", undefined),
+    );
+  });
+
   it("시나리오: 비우면 signed_out, 모르는 값은 던진다", () => {
     expect(resolveSessionScenario(undefined)).toBe("signed_out");
     expect(resolveSessionScenario("")).toBe("signed_out");
