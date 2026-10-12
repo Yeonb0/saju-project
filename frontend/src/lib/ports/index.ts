@@ -1,15 +1,16 @@
 // 포트 구현 선택은 이 파일 한 곳에서만 한다 (docs/FRONTEND.md 1-2, MOCK-PORT).
-// 진짜 구현(src/lib/api/adapters)은 OpenAPI 수령 후 만든다. 그 전에 진짜 모드로 부르면 조용히 넘어가지 않고 던진다.
+// 진짜 구현(src/lib/api/adapters)은 모든 포트에 연결돼 있다. 진짜 모드는 가짜로 돌아가지 않는다.
+// 예외: 일반 운세 5종의 견적 · 구매는 운세 adapter 가 요청 전에 던진다 (SUNEUNG-ADAPTER-FIRST, Q-26).
 // 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
 // 모르는 값은 기본값으로 덮지 않고 던진다.
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
 
+import { createBasicSajuAdapter } from "@/lib/api/adapters/basicSaju";
+import { createFortuneAdapter } from "@/lib/api/adapters/fortune";
 import { createPersonAdapter } from "@/lib/api/adapters/person";
-import {
-  createSessionAdapter,
-  sessionCsrfSource,
-} from "@/lib/api/adapters/session";
+import { createReadingAdapter } from "@/lib/api/adapters/reading";
+import { createRealSession } from "@/lib/api/adapters/session";
 import { createTopUpAdapter } from "@/lib/api/adapters/topUp";
 import { createApiClient } from "@/lib/api/http";
 import { createTossPaymentLauncher } from "@/lib/payment/tossPaymentLauncher";
@@ -45,6 +46,14 @@ import type { ReadingPort } from "./reading";
 import type { SessionPort } from "./session";
 import type { TopUpPort } from "./topUp";
 
+// 진짜 세션은 탭 하나에 하나 — 세션 · 충전 · 인물 adapter 가 같은 CSRF 토큰을 본다
+let realSession: ReturnType<typeof createRealSession> | null = null;
+
+function getRealSession() {
+  realSession ??= createRealSession();
+  return realSession;
+}
+
 export function resolveTopUpScenario(
   raw: string | undefined,
 ): FakeTopUpScenario {
@@ -55,19 +64,13 @@ export function resolveTopUpScenario(
   throw new Error(`NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO 값이 잘못됐다: ${raw}`);
 }
 
-function noRealYet(name: string): never {
-  throw new Error(
-    `${name} 의 진짜 구현이 아직 없다 — OpenAPI 수령 후 adapters 에서 만든다 (MOCK-PORT)`,
-  );
-}
-
 export function selectTopUpPort(
   mode: ApiMode,
   scenarioRaw: string | undefined,
   wallet?: FakeWallet,
 ): TopUpPort {
   if (mode === "real")
-    return createTopUpAdapter(createApiClient({ csrf: sessionCsrfSource }));
+    return createTopUpAdapter(createApiClient({ csrf: getRealSession().csrf }));
   return createFakeTopUpPort({
     scenario: resolveTopUpScenario(scenarioRaw),
     wallet,
@@ -140,7 +143,10 @@ export function selectFortunePort(
   wallet?: FakeWallet,
   readings?: FakeReadings,
 ): FortunePort {
-  if (mode !== "mock") return noRealYet("운세 구매 포트");
+  if (mode === "real")
+    return createFortuneAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return createFakeFortunePort({
     scenario: resolveFortuneScenario(scenarioRaw),
     wallet,
@@ -152,7 +158,10 @@ export function selectReadingPort(
   mode: ApiMode,
   readings: FakeReadings,
 ): ReadingPort {
-  if (mode !== "mock") return noRealYet("결과 포트");
+  if (mode === "real")
+    return createReadingAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return readings.port;
 }
 
@@ -210,7 +219,7 @@ export function selectSessionPort(
   scenarioRaw: string | undefined,
   account?: FakeAccount,
 ): SessionPort {
-  if (mode === "real") return createSessionAdapter();
+  if (mode === "real") return getRealSession().port;
   return createFakeSessionPort({
     scenario: resolveSessionScenario(scenarioRaw),
     account,
@@ -222,7 +231,9 @@ export function selectPersonPort(
   account: FakeAccount,
 ): PersonPort {
   if (mode === "real")
-    return createPersonAdapter(createApiClient({ csrf: sessionCsrfSource }));
+    return createPersonAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return createFakePersonPort(account);
 }
 
@@ -230,7 +241,10 @@ export function selectBasicSajuPort(
   mode: ApiMode,
   account: FakeAccount,
 ): BasicSajuPort {
-  if (mode !== "mock") return noRealYet("오행분석 포트");
+  if (mode === "real")
+    return createBasicSajuAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   return createFakeBasicSajuPort(account);
 }
 

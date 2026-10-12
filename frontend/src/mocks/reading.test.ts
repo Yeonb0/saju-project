@@ -12,17 +12,11 @@ async function firstProduct(type: FortuneProduct["fortuneType"]) {
 }
 
 describe("가짜 결과 (MOCK-PORT)", () => {
-  it("a. 수능 상품이면 수능 섹션 5개를 준다", async () => {
+  it("a. 수능 상품이면 수능 가이드 구조(SUNEUNG_GUIDE)를 준다", async () => {
     const readings = createFakeReadings();
     const id = readings.create(await firstProduct("SUNEUNG"));
     const reading = await readings.port.getReading(id);
-    expect(reading.sections.map((s) => s.type)).toEqual([
-      "TEXT",
-      "PERIOD_GUIDANCE",
-      "FOOD_RECOMMENDATION",
-      "CHECKLIST",
-      "UNKNOWN",
-    ]);
+    expect(reading.body.kind).toBe("SUNEUNG_GUIDE");
   });
 
   it.each([
@@ -31,19 +25,16 @@ describe("가짜 결과 (MOCK-PORT)", () => {
     "WEALTH",
     "COMPATIBILITY",
     "SINSAL",
-  ] as const)("b. %s 상품이면 일반 섹션 TEXT · TEXT · UNKNOWN 만 주고 수능 전용 섹션이 없다", async (type) => {
+  ] as const)("b. %s 상품이면 일반 섹션 TEXT · TEXT · UNKNOWN 만 주고 수능 가이드가 아니다", async (type) => {
     const readings = createFakeReadings();
     const id = readings.create(await firstProduct(type));
-    const reading = await readings.port.getReading(id);
-    const types = reading.sections.map((s) => s.type);
-    expect(types).toEqual(["TEXT", "TEXT", "UNKNOWN"]);
-    for (const only of [
-      "PERIOD_GUIDANCE",
-      "FOOD_RECOMMENDATION",
-      "CHECKLIST",
-    ]) {
-      expect(types).not.toContain(only);
-    }
+    const { body } = await readings.port.getReading(id);
+    if (body.kind !== "SECTIONS") throw new Error("SECTIONS 가 아니다");
+    expect(body.sections.map((s) => s.type)).toEqual([
+      "TEXT",
+      "TEXT",
+      "UNKNOWN",
+    ]);
   });
 
   it("c. 없는 readingId 는 404 READING_NOT_FOUND", async () => {

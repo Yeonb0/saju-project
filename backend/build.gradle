@@ -57,7 +57,19 @@ tasks.register('exportOpenApi', Test) {
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform()
     filter { includeTestsMatching 'com.sajuppugi.OpenApiIntegrationTest' }
-    systemProperty 'openapi.export.path', file('../docs/openapi/api-v1.json').absolutePath
+    systemProperty 'openapi.export.path', file(findProperty('openApiOutput') ?: '../docs/openapi/api-v1.json').absolutePath
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+}
+
+tasks.register('exportAdminOpenApi', Test) {
+    description = 'Export the separately gated backend-owned admin API contract.'
+    group = 'documentation'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.AdminOpenApiIntegrationTest' }
+    systemProperty 'admin.openapi.output', file('docs/openapi/admin-operations-v1.json').absolutePath
     defaultCharacterEncoding = 'UTF-8'
     outputs.upToDateWhen { false }
 }

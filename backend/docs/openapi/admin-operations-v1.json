@@ -1,0 +1,727 @@
+{
+  "components" : {
+    "schemas" : {
+      "AdminAuditEvent" : {
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "eventId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "operatorId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reasonCode" : {
+            "type" : "string"
+          },
+          "targetId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminIncident" : {
+        "properties" : {
+          "detectedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "generation" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "incidentId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "resourceId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminLedger" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "referenceId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reversalOfId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "transactionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminOrder" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "refundState" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminRecoveryResponse" : {
+        "properties" : {
+          "commandId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "resultCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "commandId", "completedAt", "orderId", "resultCode", "state" ],
+        "type" : "object"
+      },
+      "AdminRefund" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "attempts" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "refundId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminWallet" : {
+        "properties" : {
+          "storedBonusBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "storedPaidBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "unresolvedFindings" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "usableBonusBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "usablePaidBalance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "userId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseAdminRecoveryResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AdminRecoveryResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseAdminWallet" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AdminWallet"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePageAdminAuditEvent" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageAdminAuditEvent"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePageAdminIncident" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageAdminIncident"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePageAdminLedger" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageAdminLedger"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePageAdminOrder" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageAdminOrder"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePageAdminRefund" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageAdminRefund"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PageAdminAuditEvent" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminAuditEvent"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
+      "PageAdminIncident" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminIncident"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
+      "PageAdminLedger" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminLedger"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
+      "PageAdminOrder" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminOrder"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
+      "PageAdminRefund" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminRefund"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
+      "Request" : {
+        "properties" : {
+          "reasonCode" : {
+            "enum" : [ "CUSTOMER_INQUIRY", "SYSTEM_RECOVERY" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "reasonCode" ],
+        "type" : "object"
+      }
+    },
+    "securitySchemes" : {
+      "adminCsrf" : {
+        "in" : "header",
+        "name" : "X-CSRF-Token",
+        "type" : "apiKey"
+      },
+      "adminSession" : {
+        "in" : "cookie",
+        "name" : "SAJUPPUGI_SESSION",
+        "type" : "apiKey"
+      },
+      "csrfHeader" : {
+        "description" : "세션 기반 상태 변경 요청에 필요한 CSRF 토큰",
+        "in" : "header",
+        "name" : "X-CSRF-Token",
+        "type" : "apiKey"
+      },
+      "sessionCookie" : {
+        "description" : "카카오 로그인 후 발급되는 HttpOnly 세션 쿠키",
+        "in" : "cookie",
+        "name" : "JSESSIONID",
+        "type" : "apiKey"
+      }
+    }
+  },
+  "info" : {
+    "description" : "뿌기사주 백엔드 API 문서",
+    "title" : "뿌기사주 API",
+    "version" : "v1"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/v1/admin/audit-events" : {
+      "get" : {
+        "operationId" : "audits",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageAdminAuditEvent"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/incidents" : {
+      "get" : {
+        "operationId" : "incidents",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageAdminIncident"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/recovery-commands/{commandId}" : {
+      "get" : {
+        "operationId" : "adminGetRecoveryCommand",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "commandId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRecoveryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-recovery-controller" ]
+      }
+    },
+    "/api/v1/admin/refunds" : {
+      "get" : {
+        "operationId" : "refunds",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageAdminRefund"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/top-up-orders" : {
+      "get" : {
+        "operationId" : "orders",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageAdminOrder"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/top-up-orders/{orderId}/reconcile" : {
+      "post" : {
+        "description" : "Privileged lookup-only recovery; no provider approval/cancel POST, arbitrary balance adjustment or wallet unblock.",
+        "operationId" : "adminReconcileTopUpOrder",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRecoveryResponse"
+                }
+              }
+            },
+            "description" : "Resolved or review required"
+          },
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRecoveryResponse"
+                }
+              }
+            },
+            "description" : "Processing; poll command"
+          }
+        },
+        "security" : [ {
+          "adminCsrf" : [ ],
+          "adminSession" : [ ]
+        } ],
+        "tags" : [ "admin-recovery-controller" ]
+      }
+    },
+    "/api/v1/admin/wallets/{userId}" : {
+      "get" : {
+        "operationId" : "wallet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminWallet"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/wallets/{userId}/transactions" : {
+      "get" : {
+        "operationId" : "ledger",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageAdminLedger"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-financial-controller" ]
+      }
+    }
+  },
+  "security" : [ {
+    "adminSession" : [ ]
+  } ],
+  "servers" : [ {
+    "description" : "Generated server url",
+    "url" : "http://localhost"
+  } ]
+}

@@ -46,6 +46,8 @@ class TossPaymentProviderTest {
     private ExecutorService executor;
     private TossPaymentProvider provider;
     private volatile String body;
+    private volatile String cancelBody;
+    private volatile int cancelStatus = 200;
     private volatile int status;
     private volatile long delay;
 
@@ -68,8 +70,8 @@ class TossPaymentProviderTest {
                 if (delay > 0) Thread.sleep(delay);
                 if (status == 302) exchange.getResponseHeaders().set("Location", baseUrl() + "/redirected");
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
-                byte[] response = body.getBytes(StandardCharsets.UTF_8);
-                exchange.sendResponseHeaders(status, response.length);
+                byte[] response = (exchange.getRequestURI().getPath().endsWith("/cancel") && cancelBody != null ? cancelBody : body).getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(exchange.getRequestURI().getPath().endsWith("/cancel") ? cancelStatus : status, response.length);
                 exchange.getResponseBody().write(response);
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
@@ -197,10 +199,73 @@ class TossPaymentProviderTest {
     }
 
     @Test
-    void cancellationRemainsExplicitlyUnimplementedAndMakesNoRequest() {
+    void unsupportedCancellationReasonMakesNoRequest() {
         assertThat(provider.cancel(orderId, UUID.randomUUID(), 5000, "TEST").safeFailureCode())
-                .isEqualTo("TOSS_CANCEL_NOT_IMPLEMENTED");
+                .isEqualTo("TOSS_CANCEL_INVALID");
         assertThat(requests.get()).isZero();
+    }
+
+    @Test void verifiedFullCancelUsesStableRefundKeyAndExactAmount() throws Exception {
+        cancelBody = payment("CANCELED").toString();
+        UUID refund = UUID.randomUUID();
+        assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), refund).outcome()).isEqualTo(Outcome.CANCELED);
+        assertThat(path.get()).isEqualTo("/v1/payments/payment/cancel");
+        assertThat(idempotency.get()).isEqualTo("top-up-refund-" + refund);
+        assertThat(payload.get().path("cancelAmount").intValue()).isEqualTo(5000);
+        provider.cancelVerified(intent(orderId, "payment", 5000), refund);
+        assertThat(idempotency.get()).isEqualTo("top-up-refund-" + refund);
+    }
+    @Test void alreadyCanceledPaymentDoesNotCallCancelAgain() throws Exception {
+        body = payment("CANCELED").toString();
+        assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.CANCELED);
+        assertThat(requests.get()).isEqualTo(1);
+        assertThat(method.get()).isEqualTo("GET");
+    }
+    @Test void differentSavedPaymentKeyCannotCancel() throws Exception {
+        assertThat(provider.cancelVerified(intent(orderId, "different", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.UNKNOWN);
+        assertThat(requests.get()).isEqualTo(1);
+        assertThat(method.get()).isEqualTo("GET");
+    }
+    @ParameterizedTest @ValueSource(strings = {"DONE", "PARTIAL_CANCELED", "IN_PROGRESS"})
+    void cancellationResponseMustProveFullCancel(String status) {
+        cancelBody = payment(status).toString();
+        assertThat(provider.cancel(orderId, UUID.randomUUID(), 5000, "UNUSED_TOP_UP").outcome()).isEqualTo(Outcome.UNKNOWN);
+    }
+    @Test void canceledWithNonzeroOrMissingBalanceCannotFinalizeRefund() {
+        var missing = payment("CANCELED"); missing.remove("balanceAmount");
+        for (String response : java.util.List.of(payment("CANCELED").put("balanceAmount", 1).toString(), missing.toString())) {
+            body = response;
+            assertThat(provider.lookup(orderId).outcome()).isEqualTo(Outcome.UNKNOWN);
+        }
+    }
+    @Test void verifiedPartialCancellationPreservesIdentityButNeverApprovesOrCancels() throws Exception {
+        body = payment("PARTIAL_CANCELED").put("balanceAmount", 2500).toString();
+        var result = provider.lookup(orderId);
+        assertThat(result.outcome()).isEqualTo(Outcome.UNKNOWN);
+        assertThat(result.safeFailureCode()).isEqualTo("PAYMENT_PARTIAL_CANCEL_REVIEW");
+        assertThat(result.matches(intent(orderId, "payment", 5000))).isTrue();
+        assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.UNKNOWN);
+        assertThat(method.get()).isEqualTo("GET");
+    }
+    @Test void overflowingCancellationAmountCannotWrapToExpectedAmount() throws Exception {
+        cancelBody = payment("CANCELED").put("totalAmount", new java.math.BigInteger("18446744073709556616")).toString();
+        assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.UNKNOWN);
+    }
+    @Test void explicitRefundRejectionNeedsFreshUnchangedApprovalBeforeReturningFunds() throws Exception {
+        cancelStatus = 400;
+        cancelBody = "{\"code\":\"REFUND_REJECTED\",\"message\":\"private provider detail\"}";
+        var result = provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID());
+        assertThat(result.outcome()).isEqualTo(Outcome.CANCEL_REJECTED);
+        assertThat(result.matches(intent(orderId, "payment", 5000))).isTrue();
+        assertThat(result.safeFailureCode()).isEqualTo("CASH_REFUND_REJECTED");
+        assertThat(result.toString()).doesNotContain("private provider detail");
+        assertThat(requests.get()).isEqualTo(4);
+    }
+    @ParameterizedTest @ValueSource(strings = {"NOT_CANCELABLE_PAYMENT", "NOT_CANCELABLE_AMOUNT", "PROVIDER_ERROR", "ALREADY_REFUND_PAYMENT"})
+    void ambiguousCancelErrorsCannotAuthorizeRestoringFunds(String code) throws Exception {
+        cancelStatus = 400;
+        cancelBody = "{\"code\":\"" + code + "\"}";
+        assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.UNKNOWN);
     }
 
     @Test
@@ -243,7 +308,7 @@ class TossPaymentProviderTest {
     private ObjectNode payment(String state) {
         return mapper.createObjectNode().put("orderId", orderId.toString()).put("paymentKey", "payment")
                 .put("currency", "KRW").put("type", "NORMAL").put("totalAmount", 5000)
-                .put("balanceAmount", 5000).put("status", state).put("approvedAt", "2026-10-10T10:00:00+09:00");
+                .put("balanceAmount", "CANCELED".equals(state) ? 0 : 5000).put("status", state).put("approvedAt", "2026-10-10T10:00:00+09:00");
     }
 
     private TossPaymentProvider create(String url, String key, Duration timeout, MockEnvironment environment) {

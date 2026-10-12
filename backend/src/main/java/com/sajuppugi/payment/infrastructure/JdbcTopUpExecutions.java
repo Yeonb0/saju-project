@@ -39,6 +39,15 @@ public class JdbcTopUpExecutions {
         var order = orders.findOwned(user, id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         var receipts = jdbc.query("SELECT paid_balance, bonus_balance FROM wallet_top_up_receipts WHERE order_id = ? AND wallet_user_id = ?",
                 (rs, row) -> new WalletBalance(rs.getInt(1), rs.getInt(2)), id, user);
+        var refunds = jdbc.query("SELECT state FROM top_up_refunds WHERE order_id = ? AND resolution IS NULL", (rs, row) -> rs.getString(1), id);
+        if (!refunds.isEmpty()) {
+            String state = refunds.getFirst();
+            if (!"REFUNDED".equals(state)) order = new TopUpOrder(order.id(), order.userId(), order.productCode(),
+                    order.amountKrw(), order.paidShells(), order.bonusShells(), TopUpOrder.Status.REFUND_PENDING, order.createdAt());
+            return new OrderView(order, !List.of("REFUNDED", "REVIEW_REQUIRED").contains(state), null,
+                    "REFUNDED".equals(state) ? NextAction.NONE : "REVIEW_REQUIRED".equals(state) ? NextAction.CONTACT_SUPPORT : NextAction.POLL,
+                    "REFUNDED".equals(state) ? null : "REFUND_PENDING");
+        }
         if (order.status() == TopUpOrder.Status.CREDITED) {
             if (receipts.isEmpty()) throw new IllegalStateException("Credited order has no receipt");
             return new OrderView(order, false, receipts.getFirst(), NextAction.VIEW_WALLET, null);

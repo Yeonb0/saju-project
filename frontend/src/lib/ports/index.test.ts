@@ -17,6 +17,23 @@ import {
   selectTopUpPort,
 } from "./index";
 
+// 진짜 adapter 가 전역 fetch 로 요청하는지 본다 — 테스트마다 되돌린다
+function stubFetch(data: unknown) {
+  const fetchMock = vi.fn<typeof fetch>().mockImplementation(
+    async () =>
+      new Response(JSON.stringify({ data, traceId: "fixture-trace" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("포트 선택 (MOCK-PORT)", () => {
   it("진짜 충전 포트는 서버 adapter를 쓰고, 미구현 결제창은 조용히 가짜로 바꾸지 않는다", () => {
     expect(selectTopUpPort("real", undefined)).toMatchObject({
@@ -114,6 +131,12 @@ describe("세션 포트 선택 (MOCK-PORT)", () => {
     });
   });
 
+  it("진짜 세션은 한 번만 만든다 — 세션 · 충전 · 인물 adapter 가 같은 CSRF 토큰을 본다", () => {
+    expect(selectSessionPort("real", undefined)).toBe(
+      selectSessionPort("real", undefined),
+    );
+  });
+
   it("시나리오: 비우면 signed_out, 모르는 값은 던진다", () => {
     expect(resolveSessionScenario(undefined)).toBe("signed_out");
     expect(resolveSessionScenario("")).toBe("signed_out");
@@ -135,10 +158,12 @@ describe("인물 포트 선택 (MOCK-PORT)", () => {
 });
 
 describe("오행분석 포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다", () => {
-    expect(() =>
-      selectBasicSajuPort("real", createFakeAccount("signed_in")),
-    ).toThrow("MOCK-PORT");
+  it("진짜 모드는 서버로 요청한다 — 가짜로 바꾸지 않는다", async () => {
+    const fetchMock = stubFetch({ items: [] });
+    await selectBasicSajuPort("real", createFakeAccount("signed_in"))
+      .getBasicSaju("66666666-6666-4666-8666-666666666666")
+      .catch(() => {});
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/fortune/basic");
   });
 
   it("가짜 모드는 가짜 오행 값을 준다", async () => {
@@ -152,8 +177,14 @@ describe("오행분석 포트 선택 (MOCK-PORT)", () => {
 });
 
 describe("운세 구매 포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다", () => {
-    expect(() => selectFortunePort("real", undefined)).toThrow();
+  it("진짜 모드는 서버로 요청한다 — 가짜로 바꾸지 않는다", async () => {
+    const fetchMock = stubFetch({ items: [] });
+    await expect(
+      selectFortunePort("real", undefined).listProducts("SUNEUNG"),
+    ).resolves.toEqual([]);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/v1/products?category=FORTUNE&fortuneType=SUNEUNG",
+    );
   });
 
   it("시나리오: 비우면 fulfilled, 모르는 값은 던진다", () => {
@@ -165,8 +196,14 @@ describe("운세 구매 포트 선택 (MOCK-PORT)", () => {
 });
 
 describe("결과 포트 선택 (MOCK-PORT)", () => {
-  it("진짜 모드는 구현이 없어 던진다", () => {
-    expect(() => selectReadingPort("real", createFakeReadings())).toThrow();
+  it("진짜 모드는 서버로 요청한다 — 가짜로 바꾸지 않는다", async () => {
+    const fetchMock = stubFetch({});
+    await selectReadingPort("real", createFakeReadings())
+      .getReading("66666666-6666-4666-8666-666666666666")
+      .catch(() => {});
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/v1/readings/66666666-6666-4666-8666-666666666666",
+    );
   });
 
   it("가짜 구매가 만든 결과를 가짜 결과 포트로 다시 연다", async () => {

@@ -79,6 +79,7 @@ function setup(overrides: Injected = {}) {
   const createQuote = vi.spyOn(fortunePort, "createQuote");
   const getQuote = vi.spyOn(fortunePort, "getQuote");
   const purchase = vi.spyOn(fortunePort, "purchase");
+  const getPurchaseStatus = vi.spyOn(fortunePort, "getPurchaseStatus");
   const sajuStub = basicSajuStub();
   render(
     <QueryClientProvider client={makeQueryClient()}>
@@ -94,6 +95,7 @@ function setup(overrides: Injected = {}) {
     createQuote,
     getQuote,
     purchase,
+    getPurchaseStatus,
     getBasicSaju: sajuStub.getBasicSaju,
   };
 }
@@ -231,6 +233,33 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
     expect(createQuote).not.toHaveBeenCalled();
   });
 
+  it("g2. 구매 키가 든 저장값으로 복귀하면 팝업이 열리고 그 견적 ID 로 상태 조회를 1번 한다 (PURCHASE-KEY-STORE)", async () => {
+    const { personPort, fortunePort } = ports();
+    const quote = await fortunePort.createQuote({
+      fortuneType: "SUNEUNG" as const,
+      productCode: SUNEUNG_CODE,
+      personId: OTHER.personId,
+      counterpartPersonId: null,
+    });
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId: quote.quoteId,
+      selection: {
+        fortuneType: "SUNEUNG" as const,
+        productCode: SUNEUNG_CODE,
+        personId: OTHER.personId,
+        counterpartPersonId: null,
+      },
+      // 픽스처일 뿐이다
+      purchaseKey: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    });
+    const { getPurchaseStatus, purchase } = setup({ personPort, fortunePort });
+    await screen.findByRole("dialog");
+    await waitFor(() => expect(getPurchaseStatus).toHaveBeenCalledTimes(1));
+    expect(getPurchaseStatus).toHaveBeenCalledWith(quote.quoteId);
+    expect(purchase).not.toHaveBeenCalled();
+  });
+
   it("h. 같은 화면의 저장값인데 상품 code 가 다르면 팝업이 열리지 않고 저장값이 지워진다", async () => {
     savePurchaseSelection({
       returnPath: "/suneung",
@@ -263,7 +292,7 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
     setup();
     await proceed();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(loadPurchaseSelection()).toEqual(saved);
+    expect(loadPurchaseSelection()).toEqual({ ...saved, purchaseKey: null });
   });
 
   it("j. 진짜 모드인데 구현이 없으면 조용히 넘어가지 않고 오류 화면으로 던진다", async () => {

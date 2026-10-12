@@ -296,7 +296,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     setup({ personId: "no-such-person" });
     await waitFor(() => expect(router.replace).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(loadPurchaseSelection()).toEqual(saved);
+    expect(loadPurchaseSelection()).toEqual({ ...saved, purchaseKey: null });
   });
 
   it("k. 복원: 같은 returnPath · personId · 활성 code 면 팝업이 저절로 열리고 저장한 견적을 재확인한다", async () => {
@@ -329,6 +329,38 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     expect(createQuote).not.toHaveBeenCalled();
   });
 
+  it("k2. 복원: 구매 키가 든 저장값이면 팝업이 열리고 그 견적 ID 로 상태 조회를 1번 한다 (PURCHASE-KEY-STORE)", async () => {
+    const { fortunePort, personPort } = ports();
+    const quote = await fortunePort.createQuote({
+      fortuneType: "LOVE" as const,
+      productCode: TALISMAN,
+      personId: OTHER.personId,
+      counterpartPersonId: null,
+    });
+    savePurchaseSelection({
+      returnPath: `/fortune/love/questions?personId=${OTHER.personId}`,
+      quoteId: quote.quoteId,
+      selection: {
+        fortuneType: "LOVE" as const,
+        productCode: TALISMAN,
+        personId: OTHER.personId,
+        counterpartPersonId: null,
+      },
+      // 픽스처일 뿐이다
+      purchaseKey: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    });
+    const getPurchaseStatus = vi.spyOn(fortunePort, "getPurchaseStatus");
+    const { purchase } = setup({
+      fortunePort,
+      personPort,
+      personId: OTHER.personId,
+    });
+    await screen.findByRole("dialog");
+    await waitFor(() => expect(getPurchaseStatus).toHaveBeenCalledTimes(1));
+    expect(getPurchaseStatus).toHaveBeenCalledWith(quote.quoteId);
+    expect(purchase).not.toHaveBeenCalled();
+  });
+
   it("l. 복원: 다른 화면(/suneung)의 저장값은 팝업을 열지 않고 그대로 남는다", async () => {
     const saved = {
       returnPath: "/suneung",
@@ -344,7 +376,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     setup();
     await ctaButtons();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(loadPurchaseSelection()).toEqual(saved);
+    expect(loadPurchaseSelection()).toEqual({ ...saved, purchaseKey: null });
   });
 
   it("m. 복원: 같은 returnPath 인데 productCode 가 없는 code 면 팝업이 열리지 않고 저장값이 지워진다", async () => {

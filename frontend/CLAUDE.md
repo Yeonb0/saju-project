@@ -28,7 +28,7 @@
 - 상태가 `미정` · `부분 확정`의 미정 부분 · `보류` 인 것, 그리고 가격 · 재화 수량 · 상품 구성 · 문구 · 글꼴 · 사업자 정보는 정하지 않는다. 기본값도 넣지 않는다. 자리가 필요하면 `TODO(결정 ID)` 주석만 둔다 (예: `TODO(P-03A)`, `TODO(O-01)`).
 - 팀 문서끼리 다르면 `PENDING_DECISIONS.md` 의 확정 항목을 기준으로 읽고, 차이는 보고한다 (웹 대화가 `docs/TEAM-QUESTIONS.md` 에 올린다).
 - `docs/API_SPEC.md` 는 계약 초안이다. **백엔드 요청 · 응답 타입의 출처는 OpenAPI 생성본뿐이다.** 스펙에 없는 타입 · 응답 모양을 지어내지 않는다. 생성 타입은 `src/lib/api/adapters/` 에서만 쓴다.
-- **OpenAPI 전 개발은 포트 + 가짜 구현으로 한다 (MOCK-PORT, 2026-10-04)**: 화면은 API 를 직접 부르지 않고 FE 가 정의한 포트(`src/lib/ports/`)만 부른다. 포트 모델은 화면이 쓰는 FE 모델이고 백엔드 타입이 아니다. 구현은 가짜(`src/mocks/`, 메모리 픽스처)와 진짜(`src/lib/api/adapters/`, OpenAPI 수령 후 생성 타입 → 포트 모델 변환) 둘이다. 세부 규칙은 `docs/FRONTEND.md` 1-2.
+- **OpenAPI 전 개발은 포트 + 가짜 구현으로 한다 (MOCK-PORT, 2026-10-04)**: 화면은 API 를 직접 부르지 않고 FE 가 정의한 포트(`src/lib/ports/`)만 부른다. 포트 모델은 화면이 쓰는 FE 모델이고 백엔드 타입이 아니다. 구현은 가짜(`src/mocks/`, 메모리 픽스처)와 진짜(`src/lib/api/adapters/`, OpenAPI 수령 후 생성 타입 → 포트 모델 변환) 둘이다. 세부 규칙은 `docs/FRONTEND.md` 1-2. **2026-10-12 부터 `src/lib/ports/index.ts` 는 모든 포트를 진짜 adapter 에 연결한다** — 예외: 일반 운세 5종의 견적 · 구매는 운세 adapter 가 요청 전에 던진다(SUNEUNG-ADAPTER-FIRST, Q-26 보강 전). 진짜 모드는 가짜로 돌아가지 않는다.
 - 팀 답은 `docs/TEAM-QUESTIONS.md` 에 상태로 적혀 있다 (TQ-ANSWERS). `해결` 은 따른다. `답변 · 반영 대기` · `반영 PR 대기` · `답 엇갈림` 항목은 팀 문서(`main`)에 반영되기 전까지 그 답에 기대는 코드를 만들지 않는다 (예: `/wallet` 라우트는 `FUNCTIONAL_SPEC.md` 2장을 고친 PR `cc60ab3` 이 `main` 에 병합된 뒤).
 
 ## 문서 변경 규칙 (DOCS-WEB-ONLY · DOCS-PLACE)
@@ -52,25 +52,25 @@
 
 - **Claude Code 는 Figma MCP 를 호출하지 않는다.** Figma 조회는 웹 대화에서만 하고, 구현에 쓸 값은 지시문에 적어서 넘긴다. 지시문에 없는 Figma 값을 추측으로 채우지 않는다.
 - 파일 키 `9zEtrqV4SoPbQzuworSNUj`, **최종 와이어프레임 페이지 `와이어프레임 최종` node `195:91`** (FIGMA-FINAL). 화면은 프레임 이름인 화면 ID(HOME- · TODAY- · MY- · TALBOX- · FORT- · MATCH- · PAY- · GIFT- · RECV- · RECV-T- · CSAT-)로 부르고, 대응은 `docs/PHASES.md` 1장 표. 옛 페이지 `17:2` 와 구 번호 #1 ~ #40 은 기록용이다 (`src/lib/screens.ts` 의 `ScreenNo` 는 아직 구 번호).
-- 최종 와이어와 팀 문서가 부딪히는 곳(`docs/TEAM-QUESTIONS.md` Q-23 ~ Q-27)은 팀 문서를 따르고, 와이어에만 있는 부분은 만들지 않는다 — 예: 여러 명 선물(GIFT-06 ~ 08, GIFT-01 "수신인 당"), 발송 실패 링크 직접 공유(GIFT-05), 충전 화면 결제 수단 4칸(PAY-01, Q-25 전까지). 네이버 · 구글 로그인은 A-01 에 들어갔지만 BE-B 지원 · 개발 범위가 정해지기 전에는 만들지 않는다.
+- 최종 와이어와 팀 문서가 부딪히는 곳(`docs/TEAM-QUESTIONS.md` Q-23 ~ Q-27)은 팀 문서를 따르고, 와이어에만 있는 부분은 만들지 않는다 — 예: 여러 명 선물(GIFT-06 ~ 08, GIFT-01 "수신인 당"), 발송 실패 링크 직접 공유(GIFT-05), 충전 화면 결제 수단 4칸(PAY-01, Q-25 전까지). 네이버 · 구글 로그인 버튼은 PG 심사 후 (LOGIN-3 개정) — 진짜 세션 adapter 는 KAKAO 만 받는다.
 - 와이어프레임 위 메모 텍스트(프레임 밖 글상자)는 미결정 사항이다. 와이어의 회색 · 아이콘 · 글꼴은 임시값이다.
 
 ## 구현 원칙
 
-- **재사용**: 새 화면 전에 `docs/FRONTEND.md` 3장 공통 컴포넌트를 먼저 확인한다 (`src/components`: AppShell · Button · Card · Chip · FormField · BottomSheet · Modal · LoadingScene). 결과 화면은 **ReadingViewer 하나** 를 API 섹션 타입별로 수능 · 일반 5종 · 선물 수신에 재사용한다 (VIEWER).
-- **라우트**: 새 페이지는 `src/lib/screens.ts` ROUTES 표에 먼저 있어야 한다 (`screens.test` 가 표 밖 `page.tsx` 를 막는다). 라우트 표의 출처는 `docs/FUNCTIONAL_SPEC.md` 2장. 등껍질 차감 확인은 Checkout 경로 없이 앞 화면 안 Modal 이다 (CHECKOUT-POPUP). 새 동적 경로 · API 경로가 생기면 `src/lib/observability/maskUrl.ts` 가리기 대상인지 확인한다.
+- **재사용**: 새 화면 전에 `docs/FRONTEND.md` 3장 공통 컴포넌트를 먼저 확인한다 (`src/components`: AppShell · Button · Card · Chip · FormField · BottomSheet · Modal · LoadingScene). 결과 화면은 **ReadingViewer 하나** 를 수능 · 일반 5종 · 선물 수신에 재사용한다 (VIEWER). 결과 포트 본문은 서버 구조 그대로 `SUNEUNG_GUIDE`(서버 `suneungGuide`) 또는 `SECTIONS`(`key` · `content`, 모르는 key 는 UNKNOWN — 그 섹션만 건너뜀 + Sentry) (RESULT-GUIDE-MODEL, 2026-10-12). 카드 제목 · 교시 · 준비물 분류 이름은 `src/lib/reading/labels.ts` 한 곳(임시값 `TODO(PD 문구)`, Q-40)이고, 모르는 코드에는 이름을 지어내지 않는다.
+- **라우트**: 새 페이지는 `src/lib/screens.ts` ROUTES 표에 먼저 있어야 한다 (`screens.test` 가 표 밖 `page.tsx` 를 막는다). 라우트 표의 출처는 `docs/FUNCTIONAL_SPEC.md` 2장. 등껍질 차감 확인은 Checkout 경로 없이 앞 화면 안 Modal 이다 (CHECKOUT-POPUP). 새 동적 경로 · API 경로가 생기면 `src/lib/observability/maskUrl.ts` 가리기 대상인지 확인한다. `/api/` 경로의 UUID 조각은 `maskUrl` 이 `[id]` 로 가린다 — UUID 가 아닌 ID 가 들어간 API 경로가 생기면 따로 확인한다.
 - **API 호출**: 화면 → 포트 → 구현 순서로만 부른다 (MOCK-PORT). `/api/*` 는 `next.config.ts` rewrites 로 백엔드에 프록시한다(같은 출처, I-02). 백엔드 prefix 는 `/api/v1`. 성공 응답은 `{ data, traceId }` 로 감싸서 오고, 오류는 `{ code, message, traceId, fieldErrors, details? }` 다 (`docs/COMMON_RESPONSE_AND_ERROR_CODES.md`). 분기는 `code` 로 하고 `message` 문자열을 비교하지 않는다. 알 수 없는 `code` 는 HTTP status 로 처리한다 (같은 문서 7장). 새 enum 값은 unknown 분기를 둔다.
-- **금액은 서버만**: 원화 금액 · 등껍질 차감량 · 구매 후 잔액은 서버 견적 · 주문 · 구매 응답 값만 표시한다. 클라이언트에서 계산 · 합산 · 하드코딩하지 않는다 (P-03, P-09).
-- **원화 결제 (토스페이먼츠, P-08)**: 원화 결제는 충전뿐이다 (선물도 등껍질, Q-16). 서버가 만든 주문(`orderId` · `amount`)으로만 결제창을 연다. PG 복귀 쿼리의 `paymentKey` · `orderId` · `amount` 는 그대로 서버 승인 요청에 넘기기만 한다. `/pay/success` 는 서버 승인 응답을 받은 뒤에만 성공을 표시한다.
-- **충전 완료 (TOPUP-DONE)**: 충전 주문이 `CREDITED` 일 때만 완료와 잔액(서버 값)을 표시한다. `PAID` · `processing: true` 는 처리 중이다. 승인 결과가 불명확하면 주문 조회(`GET /top-up-orders/{orderId}`)를 2초 간격 최대 30초 하고, 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼을 보인다. 지연을 실패로 표시하거나 새 결제로 유도하지 않는다. `processing: false` 만으로 성공 판단하지 않는다.
+- **금액은 서버만**: 원화 금액 · 등껍질 차감량 · 구매 후 잔액은 서버 견적 · 주문 · 구매 응답 값만 표시한다. 클라이언트에서 계산 · 합산 · 하드코딩하지 않는다 (P-03, P-09). 차감 확인 팝업의 상품명은 견적 `productName`(서버 값) — 없으면 상품 줄을 그리지 않고 지어내지 않는다. `regularPrice` 는 검사만 하고 화면에 쓰지 않는다 (Q-22).
+- **원화 결제 (토스페이먼츠, P-08)**: 원화 결제는 충전뿐이다 (선물도 등껍질, Q-16). 서버가 만든 주문(`orderId` · `amount`)으로만 결제창을 연다. PG 복귀 쿼리의 `paymentKey` · `orderId` · `amount` 는 그대로 서버 승인 요청에 넘기기만 한다. `/pay/success` 는 서버 승인 응답을 받은 뒤에만 성공을 표시한다. **토스 결제창** (TOSS-LAUNCHER-SWITCH · TOSS-ANONYMOUS, 2026-10-11): V2 결제창형(위젯 `renderPaymentWindow` → `requestPayment` redirect), `customerKey: ANONYMOUS`, 클라이언트 키 `NEXT_PUBLIC_TOSS_CLIENT_KEY`(`test_gck_` · `live_gck_` 만 — 시크릿 키는 FE 에 두지 않는다). 가짜 모드는 `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER=toss` 일 때만 토스 결제창(돌아오면 가짜 메모리가 비어 `/pay/success` 가 실패 화면 — 의도), 비우거나 `fake` 는 가짜 결제창, 다른 값은 던진다. 결제창 닫기는 `PaymentCanceledError` → 충전 화면에 오류 안내 없음. 토스 결제창 안에 자체 필수 동의가 있다 — PAY-01 동의 칸은 Q-25.
+- **충전 완료 (TOPUP-DONE)**: 충전 주문이 `CREDITED` 일 때만 완료와 잔액(서버 값)을 표시한다. `PAID` · `processing: true` 는 처리 중이다. 승인 결과가 불명확하면 주문 조회(`GET /top-up-orders/{orderId}`)를 2초 간격 최대 30초 하고, 그래도 미확정이면 확인 중 안내 + 주문 확인 버튼을 보인다. 지연을 실패로 표시하거나 새 결제로 유도하지 않는다. `processing: false` 만으로 성공 판단하지 않는다. 충전 완료 지급 수량은 승인 · 주문 응답의 `grantedShellAmount` 만(숫자만, 단위 · 문구 `TODO(PD 문구)`, null 이면 비움) — 주문 예정 지급량으로 완료를 표시하지 않는다. adapter 는 `CREDITED` 인데 `grantedShellAmount` · `walletBalance` 가 null 이면 `ApiContractError`. 모르는 주문 상태(예: BE-A PR #24 의 `REFUND_PENDING`, Q-41) · 충전 `nextAction` 은 UNKNOWN — 완료로 보지 않는다.
 - **멱등성 (I-05)**: `Idempotency-Key` 는 구매 의도 하나에 하나만 만들고, 재시도 · 새로고침 · PG 복귀 · CSRF 재시도에도 같은 키 · 같은 본문을 쓴다. 결과가 불명확하다는 이유로 새 키를 만들지 않는다. 키와 본문은 `src/lib/api/idempotency.ts` 로 만든다 (구매 의도당 `createIdempotentCommand` 한 번, 충전 승인은 `createOrderBoundCommand` — 주문 ID 키). mutation 자동 재시도는 0 (`makeQueryClient`). `409 IDEMPOTENCY_REQUEST_PROCESSING` 이면 버튼을 다시 열지 않고 상태를 조회한다.
-- **CSRF (Q-02 해결)**: `GET /session` 응답의 `csrfToken` 을 변경 요청의 `X-CSRF-Token` 헤더로 보낸다. `403 CSRF_FAILED` 면 `GET /session` 을 한 번 불러 새 토큰으로 원래 요청을 **1회만** 재시도하고, 그래도 실패하면 로그인 만료 · 보안 오류로 처리한다. 필드 이름은 OpenAPI 생성본으로 확인한다.
+- **CSRF (Q-02 해결)**: `GET /session` 응답의 `csrfToken` 을 변경 요청의 `X-CSRF-Token` 헤더로 보낸다. 출처는 진짜 세션 adapter(`createRealSession` → `{ port, csrf }`) 하나 — `ports/index.ts` 의 `getRealSession()` 이 탭 하나에 하나만 만들어 모든 adapter 가 같은 토큰을 본다. `403 CSRF_FAILED` 면 `GET /session` 을 한 번 불러 새 토큰으로 원래 요청을 **1회만** 재시도하고, 그래도 실패하면 로그인 만료 · 보안 오류로 처리한다. 필드 이름은 OpenAPI 생성본으로 확인한다.
 - **사주 결과**: 만세력 계산과 해석 문장 생성(Liner)은 서버가 한다 (S-06). FE 는 AI · 외부 생성 호출을 추가하지 않고, 서버 결과 스냅샷만 표시한다.
 - **날짜**: `src/lib/date.ts` (Asia/Seoul) 를 거친다. 기기 시간대를 쓰지 않는다. 수능운 판매 마감은 전날 23:59 KST (F-07).
 - **선물**: 1차는 수능운만, 결제는 등껍질(원화 PG 결제는 충전만), 부적은 고르지 않는다 — 팀 결정(2026-10-03, P-07 · P-03A · T-01)으로 팀 문서(`main`, `cc60ab3` · `9fb9d21`)에 반영됐다. OpenAPI 전에는 선물 결제 · 위저드 코드를 만들지 않고(가짜 포트로도 만들지 않는다, MOCK-PORT 범위 밖), 가격 · 단위는 서버 `price.currency` · `price.amount` 만 쓴다. 재발송 버튼은 서버의 `delivery.canResend` 만 따른다 (횟수 · 시간을 FE 가 계산하지 않는다). 선물 링크 OG 에는 수신자 · 보낸 사람 이름을 넣을 수 있다(Q-13), 생년정보 · 메시지는 넣지 않는다. 수신자에게는 서버가 알림톡으로 링크를 보낸다(G-10) — FE 가 선물 링크를 만들거나 공유로 전달하지 않는다. 수신자 휴대전화번호는 입력 칸 외에는 서버가 준 마스킹 값만 표시하고, 로그 · Sentry · PostHog 에 넣지 않는다. 선물 메시지는 텍스트로만 렌더하고(`dangerouslySetInnerHTML` 금지) OG · PostHog · Sentry 에 넣지 않는다 (G-08).
 - **공유**: 개인 결과 · 부적은 카카오톡 공유하기(Kakao JS SDK)로, 서버가 만든 비식별 share 리소스만 쓴다 (G-11). 공유 범위는 G-11 미정.
-- **브라우저 저장소**: `localStorage` 는 수능 준비물 체크 상태만 — 예외: 가짜 모드 개발 도구의 `mockOverrides`(MOCK-PANEL, `src/mocks/overrides.ts`, 진짜 모드에서는 읽지도 쓰지도 않는다) (오늘의 운세는 로그인 + 저장된 본인 정보로 바뀌어 생년정보를 기기에 저장하지 않는다, X-01 2026-10-04 변경). `sessionStorage` 는 선물 위저드의 Zustand persist 와 구매 선택 복원(PURCHASE-RESTORE, Q-07)만 — 구매 선택은 인물 ID 와 최소 선택값만(생년정보 원문 금지), 마지막 변경 후 24시간, 읽을 때 만료 검증, 구매 성공 · 로그아웃 시 삭제, 저장한 가격 · 잔액은 표시 근거로 쓰지 않는다. 구매 의도 키(PURCHASE-KEY-STORE, 2026-10-10): `Idempotency-Key` 와 `quoteId` 도 같은 조건(24시간 · 읽을 때 만료 검증 · 구매 성공 · 로그아웃 삭제 · 생년정보 · 가격 · 잔액 금지)으로 `sessionStorage` 에 둔다 — 구현은 구매 상태 조회 API 가 OpenAPI 에 들어올 때이고, 그 전에는 저장하지 않는다. 전역 상태는 선물 위저드의 Zustand 하나뿐.
-- **구매 결과 · 상태 조회 (Q-38)**: `FULFILLED` + `readingId` 일 때만 결과로 이동하고, 환급 완료는 서버 상태 `REFUNDED` 일 때만 표시한다(오류 code · `FAILED` 만으로 단정하지 않는다). `readingId` · `balance` · `charged` 의 null 을 0 · 완료로 바꾸지 않는다. BE-B 합의안의 구매 상태 조회(`compensationStatus` · `nextAction`)는 API_SPEC · OpenAPI 반영 전에는 가짜 구현으로도 만들지 않는다 — 반영 후 포트 · 가짜 · adapter 를 한 번에 (PURCHASE-STATUS-WAIT, 2026-10-10).
+- **브라우저 저장소**: `localStorage` 는 수능 준비물 체크 상태만 — 예외: 가짜 모드 개발 도구의 `mockOverrides`(MOCK-PANEL, `src/mocks/overrides.ts`, 진짜 모드에서는 읽지도 쓰지도 않는다) (오늘의 운세는 로그인 + 저장된 본인 정보로 바뀌어 생년정보를 기기에 저장하지 않는다, X-01 2026-10-04 변경). `sessionStorage` 는 선물 위저드의 Zustand persist 와 구매 선택 복원(PURCHASE-RESTORE, Q-07)만 — 구매 선택은 인물 ID 와 최소 선택값만(생년정보 원문 금지), 마지막 변경 후 24시간, 읽을 때 만료 검증, 구매 성공 · 로그아웃 시 삭제, 저장한 가격 · 잔액은 표시 근거로 쓰지 않는다. 구매 의도 키(PURCHASE-KEY-STORE, 2026-10-10 결정 · 2026-10-12 구현): `Idempotency-Key` 와 `quoteId` 도 같은 조건(24시간 · 읽을 때 만료 검증 · 구매 성공 · 로그아웃 삭제 · 생년정보 · 가격 · 잔액 금지)으로 `sessionStorage` 에 둔다 — 구매 선택 복원 v3 의 `purchaseKey`(구매를 보내기 직전 저장, 완료 · 실패 때 삭제, v2 는 키 없음으로 읽고 v1 은 버린다). 전역 상태는 선물 위저드의 Zustand 하나뿐.
+- **구매 결과 · 상태 조회 (Q-38 · PURCHASE-STATUS-UI, 2026-10-12)**: 화면 분기는 서버 `status`, 버튼 · 안내는 `nextAction`(API_SPEC 8장 상태표, 모르는 값은 UNKNOWN). `FULFILLED` + `readingId` 일 때만 결과로 이동한다. 환급 문장은 `REFUNDED` + `compensationStatus: COMPLETED` 일 때만 — 오류 code · `FAILED` 만으로 단정하지 않는다. `WAIT` 은 처리 중, `RETRY_PURCHASE` 는 다시 시도, 그 밖의 실패는 문의 안내(새 구매를 열지 않는다). `readingId` · `balance` · `charged` 의 null 을 0 · 완료로 바꾸지 않는다. **처리 중 자동 반복 조회는 하지 않는다** — 결과 불명 · 처리 중 · 생성 실패 오류 뒤 `GET /reading-purchases/by-quote/{quoteId}` 를 한 번만 자동으로 부르고, 그 뒤는 사용자가 "결과 확인" 을 누를 때. 기록이 없으면(404 `PURCHASE_NOT_FOUND` → null) 자동 재전송하지 않고, 사용자가 누를 때만 같은 키 · 같은 견적으로 다시 보낸다. 완료 전달(`onPurchased`)은 한 번만. 처리 중에는 팝업을 닫지 못한다(Q-40 1 답 전). `failureCode` 는 검사 · 보관하지 않는다(`TODO(Q-38 c)`).
 - **사업자 정보**(상호 · 대표자 · 사업자등록번호 · 주소 · 유선번호 · 통신판매업 신고번호 · 전자우편주소 · 호스팅서비스 제공자)는 `src/lib/business.ts` 한 파일에만 둔다. 값은 사용자가 준 것만 넣는다.
 - **오류 화면**: 화면 오류는 `src/app/error.tsx`(AppShell 유지 + Sentry), 없는 주소 · 잘못된 토큰은 not-found. `error.message` · `digest` 를 화면에 노출하지 않는다.
 - **관측**: PostHog 이벤트 이름은 O-06 목록만. 인적정보 · 휴대전화번호 · 메시지 · 토큰 · signed URL · 결과 본문 · 결제 키를 Sentry · PostHog 에 보내지 않는다.
@@ -96,7 +96,7 @@
 - 폰트: **보류 (FONT-HOLD)** — 결정 전까지 코드에서 글꼴을 지정하지 않는다. 결정되면 `next/font/local` 서브셋으로 셀프호스팅
 - 오버레이: vaul(바텀시트), Radix Dialog(모달) — shadcn/ui 사용 안 함
 - 데이터: TanStack Query, API 타입은 openapi-typescript 로 생성 (백엔드 타입 수동 작성 금지, 생성 파일 손수정 금지). adapter 는 openapi-fetch 대신 `src/lib/api/http.ts` 로 요청하고 응답을 zod 로 검사한다 (ADAPTER-HTTP, `docs/FRONTEND.md` 1장 표). OpenAPI 전에는 포트 + 가짜 구현 (MOCK-PORT, 새 라이브러리 없음 — MSW 쓰지 않음)
-- 결제: 토스페이먼츠 SDK v2 `@tosspayments/tosspayments-sdk` (TOSS-SDK 승인, 설치는 PG-3 에서 사용자가 직접)
+- 결제: 토스페이먼츠 SDK v2 `@tosspayments/tosspayments-sdk` 2.9.0 (TOSS-SDK 승인, 사용자가 설치 완료 — 10/11)
 - 폼: React Hook Form + Zod
 - 클라이언트 상태: Zustand 는 선물 위저드 동안만 (`sessionStorage` persist). 그 외 전역 상태 추가 금지
 - 날짜: dayjs + timezone, 항상 `Asia/Seoul`
@@ -111,7 +111,7 @@
 ### 백엔드 — 확정 (팀 문서)
 
 Spring Boot 3 + PostgreSQL, Railway 배포(local · staging · production 분리), API prefix `/api/v1`, 카카오 OAuth + 서버 세션 쿠키, 토스페이먼츠, Cloudflare R2, OpenAPI 는 springdoc 생성 (I-01 · I-02 · I-03 · I-04, `backend/README.md`).
-골격은 `main` 에 있다(`a605afa`, 10/3) — 업무 API 없음, springdoc 은 `local` 프로필에서만 공개 (FE 가 받을 경로는 Q-18). → OpenAPI 파일은 `docs/openapi/api-v1.json` (BE-A PR #17, 10/9).
+골격은 `main` 에 있다(`a605afa`, 10/3) — 업무 API 없음, springdoc 은 `local` 프로필에서만 공개 (FE 가 받을 경로는 Q-18). → OpenAPI 파일은 `docs/openapi/api-v1.json` (BE-A PR #17, 10/9 · BE-B PR #23 재생성 `75350c6`, 10/12). BE-A PR #24 의 충전 환불 계약은 별도 파일 `backend/docs/openapi/payment-operations-v1.json` 에만 있다 — 공유 파일에 합쳐지기 전(Q-41)에는 생성 타입 · adapter 를 만들지 않는다.
 
 ## 폴더 구조
 
@@ -150,7 +150,7 @@ saju-project/
 | `pnpm e2e` | Playwright (모바일 뷰포트 2종) — 전체 실행은 사용자가 직접. 처음이면 `pnpm e2e:install` |
 | `pnpm api:types` | `docs/openapi/api-v1.json`(저장소 루트, BE 가 갱신) → `src/types/api.d.ts` 타입 생성. 생성 파일은 손으로 고치지 않는다 — OpenAPI 파일이 바뀌면 다시 실행 (동기화 테스트가 실패로 알려 준다) |
 
-- 환경 변수: `frontend/.env.example` 을 복사해 `frontend/.env.local` 로 쓴다 (사용자가 직접 작성). `API_PROXY_TARGET` 에 백엔드 주소. 가짜 구현 전환 변수는 MOCK-PORT 코드 단계에서 `.env.example` 에 추가한다 (`docs/FRONTEND.md` 1-2).
+- 환경 변수: `frontend/.env.example` 을 복사해 `frontend/.env.local` 로 쓴다 (사용자가 직접 작성 — Claude Code 는 `.env*` 를 읽거나 쓰지 않는다). `API_PROXY_TARGET` 에 백엔드 주소, `NEXT_PUBLIC_API_MODE`(mock · real). 가짜 모드: `NEXT_PUBLIC_MOCK_SESSION_SCENARIO` · `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO` · `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO` · `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER`(값 목록은 `docs/PROGRESS.md`). 토스 클라이언트 키 `NEXT_PUBLIC_TOSS_CLIENT_KEY` — 키 원문은 문서 · Git · 스크린샷에 넣지 않는다. 바꾸면 `pnpm dev` 재시작.
 - 배포: Vercel. `main` → 스테이징, PR → 미리보기 URL. 실기기 확인은 미리보기의 브랜치 주소, PG 심사 대상 확인은 운영 도메인.
 
 ## 브랜치 · PR

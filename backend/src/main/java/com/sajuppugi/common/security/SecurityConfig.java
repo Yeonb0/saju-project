@@ -24,13 +24,17 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper,
-            Environment environment, AuthService auth) throws Exception {
+            Environment environment, AuthService auth, com.sajuppugi.admin.application.AdminAccessService admin) throws Exception {
         // Authentication and business permissions will be implemented by BE-B.
         http.authorizeHttpRequests(authorize -> {
             authorize.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
             authorize.requestMatchers("/api/v1/auth/kakao/authorize", "/api/v1/auth/kakao/callback", "/api/v1/session").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll();
+            authorize.requestMatchers(HttpMethod.POST, "/api/v1/webhooks/toss").permitAll();
+            authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->
+                    new org.springframework.security.authorization.AuthorizationDecision(admin.allows(authentication.get(),
+                            !java.util.List.of("GET", "HEAD", "OPTIONS").contains(context.getRequest().getMethod()))));
             authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
             authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
             authorize.requestMatchers("/api/v1/top-up-orders", "/api/v1/top-up-orders/**").authenticated();

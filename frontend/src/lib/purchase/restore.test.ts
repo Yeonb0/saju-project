@@ -20,6 +20,7 @@ const VALUE: PurchaseSelection = {
     personId: "66666666-6666-4666-8666-666666666666",
     counterpartPersonId: null,
   },
+  purchaseKey: null,
 };
 // 픽스처 시각
 const T0 = 1_000_000;
@@ -128,5 +129,69 @@ describe("구매 선택 복원 — fortuneType (v: 2)", () => {
     expect(loadPurchaseSelection(T0)).toBeNull();
     sessionStorage.setItem(PURCHASE_SELECTION_KEY, rawOf(2, WITHOUT_TYPE));
     expect(loadPurchaseSelection(T0)).toBeNull();
+  });
+});
+
+describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
+  // 픽스처일 뿐이다
+  const KEY = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  it("키를 넣어 저장하면 그대로 읽힌다", () => {
+    savePurchaseSelection({ ...VALUE, purchaseKey: KEY }, T0);
+    expect(loadPurchaseSelection(T0 + 1)).toEqual({
+      ...VALUE,
+      purchaseKey: KEY,
+    });
+  });
+
+  it("키를 생략하면 null 로 저장 · 읽힌다", () => {
+    const { purchaseKey: _omit, ...withoutKey } = VALUE;
+    savePurchaseSelection(withoutKey, T0);
+    expect(loadPurchaseSelection(T0 + 1)?.purchaseKey).toBeNull();
+    expect(
+      JSON.parse(sessionStorage.getItem(PURCHASE_SELECTION_KEY) ?? "{}"),
+    ).toMatchObject({ v: 3, purchaseKey: null });
+  });
+
+  it("빈 문자열 키는 저장값 무효 — 읽을 때 지운다", () => {
+    sessionStorage.setItem(
+      PURCHASE_SELECTION_KEY,
+      JSON.stringify({
+        v: 3,
+        savedAt: T0,
+        returnPath: "/suneung",
+        quoteId: VALUE.quoteId,
+        selection: VALUE.selection,
+        purchaseKey: "",
+      }),
+    );
+    expect(loadPurchaseSelection(T0 + 1)).toBeNull();
+    expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
+  });
+
+  it("v: 2 저장값은 purchaseKey null 로 읽힌다 (배포 전 충전 복귀 값)", () => {
+    sessionStorage.setItem(
+      PURCHASE_SELECTION_KEY,
+      JSON.stringify({
+        v: 2,
+        savedAt: T0,
+        returnPath: "/suneung",
+        quoteId: VALUE.quoteId,
+        selection: VALUE.selection,
+      }),
+    );
+    expect(loadPurchaseSelection(T0 + 1)).toEqual({
+      ...VALUE,
+      purchaseKey: null,
+    });
+  });
+
+  it("24시간 만료는 키가 있어도 같다", () => {
+    savePurchaseSelection({ ...VALUE, purchaseKey: KEY }, T0);
+    expect(
+      loadPurchaseSelection(T0 + PURCHASE_SELECTION_TTL_MS - 1)?.purchaseKey,
+    ).toBe(KEY);
+    expect(loadPurchaseSelection(T0 + PURCHASE_SELECTION_TTL_MS)).toBeNull();
+    expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
   });
 });

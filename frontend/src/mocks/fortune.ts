@@ -1,6 +1,7 @@
 // 운세 구매 포트의 가짜 구현 — 개발 서버 · Vercel 미리보기 전용 (docs/FRONTEND.md 1-2, MOCK-PORT).
 // 서버 규칙을 흉내 낸다: 견적은 서버가 잔액 · 부족분 · 구매 후 잔액을 계산해 준다, 같은 Idempotency-Key 는 같은 결과,
 // 같은 키에 다른 본문은 409 IDEMPOTENCY_KEY_REUSED, 잔액이 모자라면 409 INSUFFICIENT_BALANCE, 만료 견적은 409 QUOTE_EXPIRED.
+// 구매 상태 조회(getPurchaseStatus)는 API_SPEC 8장 상태표(Q-38 답, PR #20)의 조합을 따르고, 기록이 없으면 null 이다 (PURCHASE-STATUS-WAIT 해제).
 // 아래 상품 · 금액 · 이름은 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다 (P-03 값을 옮기지 않는다).
 import { ApiError } from "@/lib/api/errors";
 import type {
@@ -10,6 +11,7 @@ import type {
   FortuneSelection,
   FortuneType,
   ReadingPurchaseResult,
+  ReadingPurchaseState,
 } from "@/lib/ports/fortune";
 import type { TopUpProduct } from "@/lib/ports/topUp";
 import { FIXTURE_TOP_UP_PRODUCTS } from "./topUp";
@@ -20,6 +22,9 @@ export const FAKE_FORTUNE_SCENARIOS = [
   "generation_failed", // 생성 실패 — FAILED · 차감 되돌림 (READING_GENERATION_FAILED)
   "processing_409", // 첫 구매 요청은 409 IDEMPOTENCY_REQUEST_PROCESSING, 같은 키 재요청은 FULFILLED
   "quote_expired", // 첫 견적으로 구매하면 409 QUOTE_EXPIRED, 새 견적으로는 FULFILLED
+  "generating", // 구매 응답은 GENERATING · WAIT (차감함), 그 견적으로 getPurchaseStatus 하면 그때 결과를 만들고 FULFILLED · VIEW_READING
+  "review_required", // FAILED · REVIEW_REQUIRED · CONTACT_SUPPORT — 차감을 되돌리지 않는다
+  "refunded", // REFUNDED · COMPLETED · RETRY_PURCHASE — 차감을 되돌린다
 ] as const;
 
 export type FakeFortuneScenario = (typeof FAKE_FORTUNE_SCENARIOS)[number];
@@ -59,7 +64,13 @@ type StoredQuote = {
   selection: FortuneSelection;
   expired: boolean;
 };
-type StoredPurchase = { body: string; result: ReadingPurchaseResult };
+type StoredPurchase = {
+  body: string;
+  quoteId: string;
+  // generating 시나리오: 구매 응답은 GENERATING, getPurchaseStatus 에서 완료로 바꾼다
+  pending: { product: FortuneProduct; selection: FortuneSelection } | null;
+  result: ReadingPurchaseResult;
+};
 
 export function createFakeFortunePort(
   options: {
@@ -193,20 +204,104 @@ export function createFakeFortunePort(
         throw fail(409, "INSUFFICIENT_BALANCE");
       }
 
-      const failed = scenario === "generation_failed";
-      // 생성 실패면 차감을 되돌린다 (잔액으로만 드러난다 — 응답에 refunded 는 없다, Q-38)
-      if (failed) wallet.credit(p.price.amount);
-      const result: ReadingPurchaseResult = {
+      // API_SPEC 8장 상태표 조합. readingId 는 FULFILLED 에서만 준다
+      const reverted =
+        scenario === "generation_failed" || scenario === "refunded";
+      // 되돌림은 잔액으로만 드러난다 — 구매 응답에 환급 필드는 없다 (Q-38)
+      if (reverted) wallet.credit(p.price.amount);
+      const base = {
         purchaseId: crypto.randomUUID(),
-        readingId: failed
-          ? crypto.randomUUID()
-          : (options.onFulfilled?.(p, input.selection) ?? crypto.randomUUID()),
-        status: failed ? "FAILED" : "FULFILLED",
-        charged: failed ? { currency: p.price.currency, amount: 0 } : p.price,
         balance: wallet.balance(),
       };
-      purchases.set(idempotencyKey, { body, result });
+      const zero = { currency: p.price.currency, amount: 0 };
+      let result: ReadingPurchaseResult;
+      if (scenario === "generation_failed") {
+        result = {
+          ...base,
+          readingId: null,
+          status: "FAILED",
+          compensationStatus: "NOT_REQUIRED",
+          nextAction: "RETRY_PURCHASE",
+          charged: zero,
+        };
+      } else if (scenario === "review_required") {
+        result = {
+          ...base,
+          readingId: null,
+          status: "FAILED",
+          compensationStatus: "REVIEW_REQUIRED",
+          nextAction: "CONTACT_SUPPORT",
+          charged: p.price,
+        };
+      } else if (scenario === "refunded") {
+        result = {
+          ...base,
+          readingId: null,
+          status: "REFUNDED",
+          compensationStatus: "COMPLETED",
+          nextAction: "RETRY_PURCHASE",
+          charged: zero,
+        };
+      } else if (scenario === "generating") {
+        result = {
+          ...base,
+          readingId: null,
+          status: "GENERATING",
+          compensationStatus: "NOT_REQUIRED",
+          nextAction: "WAIT",
+          charged: p.price,
+        };
+      } else {
+        result = {
+          ...base,
+          readingId:
+            options.onFulfilled?.(p, input.selection) ?? crypto.randomUUID(),
+          status: "FULFILLED",
+          compensationStatus: "NOT_REQUIRED",
+          nextAction: "VIEW_READING",
+          charged: p.price,
+        };
+      }
+      purchases.set(idempotencyKey, {
+        body,
+        quoteId: input.quoteId,
+        pending:
+          scenario === "generating"
+            ? { product: p, selection: input.selection }
+            : null,
+        result,
+      });
       return result;
+    },
+
+    // 그 견적으로 기록된 구매의 상태. 기록이 없으면 null (409 로 끝난 요청은 기록이 없다). 견적 만료와 무관하다 — findQuote 를 거치지 않는다
+    async getPurchaseStatus(quoteId): Promise<ReadingPurchaseState | null> {
+      for (const record of purchases.values()) {
+        if (record.quoteId !== quoteId) continue;
+        if (record.pending) {
+          // generating: 조회 때 결과를 만든다. 한 번 완료되면 이후 조회도 같은 값
+          const { product: p, selection } = record.pending;
+          record.pending = null;
+          record.result = {
+            ...record.result,
+            readingId:
+              options.onFulfilled?.(p, selection) ?? crypto.randomUUID(),
+            status: "FULFILLED",
+            compensationStatus: "NOT_REQUIRED",
+            nextAction: "VIEW_READING",
+          };
+        }
+        const { purchaseId, readingId, status } = record.result;
+        const { compensationStatus, nextAction } = record.result;
+        return {
+          purchaseId,
+          readingId,
+          status,
+          compensationStatus,
+          nextAction,
+        };
+      }
+      return null;
     },
   };
 }
