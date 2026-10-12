@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-12: PR #25 머지 전 교착 보완과 전체 재검증
+
+- 사용자 요청으로 관리자 PR #25 머지를 준비했다. 최신 main merge-tree 무충돌을 확인했지만 최초 Backend CI 1건 실패를 발견하여 바로 merge하지 않았다.
+- CI 로그의 command INSERT FK KEY SHARE와 완료 order/member FOR UPDATE 교착을 분석했다. 등록도 order-first로 맞추고 member/grant FOR NO KEY UPDATE로 권한 변경은 차단하되 FK 읽기와 공존하게 수정했다 (`45d292d`).
+- 적용: 6-1 권한/철회, 6-2 PG 잠금·동시 처리, 6-3 DB 밖 PG 조회, 6-4 lease/중복 방지, 6-8 감사. 새 PostgreSQL 17.11 DB saju_admin_merge_20261012에서 check/bootJar 성공: 496건 중 488 통과, 8 선택 제외, 실패/오류 0. 동시 같은 주문 10회 및 member FK 읽기 공존 회귀 포함.
+- 관리자 화면 없는 관리 도구 절차를 문서화했다. 사용자 정정 정책은 신청 기반 전액 환불이며 부분 환불 미제공이다. FE/실제 관리자/키/.env/활성화/배포 변경 없음. 실제 PG·OAuth·브라우저·부하·복원은 미실행이다. GitHub 최신 head CI와 충돌을 다시 확인한 뒤 merge한다.
+
 ### 2026-10-12: PR #24 머지 및 관리자 금융 운영 분리
 
 - 사용자 조건부 merge 요청에 따라 같은 환불/운영 알림 기능은 PR #24에 묶었다. head b94e5d1의 CI/Backend CI success, GitHub mergeable=true, 최신 main merge-tree 무충돌, expected head 일치를 확인하고 merge했다. merge commit b3a114b, 관리자 코드는 codex/admin-financial-recovery로 분리했다.
