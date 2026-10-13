@@ -1,5 +1,7 @@
 package com.sajuppugi;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -12,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.sajuppugi.fortune.daily.application.DailyFortuneService;
 import com.sajuppugi.share.DailyFortuneShareService;
+import com.sajuppugi.share.JdbcDailyFortuneShares;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -25,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -37,6 +41,7 @@ class DailyFortuneShareApiTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired DailyFortuneShareService shares;
+    @Autowired JdbcDailyFortuneShares shareStore;
     @MockitoBean DailyFortuneService fortunes;
     UUID owner = UUID.randomUUID();
     UUID person = UUID.randomUUID();
@@ -138,6 +143,61 @@ class DailyFortuneShareApiTest {
                 Integer.class, owner, person)).isOne();
     }
 
+    @Test
+    void failedInitialSnapshotWriteRollsBackCompletelyAndRetryCanCreateTheLink() {
+        Instant now = Instant.parse("2026-10-13T00:00:00Z");
+        assertThatThrownBy(() -> shareStore.createOrReuse(owner, person, overflowingFortune(), now,
+                now.plusSeconds(86_400), () -> "retry-token"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM daily_fortune_shares WHERE person_id=?", Integer.class, person))
+                .isZero();
+
+        var retried = shares.create(owner, person);
+        assertThat(retried.token()).isNotBlank();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM daily_fortune_shares WHERE person_id=?", Integer.class, person))
+                .isOne();
+    }
+
+    @Test
+    void failedExpiredLinkRefreshPreservesThePreviousSnapshotUntilARetrySucceeds() throws Exception {
+        String created = create(owner, person);
+        String oldToken = JsonPath.read(created, "$.data.token");
+        UUID shareId = UUID.fromString(JsonPath.read(created, "$.data.shareId"));
+        jdbc.update("UPDATE daily_fortune_shares SET expires_at=? WHERE id=?", Timestamp.from(Instant.EPOCH), shareId);
+        String oldHash = jdbc.queryForObject("SELECT public_token_hash FROM daily_fortune_shares WHERE id=?", String.class, shareId);
+
+        Instant now = Instant.parse("2026-10-13T00:00:00Z");
+        assertThatThrownBy(() -> shareStore.createOrReuse(owner, person, overflowingFortune(), now,
+                now.plusSeconds(86_400), () -> "refresh-token"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThat(jdbc.queryForObject("SELECT public_token_hash FROM daily_fortune_shares WHERE id=?", String.class, shareId))
+                .isEqualTo(oldHash);
+        mvc.perform(get("/api/v1/daily-fortune-shares/{token}", oldToken))
+                .andExpect(status().isGone()).andExpect(jsonPath("$.code").value("SHARE_EXPIRED"));
+
+        var recovered = shares.create(owner, person);
+        assertThat(recovered.shareId()).isEqualTo(shareId);
+        assertThat(recovered.token()).isNotEqualTo(oldToken);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM daily_fortune_shares WHERE person_id=?", Integer.class, person))
+                .isOne();
+    }
+
+    @Test
+    void calculationFailureCannotRevokeOrOverwriteAnExistingActiveLink() throws Exception {
+        String created = create(owner, person);
+        String token = JsonPath.read(created, "$.data.token");
+        when(fortunes.today(owner, person)).thenThrow(new IllegalStateException("simulated calculation outage"));
+
+        assertThatThrownBy(() -> shares.create(owner, person)).isInstanceOf(IllegalStateException.class);
+
+        mvc.perform(get("/api/v1/daily-fortune-shares/{token}", token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.content.oneLineFortune").value("오늘 문장"));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM daily_fortune_shares WHERE person_id=?", Integer.class, person))
+                .isOne();
+    }
+
     private String create(UUID userId, UUID personId) throws Exception {
         return mvc.perform(post("/api/v1/daily-fortunes/today/share").param("personId", personId.toString())
                         .with(user(userId.toString())).with(csrf()))
@@ -149,6 +209,13 @@ class DailyFortuneShareApiTest {
         return new DailyFortuneService.DailyFortune(LocalDate.of(2026, 10, 13), person,
                 new DailyFortuneService.Scores(71, 62, 53, 44, 35),
                 new DailyFortuneService.DailyContent("오늘 문장", "민트", "책갈피", "공원", "한 걸음"),
+                "calc-v1", "daily-v2");
+    }
+
+    private DailyFortuneService.DailyFortune overflowingFortune() {
+        return new DailyFortuneService.DailyFortune(LocalDate.of(2026, 10, 13), person,
+                new DailyFortuneService.Scores(71, 62, 53, 44, 35),
+                new DailyFortuneService.DailyContent("x".repeat(501), "민트", "책갈피", "공원", "한 걸음"),
                 "calc-v1", "daily-v2");
     }
 }
