@@ -223,6 +223,30 @@ describe("WalletScreen (PAY-01)", () => {
     expect(createOrder.mock.calls[1][1]).not.toBe(createOrder.mock.calls[0][1]);
   });
 
+  it("409 WALLET_REVIEW_REQUIRED 는 다시 시도 없이 문의 안내만 보이고 결제하기가 잠긴다 (Q-41 5)", async () => {
+    const user = userEvent.setup();
+    const port = createFakeTopUpPort();
+    vi.spyOn(port, "createOrder").mockRejectedValueOnce(
+      new ApiError({
+        status: 409,
+        code: "WALLET_REVIEW_REQUIRED",
+        traceId: null,
+      }),
+    );
+    const { createOrder, launcher } = setup(port);
+    await user.click((await screen.findAllByRole("radio"))[1]);
+    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    expect(
+      await screen.findByText(
+        "확인이 필요한 결제가 있어 지금은 충전할 수 없습니다. 고객센터로 문의해 주세요",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText("결제를 시작하지 못했습니다")).toBeNull();
+    expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+    expect(createOrder).toHaveBeenCalledTimes(1);
+    expect(launcher.requestPayment).not.toHaveBeenCalled();
+  });
+
   it("같은 틱에 두 번 눌러도 주문 · 결제창은 하나", async () => {
     const user = userEvent.setup();
     const { createOrder, launcher } = setup();

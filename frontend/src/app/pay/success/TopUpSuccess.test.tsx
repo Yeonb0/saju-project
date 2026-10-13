@@ -9,7 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiContractError } from "@/lib/api/errors";
+import { ApiContractError, ApiNetworkError } from "@/lib/api/errors";
 import { savePurchaseSelection } from "@/lib/purchase/restore";
 import { makeQueryClient } from "@/lib/queryClient";
 import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
@@ -38,7 +38,11 @@ async function prepare(scenario: FakeTopUpScenario) {
     { productCode: "FIXTURE_TOP_UP_B" },
     KEY,
   );
-  const port = { confirm: vi.fn(fake.confirm), getOrder: vi.fn(fake.getOrder) };
+  const port = {
+    confirm: vi.fn(fake.confirm),
+    getOrder: vi.fn(fake.getOrder),
+    getWallet: vi.fn(fake.getWallet),
+  };
   const ret = {
     paymentKey: "fixture-payment-key",
     orderId: order.orderId,
@@ -178,7 +182,7 @@ describe("TopUpSuccess (/pay/success)", () => {
   });
 
   it("q. CREDITED 인데 잔액이 null 이면 잔액 칸이 비어 있다", async () => {
-    const { ret, deps } = await prepare("credited");
+    const { fake, ret, deps } = await prepare("credited");
     // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다
     const port = {
       confirm: vi.fn(async () => ({
@@ -190,6 +194,7 @@ describe("TopUpSuccess (/pay/success)", () => {
         nextAction: "NONE" as const,
       })),
       getOrder: vi.fn(),
+      getWallet: vi.fn(fake.getWallet),
     };
     const { container } = render(
       <TopUpSuccess ret={ret} port={port} deps={deps} />,
@@ -205,7 +210,7 @@ describe("TopUpSuccess (/pay/success)", () => {
   });
 
   it("r. CREDITED 의 지급 수량과 잔액은 서로 다른 서버 필드를 읽는다", async () => {
-    const { ret, deps } = await prepare("credited");
+    const { fake, ret, deps } = await prepare("credited");
     // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다
     const port = {
       confirm: vi.fn(async () => ({
@@ -217,6 +222,7 @@ describe("TopUpSuccess (/pay/success)", () => {
         nextAction: "VIEW_WALLET" as const,
       })),
       getOrder: vi.fn(),
+      getWallet: vi.fn(fake.getWallet),
     };
     const { container } = render(
       <TopUpSuccess ret={ret} port={port} deps={deps} />,
@@ -247,13 +253,14 @@ describe("TopUpSuccess (/pay/success)", () => {
 
   it("응답 모양이 계약과 다르면 삼키지 않고 던진다 (오류 화면)", async () => {
     const silence = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { ret, deps } = await prepare("credited");
+    const { fake, ret, deps } = await prepare("credited");
     const contract = new ApiContractError(200, "fixture");
     const port = {
       confirm: vi.fn(async () => {
         throw contract;
       }),
       getOrder: vi.fn(),
+      getWallet: vi.fn(fake.getWallet),
     };
     const probe = makeProbe();
     render(
@@ -266,26 +273,136 @@ describe("TopUpSuccess (/pay/success)", () => {
     silence.mockRestore();
   });
 
-  it("g. CREDITED 면 완료 화면 뒤 잔액 조회가 무효화된다 (P-09 · Q-22)", async () => {
-    const { port, ret, deps } = await prepare("credited");
+  it("g. CREDITED 면 옛 잔액 캐시 대신 지갑을 다시 받아 유료 · 보너스를 보여 준다 (P-09 · Q-22)", async () => {
+    const { fake, port, ret, deps } = await prepare("credited");
     const client = makeQueryClient();
-    // 잔액 캐시를 심어 둔다 (픽스처일 뿐이며 실제 잔액과 무관하다)
-    client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
-    render(<TopUpSuccess ret={ret} port={port} deps={deps} />, client);
-    await screen.findByText("충전이 완료되었습니다");
-    await waitFor(() =>
-      expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true),
+    // 옛 잔액 캐시를 심어 둔다 (픽스처일 뿐이며 실제 잔액과 무관하다)
+    client.setQueryData(WALLET_QUERY_KEY, {
+      currency: "TURTLE_SHELL",
+      balance: 100,
+      paidBalance: 90,
+      bonusBalance: 10,
+    });
+    const { container } = render(
+      <TopUpSuccess ret={ret} port={port} deps={deps} />,
+      client,
     );
+    await screen.findByText("충전이 완료되었습니다");
+    const fresh = await fake.getWallet();
+    const expected = `유료 ${fresh.paidBalance.toLocaleString("ko-KR")} · 보너스 ${fresh.bonusBalance.toLocaleString("ko-KR")}`;
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-slot="wallet-breakdown"]')?.textContent,
+      ).toBe(expected),
+    );
+    expect(port.getWallet).toHaveBeenCalled();
   });
 
   it("h. 아직 CREDITED 가 아닌 동안(확인 중 · 처리 중)에는 무효화하지 않는다", async () => {
     const { port, ret, deps } = await prepare("stuck_paid");
     const client = makeQueryClient();
-    client.setQueryData(WALLET_QUERY_KEY, { balance: 100 });
+    client.setQueryData(WALLET_QUERY_KEY, {
+      currency: "TURTLE_SHELL",
+      balance: 100,
+      paidBalance: 90,
+      bonusBalance: 10,
+    });
     render(<TopUpSuccess ret={ret} port={port} deps={deps} />, client);
     expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
     await screen.findByRole("button", { name: "주문 확인" });
     expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
+    expect(port.getWallet).not.toHaveBeenCalled();
+  });
+
+  it("s. 내역은 지갑 응답 그대로, 보유는 주문 응답 walletBalance 그대로 — 서로 맞추지 않는다", async () => {
+    const { ret, deps } = await prepare("credited");
+    // 픽스처일 뿐이며 실제 잔액 · 규칙과 무관하다
+    const port = {
+      confirm: vi.fn(async () => ({
+        orderId: ret.orderId,
+        status: "CREDITED" as const,
+        processing: false,
+        walletBalance: 45,
+        grantedShellAmount: 33,
+        nextAction: "VIEW_WALLET" as const,
+      })),
+      getOrder: vi.fn(),
+      getWallet: vi.fn(async () => ({
+        currency: "TURTLE_SHELL",
+        balance: 1045,
+        paidBalance: 1040,
+        bonusBalance: 5,
+      })),
+    };
+    const { container } = render(
+      <TopUpSuccess ret={ret} port={port} deps={deps} />,
+    );
+    await screen.findByText("충전이 완료되었습니다");
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-slot="wallet-breakdown"]')?.textContent,
+      ).toBe("유료 1,040 · 보너스 5"),
+    );
+    expect(
+      container.querySelector('[data-slot="wallet-balance"]')?.textContent,
+    ).toBe("45");
+  });
+
+  it("t. 지갑 조회가 네트워크 오류여도 완료 안내는 보이고 내역 칸만 비어 있다", async () => {
+    const { fake, ret, deps } = await prepare("credited");
+    const port = {
+      confirm: vi.fn(fake.confirm),
+      getOrder: vi.fn(fake.getOrder),
+      getWallet: vi.fn(async () => {
+        throw new ApiNetworkError();
+      }),
+    };
+    const client = makeQueryClient();
+    client.setDefaultOptions({ queries: { retry: false } });
+    const { container } = render(
+      <TopUpSuccess ret={ret} port={port} deps={deps} />,
+      client,
+    );
+    expect(await screen.findByText("충전이 완료되었습니다")).toBeVisible();
+    await waitFor(() =>
+      expect(client.getQueryState(WALLET_QUERY_KEY)?.status).toBe("error"),
+    );
+    expect(screen.getByText("충전이 완료되었습니다")).toBeVisible();
+    expect(
+      container.querySelector('[data-slot="wallet-breakdown"]')?.textContent,
+    ).toBe("");
+  });
+
+  it("u. 지갑 응답이 계약과 다르면 삼키지 않고 오류 경계가 받는다", async () => {
+    const silence = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { fake, ret, deps } = await prepare("credited");
+    const contract = new ApiContractError(200, "fixture");
+    const port = {
+      confirm: vi.fn(fake.confirm),
+      getOrder: vi.fn(fake.getOrder),
+      getWallet: vi.fn(async () => {
+        throw contract;
+      }),
+    };
+    const client = makeQueryClient();
+    client.setDefaultOptions({ queries: { retry: false } });
+    const probe = makeProbe();
+    render(
+      <probe.Boundary>
+        <TopUpSuccess ret={ret} port={port} deps={deps} />
+      </probe.Boundary>,
+      client,
+    );
+    expect(await screen.findByText("caught")).toBeInTheDocument();
+    expect(probe.caught()).toBe(contract);
+    silence.mockRestore();
+  });
+
+  it("v. 처리 중(stuck_paid)에는 주문 확인 버튼이 나온 뒤에도 지갑을 조회하지 않는다", async () => {
+    const { port, ret, deps } = await prepare("stuck_paid");
+    render(<TopUpSuccess ret={ret} port={port} deps={deps} />);
+    await screen.findByRole("button", { name: "주문 확인" });
+    expect(port.getWallet).not.toHaveBeenCalled();
   });
 });
 

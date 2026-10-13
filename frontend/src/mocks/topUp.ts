@@ -105,14 +105,17 @@ export function createFakeTopUpPort(
     creditAfterPolls?: number;
     // 가짜 운세 구매와 잔액을 나눠 쓸 때 넘긴다 (src/lib/ports/index.ts)
     wallet?: FakeWallet;
+    // 환불 조회 픽스처. 신청 경로는 서버에 없다 — 고객센터 · 관리자 처리 (Q-41)
+    refunds?: readonly CashRefund[];
   } = {},
 ): TopUpPort {
   const scenario = options.scenario ?? "credited";
   const creditAfterPolls = options.creditAfterPolls ?? 2;
   const orders = new Map<string, StoredOrder>();
   const orderIdByKey = new Map<string, string>();
-  const refunds = new Map<string, CashRefund>();
-  const refundOrderByKey = new Map<string, string>();
+  const refunds = new Map<string, CashRefund>(
+    (options.refunds ?? []).map((refund) => [refund.orderId, refund]),
+  );
   const wallet = options.wallet ?? createFakeWallet();
 
   const fail = (status: number, code: string) =>
@@ -121,7 +124,7 @@ export function createFakeTopUpPort(
   function credit(stored: StoredOrder) {
     if (stored.status === "CREDITED") return;
     stored.status = "CREDITED";
-    wallet.credit(stored.product.creditedAmount);
+    wallet.credit(stored.product.paidAmount, stored.product.bonusAmount);
   }
 
   // 서버 규칙 흉내 (Q-17 해결): 상태별 다음 행동
@@ -160,7 +163,12 @@ export function createFakeTopUpPort(
 
   return {
     async getWallet() {
-      return { currency: "TURTLE_SHELL", balance: wallet.balance() };
+      return {
+        currency: "TURTLE_SHELL",
+        balance: wallet.balance(),
+        paidBalance: wallet.paid(),
+        bonusBalance: wallet.bonus(),
+      };
     },
 
     async listTopUpProducts() {
@@ -237,35 +245,9 @@ export function createFakeTopUpPort(
       return stateOf(stored);
     },
 
-    async requestRefund(orderId, idempotencyKey) {
-      const stored = find(orderId);
-      const keyedOrder = refundOrderByKey.get(idempotencyKey);
-      if (keyedOrder && keyedOrder !== orderId) {
-        throw fail(409, "IDEMPOTENCY_KEY_REUSED");
-      }
-      const existing = refunds.get(orderId);
-      if (existing) return existing;
-      if (stored.status !== "CREDITED") {
-        throw fail(409, "REFUND_NOT_ELIGIBLE");
-      }
-      stored.status = "REFUND_PENDING";
-      const refund: CashRefund = {
-        refundId: crypto.randomUUID(),
-        orderId,
-        state: "RESERVED",
-        amount: stored.order.amount.amount,
-        nextAction: "POLL",
-        completedAt: null,
-      };
-      refunds.set(orderId, refund);
-      refundOrderByKey.set(idempotencyKey, orderId);
-      return refund;
-    },
-
     async getRefund(orderId) {
-      find(orderId);
       const refund = refunds.get(orderId);
-      if (!refund) throw fail(404, "REFUND_NOT_FOUND");
+      if (!refund) throw fail(404, "RESOURCE_NOT_FOUND");
       return refund;
     },
   };

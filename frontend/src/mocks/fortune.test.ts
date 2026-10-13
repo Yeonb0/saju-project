@@ -134,7 +134,7 @@ describe("가짜 운세 구매 포트 (MOCK-PORT)", () => {
   });
 
   it("generation_failed: FAILED · 차감 되돌림", async () => {
-    const wallet = createFakeWallet(100);
+    const wallet = createFakeWallet(97, 3);
     const port = createFakeFortunePort({
       scenario: "generation_failed",
       wallet,
@@ -146,7 +146,7 @@ describe("가짜 운세 구매 포트 (MOCK-PORT)", () => {
     expect(result.readingId).toBeNull();
     expect(result.compensationStatus).toBe("NOT_REQUIRED");
     expect(result.nextAction).toBe("RETRY_PURCHASE");
-    expect(wallet.balance()).toBe(100);
+    expect([wallet.paid(), wallet.bonus()]).toEqual([97, 3]);
   });
 
   it("fulfilled: FULFILLED · NOT_REQUIRED · VIEW_READING, readingId 있음", async () => {

@@ -275,6 +275,31 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     expect(purchase.mock.calls[1][1]).toBe(purchase.mock.calls[0][1]);
   });
 
+  it("409 WALLET_REVIEW_REQUIRED 는 다시 시도 없이 문의 안내만 보이고 사용하기가 잠긴다 (Q-41 5)", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const purchase = vi.spyOn(port, "purchase").mockRejectedValueOnce(
+      new ApiError({
+        status: 409,
+        code: "WALLET_REVIEW_REQUIRED",
+        traceId: null,
+      }),
+    );
+    const lookup = vi.spyOn(port, "getPurchaseStatus");
+    setup({ port });
+    await user.click(await useButton());
+    expect(
+      await screen.findByText(
+        "확인이 필요한 결제가 있어 지금은 사용할 수 없습니다. 고객센터로 문의해 주세요",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText("구매하지 못했습니다")).toBeNull();
+    expect(screen.getByRole("button", { name: "사용하기" })).toBeDisabled();
+    expect(purchase).toHaveBeenCalledTimes(1);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(loadPurchaseSelection()).toBeNull();
+  });
+
   it("생성 실패(FAILED)는 앞 화면에 넘기지 않고 실패 · 다시 시도 안내, 환급 문장 없음", async () => {
     const user = userEvent.setup();
     const { onPurchased, purchase, createQuote } = setup({
