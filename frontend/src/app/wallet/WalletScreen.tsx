@@ -142,7 +142,12 @@ export function WalletScreen({
           <Button
             variant="cta"
             onClick={onPay}
-            disabled={selected === null || order.isPending || order.isSuccess}
+            disabled={
+              selected === null ||
+              order.isPending ||
+              order.isSuccess ||
+              errorKind === "review_required"
+            }
           >
             {/* TODO(PD 문구) */}
             결제하기
@@ -238,6 +243,12 @@ export function WalletScreen({
         <p>
           {/* TODO(PD 문구) */}
           <Link href={loginHref("/wallet")}>다시 로그인해 주세요</Link>
+        </p>
+      ) : errorKind === "review_required" ? (
+        // 다시 시도 없이 문의 안내 (Q-41 5, COMMON). 문의 채널은 미정 — 링크를 넣지 않는다 (Q-38 g). TODO(PD 문구)
+        <p role="alert">
+          확인이 필요한 결제가 있어 지금은 충전할 수 없습니다. 고객센터로 문의해
+          주세요
         </p>
       ) : errorKind ? (
         // TODO(PD 문구): 오류 종류별 안내

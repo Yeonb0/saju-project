@@ -4,10 +4,7 @@
 // 이 파일은 업무 API 를 모른다. 업무 요청 · 응답은 adapters 가 OpenAPI 생성 타입으로 만든다 (OpenAPI 수령 후).
 import { errorEnvelopeSchema, successEnvelopeSchema } from "./envelope";
 import { ApiContractError, ApiError, ApiNetworkError } from "./errors";
-import type {
-  IdempotentCommand,
-  KeyOnlyIdempotentCommand,
-} from "./idempotency";
+import type { IdempotentCommand } from "./idempotency";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -25,7 +22,7 @@ export type ApiRequest = {
   // 같은 출처 경로만 (next.config.ts rewrites, I-02). 쿼리는 호출하는 쪽이 붙인다.
   path: string;
   // 멱등 명령 (구매 · 충전 주문 · 승인 등). 키와 본문은 만들 때 고정된 값을 그대로 보낸다.
-  command?: IdempotentCommand | KeyOnlyIdempotentCommand;
+  command?: IdempotentCommand;
   // 멱등 키가 필요 없는 변경 요청의 본문. 처음 한 번만 직렬화해 CSRF 재시도에도 같은 문자열을 보낸다.
   json?: unknown;
   signal?: AbortSignal;
@@ -132,7 +129,7 @@ export function createApiClient(deps: {
 
     // 본문은 여기서 한 번만 정한다. CSRF 재시도도 같은 문자열 · 같은 키를 보낸다 (I-05)
     const body =
-      (req.command && "body" in req.command ? req.command.body : undefined) ??
+      req.command?.body ??
       (req.json === undefined ? undefined : JSON.stringify(req.json));
 
     async function send(csrfToken: string | null): Promise<Response> {

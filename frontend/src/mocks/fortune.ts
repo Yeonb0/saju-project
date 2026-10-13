@@ -200,7 +200,8 @@ export function createFakeFortunePort(
         processingSent.add(idempotencyKey);
         throw fail(409, "IDEMPOTENCY_REQUEST_PROCESSING");
       }
-      if (!wallet.debit(p.price.amount)) {
+      const taken = wallet.debit(p.price.amount);
+      if (!taken) {
         throw fail(409, "INSUFFICIENT_BALANCE");
       }
 
@@ -208,7 +209,7 @@ export function createFakeFortunePort(
       const reverted =
         scenario === "generation_failed" || scenario === "refunded";
       // 되돌림은 잔액으로만 드러난다 — 구매 응답에 환급 필드는 없다 (Q-38)
-      if (reverted) wallet.credit(p.price.amount);
+      if (reverted) wallet.credit(taken.paid, taken.bonus);
       const base = {
         purchaseId: crypto.randomUUID(),
         balance: wallet.balance(),

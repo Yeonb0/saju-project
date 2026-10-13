@@ -3,7 +3,7 @@
 > **FE 개인 작업 문서다. 팀 합의 문서가 아니다.** 일정 · Phase · 담당 표기는 FE 가 작업 순서를 잡으려고 세운 계획이다 (DOCS-FE-OWN).
 > **결정 기준은 GitHub 의 팀 문서다** — 루트 [`docs/PENDING_DECISIONS.md`](../../docs/PENDING_DECISIONS.md) (DOCS-GITHUB). 결정은 팀 ID(P- · F- · G- · A- · S- · T- · X- · O- · D- · I-)로 부른다. 옛 FE 결정 번호 D-01 ~ D-16 은 닫았고 기록에서만 "구 D-xx" 로 부른다 (7장, DECISION-IDS).
 > 팀 문서끼리 어긋나거나 정의가 빈 곳은 [`TEAM-QUESTIONS.md`](TEAM-QUESTIONS.md) (Q-xx · R-xx). BE 일정은 [`backend/docs/BACKEND_ROLE_SPLIT.md`](../../backend/docs/BACKEND_ROLE_SPLIT.md) 9장.
-> 작성: 2026-09-26 (토) · 상태: **v3.3** (2026-10-12 FE 진짜 연결 코드 완료 · 결과 서버 구조 · 구매 상태 · v3.2 2026-10-11 BE ↔ FE 연결 점검 · 수능운 견적 · 구매 adapter · v3.1 2026-10-10 오전 팀 답 반영 · OpenAPI 생성 타입 · 첫 adapter 2개 · v3.0 2026-10-09 오후 PG 가짜 범위 배치 완료 · BE-B PR #15 연동 TODO · v2.9 PD 추가 화면 PAY-03 ~ 05 · INFO · COMMON, 디자인 시스템 확정 · v2.8 유료 운세 5종 · 궁합 · 잔액 부족 · 분석 로딩 가짜 범위 · 2026-10-08 와이어 배치 LAYOUT-FIGMA · BE-A PR #14 · 2026-10-05 MOCK-PORT 진행 · 2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
+> 작성: 2026-09-26 (토) · 상태: **v3.4** (2026-10-13 BE 고객센터 환불 전환 대응 · PAY-03 유료 · 보너스 내역 · 지갑 확인 안내 · v3.3 2026-10-12 FE 진짜 연결 코드 완료 · 결과 서버 구조 · 구매 상태 · v3.2 2026-10-11 BE ↔ FE 연결 점검 · 수능운 견적 · 구매 adapter · v3.1 2026-10-10 오전 팀 답 반영 · OpenAPI 생성 타입 · 첫 adapter 2개 · v3.0 2026-10-09 오후 PG 가짜 범위 배치 완료 · BE-B PR #15 연동 TODO · v2.9 PD 추가 화면 PAY-03 ~ 05 · INFO · COMMON, 디자인 시스템 확정 · v2.8 유료 운세 5종 · 궁합 · 잔액 부족 · 분석 로딩 가짜 범위 · 2026-10-08 와이어 배치 LAYOUT-FIGMA · BE-A PR #14 · 2026-10-05 MOCK-PORT 진행 · 2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
 > 변경: 2026-09-26 — 프론트엔드 스택 확정(3-1), 손그림 테두리 `border-image`(4장), 서비스명 「뿌기사주」(구 D-11), FE 전용 내용은 `FRONTEND.md` 로 분리
 > 변경: 2026-09-30 — 용어 복원(DOCS-RESTORE), FE 브랜치 `boyeon`(BRANCH), Phase 0 · 1 체크박스, 글꼴 보류(FONT-HOLD), 라우트 오류 · 404 화면, `frontend/docs/` 로 이동(DOCS-FE-OWN)
 > 변경: 2026-10-03 — **v2**: 공용 문서(PR #5) 반영. 구 D-xx 닫고 팀 ID 로 전환(DECISION-IDS). **PG 심사 트랙 신설 · 최우선 — 백엔드 연결과 결제 플로우만, 디자인 요소 배제 (PG-FIRST)**. Phase 2 를 PG 트랙에 흡수. 운세 6종(일반 5 + 수능운), 선물 단건 · 원화 결제 · 알림톡, 충전 상품 6종(P-02 변경). 결과 뷰어 ReadingViewer 하나(VIEWER), 손그림체(STYLE-HAND). (10/1 에 만든 v1 은 배치하지 않고 이 판으로 대체)
@@ -20,6 +20,7 @@
 > 변경: 2026-10-10 — **v3.1 OpenAPI 파일 수령 · 첫 adapter**: BE-A PR #17(`f47b719`)로 `docs/openapi/api-v1.json` · 견적 자금 필드 · 견적 재조회 · 오행 `personId` 가 `main` 에 들어왔다(Q-18 · Q-30 · Q-34 해결 다수). 생성 타입(`2c9a17b`), adapter 틀 ADAPTER-HTTP(`http.ts` + zod + 객체 리터럴 `satisfies`, openapi-fetch 미사용) — 오행분석(`e6a603a`) · 충전 지갑 · 주문 생성(`c46bfa7`). 진짜 모드 연결은 세션(CSRF) adapter 후. 구매 결과 처리 Q-38(`8feb588`), 사업자 값 4개(`5bee76c`, R-08 해결)
 > 변경: 2026-10-11 — **v3.2 연결 점검 · 수능운 adapter**: `main` f704145 기준 BE ↔ FE 연결을 점검했다 — BE 에 로그인 · 세션 · CSRF 토큰 출처 · 인물 · 토스 연동이 없어 브라우저에서 성공하는 API 가 없다(R-06). 운세 포트를 수능운 OpenAPI 계약에 맞추고 수능운 견적 · 견적 재확인 · 구매 adapter(`1fcd9c0`) — 일반 운세 5종은 질문 칸 ↔ 서버 값 대응(Q-26 보강) · 관계 대응(Q-35 2) · 상품 메타(Q-28) 답 후(SUNEUNG-ADAPTER-FIRST). 구매 상태 조회는 OpenAPI 반영 후(PURCHASE-STATUS-WAIT), 구매 키 보관 원칙(PURCHASE-KEY-STORE). 팀 요청서(10/11) 공유
 > 변경: 2026-10-12 — **v3.3 진짜 연결 코드 완료**: 10/11 오후 충전 상품 목록 · 승인 · 주문 조회(`b7af91a`) · 토스 V2 결제창(`ecaaba4`, TOSS-LAUNCHER-SWITCH · TOSS-ANONYMOUS) · PAY-03 지급 수량(`15d98ff`), 토스 1단계 로컬 통과. 10/12 `main` PR #23(BE-B 카카오 OAuth · 세션 · CSRF · 인물 · OpenAPI 재생성)으로 세션 · 인물 adapter 정리(`78952fe`) → `ports/index.ts` 전부 진짜 연결(`e781919`). 결과 포트를 서버 `suneungGuide` 구조로(RESULT-GUIDE-MODEL, `086ed90` · `a352829`), 구매 상태 조회 · 서버 상태 기준 팝업 · 구매 키 보관(`9f1366e` · `9addcee` · `afcd0b3`, PURCHASE-STATUS-UI · PURCHASE-KEY-STORE). 상위 체크박스는 스테이징 실제 확인 전이라 그대로 [ ]. BE-A PR #24(충전 환불 · 대사, 기능 꺼짐) → Q-41
+> 변경: 2026-10-13 — **v3.4 BE 고객센터 환불 전환 대응**: `main` PR #25(관리자 조회 · 복구) · #28(BE-B — 세션 수 제한 · CSRF Origin 검사 · 로그아웃 204 · 충전 내역 목록 · 오늘의 운세 공유 링크 · **FE 환불 포트 · adapter 직접 추가**) · #27(BE-A — 정책 확정 · **남은 유료분 비례 환불 · 고객센터 접수 → 관리자 실행, 사용자 환불 POST 제거** · `PARTIALLY_REFUNDED`). `boyeon` 에 병합(`c6adbea`) 뒤 공유 OpenAPI 를 서버 export 로 맞추고 환불 신청 코드 제거(`78c8b10`, OPENAPI-FE-SYNC · REFUND-CS), PAY-03 유료 · 보너스 내역(`4182746`), `WALLET_REVIEW_REQUIRED` 문의 안내(`3f62019`). 충전 내역 · 주문 상세 환불 상태 화면은 PD 배치 대기(Q-41 6). 스테이징은 아직 없다(R-06)
 > 기준 날짜: 출시 **10/31(토)** · 평가 기간 **10/31 ~ 11/21** · 수능 **11/19(목)** → 출시일은 **수능 D-19**
 > 디자인 소스: Figma `9zEtrqV4SoPbQzuworSNUj` / 페이지 **`와이어프레임 최종`(node `195:91`)** — FIGMA-FINAL. 옛 페이지 `와이어프레임`(node `17:2`)은 기록용
 
@@ -280,9 +281,12 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
   - [x] (FE) 토스 V2 결제창 — 위젯 `renderPaymentWindow` → `requestPayment` redirect, `customerKey: ANONYMOUS`, 클라이언트 키 `NEXT_PUBLIC_TOSS_CLIENT_KEY`, 가짜 모드 스위치 `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER` (`ecaaba4`, TOSS-LAUNCHER-SWITCH · TOSS-ANONYMOUS). 1단계 로컬 시험(문서용 테스트 키) 통과 — 결제창 표시 · 결제 · `/pay/success` 복귀 (10/11)
   - [x] (FE) PAY-03 지급 수량 — 승인 · 주문 응답의 `grantedShellAmount` 만, 숫자만 (`15d98ff`, Q-17 해결)
   - [ ] (FE) 토스 2단계(스테이징 실제 승인 · 지급) · 결제창 닫기 확인(테스트 B) · 결제 수단 · 동의(Q-25 — 토스 결제창 자체 필수 동의 포함 · Q-33) · 실기기 3곳
-  - [ ] (FE) PAY-03 유료 · 보너스 내역 칸 — BE-A 차감 순서 규칙 후. 충전 `nextAction` CONTACT_SUPPORT 즉시 안내 문구 (PD). 충전 주문 `REFUND_PENDING` 표시 (Q-41)
+  - [x] (FE) PAY-03 유료 · 보너스 내역 칸 — CREDITED 뒤 지갑 `paidBalance` · `bonusBalance` 를 다시 받아 그대로, 보유 합계와 맞추지 않음, 가짜 지갑 유료 · 보너스 분리(가짜 차감은 보너스 먼저 — 실제는 서버가 만료 빠른 순) (`4182746`, BE-A FE_REQUEST_RESPONSES 1장)
+  - [x] (FE) 공유 OpenAPI 서버 export · 사용자 환불 신청 제거 · `PARTIALLY_REFUNDED` 알려진 상태(완료 아님) · 환불 조회(`getRefund`)만 유지 (`78c8b10`, Q-41 2 · 3)
+  - [x] (FE) `409 WALLET_REVIEW_REQUIRED` — 구매 팝업 · 충전 화면에서 다시 시도 대신 문의 안내 · 버튼 잠금 (`3f62019`, Q-41 5). 문구 · 문의 채널 PD (Q-38 g)
+  - [ ] (FE) 충전 내역(`GET /top-up-orders`) · 주문 상세 환불 상태(`REFUND_PENDING` · `PARTIALLY_REFUNDED` · 환불 GET 의 실제 환불액 · 완료 시각) · 고객센터 안내 — 와이어 없음, PD 배치 · 문구 후 (Q-41 6). 충전 `nextAction` CONTACT_SUPPORT 즉시 안내 문구 (PD)
   - [x] (FE) PAY-01 수정안(301:128) 배치 — 상품 카드(서버 값 · 고른 카드 강조) · 안내 상자 자리 · 동의 자리, 결제 수단 칸 없음, 주문 내용 상자 삭제 (`b5f7f3a`). 문구 · 동의 필수 여부는 Q-33 · Q-25 · Q-21 확정 후
-  - [x] (FE) PAY-03 충전 완료 · PAY-04 결제 확인 중 · PAY-05 결제 실패 · 취소 배치 — 공통 `PayResultLayout`, 기존 흐름(TOPUP-DONE) 그대로 (`5f61f94`). 지급 수량은 `15d98ff`, 유료/보너스 내역은 BE-A 차감 순서 후, 취소 · 실패 문구 · 상품 유지는 Q-33
+  - [x] (FE) PAY-03 충전 완료 · PAY-04 결제 확인 중 · PAY-05 결제 실패 · 취소 배치 — 공통 `PayResultLayout`, 기존 흐름(TOPUP-DONE) 그대로 (`5f61f94`). 지급 수량은 `15d98ff`, 유료/보너스 내역은 `4182746`, 취소 · 실패 문구 · 상품 유지는 Q-33
 - [ ] (FE) **PG-4 심사 노출 요건 (스타일 없이)** — 사업자 정보 푸터(값은 한 파일, 사용자가 준 값만, 미정은 `TODO(O-01)`), `/about` 상품 소개(심사 상품의 이름 · 가격(서버 값) · 제공 내용 · 제공 기간 · 환불 요약 · 구매 진입), `/terms` · `/privacy` · `/refund` 본문(PD 원고 그대로). 선행: 사업자 정보(R-07 · R-08), 심사 상품 = 충전(R-01 부분 — 카테고리 · 제공기간은 토스 상담 대기), 충전 환불정책 문구(Q-21 — PD 초안 수령, 토스 상담 후 10/10 확정 원고. 확정 전에는 넣지 않는다), PD 원고
   - 진행: 푸터 틀 완료 (`d42ba99` · `22f9712` · `4453ba9`, 10/3) — `src/lib/business.ts` 에 8개 항목(토스 심사 6 + 전자우편주소 · 호스팅 제공자), 값이 없으면 "(미정)", AppShell 하단 BusinessFooter + 약관 3종 링크. `/about` 틀 완료 (`7aba2e1`, 10/8) — 로그인 불필요 · 정적, 활성 충전 상품만 서버 값 그대로, 소개 · 제공 기간 · 환불 요약은 자리만. 남은 것: 값 8개 · 공정위 사업자정보 공개페이지 링크(R-07), `/about` 원고(R-01 · P-04 · PD), 약관 3종 본문, `GET /products` 비로그인 호출 가능 여부(Q-28)
   - [x] (FE) INFO-01 `/about` · INFO-02 정책 페이지 · COMMON-01 푸터 와이어 배치 (302:129 · 302:155 · 302:175) — 원고 · 값 없이 틀만 (`5e37d52` · `aa2296e` · `78aa7ad`)
@@ -308,7 +312,7 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
 
 ### Phase 2 — PG 트랙에 흡수
 
-옛 Phase 2(결제 파이프라인 테스트 키 E2E)의 FE 작업은 PG-1 · PG-3 으로, BE 작업은 BE-A 일정(`BACKEND_ROLE_SPLIT.md` 4.4)으로 옮겼다. 환불(부분 · 전체 취소)은 BE-A 10/24~10/27, FE 화면은 Phase 6 마이페이지 내역. → BE-A 가 10/12 PR #24 로 충전 전액 환불(7일 · 전부 미사용, 기능 꺼짐)을 넣었다 — FE 화면 여부 · 위치는 Q-41 (와이어 없음)
+옛 Phase 2(결제 파이프라인 테스트 키 E2E)의 FE 작업은 PG-1 · PG-3 으로, BE 작업은 BE-A 일정(`BACKEND_ROLE_SPLIT.md` 4.4)으로 옮겼다. 환불(부분 · 전체 취소)은 BE-A 10/24~10/27, FE 화면은 Phase 6 마이페이지 내역. → BE-A 가 10/12 PR #24 로 충전 전액 환불(7일 · 전부 미사용, 기능 꺼짐)을 넣었다 — FE 화면 여부 · 위치는 Q-41 (와이어 없음). → 10/13 PR #27 로 정책이 바뀌었다: 충전 건별 남은 유료분 비례 환불(수수료 0, 7일 이후도), 고객센터 접수 → 관리자 API 실행, 사용자 환불 POST 제거. FE 는 신청 화면을 만들지 않고 조회 · 표시만(Q-41 6)
 
 ---
 

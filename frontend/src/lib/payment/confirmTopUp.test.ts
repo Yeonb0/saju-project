@@ -243,6 +243,22 @@ describe("pollTopUpOrder", () => {
     });
   });
 
+  it.each([
+    "REFUND_PENDING",
+    "PARTIALLY_REFUNDED",
+  ] as const)("환불 상태 %s 는 완료가 아니라 계속 조회", async (status) => {
+    const getOrder = vi
+      .fn<TopUpPort["getOrder"]>()
+      .mockResolvedValueOnce(state(status))
+      .mockResolvedValueOnce({ ...state("CREDITED"), walletBalance: 9 });
+    const result = await pollTopUpOrder(ORDER_ID, {
+      port: { confirm: vi.fn(), getOrder },
+      ...fakeClock(),
+    });
+    expect(getOrder).toHaveBeenCalledTimes(2);
+    expect(result.kind).toBe("credited");
+  });
+
   it("중단 신호가 오면 멈춘다", async () => {
     const controller = new AbortController();
     controller.abort(new DOMException("aborted", "AbortError"));

@@ -1322,7 +1322,7 @@
             "type" : "string"
           },
           "status" : {
-            "enum" : [ "CREATED", "PAYMENT_PENDING", "PAID", "CREDITED", "FAILED", "CANCELED", "REFUNDED", "REFUND_PENDING" ],
+            "enum" : [ "CREATED", "PAYMENT_PENDING", "PAID", "CREDITED", "FAILED", "CANCELED", "REFUNDED", "REFUND_PENDING", "PARTIALLY_REFUNDED" ],
             "type" : "string"
           },
           "walletBalance" : {
@@ -7289,129 +7289,6 @@
               }
             },
             "description" : "OK"
-          },
-          "400" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          },
-          "401" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          },
-          "403" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          },
-          "404" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          },
-          "409" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          },
-          "422" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          },
-          "500" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          },
-          "503" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiError"
-                }
-              }
-            },
-            "description" : "Common error envelope; branch on code, not message."
-          }
-        },
-        "tags" : [ "cash-refund-controller" ]
-      },
-      "post" : {
-        "description" : "Full unused top-up only, policy-gated. REFUNDED alone proves verified cash cancellation; otherwise poll this resource.",
-        "operationId" : "requestTopUpRefund",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "orderId",
-          "required" : true,
-          "schema" : {
-            "format" : "uuid",
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "Idempotency-Key",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseCashRefundResponse"
-                }
-              }
-            },
-            "description" : "Resolved or review required"
-          },
-          "202" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseCashRefundResponse"
-                }
-              }
-            },
-            "description" : "Reserved or processing; poll refund"
           },
           "400" : {
             "content" : {
