@@ -46,6 +46,7 @@ class GiftLifecyclePostgresTest {
     @Autowired GiftCancellationService cancellations;
     @Autowired GiftPayloadCipher cipher;
     @Autowired JdbcGiftAccess access;
+    @Autowired GiftFulfillmentPort fulfillment;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @MockitoSpyBean GiftCancellationTransactions cancellationStore;
@@ -197,6 +198,41 @@ class GiftLifecyclePostgresTest {
         jdbc.update("UPDATE gift_purchase_work SET approved_at = ?, access_expires_at = ? WHERE order_id = ?",
                 Timestamp.from(Instant.now().minusSeconds(2)), Timestamp.from(Instant.now().minusSeconds(1)), order.orderId());
         assertThatThrownBy(() -> access.verify(token)).isInstanceOf(ApiException.class);
+    }
+    @Test void publicAccessReturnsOnlyMinimalTextWithoutLoginOrCsrfAndDoesNotStartProvision() throws Exception {
+        var order = active(); String token = token(order.orderId());
+        String body = mapper.writeValueAsString(java.util.Map.of("token", token));
+        String response = mvc.perform(post("/api/v1/public/gifts/access")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recipientName").value("recipient"))
+                .andExpect(jsonPath("$.data.senderName").value("sender"))
+                .andExpect(jsonPath("$.data.message").value("Good luck!"))
+                .andExpect(jsonPath("$.data.option").value("TALISMAN_ONLY"))
+                .andExpect(jsonPath("$.data.state").value("INPUT_REQUIRED"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(response).doesNotContain(owner.toString(), order.orderId().toString(), token,
+                "tokenHash", "privatePayload", "objectKey");
+        assertThat(jdbc.queryForObject("SELECT first_provided_at FROM gift_purchase_work WHERE order_id = ?",
+                Timestamp.class, order.orderId())).isNull();
+
+        fulfillment.accept(token, UUID.randomUUID(), "a".repeat(64), () -> {});
+        mvc.perform(post("/api/v1/public/gifts/access")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.state").value("PROCESSING"));
+    }
+    @Test void mutatedAndUnknownPublicTokensHaveTheSameSafeResponse() throws Exception {
+        var order = active(); String token = token(order.orderId());
+        String mutated = (token.charAt(0) == 'A' ? "B" : "A") + token.substring(1);
+        String unknown = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        for (String candidate : java.util.List.of(mutated, unknown)) {
+            mvc.perform(post("/api/v1/public/gifts/access")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content(mapper.writeValueAsString(java.util.Map.of("token", candidate))))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                    .andExpect(jsonPath("$.details").isEmpty());
+        }
     }
     @Test void simultaneousCancelRequestsConvergeOnOneReturn() throws Exception {
         var order = active(); CountDownLatch start = new CountDownLatch(1);

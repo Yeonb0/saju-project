@@ -32,6 +32,7 @@ public class SecurityConfig {
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/webhooks/toss").permitAll();
+            authorize.requestMatchers(HttpMethod.POST, "/api/v1/public/gifts/access").permitAll();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/daily-fortune-shares/*").permitAll();
             authorize.requestMatchers(HttpMethod.DELETE, "/api/v1/daily-fortune-shares/*").authenticated();
             authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->

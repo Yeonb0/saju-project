@@ -7,7 +7,15 @@ import java.util.UUID;
 public interface GiftAccessPort {
     GiftAccess verify(String rawToken);
 
+    PublicGift describe(String rawToken);
+
     GiftAccess verifyTalismanAccess(String rawToken, UUID talismanId);
 
     record GiftAccess(UUID giftId, Instant accessExpiresAt) {}
+
+    record PublicGift(String recipientName, String senderName, String message, ProductOption option,
+                      AccessState state, Instant accessExpiresAt) {
+        public enum ProductOption { TALISMAN_ONLY, READING_WITH_TALISMAN }
+        public enum AccessState { INPUT_REQUIRED, PROCESSING, READY }
+    }
 }

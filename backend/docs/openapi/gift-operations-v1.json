@@ -335,6 +335,17 @@
         },
         "type" : "object"
       },
+      "ApiResponsePublicGift" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PublicGift"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponsePurchaseResponse" : {
         "properties" : {
           "data" : {
@@ -1938,6 +1949,43 @@
           }
         },
         "required" : [ "items" ],
+        "type" : "object"
+      },
+      "PublicGift" : {
+        "properties" : {
+          "accessExpiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "option" : {
+            "enum" : [ "TALISMAN_ONLY", "READING_WITH_TALISMAN" ],
+            "type" : "string"
+          },
+          "recipientName" : {
+            "type" : "string"
+          },
+          "senderName" : {
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "INPUT_REQUIRED", "PROCESSING", "READY" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PublicGiftAccessRequest" : {
+        "properties" : {
+          "token" : {
+            "minLength" : 1,
+            "pattern" : "[A-Za-z0-9_-]{43}",
+            "type" : "string"
+          }
+        },
+        "required" : [ "token" ],
         "type" : "object"
       },
       "PurchaseRequest" : {
@@ -5557,6 +5605,115 @@
         },
         "security" : [ ],
         "tags" : [ "product-controller" ]
+      }
+    },
+    "/api/v1/public/gifts/access" : {
+      "post" : {
+        "description" : "Returns minimal gift guidance. The bearer token is accepted only in the JSON body and must not be logged.",
+        "operationId" : "getPublicGiftAccess",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublicGiftAccessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicGift"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "public-gift-access-controller" ]
       }
     },
     "/api/v1/quotes/fortune" : {

@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: BE-B 선물 공개 안내 접근 1단계
+
+- 브랜치 `feat/be-b-gift-recipient-access`에서 공개 `POST /api/v1/public/gifts/access`를 추가했다. raw token은 URL path/query가 아니라 JSON body로만 받고 DTO 문자열에서 마스킹한다. 비로그인 접근과 이 경로의 CSRF 예외를 명시적으로 열되 다른 gift 주문 API의 세션·CSRF 경계는 유지했다.
+- `GiftAccessPort.describe`가 ACTIVE·비폐기·현재 token을 확인한 뒤 암호화된 주문 payload를 복호화하여 받는/보내는 사람 표시 이름, 메시지, 서버 상품 snapshot의 option, 수신 상태만 반환한다. 내부 order/gift/user ID, token/hash, R2 key는 반환하지 않는다. 안내 조회는 `first_provided_at`을 변경하지 않는다.
+- 적용: 6-1 공개 bearer 권한과 로그인 소유권 분리, 6-5 token 변조/미존재 동일 404·최소 공개정보, 6-9 token URL 비노출·DTO 마스킹. 로컬 H2에서 Gift OpenAPI와 주문 회귀 검사를 통과했고, PostgreSQL 17 테스트 DB에서 정상 공개 안내, 무인증/무-CSRF 접근, 변조/미존재 token 동일 응답, PROCESSING 상태 전환, 최초 제공 시각 비변경을 포함한 `GiftLifecyclePostgresTest` 전체를 통과했다. backend 전용 gift OpenAPI export도 성공했다.
+- 아직 미구현/미검증: recipient profile 저장·입력 API, 공개 endpoint rate limit/Origin 정책, staging proxy/access log·Sentry·PostHog 검색, 만료·취소 전용 안전 오류, 실제 브라우저 fragment 제거. 다음 task는 암호화 recipient profile과 단일 제출/fulfillment intent의 동일 트랜잭션 저장이다.
+
 ### 2026-10-14: 1차 선물 직접 링크 기반 전환
 
 - 최신 `origin/main` `2e5964b`에서 `feat/gift-direct-links-v1`을 새로 만들었다. 선물 주문 입력·응답·목록에서 전화번호와 마스킹 번호를 제거하고, 결제 활성화 트랜잭션이 알림톡 outbox 대신 32바이트 난수 token의 SHA-256 hash와 구매 응답 복구용 암호문을 함께 저장하도록 바꿨다. 암호문 공개 기간은 24시간이며 정리 worker가 만료 뒤 NULL 처리한다. 장기 권한은 hash만 남는다.
