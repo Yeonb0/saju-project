@@ -28,6 +28,7 @@ public enum ErrorCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "회원 정보를 찾을 수 없습니다."),
     MEMBER_WITHDRAWAL_NOT_ALLOWED(HttpStatus.CONFLICT, "현재 상태에서는 탈퇴를 요청할 수 없습니다."),
     PAID_BALANCE_REMAINS(HttpStatus.CONFLICT, "유료 등껍질 환불 후 탈퇴할 수 있습니다."),
+    REQUIRED_CONSENT_MISSING(HttpStatus.UNPROCESSABLE_ENTITY, "필수 항목에 동의해 주세요."),
     READING_NOT_FOUND(HttpStatus.NOT_FOUND, "운세 결과를 찾을 수 없습니다."),
     SHARE_NOT_FOUND(HttpStatus.NOT_FOUND, "공유 링크를 찾을 수 없습니다."),
     SHARE_EXPIRED(HttpStatus.GONE, "공유 링크가 만료되었습니다."),

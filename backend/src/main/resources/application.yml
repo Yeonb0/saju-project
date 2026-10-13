@@ -47,6 +47,12 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  member:
+    consent:
+      terms-version: ${TERMS_VERSION:2026-10-14}
+      privacy-version: ${PRIVACY_VERSION:2026-10-14}
+      # Enable only after the FE sends consent before creating the primary person.
+      required-for-person-creation: ${MEMBER_CONSENT_REQUIRED_FOR_PERSON_CREATION:false}
   admin:
     enabled: ${ADMIN_OPERATIONS_ENABLED:false}
     recovery-enabled: ${ADMIN_RECOVERY_ENABLED:false}
