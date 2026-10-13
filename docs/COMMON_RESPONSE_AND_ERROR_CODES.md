@@ -247,14 +247,15 @@ type FieldError = {
 | 503 | `PAYMENT_FULFILLMENT_UNAVAILABLE` | 승인 provider 미설정 | 준비 후 같은 주문 확인 |
 | 409 | `PAYMENT_ALREADY_PROCESSED` | 승인·취소가 이미 처리됨 | 최초 결과 조회 |
 | 409 | `PAYMENT_NOT_COMPLETED` | 후속 명령에 필요한 결제 미완료 | 상태 확인 |
-| 409 | `REFUND_NOT_ELIGIBLE` | 신청한 충전 주문이 전액 환불 조건에 맞지 않음 | 같은 요청 재시도 대신 고객센터 문의 |
+| 409 | `REFUND_NOT_ELIGIBLE` | 유효한 잔여 유료분 없음, 이미 환불/검토 중이거나 관련 구매 정산이 필요함 | 해당 주문·관련 구매 상태 확인 |
+| 409 | `REFUND_QUOTE_CHANGED` | 확인한 환불액·유료/보너스 회수량이 현재 지급분과 다름 | 관리자 quote 재조회·확인 후 새 실행 의도 |
 | 422 | `PAYMENT_REJECTED` | 카드·결제수단이 PG에서 거절됨 | 수단 변경 |
 | 502 | `PAYMENT_PROVIDER_ERROR` | 토스 통신·응답 오류 | 같은 키로 제한 재시도 |
 | 502 | `PAYMENT_CONFIRM_FAILED` | 승인 확정 실패 | 상태 조회 후 재시도 |
 | 502 | `REFUND_PROVIDER_ERROR` | PG 취소 실패 | 운영 재처리 |
 
 PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기고 클라이언트에는 계약된 코드와 일반화한 문구를 반환한다.
-`WALLET_REVIEW_REQUIRED`는 환불뿐 아니라 충전 주문 생성과 운세 구매 차감에도 발생한다. 결제 상태를 확인할 때까지 구매·충전을 반복하지 않고 문의 경로를 안내한다. `REFUND_NOT_ELIGIBLE`은 부분 환불 가능 안내가 아니다.
+`WALLET_REVIEW_REQUIRED`는 환불뿐 아니라 충전 주문 생성과 운세 구매 차감에도 발생한다. 결제 상태를 확인할 때까지 구매·충전을 반복하지 않고 문의 경로를 안내한다. 관리자 환불은 충전 건별 잔여분 비례 정산이며 `REFUND_NOT_ELIGIBLE`만 보고 모든 부분 환불이 금지됐다고 안내하지 않는다. 처리 중인 환불의 금액을 바꿔 새 요청을 보내지 않는다.
 이전 초안의 `REFUND_NOT_ALLOWED`는 현재 실행 코드의 오류 enum에 없으며 FE 분기 기준으로 사용하지 않는다.
 
 ### 4.8 운세 계산·문장 생성

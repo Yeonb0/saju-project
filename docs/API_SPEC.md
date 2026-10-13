@@ -568,7 +568,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 ### `GET /top-up-orders/{orderId}`
 
 - 인증 필요, 타인/없는 주문은 동일 RESOURCE_NOT_FOUND(404). 생성/승인과 동일 응답 DTO다.
-- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`
+- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`, `REFUND_PENDING`, `PARTIALLY_REFUNDED`
+- `REFUND_PENDING`은 미완료/검토 중, `PARTIALLY_REFUNDED`는 원 결제액보다 적은 잔여 유료분 환불이 확인된 주문의 외부 projection이다. DB 주문 상태는 환불 완료 시 `REFUNDED`이며 원 결제액/지급량 스냅샷은 유지한다. 실제 현금 반환액은 소유자 `GET /top-up-orders/{orderId}/refund`의 `amount`와 `state=REFUNDED`·`completedAt`으로 확인한다. 일반 사용자 환불 POST는 제공하지 않는다.
 
 ### `POST /webhooks/toss-payments`
 
@@ -1062,7 +1063,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ## 12. 관리자 API
 
-아래는 PR #25 기준 **구현된** 관리자 금융 API다. 기본 비활성이며 실제 로그인 세션과 DB 운영자 권한이 필요하다. 조회도 감사 기록을 남기고 POST에는 CSRF·복구 권한·사유·요청키가 필요하다. 전체 경로는 `/api/v1` 기준이다.
+아래는 PR #25 및 2026-10-13 고객센터 환불 후속으로 구현한 관리자 금융 API다. 기본 비활성이며 실제 로그인 세션과 DB 운영자 권한이 필요하다. 조회도 감사 기록을 남기고 POST에는 CSRF·복구 권한·사유·요청키가 필요하다. 전체 경로는 `/api/v1` 기준이다.
 
 | Method | Path | 기능 |
 |---|---|---|
@@ -1074,8 +1075,12 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 | GET | `/admin/audit-events` | 감사 기록 조회 |
 | POST | `/admin/top-up-orders/{orderId}/reconcile` | PG 조회에 근거한 주문·환불 상태 재확인. 새 PG 승인/취소 호출 없음 |
 | GET | `/admin/recovery-commands/{commandId}` | 재확인 작업 결과 조회 |
+| POST | `/admin/refund-cases` | 본인/주문 대조 후 고객센터 접수 기록. PG 호출/회수 없음 |
+| GET | `/admin/refund-cases/{caseId}` | 접수·환불 상태와 금액·회수량 조회 |
+| GET | `/admin/refund-cases/{caseId}/quote` | 현재 잔여 유료분 환불액·보너스 회수량 확인 |
+| POST | `/admin/refund-cases/{caseId}/execute` | 확인한 금액·수량 재검사, 회수 예약 후 PG 전액/부분 취소 |
 
-관리자 전용 계약은 `backend/docs/openapi/admin-operations-v1.json`에 있다. 부분 환불, 임의 잔액 조정, 지갑 제한 해제, 사용자 생년정보 수정, 고객센터 접수 건의 **최초 현금 환불 실행**은 제공하지 않는다. 1차 환불 신청은 고객센터 문의로 결정됐으므로 운영자 권한·감사·중복 처리를 갖춘 접수 명령은 BE-A 후속 구현이 필요하다.
+관리자 전용 계약은 `backend/docs/openapi/admin-operations-v1.json`에 있다. 접수는 `orderId/customerUserId/supportReference/receivedAt`, 실행은 quote의 `expectedAmount/expectedPaidShells/expectedBonusShells`를 받는다. 임의 금액 지정이 아니라 서버 계산값의 확인이며 변경 시 409 `REFUND_QUOTE_CHANGED`다. 실제 결제액 × 잔여 유료분 ÷ 최초 유료 지급량(원 미만 올림), 수수료 0, 남은 보너스 회수·사용 보너스 무공제다. 최초 실행 권한·감사·영속 요청키 및 미완료 복구를 적용한다. 임의 잔액 조정·제한 해제·생년정보 수정·가상계좌 계좌 입력은 제공하지 않는다. 세부 절차: `backend/docs/CUSTOMER_CENTER_REFUNDS_20261013.md`.
 
 ## 13. 상태 머신
 
