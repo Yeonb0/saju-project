@@ -1,5 +1,17 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-13: 브랜치 정리와 선물 견적·구매·취소 복구
+
+- main `bb3169c`에서 현재 checkout을 `codex/gift-fulfillment`로 이어갔다. 병합 완료 A 원격 브랜치 7개와 관련 로컬 브랜치를 정리했다. 초기 skeleton 원격 2개도 git cherry에서 main과 동일 패치임을 확인해 archive 태그로 보존한 뒤 삭제했다. 이전 미병합 선물 초안 `0f574ad`는 `archive/gift-draft-20261013` 로컬 태그로 보존하고 브랜치는 삭제했다. 다른 팀 브랜치는 삭제하지 않았다. 로컬 main은 원격으로 fast-forward했다.
+- 기존 견적/암호화 초안/명시적 차감 의도와 원장 재개를 최신 main에 통합했다. 수능 1명·등껍질 10/15개이며 상품/기능은 기본 비활성이다. 신규 purchase POST·금융 상태 GET·cancel POST를 추가하고 메타데이터 GET도 실제 금융 상태/charged를 반환한다. 원화 선물 confirm은 없다.
+- 취소는 실제 차감 후 7일 이내·최초 제공 전만 허용한다. work 잠금 아래 token 폐기/outbox 차단/취소 의도를 함께 커밋하고 잠금을 푼 뒤 독립 지갑 반환을 실행한다. 반환 receipt를 확인한 뒤 CANCELED이며 응답 유실은 같은 원 거래로 재개한다. 유료/보너스 원 지급분·원 만료일을 유지한다. 중복/동시 반환은 지갑 원 거래와 영속 명령키로 방지하며 외부 호출 없는 이 단계에는 provider lease가 없다.
+- 구매/취소 키의 다른 주문·다른 명령 재사용은 409다. 구매/반환 각각 5회 소진은 검토 상태이고 링크를 되살리지 않는다. 명시적인 의도가 없는 초안은 worker가 차감하지 않는다. ACTIVE는 권한/token/outbox 저장이지 실제 발송/수신 콘텐츠 완료가 아니다.
+- 별도 PostgreSQL 17.11/55432 DB `saju_gift_final_20261013`에서 전체 580건 중 568 통과, 선택 제외 12, 실패/오류 0. check/bootJar/전용 gift 계약 export 성공, migration 40개 모두 success=true다. 기존 선물 grant와 암호화 outbox/token을 유지하는 새 취소 migration upgrade를 포함했다. 최종 200/202 JSON 응답 선언 보완 후 선물/견적 51건 모두 통과와 bootJar/export를 다시 확인했다. 소스 커밋은 `f0a9f28`, `e7f4f84`다.
+- 선물 lifecycle PostgreSQL 12건: 구매 replay·상태 조회, 키 의미 충돌, 유료/보너스 반환·기한 유지, 최초 제공/7일 초과 거절, 예약 저장 실패 rollback, 지갑 반환 후 완료 저장 실패 재개, 동시 취소, 5회 소진, token 변조/만료/폐기·임의 부적 차단, 실제 opaque 세션/CSRF/소유권, migration upgrade. 최초 실행의 합성 회원 필수값 누락과 테스트 helper 컴파일 오류는 fixture를 고친 뒤 재검증했다.
+- 미게시 gift migration만 main 뒤 131300/1400/1500/1600으로 추가했다. 구 선물 초안 테스트 DB는 새 번호와 섞지 않는다. 기본 H2 계약 기동도 별도로 확인했으나 금융 검증 근거는 PostgreSQL이다. 사용자 DB·실제 `.env`·키·상품/운영 권한·FE 코드·공유 OpenAPI는 변경하지 않았다.
+- 적용: 6-1 세션/CSRF/소유권, 6-2 원장/지급분/잠금/동시성, 6-4 영속 의도/제한 재개, 6-5 token 폐기·권한 차단, 6-6 migration/기본 비활성/local-test 제한, 6-9 수신 정보 암호화/마스킹. backend 전용 OpenAPI와 전달 문서는 `backend/docs/GIFT_IMPLEMENTATION_20261013.md`다. 환불 FE 전달 문서도 `backend/docs/FE_REFUND_HANDOFF_20261013.md`에 보존했다.
+- 남음: B 최초 제공·취소의 원자적 경계와 수신/생성/재열람/계정 연결, 부적 자산 권한, 알림톡 provider·outbox worker·결과 불명/lease/fencing·webhook·재발급 제한, 보관기간/삭제/키 회전/금칙어, 선물 목록·관리자 검토 재처리. 아직 반환 가능성이 있는 선물 차감은 충전 현금 환불에서 미정산 구매로 보수적으로 차단한다. local/test 밖 활성화는 거절한다. 실제 발송·B/FE E2E·OS 종료·부하·복원·배포는 수행하지 않았다.
+
 ### 2026-10-13: 고객센터 관리자 잔여 유료분 환불 구현·최신 main 통합 검증
 
 - 사용자 확정 방식: 충전 건별 유효한 잔여 유료분 전체를 실제 결제액 기준 비례 환불, 수수료 없음·원 미만 올림, 남은 보너스 회수·사용 보너스 무공제. 고객센터 실제 접수/등록 시각을 저장하고 관리자 quote→execute→get으로 처리한다. 일반 사용자 환불 POST는 제거하고 소유자 GET은 유지한다. 아래 이전 부분 환불 미제공/미구현 문장은 당시 기록이다.

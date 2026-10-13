@@ -296,6 +296,18 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 
 ### 4.10 선물·토큰·알림톡
 
+2026-10-13 local/test 구현은 아래 별도 표를 따른다. 공개 수신·알림톡은 미구현이므로 기존 `GIFT_NOT_FOUND/GIFT_ALREADY_OPENED/GIFT_EXPIRED/GIFT_REVOKED` 등의 표는 후속 설계 코드다.
+
+| HTTP | 현재 코드 | 범위·대응 |
+|---|---|---|
+| 503 | `GIFT_FULFILLMENT_UNAVAILABLE` | 주문 기능 비활성. 완료로 표시하지 않는다. |
+| 422 | `RECIPIENT_PHONE_INVALID` | 초안 수신 번호 형식 오류. 원문을 오류에 포함하지 않는다. |
+| 409 | `GIFT_CANCEL_NOT_ALLOWED` | 미차감/미확정·이미 제공·7일 초과 등 취소 불가. 새 구매/취소 반복 대신 기존 상태를 확인한다. |
+| 409 | `IDEMPOTENCY_KEY_REUSED` | 초안 본문 변경 또는 구매/취소 키의 다른 주문·명령 재사용. |
+| 404 | `RESOURCE_NOT_FOUND` | 소유권 불일치/없는 리소스. 내부 token 검증도 무효·만료·폐기를 같은 404로 처리하며 상세를 노출하지 않는다. |
+
+구매·취소 처리 중은 202와 `PENDING/CANCEL_PENDING`이다. 등껍질 반환 완료는 원 거래 receipt가 확인된 `CANCELED/REFUNDED` 상태로 판단한다. ACTIVE는 차감/권한 저장이지 발송/콘텐츠 완료가 아니다. 공개 수신 오류 화면은 실제 수신 API 계약을 확정한 뒤 연결한다.
+
 | HTTP | code | 의미 | 노출 정보 |
 |---:|---|---|---|
 | 404 | `GIFT_NOT_FOUND` | 토큰/선물 없음 | 선물 상세 미노출 |
