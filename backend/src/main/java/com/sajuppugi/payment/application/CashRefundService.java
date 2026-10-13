@@ -39,12 +39,16 @@ public class CashRefundService {
         var attempt = lease.get();
         PaymentProviderPort.Result result;
         try {
-            result = attempt.first() ? provider.cancelVerified(attempt.intent(), attempt.refund()) : provider.lookup(order);
+            result = attempt.first() ? cancel(provider, attempt) : provider.lookup(order);
             // A bounded repeat of the same provider idempotency key, never a new refund command.
             if (!attempt.first() && result != null && result.approves(attempt.intent()))
-                result = provider.cancelVerified(attempt.intent(), attempt.refund());
+                result = cancel(provider, attempt);
         } catch (RuntimeException failure) { result = null; }
         refunds.apply(attempt, result, clock.instant());
     }
     public JdbcCashRefunds.View get(UUID user, UUID order) { return refunds.owned(user, order); }
+    private PaymentProviderPort.Result cancel(PaymentProviderPort provider, JdbcCashRefunds.Lease attempt) {
+        return attempt.remaining() ? provider.cancelRemainingVerified(attempt.intent(), attempt.refund(), attempt.amount())
+                : provider.cancelVerified(attempt.intent(), attempt.refund());
+    }
 }
