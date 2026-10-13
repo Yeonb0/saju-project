@@ -159,6 +159,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseDeliveryView" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/DeliveryView"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseFundedQuoteResponse" : {
         "properties" : {
           "data" : {
@@ -251,6 +262,17 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/OverallReadingResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePage" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Page"
           },
           "traceId" : {
             "type" : "string"
@@ -1094,6 +1116,26 @@
         },
         "type" : "object"
       },
+      "DeliveryView" : {
+        "properties" : {
+          "canResend" : {
+            "type" : "boolean"
+          },
+          "nextResendAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "remainingResends" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "enum" : [ "PENDING", "IN_FLIGHT", "RETRY", "UNKNOWN", "SENT", "FAILED", "REVIEW_REQUIRED", "CANCELED" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Event" : {
         "properties" : {
           "date" : {
@@ -1383,6 +1425,51 @@
         "required" : [ "balanceAfter", "charged", "expiresAt", "fortuneType", "includedContents", "option", "productCode", "productName", "quoteId", "recipientCount", "recommendedTopUp", "shortage", "walletBalance" ],
         "type" : "object"
       },
+      "Item" : {
+        "properties" : {
+          "accessExpiresAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "chargedShells" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "deliveryStatus" : {
+            "type" : [ "string", "null" ]
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "plannedShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "productCode" : {
+            "type" : "string"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recipientPhoneMasked" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accessExpiresAt", "chargedShells", "createdAt", "deliveryStatus", "orderId", "plannedShells", "productCode", "productName", "quoteId", "recipientPhoneMasked", "status" ],
+        "type" : "object"
+      },
       "LoveReadingResponse" : {
         "properties" : {
           "actionTip" : {
@@ -1552,6 +1639,24 @@
             "$ref" : "#/components/schemas/SectionContent"
           }
         },
+        "type" : "object"
+      },
+      "Page" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Item"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
         "type" : "object"
       },
       "PeopleResponse" : {
@@ -3123,6 +3228,119 @@
       }
     },
     "/api/v1/gift-orders" : {
+      "get" : {
+        "description" : "Owner-only newest-first cursor page. Maximum size 50. No raw phone, message or token.",
+        "operationId" : "listGiftOrders",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "gift-order-controller" ]
+      },
       "post" : {
         "description" : "Create or replay local/test metadata. A new draft has no debit; replay reflects current financial status. expiresAt is the original quote deadline, not gift access expiry.",
         "operationId" : "createGiftOrder",
@@ -3469,6 +3687,343 @@
           }
         },
         "tags" : [ "gift-purchase-controller" ]
+      }
+    },
+    "/api/v1/gift-orders/{orderId}/deliveries" : {
+      "post" : {
+        "description" : "Queue a new token and delivery job, not proof of sending. Daily manual quota shared with reissues.",
+        "operationId" : "resendGiftAlimtalk",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDeliveryView"
+                }
+              }
+            },
+            "description" : "Accepted"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "gift-delivery-controller" ]
+      }
+    },
+    "/api/v1/gift-orders/{orderId}/delivery" : {
+      "get" : {
+        "operationId" : "getGiftDelivery",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDeliveryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "gift-delivery-controller" ]
+      }
+    },
+    "/api/v1/gift-orders/{orderId}/link-reissues" : {
+      "post" : {
+        "description" : "Revoke old token and queue the replacement without extending gift expiry. Raw token is never returned.",
+        "operationId" : "reissueGiftLink",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDeliveryView"
+                }
+              }
+            },
+            "description" : "Accepted"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "gift-delivery-controller" ]
       }
     },
     "/api/v1/gift-orders/{orderId}/purchase" : {

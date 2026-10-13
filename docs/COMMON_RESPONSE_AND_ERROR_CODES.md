@@ -296,13 +296,16 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 
 ### 4.10 선물·토큰·알림톡
 
-2026-10-13 local/test 구현은 아래 별도 표를 따른다. 공개 수신·알림톡은 미구현이므로 기존 `GIFT_NOT_FOUND/GIFT_ALREADY_OPENED/GIFT_EXPIRED/GIFT_REVOKED` 등의 표는 후속 설계 코드다.
+2026-10-13 local/test 구현은 아래 별도 표를 따른다. 발송 작업/복구·수동 요청은 구현됐지만 실제 대행사 adapter와 공개 수신은 미연결이다. 기존 `GIFT_NOT_FOUND/GIFT_ALREADY_OPENED/GIFT_EXPIRED/GIFT_REVOKED` 등의 표는 후속 설계 코드다.
 
 | HTTP | 현재 코드 | 범위·대응 |
 |---|---|---|
 | 503 | `GIFT_FULFILLMENT_UNAVAILABLE` | 주문 기능 비활성. 완료로 표시하지 않는다. |
 | 422 | `RECIPIENT_PHONE_INVALID` | 초안 수신 번호 형식 오류. 원문을 오류에 포함하지 않는다. |
 | 409 | `GIFT_CANCEL_NOT_ALLOWED` | 미차감/미확정·이미 제공·7일 초과 등 취소 불가. 새 구매/취소 반복 대신 기존 상태를 확인한다. |
+| 503 | `GIFT_DELIVERY_UNAVAILABLE` | 발송 설정 비활성 또는 adapter 없음. 발송 완료로 표시하지 않는다. |
+| 409 | `GIFT_DELIVERY_NOT_ALLOWED` | ACTIVE·미만료 등 수동 발송 조건 불충족. |
+| 409 | `GIFT_DELIVERY_LIMIT_EXCEEDED` | 처리 중/결과 불명 또는 주문별 하루 3회·1분 간격 제한. |
 | 409 | `IDEMPOTENCY_KEY_REUSED` | 초안 본문 변경 또는 구매/취소 키의 다른 주문·명령 재사용. |
 | 404 | `RESOURCE_NOT_FOUND` | 소유권 불일치/없는 리소스. 내부 token 검증도 무효·만료·폐기를 같은 404로 처리하며 상세를 노출하지 않는다. |
 
@@ -320,7 +323,7 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 | 502 | `NOTIFICATION_PROVIDER_ERROR` | 알림톡 대행사 통신 오류 | provider 원문 미노출 |
 | 502 | `ALIMTALK_DELIVERY_FAILED` | 알림톡 최종 발송 실패 | 마스킹 번호·상태만 |
 
-알림톡 발송 실패는 결제 성공이나 선물 활성화를 자동 취소하지 않는다. 재시도·SMS 대체 정책은 `TBD(G-10)` 확정 후 적용한다.
+알림톡 발송 실패는 결제 성공이나 선물 활성화를 자동 취소하지 않는다. 현재 확정 미접수에만 최초 발송+3회 재시도(1/5/30분), 결과 불명은 최대 5회 조회 후 검토다. SMS 대체는 미확정이다. 202는 작업 예약이며 상세는 `backend/docs/GIFT_DELIVERY_HANDOFF_20261013.md`를 따른다.
 
 ### 4.11 카카오톡 공유
 

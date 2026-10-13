@@ -1028,7 +1028,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `GET /gift-orders`
 
-- 설계·미구현: 구매자의 보낸 선물 목록
+- local/test 구현: 구매자의 보낸 선물 목록. size 기본 20, 1~50, cursor는 서버 응답을 그대로 사용한다.
+- items/nextCursor/hasNext 응답, 금융 status와 deliveryStatus를 분리한다. chargedShells/deliveryStatus/accessExpiresAt은 null 가능하다. 상세 계약은 `backend/docs/GIFT_DELIVERY_HANDOFF_20261013.md`를 따른다.
 - 원문 토큰과 전체 휴대전화번호를 반환하지 않는다.
 
 ### `GET /gift-orders/{orderId}`
@@ -1036,18 +1037,24 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - 구매자 소유 주문·선물 상태
 - 실제 금융 상태와 charged를 반환한다. expiresAt은 원 견적 기한이며 선물 링크 만료일이 아니다.
 
+### `GET /gift-orders/{orderId}/delivery`
+
+- 구매자 전용 발송 상태와 canResend/remainingResends/nextResendAt. 실제 대행사 adapter 미연결 시 canResend=false다.
+- 발송 상태는 PENDING/IN_FLIGHT/RETRY/UNKNOWN/SENT/FAILED/REVIEW_REQUIRED/CANCELED이며 금융 상태와 별개다.
+
 ### `POST /gift-orders/{orderId}/deliveries`
 
-- 설계·미구현
+- local/test 구현, 실제 대행사 adapter는 미연결
 - 인증·CSRF·`Idempotency-Key` 필요
-- 기존 유효 링크를 동일 수신자에게 알림톡으로 재발송하고 감사 로그를 기록한다.
+- 구 링크를 폐기하고 같은 수신자에게 새 token의 발송 job을 예약한다. 202는 예약이지 전달 완료가 아니다. token 원문은 반환하지 않는다.
+- 주문별 재발송+재발급 합산 일 3회·1분 간격, 같은 요청 키 재전송은 횟수를 중복 사용하지 않는다. UNKNOWN/IN_FLIGHT/검토 상태에는 수동 요청하지 않는다.
 
 ### `POST /gift-orders/{orderId}/link-reissues`
 
-- 설계·미구현
+- local/test 구현, 실제 대행사 adapter는 미연결
 - 인증·CSRF·`Idempotency-Key` 필요
-- 기존 토큰을 폐기하고 새 토큰을 발급한 뒤 수신자에게 알림톡으로 발송한다.
-- 응답에는 새 원문 토큰을 반환하지 않고 발송 상태와 마스킹된 번호만 반환한다.
+- 기존 토큰을 폐기하고 새 토큰의 발송 작업을 예약한다. 202이며 선물 만료일은 연장하지 않는다.
+- 응답은 발송 상태와 요청 가능 여부이고 새 원문 토큰을 반환하지 않는다. 마스킹 번호는 주문/목록에서 조회한다.
 
 ### `POST /webhooks/alimtalk`
 
