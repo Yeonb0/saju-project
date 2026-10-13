@@ -4,6 +4,8 @@ import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ErrorCode;
 import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.reading.domain.RelationType;
+import com.sajuppugi.member.domain.Member;
+import com.sajuppugi.member.port.MemberRepository;
 import com.sajuppugi.person.domain.Person;
 import com.sajuppugi.person.port.PersonRepository;
 import java.time.Clock;
@@ -20,10 +22,12 @@ public class PersonService {
     private static final LocalDate MIN_BIRTH_DATE = LocalDate.of(1900, 1, 1);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private final PersonRepository repository;
+    private final MemberRepository members;
     private final Clock clock;
 
-    public PersonService(PersonRepository repository, Clock clock) {
+    public PersonService(PersonRepository repository, MemberRepository members, Clock clock) {
         this.repository = repository;
+        this.members = members;
         this.clock = clock;
     }
 
@@ -43,6 +47,7 @@ public class PersonService {
                          BirthInput birthInput, RelationType relationType, boolean thirdPartyConfirmed) {
         validate(profileType, displayName, birthInput, relationType, thirdPartyConfirmed);
         ownerUserId = required(ownerUserId);
+        requireActiveMember(ownerUserId);
         Instant now = clock.instant();
         repository.lockOwner(ownerUserId, now);
         if (profileType == Person.ProfileType.SELF && repository.activeSelfExists(ownerUserId)) {
@@ -98,5 +103,16 @@ public class PersonService {
     private static <T> T required(T value) {
         if (value == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
         return value;
+    }
+
+    private void requireActiveMember(UUID userId) {
+        if (members.find(userId).map(PersonService::isActive).orElse(false)) return;
+        // Authentication filters already reject inactive sessions. Keep the person boundary equally strict for
+        // direct service callers and hide member existence from this resource API.
+        throw new ApiException(ErrorCode.PERSON_NOT_FOUND);
+    }
+
+    private static boolean isActive(Member member) {
+        return member.status() == Member.Status.ACTIVE;
     }
 }

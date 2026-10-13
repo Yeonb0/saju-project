@@ -231,6 +231,7 @@ type FieldError = {
 | 409 | `INSUFFICIENT_BALANCE` | 구매에 필요한 등껍질 부족 | `required`, `balance`, `shortage`, `currency` |
 | 409 | `WALLET_TRANSACTION_CONFLICT` | 이미 처리됐거나 상충하는 원장 명령 | `transactionId` |
 | 409 | `WALLET_BALANCE_MISMATCH` | 집계 잔액과 원장 불일치 | 없음, 운영 알림 필수 |
+| 409 | `WALLET_REVIEW_REQUIRED` | 결제 상태 확인이 필요해 등껍질 사용 제한 | 없음, 재시도 대신 고객센터 문의 |
 | 422 | `PAID_BALANCE_REMAINS` | 탈퇴 전 유료 잔액 처리 필요 | `paidBalance` |
 
 `WALLET_BALANCE_MISMATCH`는 사용자 재시도 대상이 아니며 결제 최우선 장애로 알린다.
@@ -246,13 +247,16 @@ type FieldError = {
 | 503 | `PAYMENT_FULFILLMENT_UNAVAILABLE` | 승인 provider 미설정 | 준비 후 같은 주문 확인 |
 | 409 | `PAYMENT_ALREADY_PROCESSED` | 승인·취소가 이미 처리됨 | 최초 결과 조회 |
 | 409 | `PAYMENT_NOT_COMPLETED` | 후속 명령에 필요한 결제 미완료 | 상태 확인 |
-| 409 | `REFUND_NOT_ALLOWED` | 정책상 환불 불가 | 아니요 |
+| 409 | `REFUND_NOT_ELIGIBLE` | 유효한 잔여 유료분 없음, 이미 환불/검토 중이거나 관련 구매 정산이 필요함 | 해당 주문·관련 구매 상태 확인 |
+| 409 | `REFUND_QUOTE_CHANGED` | 확인한 환불액·유료/보너스 회수량이 현재 지급분과 다름 | 관리자 quote 재조회·확인 후 새 실행 의도 |
 | 422 | `PAYMENT_REJECTED` | 카드·결제수단이 PG에서 거절됨 | 수단 변경 |
 | 502 | `PAYMENT_PROVIDER_ERROR` | 토스 통신·응답 오류 | 같은 키로 제한 재시도 |
 | 502 | `PAYMENT_CONFIRM_FAILED` | 승인 확정 실패 | 상태 조회 후 재시도 |
 | 502 | `REFUND_PROVIDER_ERROR` | PG 취소 실패 | 운영 재처리 |
 
 PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기고 클라이언트에는 계약된 코드와 일반화한 문구를 반환한다.
+`WALLET_REVIEW_REQUIRED`는 환불뿐 아니라 충전 주문 생성과 운세 구매 차감에도 발생한다. 결제 상태를 확인할 때까지 구매·충전을 반복하지 않고 문의 경로를 안내한다. 관리자 환불은 충전 건별 잔여분 비례 정산이며 `REFUND_NOT_ELIGIBLE`만 보고 모든 부분 환불이 금지됐다고 안내하지 않는다. 처리 중인 환불의 금액을 바꿔 새 요청을 보내지 않는다.
+이전 초안의 `REFUND_NOT_ALLOWED`는 현재 실행 코드의 오류 enum에 없으며 FE 분기 기준으로 사용하지 않는다.
 
 ### 4.8 운세 계산·문장 생성
 
@@ -315,7 +319,7 @@ PG 오류 원문 코드는 서버 로그의 안전한 매핑값으로만 남기�
 | 410 | `SHARE_REVOKED` | 사용자가 공유를 철회함 |
 | 422 | `SHARE_SCOPE_NOT_ALLOWED` | 개인정보 또는 허용되지 않은 섹션 요청 |
 
-`SHARE_EXPIRED`, `SHARE_REVOKED`의 사용 시점은 공유 정책 `TBD(G-11)` 확정 후 활성화한다.
+`SHARE_EXPIRED`, `SHARE_REVOKED`는 오늘의 운세 공유에서 사용한다. 일반 결과·부적 공유에는 해당 범위의 `G-11` 정책 확정 후 적용한다.
 
 ### 4.12 관리자
 

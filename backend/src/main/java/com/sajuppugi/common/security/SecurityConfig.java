@@ -24,7 +24,7 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper mapper,
-            Environment environment, AuthService auth) throws Exception {
+            Environment environment, AuthService auth, com.sajuppugi.admin.application.AdminAccessService admin) throws Exception {
         // Authentication and business permissions will be implemented by BE-B.
         http.authorizeHttpRequests(authorize -> {
             authorize.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
@@ -32,13 +32,19 @@ public class SecurityConfig {
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/webhooks/toss").permitAll();
+            authorize.requestMatchers(HttpMethod.GET, "/api/v1/daily-fortune-shares/*").permitAll();
+            authorize.requestMatchers(HttpMethod.DELETE, "/api/v1/daily-fortune-shares/*").authenticated();
+            authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->
+                    new org.springframework.security.authorization.AuthorizationDecision(admin.allows(authentication.get(),
+                            !java.util.List.of("GET", "HEAD", "OPTIONS").contains(context.getRequest().getMethod()))));
             authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
             authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
             authorize.requestMatchers("/api/v1/top-up-orders", "/api/v1/top-up-orders/**").authenticated();
             authorize.requestMatchers("/api/v1/quotes/fortune", "/api/v1/quotes/fortune/**",
                     "/api/v1/reading-purchases", "/api/v1/reading-purchases/**",
                     "/api/v1/readings/**", "/api/v1/people", "/api/v1/people/**",
-                    "/api/v1/daily-fortunes/today", "/api/v1/me", "/api/v1/me/**").authenticated();
+                    "/api/v1/daily-fortunes/today", "/api/v1/daily-fortunes/today/share",
+                    "/api/v1/me", "/api/v1/me/**").authenticated();
             if (environment.acceptsProfiles(Profiles.of("local"))) {
                 authorize.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
             }

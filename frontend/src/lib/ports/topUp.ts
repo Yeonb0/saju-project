@@ -17,7 +17,7 @@ export type TopUpProduct = Readonly<{
   active: boolean;
 }>;
 
-// API_SPEC 6장 초안 — CREATED · PAYMENT_PENDING · PAID · CREDITED · FAILED · CANCELED · REFUNDED
+// OpenAPI OrderResponse.status — 알려진 처리 중 상태도 UNKNOWN 으로 낮추지 않는다.
 export const TOP_UP_ORDER_STATUSES = [
   "CREATED",
   "PAYMENT_PENDING",
@@ -26,6 +26,7 @@ export const TOP_UP_ORDER_STATUSES = [
   "FAILED",
   "CANCELED",
   "REFUNDED",
+  "REFUND_PENDING",
 ] as const;
 
 export type TopUpOrderStatus =
@@ -75,6 +76,48 @@ export type TopUpOrderState = Readonly<{
   nextAction: TopUpNextAction;
 }>;
 
+export const CASH_REFUND_STATES = [
+  "RESERVED",
+  "IN_FLIGHT",
+  "RETRY",
+  "REFUNDED",
+  "REVIEW_REQUIRED",
+  "REJECTED",
+] as const;
+
+export type CashRefundState = (typeof CASH_REFUND_STATES)[number] | "UNKNOWN";
+
+export const CASH_REFUND_NEXT_ACTIONS = [
+  "POLL",
+  "NONE",
+  "CONTACT_SUPPORT",
+] as const;
+
+export type CashRefundNextAction =
+  | (typeof CASH_REFUND_NEXT_ACTIONS)[number]
+  | "UNKNOWN";
+
+export type CashRefund = Readonly<{
+  refundId: string;
+  orderId: string;
+  state: CashRefundState;
+  amount: number;
+  nextAction: CashRefundNextAction;
+  completedAt: string | null;
+}>;
+
+export function toCashRefundState(raw: string): CashRefundState {
+  return (CASH_REFUND_STATES as readonly string[]).includes(raw)
+    ? (raw as CashRefundState)
+    : "UNKNOWN";
+}
+
+export function toCashRefundNextAction(raw: string): CashRefundNextAction {
+  return (CASH_REFUND_NEXT_ACTIONS as readonly string[]).includes(raw)
+    ? (raw as CashRefundNextAction)
+    : "UNKNOWN";
+}
+
 // PG 복귀 쿼리 그대로. 계산 · 변환 없이 승인 요청에 넘긴다 (CLAUDE.md 원화 결제).
 export type PaymentReturn = Readonly<{
   paymentKey: string;
@@ -93,4 +136,6 @@ export type TopUpPort = {
   // 키는 구현이 주문 ID 로 만든다 (CONFIRM-KEY, createOrderBoundCommand)
   confirm(ret: PaymentReturn): Promise<TopUpOrderState>;
   getOrder(orderId: string): Promise<TopUpOrderState>;
+  requestRefund(orderId: string, idempotencyKey: string): Promise<CashRefund>;
+  getRefund(orderId: string): Promise<CashRefund>;
 };

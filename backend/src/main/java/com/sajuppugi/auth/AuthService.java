@@ -18,11 +18,15 @@ public class AuthService {
         repository.saveState(SecretHash.sha256(state), safeReturnTo(returnTo), now.plus(props.stateTtl()));
         return kakao.authorizeUrl(state);
     }
-    Login complete(String state, String code) {
+    Login complete(String state, String code, String previousRawSession) {
         configured(); Instant now=clock.instant(); String returnTo = consumeReturnTo(state, now);
         KakaoOAuthClient.KakaoUser user = kakao.userForCode(required(code)); UUID userId=repository.upsertActiveMember(user.subject(), user.nickname(), now);
         String token=SecretHash.randomToken(); UUID sessionId=UUID.randomUUID(); Instant expires=now.plus(props.sessionTtl());
-        repository.createSession(sessionId,userId,SecretHash.sha256(token),SecretHash.sha256(SecretHash.randomToken()),expires,now);
+        repository.createSession(sessionId,userId,SecretHash.sha256(token),SecretHash.sha256(SecretHash.randomToken()),
+                expires,now,props.maxActiveSessions());
+        // The provider exchange occurs before database writes. Only revoke an existing browser session after its
+        // replacement was stored, so a provider or storage failure does not unnecessarily sign the user out.
+        if (previousRawSession != null) repository.revokeSession(SecretHash.sha256(previousRawSession), now);
         return new Login(token, returnTo);
     }
     String abort(String state) { configured(); return consumeReturnTo(state, clock.instant()); }
@@ -31,6 +35,13 @@ public class AuthService {
     boolean matchesCsrf(AuthRepository.Session session, String token) { return token != null && session != null && repository.matchesCsrf(session.id(), SecretHash.sha256(token), clock.instant()); }
     void logout(String raw) { if(raw != null) repository.revokeSession(SecretHash.sha256(raw), clock.instant()); }
     boolean isSecure() { return props.redirectUri() != null && props.redirectUri().startsWith("https://"); }
+    String frontendOrigin() {
+        URI frontend = URI.create(props.frontendBaseUrl());
+        if (frontend.getScheme() == null || frontend.getHost() == null) {
+            throw new IllegalStateException("FRONTEND_BASE_URL must be an absolute origin");
+        }
+        return frontend.getScheme() + "://" + frontend.getAuthority();
+    }
     String frontendUrl(String returnTo) { return URI.create(props.frontendBaseUrl()).resolve(safeReturnTo(returnTo)).toString(); }
     String loginFailureUrl(String returnTo, boolean cancelled) {
         return URI.create(props.frontendBaseUrl()).resolve("/login?returnTo="

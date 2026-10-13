@@ -5,6 +5,7 @@ import { createFakeTopUpPort } from "./topUp";
 // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다. 키 · 결제 키는 임의 값이다.
 const KEY_1 = "11111111-1111-4111-8111-111111111111";
 const KEY_2 = "22222222-2222-4222-8222-222222222222";
+const KEY_3 = "33333333-3333-4333-8333-333333333333";
 
 async function orderAndReturn(
   scenario?: Parameters<typeof createFakeTopUpPort>[0],
@@ -119,5 +120,44 @@ describe("가짜 충전 포트", () => {
     expect(pending.status).toBe("PAID");
     expect(pending.grantedShellAmount).toBeNull();
     expect(pending.nextAction).toBe("POLL");
+  });
+
+  it("환불 신청은 주문을 REFUND_PENDING으로 만들고 같은 키 재요청은 같은 결과다", async () => {
+    const { port, ret } = await orderAndReturn();
+    await port.confirm(ret);
+    const first = await port.requestRefund(ret.orderId, KEY_2);
+    const second = await port.requestRefund(ret.orderId, KEY_2);
+    expect(second).toEqual(first);
+    expect(first).toMatchObject({
+      orderId: ret.orderId,
+      state: "RESERVED",
+      nextAction: "POLL",
+      completedAt: null,
+    });
+    expect((await port.getOrder(ret.orderId)).status).toBe("REFUND_PENDING");
+    expect(await port.getRefund(ret.orderId)).toEqual(first);
+  });
+
+  it("지급 전 환불과 멱등 키의 다른 주문 재사용을 거절한다", async () => {
+    const first = await orderAndReturn();
+    await expect(
+      first.port.requestRefund(first.ret.orderId, KEY_2),
+    ).rejects.toMatchObject({ code: "REFUND_NOT_ELIGIBLE" });
+
+    const port = createFakeTopUpPort();
+    const a = await port.createOrder(
+      { productCode: "FIXTURE_TOP_UP_A" },
+      KEY_1,
+    );
+    const b = await port.createOrder(
+      { productCode: "FIXTURE_TOP_UP_B" },
+      KEY_2,
+    );
+    await port.confirm({ paymentKey: "a", orderId: a.orderId, amount: "1111" });
+    await port.confirm({ paymentKey: "b", orderId: b.orderId, amount: "2222" });
+    await port.requestRefund(a.orderId, KEY_3);
+    await expect(port.requestRefund(b.orderId, KEY_3)).rejects.toMatchObject({
+      code: "IDEMPOTENCY_KEY_REUSED",
+    });
   });
 });

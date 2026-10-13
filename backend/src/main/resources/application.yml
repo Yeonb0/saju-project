@@ -47,6 +47,9 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  admin:
+    enabled: ${ADMIN_OPERATIONS_ENABLED:false}
+    recovery-enabled: ${ADMIN_RECOVERY_ENABLED:false}
   operations:
     alerts:
       enabled: ${OPERATIONS_ALERTS_ENABLED:false}
@@ -59,8 +62,9 @@ app:
     client-secret: ${KAKAO_CLIENT_SECRET:}
     redirect-uri: ${KAKAO_REDIRECT_URI:}
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
-    session-ttl: ${KAKAO_SESSION_TTL:14d}
+    session-ttl: ${KAKAO_SESSION_TTL:30d}
     state-ttl: ${KAKAO_STATE_TTL:10m}
+    max-active-sessions: ${KAKAO_MAX_ACTIVE_SESSIONS:5}
   person:
     encryption-key: ${PERSON_ENCRYPTION_KEY:}
   toss:

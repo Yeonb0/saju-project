@@ -4,8 +4,10 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 class JdbcAuthRepository implements AuthRepository {
@@ -25,19 +27,38 @@ class JdbcAuthRepository implements AuthRepository {
     }
     public UUID upsertActiveMember(String subject, String nickname, Instant now) {
         UUID id = UUID.randomUUID();
+        try {
+            jdbc.update("""
+                    INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at)
+                    VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+                    """, id, subject, nickname, ts(now), ts(now));
+        } catch (DuplicateKeyException duplicate) {
+            jdbc.update("""
+                    UPDATE users SET nickname = ?, updated_at = ?
+                    WHERE kakao_subject = ? AND status = 'ACTIVE'
+                    """, nickname, ts(now), subject);
+        }
         return jdbc.query("""
-                INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at)
-                VALUES (?, ?, ?, 'ACTIVE', ?, ?)
-                ON CONFLICT (kakao_subject) DO UPDATE SET nickname = EXCLUDED.nickname, updated_at = EXCLUDED.updated_at
-                WHERE users.status = 'ACTIVE'
-                RETURNING id
-                """, (rs, row) -> rs.getObject(1, UUID.class), id, subject, nickname, ts(now), ts(now)).stream().findFirst()
+                SELECT id FROM users WHERE kakao_subject = ? AND status = 'ACTIVE'
+                """, (rs, row) -> rs.getObject(1, UUID.class), subject).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Kakao member is not active"));
     }
-    public void createSession(UUID id, UUID userId, String tokenHash, String csrfHash, Instant expiresAt, Instant now) {
+    @Transactional
+    public void createSession(UUID id, UUID userId, String tokenHash, String csrfHash, Instant expiresAt, Instant now,
+                              int maxActiveSessions) {
+        // Serialise only this user's short session write. OAuth provider calls occur before this method.
+        jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", UUID.class, userId);
         jdbc.update("""
                 INSERT INTO user_sessions (id, user_id, token_hash, csrf_secret_hash, expires_at, last_seen_at)
                 VALUES (?, ?, ?, ?, ?, ?)""", id, userId, tokenHash, csrfHash, ts(expiresAt), ts(now));
+        // The new login is always preserved. Retain the most recently used older sessions and revoke the rest.
+        var sessionsToRevoke = jdbc.query("""
+                SELECT id FROM user_sessions
+                WHERE user_id = ? AND id <> ? AND revoked_at IS NULL AND expires_at > ?
+                ORDER BY last_seen_at DESC, id DESC
+                """, (rs, row) -> rs.getObject(1, UUID.class), userId, id, ts(now));
+        sessionsToRevoke.stream().skip(maxActiveSessions - 1L).forEach(sessionId ->
+                jdbc.update("UPDATE user_sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL", ts(now), sessionId));
     }
     public Optional<Session> findSession(String tokenHash, Instant now) {
         return jdbc.query("""

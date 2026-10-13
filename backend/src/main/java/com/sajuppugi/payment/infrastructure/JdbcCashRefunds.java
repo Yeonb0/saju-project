@@ -27,8 +27,10 @@ public class JdbcCashRefunds {
     private final JdbcTemplate jdbc;
     private final WalletOperationsService wallets;
     private final CashRefundPolicy policy;
-    public JdbcCashRefunds(JdbcTemplate jdbc, WalletOperationsService wallets, CashRefundPolicy policy) {
-        this.jdbc = jdbc; this.wallets = wallets; this.policy = policy;
+    private final com.sajuppugi.admin.application.AuditLogPort audit;
+    public JdbcCashRefunds(JdbcTemplate jdbc, WalletOperationsService wallets, CashRefundPolicy policy,
+                          com.sajuppugi.admin.application.AuditLogPort audit) {
+        this.jdbc = jdbc; this.wallets = wallets; this.policy = policy; this.audit = audit;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 10)
@@ -63,17 +65,42 @@ public class JdbcCashRefunds {
         return find(order).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
+    @Transactional(propagation = Propagation.MANDATORY, timeout = 10)
+    public View prepareRemaining(UUID user, UUID order, UUID caseId,
+                                 com.sajuppugi.wallet.application.RemainingTopUpRefund expected, Instant now) {
+        var owner = lockOrder(order, user);
+        var existing = find(order);
+        if (existing.isPresent()) {
+            UUID existingCase = jdbc.queryForObject("SELECT admin_case_id FROM top_up_refunds WHERE order_id = ?", UUID.class, order);
+            if (!caseId.equals(existingCase)) throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
+            return existing.get();
+        }
+        if (!policy.enabled() || !"CREDITED".equals(owner.status())) throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
+        Integer verified = jdbc.queryForObject("SELECT COUNT(*) FROM top_up_confirmation_intents WHERE order_id = ? AND amount_krw = ?", Integer.class, order, owner.amount());
+        if (verified == null || verified != 1) throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
+        UUID refund = UUID.randomUUID();
+        var quote = wallets.reclaimRemainingTopUp(user, order, refund, owner.amount(), owner.paid(), owner.bonus(), expected);
+        jdbc.update("""
+                INSERT INTO top_up_refunds(id,order_id,user_id,key_hash,state,amount_krw,reason_code,next_attempt_at,created_at,
+                    admin_case_id,reclaimed_paid,reclaimed_bonus)
+                VALUES (?,?,?,?,'RESERVED',?,'REMAINING_TOP_UP',?,?,?,?,?)
+                """, refund, order, user, hash("admin-case:" + caseId), quote.amount(), Timestamp.from(now), Timestamp.from(now),
+                caseId, quote.paidShells(), quote.bonusShells());
+        return find(order).orElseThrow();
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
     public Optional<Lease> claim(UUID order, Instant now) {
         lockOrder(order, null);
         var rows = jdbc.query("SELECT * FROM top_up_refunds WHERE order_id = ? FOR UPDATE", (rs, row) ->
                 new Attempt(rs.getObject("id", UUID.class), rs.getString("state"), rs.getInt("attempts"),
-                        rs.getTimestamp("next_attempt_at").toInstant()), order);
+                        rs.getTimestamp("next_attempt_at").toInstant(), rs.getInt("amount_krw"), rs.getObject("admin_case_id", UUID.class) != null), order);
         if (rows.isEmpty()) return Optional.empty();
         var attempt = rows.getFirst();
         if (List.of("REFUNDED", "REVIEW_REQUIRED").contains(attempt.state()) || attempt.next().isAfter(now)) return Optional.empty();
         if (attempt.attempts() >= 5) {
             jdbc.update("UPDATE top_up_refunds SET state = 'REVIEW_REQUIRED', lease_token = NULL, lease_until = NULL WHERE order_id = ?", order);
+            auditRemaining(order, "ADMIN_REFUND_REVIEW", now);
             return Optional.empty();
         }
         var intents = jdbc.query("SELECT * FROM top_up_confirmation_intents WHERE order_id = ?", (rs, row) ->
@@ -83,7 +110,7 @@ public class JdbcCashRefunds {
         jdbc.update("""
                 UPDATE top_up_refunds SET state = 'IN_FLIGHT', attempts = attempts + 1, lease_token = ?, lease_until = ?, next_attempt_at = ? WHERE order_id = ?
                 """, token, Timestamp.from(now.plusSeconds(180)), Timestamp.from(now.plusSeconds(180)), order);
-        return Optional.of(new Lease(attempt.id(), order, token, intents.getFirst(), attempt.attempts() == 0));
+        return Optional.of(new Lease(attempt.id(), order, token, intents.getFirst(), attempt.attempts() == 0, attempt.amount(), attempt.remaining()));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
@@ -98,14 +125,18 @@ public class JdbcCashRefunds {
                 && "CASH_REFUND_REJECTED".equals(result.safeFailureCode())) {
             wallets.returnRejectedCashRefund(owner.user(), lease.refund());
             jdbc.update("UPDATE top_up_refunds SET state = 'REVIEW_REQUIRED', resolution = 'CANCEL_REJECTED', lease_token = NULL, lease_until = NULL WHERE order_id = ?", lease.order());
+            auditRemaining(lease.order(), "ADMIN_REFUND_REJECTED", now);
             return;
         }
-        boolean refunded = result != null && result.matches(lease.intent()) && result.outcome() == PaymentProviderPort.Outcome.CANCELED;
+        if (lease.remaining() && result != null && result.confirmsRefund(lease.intent(), lease.amount())
+                && resolveRemainingCancellation(lease.order(), result, now)) return;
+        boolean refunded = !lease.remaining() && result != null && result.confirmsRefund(lease.intent(), lease.amount());
         String state = refunded ? "REFUNDED" : rows.getFirst() >= 5 ? "REVIEW_REQUIRED" : "RETRY";
         jdbc.update("""
                 UPDATE top_up_refunds SET state = ?, completed_at = ?, next_attempt_at = ?, lease_token = NULL, lease_until = NULL WHERE order_id = ?
                 """, state, refunded ? Timestamp.from(now) : null, Timestamp.from(now.plusSeconds(30)), lease.order());
         if (refunded) jdbc.update("UPDATE top_up_orders SET status = 'REFUNDED' WHERE id = ?", lease.order());
+        auditRemaining(lease.order(), refunded ? "ADMIN_REFUND_COMPLETED" : "REVIEW_REQUIRED".equals(state) ? "ADMIN_REFUND_REVIEW" : "ADMIN_REFUND_PENDING", now);
     }
 
     // Provider-only evidence, never the webhook body, reaches this boundary.
@@ -117,6 +148,13 @@ public class JdbcCashRefunds {
         if (intent.isEmpty() || evidence == null || !evidence.matches(intent.getFirst()) || evidence.outcome() != PaymentProviderPort.Outcome.CANCELED) return false;
         var existing = find(order);
         if (existing.isPresent()) {
+            UUID caseId = jdbc.queryForObject("SELECT admin_case_id FROM top_up_refunds WHERE order_id = ?", UUID.class, order);
+            if (caseId != null) {
+                if (resolveRemainingCancellation(order, evidence, now)) return true;
+                wallets.flagExternalCancellation(owner.user());
+                jdbc.update("UPDATE top_up_refunds SET state = 'REVIEW_REQUIRED', resolution = NULL, completed_at = NULL WHERE order_id = ?", order);
+                return false;
+            }
             if ("REJECTED".equals(existing.get().state())) {
                 wallets.flagExternalCancellation(owner.user());
                 jdbc.update("UPDATE top_up_refunds SET resolution = NULL WHERE order_id = ?", order);
@@ -144,6 +182,68 @@ public class JdbcCashRefunds {
     public List<UUID> due(Instant now) {
         return jdbc.query("SELECT order_id FROM top_up_refunds WHERE state IN ('RESERVED','IN_FLIGHT','RETRY') AND next_attempt_at <= ? ORDER BY next_attempt_at LIMIT 100",
                 (rs, row) -> rs.getObject(1, UUID.class), Timestamp.from(now));
+    }
+    @Transactional(timeout = 10)
+    public boolean resolveReservedCancellation(UUID order, PaymentProviderPort.Result evidence, Instant now) {
+        if (resolveRemainingCancellation(order, evidence, now)) return true;
+        var owner = lockOrder(order, null);
+        var intents = jdbc.query("SELECT * FROM top_up_confirmation_intents WHERE order_id = ?", (rs, row) ->
+                new TopUpConfirmationIntent(order, rs.getString("payment_key_hash"), rs.getInt("amount_krw"), rs.getTimestamp("created_at").toInstant()), order);
+        if (intents.isEmpty() || evidence == null || !evidence.matches(intents.getFirst()) || evidence.outcome() != PaymentProviderPort.Outcome.CANCELED) return false;
+        var held = jdbc.query("""
+                SELECT r.id FROM top_up_refunds r WHERE r.order_id = ? AND r.reason_code = 'UNUSED_TOP_UP' AND r.resolution IS NULL
+                AND r.state IN ('RESERVED','RETRY','IN_FLIGHT','REVIEW_REQUIRED')
+                AND NOT EXISTS (SELECT 1 FROM wallet_cash_refund_returns x WHERE x.refund_id = r.id)
+                AND EXISTS (SELECT 1 FROM wallet_top_up_receipts g WHERE g.order_id = r.order_id AND g.wallet_user_id = r.user_id)
+                AND EXISTS (SELECT 1 FROM wallet_transactions t WHERE t.reference_id = r.id AND t.wallet_user_id = r.user_id AND t.type = 'REFUND' AND t.total_amount = ?)
+                AND NOT EXISTS (SELECT 1 FROM wallet_transaction_lines l JOIN wallet_top_up_receipts g ON g.transaction_id = l.transaction_id
+                    JOIN wallet_lots lot ON lot.id = l.lot_id WHERE g.order_id = r.order_id AND lot.remaining_amount <> 0)
+                FOR UPDATE
+                """, (rs, row) -> rs.getObject(1, UUID.class), order, -Math.addExact(owner.paid(), owner.bonus()));
+        if (held.isEmpty()) return false;
+        jdbc.update("UPDATE top_up_refunds SET state = 'REFUNDED', completed_at = ?, lease_token = NULL, lease_until = NULL WHERE order_id = ?", Timestamp.from(now), order);
+        jdbc.update("UPDATE top_up_orders SET status = 'REFUNDED' WHERE id = ?", order);
+        return true;
+    }
+
+    @Transactional(timeout = 10)
+    public boolean resolveRemainingCancellation(UUID order, PaymentProviderPort.Result evidence, Instant now) {
+        var owner = lockOrder(order, null);
+        var snapshots = jdbc.query("SELECT id,state,amount_krw,reclaimed_paid,reclaimed_bonus FROM top_up_refunds WHERE order_id = ? AND admin_case_id IS NOT NULL AND resolution IS NULL FOR UPDATE",
+                (rs, row) -> new Snapshot(rs.getObject(1, UUID.class), rs.getString(2), rs.getInt(3), rs.getInt(4), rs.getInt(5)), order);
+        if (snapshots.isEmpty()) return false;
+        var s = snapshots.getFirst();
+        if (s.paid() <= 0 || s.paid() > owner.paid() || s.bonus() < 0 || s.bonus() > owner.bonus()
+                || com.sajuppugi.wallet.application.RemainingTopUpRefund.proratedAmount(owner.amount(), owner.paid(), s.paid()) != s.amount()) return false;
+        var intents = jdbc.query("SELECT * FROM top_up_confirmation_intents WHERE order_id = ?", (rs, row) -> new TopUpConfirmationIntent(order,
+                rs.getString("payment_key_hash"), rs.getInt("amount_krw"), rs.getTimestamp("created_at").toInstant()), order);
+        if (intents.size() != 1 || evidence == null || !evidence.confirmsRefund(intents.getFirst(), s.amount())) return false;
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM wallet_cash_refund_returns WHERE refund_id = ?", Integer.class, s.id()) != 0) return false;
+        Integer reserved = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM wallet_transactions t WHERE t.reference_id = ? AND t.wallet_user_id = ?
+                AND t.type = 'REFUND' AND t.total_amount = ? AND t.reversal_of_id IS NULL
+                AND (SELECT COALESCE(SUM(-l.amount),0) FROM wallet_transaction_lines l JOIN wallet_lots lot ON lot.id = l.lot_id
+                    WHERE l.transaction_id = t.id AND lot.balance_type = 'PAID') = ?
+                AND (SELECT COALESCE(SUM(-l.amount),0) FROM wallet_transaction_lines l JOIN wallet_lots lot ON lot.id = l.lot_id
+                    WHERE l.transaction_id = t.id AND lot.balance_type = 'BONUS') = ?
+                AND NOT EXISTS (SELECT 1 FROM wallet_transaction_lines l JOIN wallet_lots lot ON lot.id = l.lot_id
+                    WHERE l.transaction_id = t.id AND (l.amount >= 0 OR lot.remaining_amount <> 0 OR NOT EXISTS
+                        (SELECT 1 FROM wallet_transaction_lines granted JOIN wallet_top_up_receipts g
+                            ON g.transaction_id = granted.transaction_id WHERE g.order_id = ? AND granted.lot_id = l.lot_id)))
+                """, Integer.class, s.id(), owner.user(), -Math.addExact(s.paid(), s.bonus()), s.paid(), s.bonus(), order);
+        if (reserved == null || reserved != 1 || !wallets.inspectForRecovery(owner.user())) return false;
+        if ("REFUNDED".equals(s.state())) return true;
+        jdbc.update("UPDATE top_up_refunds SET state = 'REFUNDED', completed_at = ?, lease_token = NULL, lease_until = NULL WHERE order_id = ?", Timestamp.from(now), order);
+        jdbc.update("UPDATE top_up_orders SET status = 'REFUNDED' WHERE id = ?", order);
+        auditRemaining(order, "ADMIN_REFUND_COMPLETED", now);
+        return true;
+    }
+
+    private void auditRemaining(UUID order, String action, Instant now) {
+        var actors = jdbc.query("SELECT COALESCE(c.executed_by,c.operator_id),c.id FROM admin_refund_cases c JOIN top_up_refunds r ON r.admin_case_id = c.id WHERE r.order_id = ?",
+                (rs, row) -> new UUID[]{rs.getObject(1, UUID.class), rs.getObject(2, UUID.class)}, order);
+        if (!actors.isEmpty()) audit.append(new com.sajuppugi.admin.application.AuditLogPort.Entry(actors.getFirst()[0], action,
+                "REFUND_CASE", actors.getFirst()[1], "CUSTOMER_INQUIRY", com.sajuppugi.common.logging.TraceContext.currentId(), now));
     }
     @Transactional(timeout = 10)
     public void flagPartialCancellation(UUID order, Instant now) {
@@ -188,7 +288,8 @@ public class JdbcCashRefunds {
     @io.swagger.v3.oas.annotations.media.Schema(name = "CashRefundResponse", requiredProperties = {"refundId", "orderId", "state", "amount", "nextAction", "completedAt"})
     public record View(UUID refundId, UUID orderId, String state, int amount, String nextAction,
             @io.swagger.v3.oas.annotations.media.Schema(types = {"string", "null"}, format = "date-time") Instant completedAt) {}
-    public record Lease(UUID refund, UUID order, UUID token, TopUpConfirmationIntent intent, boolean first) {}
-    private record Attempt(UUID id, String state, int attempts, Instant next) {}
+    public record Lease(UUID refund, UUID order, UUID token, TopUpConfirmationIntent intent, boolean first, int amount, boolean remaining) {}
+    private record Attempt(UUID id, String state, int attempts, Instant next, int amount, boolean remaining) {}
+    private record Snapshot(UUID id, String state, int amount, int paid, int bonus) {}
     private record Order(UUID user, String status, int amount, int paid, int bonus, Instant created) {}
 }
