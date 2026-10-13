@@ -29,6 +29,7 @@ public class QuoteFundingService {
         Product product = quote.productSnapshot();
         if (product.price().currency() != Price.Currency.TURTLE_SHELL
                 || (product.category() != Product.Category.READING
+                    && product.category() != Product.Category.GIFT
                     && product.category() != Product.Category.TALISMAN_ADDON)) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }

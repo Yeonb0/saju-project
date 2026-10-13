@@ -47,6 +47,11 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  gift:
+    orders-enabled: ${GIFT_ORDERS_ENABLED:false}
+    purchases-enabled: ${GIFT_PURCHASES_ENABLED:false}
+    recovery-enabled: ${GIFT_RECOVERY_ENABLED:false}
+    payload-key: ${GIFT_PAYLOAD_KEY:}
   admin:
     enabled: ${ADMIN_OPERATIONS_ENABLED:false}
     recovery-enabled: ${ADMIN_RECOVERY_ENABLED:false}
