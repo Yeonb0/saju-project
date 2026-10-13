@@ -2,6 +2,8 @@
 
 ### 2026-10-13: FE 10/12 요청서 기준 BE-B 계약·스테이징 설정 점검
 
+- 2026-10-13 BE-B 부적 비동기 처리의 첫 경계를 구현했다. 운세 결과와 같은 짧은 DB 트랜잭션에서 `PENDING` 부적과 `talisman_render_jobs`의 단일 작업을 남기고, worker가 lease token/fence로 점유한 뒤에만 `READY` asset key 또는 제한 재시도 뒤 `FAILED`를 저장하도록 했다. 렌더링·object storage는 port로만 추가했고, 승인 에셋과 실제 private R2 adapter가 아직 없으므로 `TALISMAN_RENDER_ENABLED`는 기본 false이며 worker는 기동하지 않는다. 적용: 6-4 durable job/lease/stale 완료 차단, 6-5 private object key 경계, 6-6 additive Flyway migration, 6-9 birth input·signed URL·raw token 비저장. H2 talisman 13건과 PostgreSQL 17.11 전용 `sajuppugi_test`에서 새 lease/재시도/완료 2건을 통과했다. 전체 H2 `clean check bootJar`는 기존 관리자 `FOR NO KEY UPDATE` 및 결제 대사 `ON CONFLICT`의 H2 비호환으로 514건 중 32건이 실패해 전체 성공으로 기록하지 않는다. 실제 renderer/R2, worker kill/restart, staging 및 파일 복원 시험은 아직 미실행이다.
+
 - 적용 점검: 6-1 OAuth callback/세션/CSRF와 내부 returnTo, 6-6 고정 staging origin과 환경 분리, 6-9 OAuth·Liner 비밀값의 저장소 비노출.
 - 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정하고 고정 OpenAPI 파일을 다시 export했다.
 - 카카오 callback은 고정 프론트 origin의 `/api/v1/auth/kakao/callback`으로 등록하고, 같은 origin을 `FRONTEND_BASE_URL`에 설정해야 한다. Next.js `/api/v1` 프록시를 거치면 세션 쿠키가 프론트 origin에 설정된다. 이 설정값과 카카오 Developers 등록, Railway/Vercel 배포는 외부 계정 권한이 필요해 이 저장소에서 수행·검증하지 않았다.

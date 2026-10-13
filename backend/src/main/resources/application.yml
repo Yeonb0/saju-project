@@ -105,6 +105,15 @@ app:
       max-attempts: 3
       batch-size: 20
       poll-delay: 30s
+  talisman:
+    render:
+      # Disabled until approved assets and a real private object-storage adapter are configured.
+      enabled: ${TALISMAN_RENDER_ENABLED:false}
+      max-attempts: ${TALISMAN_RENDER_MAX_ATTEMPTS:3}
+      batch-size: ${TALISMAN_RENDER_BATCH_SIZE:10}
+      poll-delay: ${TALISMAN_RENDER_POLL_DELAY:30s}
+      retry-delay: ${TALISMAN_RENDER_RETRY_DELAY:1m}
+      lease-duration: ${TALISMAN_RENDER_LEASE_DURATION:3m}
   liner:
     adapter: ${LINER_ADAPTER:fake}
     base-url: ${LINER_BASE_URL:https://platform.liner.com/api/v1}

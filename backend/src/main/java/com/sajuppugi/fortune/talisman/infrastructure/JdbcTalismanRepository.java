@@ -33,6 +33,12 @@ public class JdbcTalismanRepository implements TalismanRepository {
     }
 
     @Override
+    public Optional<Talisman> findById(UUID talismanId) {
+        return jdbc.query("SELECT * FROM talismans WHERE id = ?", (rs, row) -> talisman(rs), talismanId)
+                .stream().findFirst();
+    }
+
+    @Override
     public Optional<Talisman> findOwned(UUID ownerUserId, UUID talismanId) {
         return jdbc.query("""
                 SELECT t.* FROM talismans t
