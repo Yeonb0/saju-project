@@ -169,6 +169,92 @@
         },
         "type" : "object"
       },
+      "AdminRefundCase" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "bonusShells" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "caseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "customerUserId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "paidShells" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "receivedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "refundId" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          },
+          "registeredAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "supportReference" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "bonusShells", "caseId", "completedAt", "customerUserId", "orderId", "paidShells", "receivedAt", "refundId", "registeredAt", "state", "supportReference" ],
+        "type" : "object"
+      },
+      "AdminRefundQuote" : {
+        "properties" : {
+          "amount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "bonusShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "caseId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "feeAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "originalAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "paidShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amount", "bonusShells", "caseId", "feeAmount", "orderId", "originalAmount", "paidShells" ],
+        "type" : "object"
+      },
       "AdminWallet" : {
         "properties" : {
           "storedBonusBalance" : {
@@ -204,6 +290,28 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/AdminRecoveryResponse"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseAdminRefundCase" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AdminRefundCase"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseAdminRefundQuote" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AdminRefundQuote"
           },
           "traceId" : {
             "type" : "string"
@@ -275,6 +383,47 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "Execution" : {
+        "properties" : {
+          "expectedAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "expectedBonusShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "expectedPaidShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "expectedAmount", "expectedBonusShells", "expectedPaidShells" ],
+        "type" : "object"
+      },
+      "Intake" : {
+        "properties" : {
+          "customerUserId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "receivedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "supportReference" : {
+            "minLength" : 1,
+            "pattern" : "[A-Za-z0-9_-]{1,80}",
+            "type" : "string"
+          }
+        },
+        "required" : [ "customerUserId", "orderId", "receivedAt", "supportReference" ],
         "type" : "object"
       },
       "PageAdminAuditEvent" : {
@@ -512,6 +661,161 @@
           }
         },
         "tags" : [ "admin-recovery-controller" ]
+      }
+    },
+    "/api/v1/admin/refund-cases" : {
+      "post" : {
+        "description" : "Register a verified customer-center inquiry without calling PG or reclaiming credits.",
+        "operationId" : "adminOpenRefundCase",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Intake"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRefundCase"
+                }
+              }
+            },
+            "description" : "Case registered or same-key replay"
+          }
+        },
+        "security" : [ {
+          "adminCsrf" : [ ],
+          "adminSession" : [ ]
+        } ],
+        "tags" : [ "admin-cash-refund-controller" ]
+      }
+    },
+    "/api/v1/admin/refund-cases/{caseId}" : {
+      "get" : {
+        "operationId" : "adminGetRefundCase",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "caseId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRefundCase"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-cash-refund-controller" ]
+      }
+    },
+    "/api/v1/admin/refund-cases/{caseId}/execute" : {
+      "post" : {
+        "description" : "Revalidate the exact quote and persist the financial intent and audit before provider cancellation. Unknown outcomes must be polled, not submitted with a new amount.",
+        "operationId" : "adminExecuteRemainingRefund",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "caseId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Execution"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRefundCase"
+                }
+              }
+            },
+            "description" : "Refunded, rejected, or review required"
+          },
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRefundCase"
+                }
+              }
+            },
+            "description" : "Reserved or processing"
+          }
+        },
+        "security" : [ {
+          "adminCsrf" : [ ],
+          "adminSession" : [ ]
+        } ],
+        "tags" : [ "admin-cash-refund-controller" ]
+      }
+    },
+    "/api/v1/admin/refund-cases/{caseId}/quote" : {
+      "get" : {
+        "description" : "Current order-specific paid remainder, zero fee, remaining bonus reclamation. Does not reserve credits.",
+        "operationId" : "adminQuoteRemainingRefund",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "caseId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminRefundQuote"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-cash-refund-controller" ]
       }
     },
     "/api/v1/admin/refunds" : {

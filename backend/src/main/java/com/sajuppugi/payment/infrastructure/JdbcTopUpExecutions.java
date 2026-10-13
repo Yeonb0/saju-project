@@ -39,11 +39,13 @@ public class JdbcTopUpExecutions {
         var order = orders.findOwned(user, id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         var receipts = jdbc.query("SELECT paid_balance, bonus_balance FROM wallet_top_up_receipts WHERE order_id = ? AND wallet_user_id = ?",
                 (rs, row) -> new WalletBalance(rs.getInt(1), rs.getInt(2)), id, user);
-        var refunds = jdbc.query("SELECT state FROM top_up_refunds WHERE order_id = ? AND resolution IS NULL", (rs, row) -> rs.getString(1), id);
+        var refunds = jdbc.query("SELECT state,amount_krw FROM top_up_refunds WHERE order_id = ? AND resolution IS NULL", (rs, row) -> new PublicRefund(rs.getString(1), rs.getInt(2)), id);
         if (!refunds.isEmpty()) {
-            String state = refunds.getFirst();
+            String state = refunds.getFirst().state();
             if (!"REFUNDED".equals(state)) order = new TopUpOrder(order.id(), order.userId(), order.productCode(),
                     order.amountKrw(), order.paidShells(), order.bonusShells(), TopUpOrder.Status.REFUND_PENDING, order.createdAt());
+            else if (refunds.getFirst().amount() < order.amountKrw()) order = new TopUpOrder(order.id(), order.userId(), order.productCode(),
+                    order.amountKrw(), order.paidShells(), order.bonusShells(), TopUpOrder.Status.PARTIALLY_REFUNDED, order.createdAt());
             return new OrderView(order, !List.of("REFUNDED", "REVIEW_REQUIRED").contains(state), null,
                     "REFUNDED".equals(state) ? NextAction.NONE : "REVIEW_REQUIRED".equals(state) ? NextAction.CONTACT_SUPPORT : NextAction.POLL,
                     "REFUNDED".equals(state) ? null : "REFUND_PENDING");
@@ -150,4 +152,5 @@ public class JdbcTopUpExecutions {
     private record OrderOwner(UUID user, String status) {}
     private record GrantOrder(UUID user, String status, int paid, int bonus) {}
     private record PublicExecution(String state, String failureCode) {}
+    private record PublicRefund(String state, int amount) {}
 }

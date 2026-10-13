@@ -349,9 +349,10 @@ class CashRefundOperationsTest {
         UUID order = credit(); String path = "/api/v1/top-up-orders/" + order + "/refund";
         mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(post(path).with(user(user.toString())).header("Idempotency-Key", "key")).andExpect(status().isForbidden());
-        mvc.perform(post(path).with(user(UUID.randomUUID().toString())).with(csrf()).header("Idempotency-Key", "key")).andExpect(status().isNotFound());
-        mvc.perform(post(path).with(user(user.toString())).with(csrf()).header("Idempotency-Key", "key"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.state").value("REFUNDED"));
+        mvc.perform(post(path).with(user(user.toString())).with(csrf()).header("Idempotency-Key", "key")).andExpect(status().isMethodNotAllowed());
+        assertThat(count("SELECT COUNT(*) FROM top_up_refunds WHERE order_id = ?", order)).isZero();
+        service.request(user, order, "internal-regression");
+        mvc.perform(get(path).with(user(UUID.randomUUID().toString()))).andExpect(status().isNotFound());
         mvc.perform(get(path).with(user(user.toString()))).andExpect(status().isOk()).andExpect(jsonPath("$.data.amount").value(1000));
     }
     @Test void unsupportedMalformedUnknownOrderAndOversizedWebhooksAreSafe() throws Exception {

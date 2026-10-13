@@ -251,6 +251,47 @@ class TossPaymentProviderTest {
         cancelBody = payment("CANCELED").put("totalAmount", new java.math.BigInteger("18446744073709556616")).toString();
         assertThat(provider.cancelVerified(intent(orderId, "payment", 5000), UUID.randomUUID()).outcome()).isEqualTo(Outcome.UNKNOWN);
     }
+    @Test void remainingCancellationSendsProratedAmountAndValidatesCompletedCancelHistory() throws Exception {
+        cancelBody = partialPayment(4000).toString();
+        var intent = intent(orderId, "payment", 5000);
+        var result = provider.cancelRemainingVerified(intent, UUID.randomUUID(), 4000);
+        assertThat(result.confirmsRefund(intent, 4000)).isTrue();
+        assertThat(payload.get().path("cancelAmount").asInt()).isEqualTo(4000);
+        body = cancelBody; int before = requests.get();
+        assertThat(provider.cancelRemainingVerified(intent, UUID.randomUUID(), 4000).confirmsRefund(intent, 4000)).isTrue();
+        assertThat(requests.get()).isEqualTo(before + 1);
+        assertThat(method.get()).isEqualTo("GET");
+    }
+    @Test void wrongPartialAmountsPendingHistoryDuplicateKeysAndFullCancellationAreNotPartialProof() throws Exception {
+        var intent = intent(orderId, "payment", 5000);
+        for (ObjectNode invalid : java.util.List.of(partialPayment(3000), partialPayment(4000).put("balanceAmount", 2000),
+                partialPayment(4000).put("totalAmount", 6000))) {
+            cancelBody = invalid.toString();
+            assertThat(provider.cancelRemainingVerified(intent, UUID.randomUUID(), 4000).confirmsRefund(intent, 4000)).isFalse();
+        }
+        var pending = partialPayment(4000); ((ObjectNode) pending.path("cancels").get(0)).put("cancelStatus", "PENDING");
+        cancelBody = pending.toString();
+        assertThat(provider.cancelRemainingVerified(intent, UUID.randomUUID(), 4000).confirmsRefund(intent, 4000)).isFalse();
+        var duplicated = partialPayment(2000); duplicated.withArray("cancels").add(duplicated.path("cancels").get(0).deepCopy());
+        duplicated.put("balanceAmount", 1000); cancelBody = duplicated.toString();
+        assertThat(provider.cancelRemainingVerified(intent, UUID.randomUUID(), 4000).confirmsRefund(intent, 4000)).isFalse();
+        cancelBody = payment("CANCELED").toString();
+        assertThat(provider.cancelRemainingVerified(intent, UUID.randomUUID(), 4000).confirmsRefund(intent, 4000)).isFalse();
+    }
+    @Test void unsupportedPartialMethodAndVirtualAccountDoNotSendCancellation() throws Exception {
+        var intent = intent(orderId, "payment", 5000);
+        body = payment("DONE").put("isPartialCancelable", false).toString();
+        assertThat(provider.cancelRemainingVerified(intent, UUID.randomUUID(), 4000).outcome()).isEqualTo(Outcome.CANCEL_REJECTED);
+        assertThat(method.get()).isEqualTo("GET");
+        body = payment("DONE").put("method", "가상계좌").toString();
+        assertThat(provider.cancelRemainingVerified(intent, UUID.randomUUID(), 5000).outcome()).isEqualTo(Outcome.CANCEL_REJECTED);
+        assertThat(method.get()).isEqualTo("GET");
+    }
+    private ObjectNode partialPayment(int amount) {
+        var payment = payment("PARTIAL_CANCELED").put("balanceAmount", 5000 - amount);
+        payment.putArray("cancels").addObject().put("cancelAmount", amount).put("cancelStatus", "DONE").put("transactionKey", "synthetic-cancel");
+        return payment;
+    }
     @Test void explicitRefundRejectionNeedsFreshUnchangedApprovalBeforeReturningFunds() throws Exception {
         cancelStatus = 400;
         cancelBody = "{\"code\":\"REFUND_REJECTED\",\"message\":\"private provider detail\"}";

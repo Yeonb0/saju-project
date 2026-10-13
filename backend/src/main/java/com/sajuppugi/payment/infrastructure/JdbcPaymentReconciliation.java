@@ -70,7 +70,9 @@ public class JdbcPaymentReconciliation {
         checked |= matches && result.outcome() == PaymentProviderPort.Outcome.CANCELED && "CANCELED".equals(orderState);
         checked |= matches && result.outcome() == PaymentProviderPort.Outcome.DECLINED && "FAILED".equals(orderState);
         String finding = null;
-        if (matches && "PAYMENT_PARTIAL_CANCEL_REVIEW".equals(result.safeFailureCode()) && "CREDITED".equals(orderState)) {
+        if (matches && refunds.resolveRemainingCancellation(lease.order(), result, now)) {
+            checked = true;
+        } else if (matches && "PAYMENT_PARTIAL_CANCEL_REVIEW".equals(result.safeFailureCode()) && List.of("CREDITED", "REFUNDED").contains(orderState)) {
             refunds.flagPartialCancellation(lease.order(), now);
             finding = "PARTIAL_CANCEL_REVIEW";
         } else if (matches && result.outcome() == PaymentProviderPort.Outcome.CANCELED && List.of("CREDITED", "REFUNDED").contains(orderState)) {

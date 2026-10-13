@@ -32,6 +32,11 @@ public class VerifiedPaymentRecoveryService {
         var intents = jdbc.query("SELECT * FROM top_up_confirmation_intents WHERE order_id = ?", (rs, row) ->
                 new TopUpConfirmationIntent(id, rs.getString("payment_key_hash"), rs.getInt("amount_krw"), rs.getTimestamp("created_at").toInstant()), id);
         if (intents.isEmpty() || evidence == null || !evidence.matches(intents.getFirst()) || evidence.amountKrw() != order.amount()) return "EVIDENCE_UNVERIFIED";
+        if (refunds.resolveRemainingCancellation(id, evidence, clock.instant())) return "REFUNDED";
+        if ("PAYMENT_PARTIAL_CANCEL_REVIEW".equals(evidence.safeFailureCode())) {
+            refunds.flagPartialCancellation(id, clock.instant());
+            return "MANUAL_REVIEW_REQUIRED";
+        }
         if (evidence.approves(intents.getFirst())) {
             if ("CREDITED".equals(order.status())) {
                 Integer pendingRefund = jdbc.queryForObject("SELECT COUNT(*) FROM top_up_refunds WHERE order_id = ? AND resolution IS NULL", Integer.class, id);
