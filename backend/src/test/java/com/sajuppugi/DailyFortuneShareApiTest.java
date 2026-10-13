@@ -185,12 +185,13 @@ class DailyFortuneShareApiTest {
     }
 
     @Test
-    void calculationFailureCannotRevokeOrOverwriteAnExistingActiveLink() throws Exception {
+    void activeLinkIsReusedWhenCalculationIsUnavailable() throws Exception {
         String created = create(owner, person);
         String token = JsonPath.read(created, "$.data.token");
         when(fortunes.today(owner, person)).thenThrow(new IllegalStateException("simulated calculation outage"));
 
-        assertThatThrownBy(() -> shares.create(owner, person)).isInstanceOf(IllegalStateException.class);
+        var reused = shares.create(owner, person);
+        assertThat(reused.token()).isEqualTo(token);
 
         mvc.perform(get("/api/v1/daily-fortune-shares/{token}", token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.content.oneLineFortune").value("오늘 문장"));

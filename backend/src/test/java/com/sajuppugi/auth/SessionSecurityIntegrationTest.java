@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,6 +36,13 @@ class SessionSecurityIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired AuthService auth;
+
+    @AfterEach
+    void removeFixedSessionFixtures() {
+        jdbc.update("DELETE FROM user_sessions WHERE token_hash IN (?, ?)",
+                SecretHash.sha256("session-for-real-filter-test"), SecretHash.sha256("expired-session-filter-test"));
+        jdbc.update("DELETE FROM users WHERE nickname IN (?, ?)", "테스트", "만료");
+    }
 
     @Test
     void sessionCsrfLogoutAndRevocationUseTheSameOpaqueCookie() throws Exception {

@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
@@ -70,6 +71,19 @@ public class JdbcDailyFortuneShares {
         return jdbc.query("SELECT * FROM daily_fortune_shares WHERE public_token_hash = ?",
                         (rs, row) -> mapPublic(rs), hash(token))
                 .stream().findFirst();
+    }
+
+    @Transactional(readOnly = true, timeout = 5)
+    public Optional<DailyFortuneShareService.Created> findOwnedActive(UUID user, UUID person, LocalDate date, Instant now) {
+        return jdbc.query("""
+                SELECT s.* FROM daily_fortune_shares s
+                JOIN people p ON p.id = s.person_id
+                WHERE s.owner_user_id = ? AND s.person_id = ? AND s.fortune_date = ?
+                  AND p.owner_user_id = ? AND p.deleted_at IS NULL
+                  AND s.revoked_at IS NULL AND s.expires_at > ?
+                """, (rs, row) -> mapReusable(rs), user, person, date, user, Timestamp.from(now))
+                .stream().findFirst()
+                .map(value -> new DailyFortuneShareService.Created(value.id(), value.token(), value.expiresAt(), value.snapshot()));
     }
 
     @Transactional(timeout = 5)

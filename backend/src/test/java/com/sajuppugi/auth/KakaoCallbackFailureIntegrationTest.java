@@ -100,8 +100,10 @@ class KakaoCallbackFailureIntegrationTest {
                         .contains(AuthService.COOKIE + "=").doesNotContain(previousRaw));
         assertThat(jdbc.queryForObject("SELECT revoked_at IS NOT NULL FROM user_sessions WHERE id = ?", Boolean.class,
                 previousSession)).isTrue();
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_sessions WHERE user_id <> ? AND revoked_at IS NULL",
-                Integer.class, previousUser)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM user_sessions
+                WHERE user_id = (SELECT id FROM users WHERE kakao_subject = ?) AND revoked_at IS NULL
+                """, Integer.class, "new-kakao-user")).isEqualTo(1);
         jdbc.update("DELETE FROM user_sessions WHERE user_id = ?", previousUser);
         jdbc.update("DELETE FROM users WHERE id = ?", previousUser);
     }

@@ -6,6 +6,8 @@ import com.sajuppugi.fortune.daily.application.DailyFortuneService;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.UUID;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DailyFortuneShareService {
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private final DailyFortuneService fortunes;
     private final JdbcDailyFortuneShares shares;
     private final Clock clock;
@@ -25,8 +28,11 @@ public class DailyFortuneShareService {
     }
 
     public Created create(UUID userId, UUID personId) {
-        var fortune = fortunes.today(userId, personId);
         Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        LocalDate date = LocalDate.now(clock.withZone(KST));
+        var reusable = shares.findOwnedActive(userId, personId, date, now);
+        if (reusable.isPresent()) return reusable.get();
+        var fortune = fortunes.today(userId, personId);
         return shares.createOrReuse(userId, personId, fortune, now, now.plus(24, ChronoUnit.HOURS), this::token);
     }
 
