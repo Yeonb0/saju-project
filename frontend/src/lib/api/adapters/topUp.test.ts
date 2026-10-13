@@ -351,6 +351,25 @@ describe("충전 adapter — getOrder", () => {
   });
 });
 
+describe("충전 adapter — getOrder (일부 환불)", () => {
+  it("PARTIALLY_REFUNDED 는 UNKNOWN 으로 낮추지 않고 null 값도 그대로 보존한다", async () => {
+    const { adapter } = setup(
+      ok(
+        orderData({
+          status: "PARTIALLY_REFUNDED",
+          walletBalance: null,
+          grantedShellAmount: null,
+        }),
+      ),
+    );
+    await expect(adapter.getOrder(ORDER_ID)).resolves.toMatchObject({
+      status: "PARTIALLY_REFUNDED",
+      walletBalance: null,
+      grantedShellAmount: null,
+    });
+  });
+});
+
 describe("충전 adapter — listTopUpProducts", () => {
   it("i. GET /api/v1/products?category=TOP_UP, CSRF 헤더 없음, 포트 모양(productName · regularPrice 없음)", async () => {
     const { adapter, sent } = setup(
@@ -408,21 +427,9 @@ describe("충전 adapter — listTopUpProducts", () => {
 });
 
 describe("충전 adapter — cash refund", () => {
-  it("신청은 CSRF와 같은 멱등 키를 보내고 202 상태를 보존한다", async () => {
-    const key = createIdempotencyKey();
-    const { adapter, sent } = setup(ok(refundData(), 202));
-    await expect(adapter.requestRefund(ORDER_ID, key)).resolves.toEqual({
-      ...refundData(),
-      state: "RESERVED",
-      nextAction: "POLL",
-    });
-    expect(sent(0)).toMatchObject({
-      url: `/api/v1/top-up-orders/${ORDER_ID}/refund`,
-      method: "POST",
-      body: undefined,
-    });
-    expect(sent(0).headers["Idempotency-Key"]).toBe(key);
-    expect(sent(0).headers["X-CSRF-Token"]).toBe("FIXTURE-CSRF");
+  it("사용자 환불 신청 메서드는 없다 — 신청은 고객센터 · 관리자 처리 (Q-41)", () => {
+    const { adapter } = setup();
+    expect("requestRefund" in adapter).toBe(false);
   });
 
   it("조회는 본문·CSRF 없이 완료 시각을 그대로 돌려준다", async () => {

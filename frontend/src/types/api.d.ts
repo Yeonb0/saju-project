@@ -659,8 +659,7 @@ export interface paths {
         };
         get: operations["getTopUpRefund"];
         put?: never;
-        /** @description Full unused top-up only, policy-gated. REFUNDED alone proves verified cash cancellation; otherwise poll this resource. */
-        post: operations["requestTopUpRefund"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1186,7 +1185,7 @@ export interface components {
             processing: boolean;
             productCode: string;
             /** @enum {string} */
-            status: "CREATED" | "PAYMENT_PENDING" | "PAID" | "CREDITED" | "FAILED" | "CANCELED" | "REFUNDED" | "REFUND_PENDING";
+            status: "CREATED" | "PAYMENT_PENDING" | "PAID" | "CREDITED" | "FAILED" | "CANCELED" | "REFUNDED" | "REFUND_PENDING" | "PARTIALLY_REFUNDED";
             /** Format: int32 */
             walletBalance: number | null;
         };
@@ -5853,111 +5852,6 @@ export interface operations {
         responses: {
             /** @description OK */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseCashRefundResponse"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Common error envelope; branch on code, not message. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-        };
-    };
-    requestTopUpRefund: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path: {
-                orderId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Resolved or review required */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseCashRefundResponse"];
-                };
-            };
-            /** @description Reserved or processing; poll refund */
-            202: {
                 headers: {
                     [name: string]: unknown;
                 };

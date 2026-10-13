@@ -17,7 +17,8 @@ export type TopUpProduct = Readonly<{
   active: boolean;
 }>;
 
-// OpenAPI OrderResponse.status — 알려진 처리 중 상태도 UNKNOWN 으로 낮추지 않는다.
+// OpenAPI OrderResponse.status. REFUND_PENDING (현금 환불 미완료 · 검토) · PARTIALLY_REFUNDED (일부 금액 환불 완료)는
+// 충전 완료가 아니다 — 완료는 CREDITED 만 (TOPUP-DONE · Q-41, backend/docs/CUSTOMER_CENTER_REFUNDS_20261013.md)
 export const TOP_UP_ORDER_STATUSES = [
   "CREATED",
   "PAYMENT_PENDING",
@@ -27,6 +28,7 @@ export const TOP_UP_ORDER_STATUSES = [
   "CANCELED",
   "REFUNDED",
   "REFUND_PENDING",
+  "PARTIALLY_REFUNDED",
 ] as const;
 
 export type TopUpOrderStatus =
@@ -97,6 +99,8 @@ export type CashRefundNextAction =
   | (typeof CASH_REFUND_NEXT_ACTIONS)[number]
   | "UNKNOWN";
 
+// 소유자 환불 조회 GET 응답. 완료는 state REFUNDED + completedAt 일 때만, 실제 환불액은 amount (원 결제액 아님).
+// 기록이 없으면 서버는 404 RESOURCE_NOT_FOUND — 접수 거절로 읽지 않는다. 신청은 고객센터 · 관리자 처리 (Q-41)
 export type CashRefund = Readonly<{
   refundId: string;
   orderId: string;
@@ -136,6 +140,5 @@ export type TopUpPort = {
   // 키는 구현이 주문 ID 로 만든다 (CONFIRM-KEY, createOrderBoundCommand)
   confirm(ret: PaymentReturn): Promise<TopUpOrderState>;
   getOrder(orderId: string): Promise<TopUpOrderState>;
-  requestRefund(orderId: string, idempotencyKey: string): Promise<CashRefund>;
   getRefund(orderId: string): Promise<CashRefund>;
 };

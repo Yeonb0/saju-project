@@ -68,7 +68,6 @@ export type ApiErrorKind =
   | "request_processing" // 409 IDEMPOTENCY_REQUEST_PROCESSING — 버튼을 다시 열지 않고 상태 조회
   | "quote_expired" // 409 QUOTE_EXPIRED — 선택 유지 + 새 견적
   | "price_changed" // 409 PRICE_CHANGED — 다시 확인받기
-  | "refund_not_eligible" // 409 REFUND_NOT_ELIGIBLE — 같은 요청을 반복하지 않고 정책 안내
   | "review_required" // 409 WALLET_REVIEW_REQUIRED — 재시도 대신 문의 안내
   | "conflict" // 409 그 밖
   | "not_found" // 404
@@ -87,7 +86,6 @@ const KIND_BY_CODE: Readonly<Record<string, ApiErrorKind>> = {
   IDEMPOTENCY_REQUEST_PROCESSING: "request_processing",
   QUOTE_EXPIRED: "quote_expired",
   PRICE_CHANGED: "price_changed",
-  REFUND_NOT_ELIGIBLE: "refund_not_eligible",
   WALLET_REVIEW_REQUIRED: "review_required",
   BIRTH_TIME_REQUIRED_AT_TERM: "birth_time_required",
 };
