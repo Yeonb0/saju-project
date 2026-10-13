@@ -1,5 +1,13 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: BE-B 암호화 recipient profile·fulfillment intent
+
+- 공개 `POST /api/v1/public/gifts/recipient-profile`을 추가했다. 기존 `BirthInputNormalizer`와 이름 검증을 재사용하고, 일반 `people`이 아닌 신규 `gift_recipient_profiles`에 정규화 snapshot을 AES-GCM 암호화 저장한다. 응답과 충돌 오류에는 이름·생년정보·snapshot hash를 반환하지 않는다.
+- 신규 additive migration `V202610141100__b_gift_recipient_profiles.sql`은 gift당 profile 한 건과 fulfillment job 한 건을 unique/FK로 강제한다. 제출은 A `GiftFulfillmentPort.accept` callback 안에서 profile과 `PENDING` intent를 저장하므로 A receipt, 암호문, intent가 함께 commit/rollback된다. Liner/R2 호출은 없다.
+- 같은 `Idempotency-Key`와 동일 입력은 기존 receipt를 재사용하고, 다른 키 또는 다른 snapshot 제출은 기존 정보 비노출 409로 거절한다. profile/job에는 원문 token을 저장하지 않는다. 적용: 6-2 PostgreSQL transaction·중복 방지, 6-4 durable intent 기반, 6-5 token 재검증, 6-6 신규 migration, 6-9 목적 분리 암호화·응답 최소화.
+- 로컬 H2에서 컴파일·Gift OpenAPI·주문 회귀 검사를 통과했다. PostgreSQL 17 테스트 DB에서 정상 저장/replay/다른 요청 충돌, 암호문 비노출, 미래 생년월일 거절 시 무저장, fulfillment intent 저장 실패 시 A receipt·profile·job 전체 rollback을 포함한 `GiftLifecyclePostgresTest` 전체를 통과했다. backend gift OpenAPI export도 성공했다.
+- 남음: worker claim/lease/fencing, profile 복호화 후 facts 계산, option별 Liner/fallback, immutable result snapshot, 공개 endpoint rate limit/Origin, 운영자 profile 초기화, key rotation과 파기 worker. 실제 개인정보나 실제 외부 provider는 사용하지 않았다.
+
 ### 2026-10-14: BE-B 선물 공개 안내 접근 1단계
 
 - 브랜치 `feat/be-b-gift-recipient-access`에서 공개 `POST /api/v1/public/gifts/access`를 추가했다. raw token은 URL path/query가 아니라 JSON body로만 받고 DTO 문자열에서 마스킹한다. 비로그인 접근과 이 경로의 CSRF 예외를 명시적으로 열되 다른 gift 주문 API의 세션·CSRF 경계는 유지했다.

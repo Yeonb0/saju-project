@@ -423,6 +423,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseSubmission" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Submission"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseSuneungQuoteResponse" : {
         "properties" : {
           "data" : {
@@ -1988,6 +1999,45 @@
         "required" : [ "token" ],
         "type" : "object"
       },
+      "PublicGiftRecipientRequest" : {
+        "properties" : {
+          "birthDate" : {
+            "minLength" : 1,
+            "pattern" : "\\d{4}-\\d{2}-\\d{2}",
+            "type" : "string"
+          },
+          "birthTime" : {
+            "pattern" : "(?:[01]\\d|2[0-3]):[0-5]\\d",
+            "type" : "string"
+          },
+          "birthTimeUnknown" : {
+            "type" : "boolean"
+          },
+          "calendarType" : {
+            "enum" : [ "SOLAR", "LUNAR" ],
+            "type" : "string"
+          },
+          "displayName" : {
+            "maxLength" : 50,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "gender" : {
+            "enum" : [ "MALE", "FEMALE", "UNSPECIFIED" ],
+            "type" : "string"
+          },
+          "leapMonth" : {
+            "type" : "boolean"
+          },
+          "token" : {
+            "minLength" : 1,
+            "pattern" : "[A-Za-z0-9_-]{43}",
+            "type" : "string"
+          }
+        },
+        "required" : [ "birthDate", "birthTimeUnknown", "calendarType", "displayName", "gender", "leapMonth", "token" ],
+        "type" : "object"
+      },
       "PurchaseRequest" : {
         "properties" : {
           "counterpartPersonId" : {
@@ -2483,6 +2533,26 @@
           },
           "yinYang" : {
             "enum" : [ "YANG", "YIN" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Submission" : {
+        "properties" : {
+          "giftId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "receiptId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "format" : "date-time",
             "type" : "string"
           }
         },
@@ -5714,6 +5784,123 @@
           }
         },
         "tags" : [ "public-gift-access-controller" ]
+      }
+    },
+    "/api/v1/public/gifts/recipient-profile" : {
+      "post" : {
+        "description" : "Stores one encrypted recipient snapshot and a durable fulfillment intent. Replays do not return birth data.",
+        "operationId" : "submitPublicGiftRecipient",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublicGiftRecipientRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSubmission"
+                }
+              }
+            },
+            "description" : "Accepted"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "public-gift-recipient-controller" ]
       }
     },
     "/api/v1/quotes/fortune" : {

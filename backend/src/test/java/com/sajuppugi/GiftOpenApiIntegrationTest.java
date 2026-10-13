@@ -32,6 +32,7 @@ class GiftOpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/link'].get.operationId").value("getGiftLink"))
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/link-reissues'].post.operationId").value("reissueGiftLink"))
                 .andExpect(jsonPath("$.paths['/api/v1/public/gifts/access'].post.operationId").value("getPublicGiftAccess"))
+                .andExpect(jsonPath("$.paths['/api/v1/public/gifts/recipient-profile'].post.operationId").value("submitPublicGiftRecipient"))
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/purchase'].get.operationId").value("getGiftPurchase"))
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/purchase'].post.responses['202']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/purchase'].post.responses['200'].content['application/json'].schema['$ref']").value("#/components/schemas/ApiResponseGiftPurchaseResponse"))
