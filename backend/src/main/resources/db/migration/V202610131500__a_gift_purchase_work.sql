@@ -1,6 +1,6 @@
 CREATE TABLE gift_purchase_work (
     order_id UUID PRIMARY KEY REFERENCES gift_order_drafts(id),
-    status VARCHAR(30) NOT NULL CHECK (status IN ('PENDING', 'ACTIVE', 'REFUNDED', 'FAILED', 'REVIEW_REQUIRED')),
+    status VARCHAR(30) NOT NULL CONSTRAINT gift_purchase_work_status_check CHECK (status IN ('PENDING', 'ACTIVE', 'REFUNDED', 'FAILED', 'REVIEW_REQUIRED')),
     failures INTEGER NOT NULL DEFAULT 0 CHECK (failures BETWEEN 0 AND 5),
     failure_code VARCHAR(80),
     next_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL,

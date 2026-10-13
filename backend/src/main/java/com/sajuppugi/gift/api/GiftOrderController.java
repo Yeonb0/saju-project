@@ -19,10 +19,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/gift-orders")
 public class GiftOrderController {
     private final GiftOrderService orders;
-    public GiftOrderController(GiftOrderService orders) { this.orders = orders; }
+    private final org.springframework.beans.factory.ObjectProvider<com.sajuppugi.gift.application.GiftPurchaseTransactions> purchases;
+    public GiftOrderController(GiftOrderService orders,
+            org.springframework.beans.factory.ObjectProvider<com.sajuppugi.gift.application.GiftPurchaseTransactions> purchases) {
+        this.orders = orders; this.purchases = purchases;
+    }
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(operationId = "createGiftOrder", description = "Local/test CREATED draft only. No debit, token or delivery; charged is null.")
+    @Operation(operationId = "createGiftOrder", description = "Create or replay local/test metadata. A new draft has no debit; replay reflects current financial status. expiresAt is the original quote deadline, not gift access expiry.")
     public ApiResponse<GiftOrderResponse> create(Authentication authentication,
             @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody Request request) {
         return ApiResponse.of(response(orders.create(user(authentication), request.quoteId(),
@@ -38,11 +42,14 @@ public class GiftOrderController {
         catch (RuntimeException invalid) { throw new ApiException(ErrorCode.AUTHENTICATION_REQUIRED); }
     }
     private GiftOrderResponse response(GiftOrderService.Order order) {
-        return new GiftOrderResponse(order.orderId(), order.quoteId(), Status.CREATED, order.productCode(),
-                order.productName(), new Price(Price.Currency.TURTLE_SHELL, order.amount()), null,
+        var service = purchases.getIfAvailable();
+        var work = service == null ? null : service.find(order.userId(), order.orderId()).orElse(null);
+        return new GiftOrderResponse(order.orderId(), order.quoteId(), work == null ? Status.CREATED : Status.valueOf(work.status()), order.productCode(),
+                order.productName(), new Price(Price.Currency.TURTLE_SHELL, order.amount()),
+                work == null || work.chargedAmount() == null ? null : new Price(Price.Currency.TURTLE_SHELL, work.chargedAmount()),
                 order.recipientPhoneMasked(), order.createdAt(), order.expiresAt());
     }
-    public enum Status { CREATED }
+    public enum Status { CREATED, PENDING, ACTIVE, REFUNDED, FAILED, REVIEW_REQUIRED, CANCEL_PENDING, CANCELED }
     @Schema(name = "GiftOrderRequest", requiredProperties = {"quoteId", "recipientName", "recipientPhone", "senderName", "message"})
     public record Request(@NotNull UUID quoteId, @NotNull String recipientName, @NotNull String recipientPhone,
                           @NotNull String senderName, @NotNull String message) {

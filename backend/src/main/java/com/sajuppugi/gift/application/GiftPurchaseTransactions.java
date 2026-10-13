@@ -58,6 +58,11 @@ public class GiftPurchaseTransactions {
         return work.get(order, false).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
     }
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
+    public java.util.Optional<Work> find(UUID user, UUID order) {
+        owned(user, order);
+        return work.get(order, false);
+    }
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
     public List<JdbcGiftPurchaseWork.Target> due() { return work.due(clock.instant()); }
     public Work activate(UUID user, UUID id) {
         var order = owned(user, id);
