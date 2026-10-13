@@ -132,13 +132,19 @@ class AdminRemainingRefundTest {
         assertThat(service.execute(actor, c.caseId(), "execute", q).amount()).isEqualTo(5000);
         assertThat(balance()).isZero();
     }
-    @Test void partiallyUsedOrderOlderThanSevenDaysRefundsOnlyItsRemainingPaidValue() {
+    @Test void partiallyUsedOrderOlderThanSevenDaysRefundsOnlyItsRemainingPaidValue() throws Exception {
         UUID order = credit(); use(order, 100, 50); UUID unrelated = credit();
         var c = intake(order); var q = preview(c.caseId());
         assertThat(q).isEqualTo(new RemainingTopUpRefund(4000, 400, 0));
         assertThat(service.execute(actor, c.caseId(), "execute", q).state()).isEqualTo("REFUNDED");
         assertThat(payments.get(customer, order).order().status().name()).isEqualTo("PARTIALLY_REFUNDED");
         assertThat(payments.get(customer, unrelated).order().status().name()).isEqualTo("CREDITED");
+        String history = mvc.perform(get("/api/v1/top-up-orders").with(user(customer.toString())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var items = mapper.readTree(history).path("data").path("items");
+        assertThat(java.util.stream.StreamSupport.stream(items.spliterator(), false)
+                .filter(item -> order.toString().equals(item.path("orderId").asText())).findFirst().orElseThrow()
+                .path("status").asText()).isEqualTo("PARTIALLY_REFUNDED");
         assertThat(balance()).isEqualTo(550);
         jobs.signal(order, NOW); operations.reconcile(order);
         assertThat(count("SELECT COUNT(*) FROM wallet_integrity_findings WHERE wallet_user_id = ?", customer)).isZero();
