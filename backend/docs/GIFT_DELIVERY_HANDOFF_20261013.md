@@ -2,6 +2,8 @@
 
 기준: 2026-10-13, `codex/gift-fulfillment`. A 구현이며 FE·B 코드와 공유 OpenAPI는 변경하지 않았다. 아래 API는 local/test 전용이고 기본 비활성이다. 실제 알림톡 발송이나 수신 콘텐츠까지 완성된 상태는 아니다.
 
+후속 사용자 확정: 알림톡 재발송·알림톡을 통한 링크 재발급은 실제 구매 차감 시각부터 30일 미만까지다. 30일 이후 새 발송을 차단하고, 별도 전화번호 정리 worker는 초안의 전화번호와 마스킹 번호·발송 outbox를 지운다. 기존 90일 링크 권한은 폐기하지 않으며 메시지·금융 기록을 같이 삭제하지 않는다. `GIFT_PHONE_CLEANUP_ENABLED=false`가 기본값으로 실제 환경의 활성화는 별도다. 결과 불명인 기존 발송은 원문 전화번호 없이 작업 ID로 조회하며 새 발송은 하지 않는다. 기본 정리 주기는 1분, 오류는 5회 후 운영 검토이며 순간적·백업 포함 완전 삭제 보장은 아니다.
+
 ## 이번 구현
 
 - 발송 작업 저장, worker 점유, 결과 조회, 제한 재시도와 검토 상태.
@@ -78,7 +80,7 @@
 | GIFT_PAYLOAD_ACTIVE_KEY_ID / GIFT_PAYLOAD_KEYRING | 선택 v2 keyId와 JSON keyring, 각 키 32바이트 Base64 |
 | GIFT_PAYLOAD_REENCRYPTION_ENABLED | 활성 v2 key가 있어야 worker 기동 |
 
-local/test 밖 활성화 제한을 유지한다. 신규 `V202610131700`, `V202610131800`만 추가했으며 기존 applied migration을 수정하지 않았다. 첫 migration은 기존 outbox의 UUID·암호문·상태를 유지해 delivery job을 만든다. 옛 선물 초안 DB를 새 migration 번호와 섞지 않는다.
+local/test 밖 활성화 제한을 유지한다. 게시 전 최종 발송/키 전환/전화번호 정리 migration은 `V202610132500`, `V202610132600`, `V202610132700`이다. B 미병합 PR과 번호 중복을 피하도록 미게시 A 선물 번호만 재배치했다. 기존 공유·배포 migration은 수정하지 않았다. 발송 migration은 기존 outbox의 UUID·암호문·상태를 유지해 job을 만든다. 옛 선물 검증 DB를 새 번호와 섞지 않는다. B 미병합 migration은 A보다 앞 번호이므로 운영 배포 전에 통합된 migration 집합·배포 순서를 확인해야 한다. 이번에는 B 브랜치를 병합·배포하지 않았다.
 
 전용 계약: `backend/docs/openapi/gift-operations-v1.json`, backend에서 `gradlew.bat exportGiftOpenApi`. 공유 계약·FE 생성 타입은 담당자 동기화 전까지 그대로다.
 
@@ -92,6 +94,8 @@ local/test 밖 활성화 제한을 유지한다. 신규 `V202610131700`, `V20261
 - FE는 위 API와 기존 견적→초안→purchase→상태 조회를 연결해야 한다. 실제 수신 콘텐츠·브라우저 E2E 완료로 안내하지 않는다.
 
 ## 검증 기록
+
+PR 최종 검증: 번호 재배치한 새 PostgreSQL 17.11 분리 DB에서 `clean check bootJar exportGiftOpenApi` 성공. 전체 636건 중 624 통과·12 선택 제외·실패/오류 0, migration 43개 모두 성공이다. 추가 30일 경계·전화번호 정리 7건과 관리자 단건 2건이 포함된다. 아래 627건/42개는 앞선 발송 단계 기록이다.
 
 분리 PostgreSQL 17.11 테스트 DB, 합성 회원/전화번호/키, fake provider로 전체 627건 중 615 통과, 선택 제외 12, 실패/오류 0을 확인했다. `check bootJar exportGiftOpenApi` 성공, migration 42개 모두 성공이다. delivery PostgreSQL suite 43건은 기존 lifecycle 12건과 추가 31건이며 cipher 단위 4건도 통과했다. provider 호출 시 DB 트랜잭션이 없는지, 동일 작업 경쟁, 응답 유실 조회, 늦은 응답 차단, 재발급/취소 rollback, 보관 정리, 키 전환/오류 격리를 검사했다. 상세는 `docs/OPERATIONS_CHECKLIST.md`의 최신 기록을 따른다.
 

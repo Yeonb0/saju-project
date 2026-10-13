@@ -1048,6 +1048,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - 인증·CSRF·`Idempotency-Key` 필요
 - 구 링크를 폐기하고 같은 수신자에게 새 token의 발송 job을 예약한다. 202는 예약이지 전달 완료가 아니다. token 원문은 반환하지 않는다.
 - 주문별 재발송+재발급 합산 일 3회·1분 간격, 같은 요청 키 재전송은 횟수를 중복 사용하지 않는다. UNKNOWN/IN_FLIGHT/검토 상태에는 수동 요청하지 않는다.
+- 실제 구매 차감 시각부터 30일 미만에만 새 발송을 허용한다. 30일 이후 전화번호 정리는 별도 worker로 수행하며 기존 90일 링크 권한과 결과 불명 조회는 유지한다.
 
 ### `POST /gift-orders/{orderId}/link-reissues`
 

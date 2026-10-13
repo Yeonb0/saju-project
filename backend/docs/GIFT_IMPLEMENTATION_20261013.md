@@ -63,7 +63,7 @@
 - GIFT_ORDERS_ENABLED, GIFT_PURCHASES_ENABLED, GIFT_RECOVERY_ENABLED 모두 기본 false.
 - 구매를 켜려면 orders와 WALLET_PURCHASES_ENABLED도 필요하다. 개인정보 암호화용 GIFT_PAYLOAD_KEY는 토스 키와 별개인 32바이트 Base64 키다. 실제 키는 채팅·Git에 넣지 않는다.
 - 현재 cipher는 local/test만 허용하고 staging/production/prod에서 활성화를 거절한다. 개인정보 정리와 키 버전 전환 worker는 추가했지만 기본 꺼져 있으며 실제 보관기간·대행사·수신 연결이 준비되기 전 운영 활성화를 허용하지 않는다.
-- 신규 Flyway 202610131300/1400/1500/1600을 main의 최신 migration 뒤에 추가한다. 이전 미병합 초안 migration은 게시 전 재배치했다. 이전 선물 초안 테스트 DB에 새 번호를 그대로 적용하지 말고 별도의 빈 검증 DB를 사용한다. 사용자 DB/기존 공유 migration은 수정하지 않았다.
+- 게시 전 최종 Flyway 번호는 202610132100/2200/2300/2400(견적/초안/차감/취소)과 2500/2600/2700(발송/키 전환/전화번호 정리)이다. B 미병합 PR의 131300/131400과 중복된 번호를 피하기 위해 미게시 A 선물 migration만 재배치했다. 옛 선물 검증 DB의 131300~132000 번호와 섞지 말고 별도의 빈 검증 DB를 사용한다. 이미 공유·배포된 migration과 사용자 DB는 수정하지 않았다.
 - backend 전용 계약은 `docs/openapi/gift-operations-v1.json`, 생성 명령은 backend에서 `gradlew.bat exportGiftOpenApi`다. 공유 `docs/openapi/api-v1.json`·FE 생성 타입은 변경하지 않았다. FE 연결 시 담당자가 함께 동기화한다.
 
 ## 다음 구현과 팀 결정
