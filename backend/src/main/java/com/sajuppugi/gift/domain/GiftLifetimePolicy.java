@@ -6,7 +6,7 @@ import java.util.Objects;
 
 public final class GiftLifetimePolicy {
     public static final Duration UNUSED_VALIDITY = Duration.ofDays(90);
-    public static final Duration FIRST_ACCESS_GRACE = Duration.ofHours(24);
+    public static final Duration RECOVERY_REVIEW_AFTER = Duration.ofHours(24);
     public static final Duration USED_VALIDITY = Duration.ofDays(90);
 
     private GiftLifetimePolicy() {}
@@ -26,7 +26,7 @@ public final class GiftLifetimePolicy {
         }
         boolean validSubmission = !recipientSubmittedAt.isBefore(approvedAt)
                 && recipientSubmittedAt.isBefore(expiry) && !recipientSubmittedAt.isAfter(now);
-        return validSubmission && now.isBefore(expiry.plus(FIRST_ACCESS_GRACE));
+        return validSubmission;
     }
 
     /** Call only when the first content response successfully supplies the content. */

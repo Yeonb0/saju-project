@@ -16,8 +16,10 @@ import com.sajuppugi.fortune.daily.application.DailyFortuneService;
 import com.sajuppugi.share.DailyFortuneShareService;
 import com.sajuppugi.share.JdbcDailyFortuneShares;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -43,6 +45,7 @@ class DailyFortuneShareApiTest {
     @Autowired DailyFortuneShareService shares;
     @Autowired JdbcDailyFortuneShares shareStore;
     @MockitoBean DailyFortuneService fortunes;
+    @MockitoBean Clock clock;
     UUID owner = UUID.randomUUID();
     UUID person = UUID.randomUUID();
     UUID other = UUID.randomUUID();
@@ -50,6 +53,8 @@ class DailyFortuneShareApiTest {
     @BeforeEach
     void setup() {
         Instant now = Instant.parse("2026-10-13T00:00:00Z");
+        when(clock.instant()).thenReturn(now);
+        when(clock.withZone(ZoneId.of("Asia/Seoul"))).thenReturn(Clock.fixed(now, ZoneId.of("Asia/Seoul")));
         jdbc.update("INSERT INTO users(id,kakao_subject,status,created_at,updated_at) VALUES (?,?, 'ACTIVE',?,?)",
                 owner, "share-owner-" + owner, Timestamp.from(now), Timestamp.from(now));
         jdbc.update("INSERT INTO users(id,kakao_subject,status,created_at,updated_at) VALUES (?,?, 'ACTIVE',?,?)",

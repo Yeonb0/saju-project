@@ -56,6 +56,9 @@ public class OpenApiConfig {
             }
         }
         Schema<?> product = api.getComponents().getSchemas().get("ProductResponse");
+        Schema<?> gift = api.getComponents().getSchemas().get("GiftOrderResponse");
+        if (gift != null) gift.addProperty("charged", new Schema<>()
+                .oneOf(List.of(new Schema<>().$ref("#/components/schemas/Price"), nullSchema())));
         if (product != null) {
             for (String field : List.of("fortuneType", "option")) {
                 Schema<?> property = product.getProperties().get(field);

@@ -33,7 +33,8 @@ class RemainingRefundMigrationUpgradeTest {
                     statement.setObject(1, refund); statement.setObject(2, order); statement.setObject(3, customer);
                     statement.setString(4, "b".repeat(64)); statement.executeUpdate();
                 }
-                var result = Flyway.configure().dataSource(url, username, password).schemas(schema).defaultSchema(schema).load().migrate();
+                var result = Flyway.configure().dataSource(url, username, password).schemas(schema).defaultSchema(schema)
+                        .target(MigrationVersion.fromVersion("202610131200")).load().migrate();
                 assertThat(result.migrationsExecuted).isEqualTo(1);
                 try (var statement = connection.prepareStatement("SELECT state,amount_krw,admin_case_id,reclaimed_paid,reclaimed_bonus FROM top_up_refunds WHERE id = ?")) {
                     statement.setObject(1, refund);
