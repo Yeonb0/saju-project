@@ -7,29 +7,30 @@
 ## 현재 상태
 
 - **현재 단계**: **PG 심사 트랙 (PG-FIRST)** + **가짜 구현(MOCK-PORT)** + **진짜 adapter(ADAPTER-HTTP)**. 최종 와이어의 글자 · 상자 배치는 넣는다 (LAYOUT-FIGMA) — 글꼴 · 손그림 외곽선 · 색 토큰은 팀 문서 반영(Q-32) · 적용 시작(사용자 결정) 전까지 넣지 않는다. 캐릭터 · 아이콘 · 이미지 에셋은 자리만, 와이어 문구는 자리표시. 코드는 Claude Code, 웹 대화는 명세 · 검토 · 작업 공간 재현 · 변이 확인 (CODE-BY-CC · SCREEN-CHECK)
-- **위험 (10/12 저녁, `boyeon` = `main` `30780c8`)**: FE 진짜 연결 **코드는 끝났지만 실제 브라우저에서 확인한 API 는 아직 0개다** — 스테이징이 없다 (R-06).
-  - BE 는 `main` 에 다 들어왔다: 카카오 OAuth · 서버 세션 · CSRF · `GET /session` · 인물 · 구매 상태 조회 · 수능 결과 구조 · 충전 승인 · 주문 조회 · 상품 목록 (PR #19 ~ #23), 충전 환불 · 대사 (PR #24, 기능 꺼짐)
+- **위험 (10/13 저녁, `boyeon` `3f62019` · `main` `bb3169c`)**: FE 진짜 연결 **코드는 끝났지만 실제 브라우저에서 확인한 API 는 아직 0개다** — 스테이징이 없다 (R-06).
+  - BE 는 `main` 에 다 들어왔다: 카카오 OAuth · 서버 세션 · CSRF · `GET /session` · 인물 · 구매 상태 조회 · 수능 결과 구조 · 충전 승인 · 주문 조회 · 상품 목록 (PR #19 ~ #23), 충전 환불 · 대사 · 관리자 조회 · 고객센터 환불 (PR #24 · #25 · #27, 기능 꺼짐), 세션 수 제한 · CSRF Origin 검사 · 충전 내역 목록 · 오늘의 운세 공유 (PR #28)
+  - **CSRF Origin 검사 (PR #28)**: 변경 요청은 `Origin` 이 백엔드 `FRONTEND_BASE_URL` 출처와 같아야 통과한다 — 스테이징 FE 주소와 이 값이 다르면 모든 변경 요청이 403. 스테이징 설정 때 R-04 와 같이 확인
   - 로컬 진짜 모드 확인은 하지 않기로 했다(10/12 사용자 — "코드 작업 먼저"). 사용자 PC 에 PostgreSQL 18 서비스가 5432 에 있고 Docker 가 없어 백엔드 `bootRun` 이 DB 인증에서 멈췄다. 로컬 시드는 상품이 `active = FALSE`, 토스는 `TOSS_ADAPTER=disabled` 라 로컬에서는 충전 · 수능운 흐름이 어차피 막힌다 (Q-39 4)
   - 스테이징 callback 은 프론트 주소 경유로 등록해야 세션 쿠키가 프론트 출처에 남는다 (R-04). 미리보기 브랜치 주소에서는 진짜 로그인 불가
-  - **10/12 심사용 사이트는 못 했다. 10/14 카드사 심사 요청은 스테이징이 나오는 날에 달렸다** — 나오면 바로 실제 확인(아래 다음 작업 2) → 토스 2단계. 늦어지면 10/20 PG 미승인 대안 판단을 앞당겨 검토
-- **10/11 오후 ~ 10/12 새로 들어온 것**: `main` PR #22(`boyeon` 15d98ff 병합, 10/11 15:35), PR #23(BE-B — 카카오 OAuth · 세션 · CSRF · 인물 실제 연결 · 생성 lease · 공유 OpenAPI 재생성 `75350c6`, FE 세션 · 인물 adapter 초안 포함, 병합 `7bac2a1`), PR #24(BE-A — 충전 환불 · 결제 대사 · 지갑 운영 · 운영 알림, 10/12 15:59 `b3a114b`. FE 파일 · 공유 OpenAPI 변경 없음, 환불 계약은 별도 `backend/docs/openapi/payment-operations-v1.json` → Q-41). `boyeon` → `main` PR #26 병합(`30780c8`, 10/12 19:16) 뒤 `boyeon` 을 `main` 으로 fast-forward — 둘이 같다. PR #24 에서 FE 가 지금 연결할 것은 없다(10/12 저녁 코드 대조 — 아래 다음 작업 1)
-- **마지막으로 끝낸 작업** (10/12, `boyeon` `78952fe` ~ `afcd0b3`, 7커밋): 매 단계 웹 대화가 작업 공간에서 diff 재현 · 검사 · 변이 확인 후 커밋
-  - 세션 · 인물 adapter 를 공통 클라이언트(`createApiClient`) · zod · 생성 타입 대조로 맞춤 — 세션이 CSRF 출처(`createRealSession` → `{ port, csrf }`), 로그인은 백엔드 `authorize` 로 이동(`returnTo` 는 `safeReturnTo`), 로그아웃 뒤 토큰 비움. 인물 관계 대응(엄마 · 아빠 → FAMILY, 애인 → LOVER, 직접 입력 → OTHER) (`78952fe`)
-  - `ports/index.ts` 가 모든 포트를 진짜 adapter 에 연결 — 진짜 세션은 탭 하나에 하나(`getRealSession`)로 모든 adapter 가 같은 CSRF 토큰을 본다. 운세 상품 목록 `GET /products?category=FORTUNE&fortuneType=` (`e781919`)
-  - 결과 포트를 서버 `suneungGuide` 구조로 바꾸고(RESULT-GUIDE-MODEL) 결과 화면 갱신 — 카드 8개 · 교시 · 준비물 분류, 이름은 `src/lib/reading/labels.ts` 임시값 `TODO(PD 문구)` (`086ed90`). 진짜 결과 adapter `GET /readings/{readingId}` (`a352829`)
-  - 구매 상태 조회 `GET /reading-purchases/by-quote/{quoteId}` 와 `compensationStatus` · `nextAction` 을 포트 · adapter · 가짜에 (`9f1366e`, PURCHASE-STATUS-WAIT 해제). 구매 팝업을 서버 상태 기준으로 (`9addcee`, PURCHASE-STATUS-UI). 구매 키 보관 · 새로고침 복귀 때 상태 조회부터 (`afcd0b3`, PURCHASE-KEY-STORE 구현, 복원 v3)
-  - 테스트 73 파일 · 833 개
-- **진짜 adapter 현황 — 전부 `ports/index.ts` 에 연결**: 세션 · 인물(`78952fe`) · 오행분석(`e6a603a`) · 지갑 · 충전 주문 생성 · 상품 목록 · 승인 · 주문 조회(`c46bfa7` · `b7af91a`) · 토스 결제창(`ecaaba4`) · 수능운 견적 · 재확인 · 구매(`1fcd9c0`) · 운세 상품 목록(`e781919`) · 결과(`a352829`) · 구매 상태 조회(`9f1366e`). 일부러 던지는 것: 일반 운세 5종 견적 · 구매(Q-26 보강 — 와이어 칸 ↔ `questionKey`). 만들지 않은 것: 오늘의 운세 화면(Q-31 — X-02 범위), 충전 환불(Q-41)
-- **화면 현황 (10/12, 최종 와이어 기준)**
+  - **10/12 심사용 사이트는 못 했다. 10/13 저녁까지 스테이징이 없다 — 10/14 카드사 심사 요청은 어렵다.** 스테이징이 나오면 바로 실제 확인(아래 다음 작업 1) → 토스 2단계. **10/20 PG 미승인 대안 판단을 앞당겨 검토할 때다**
+- **10/12 저녁 ~ 10/13 새로 들어온 것**: `main` PR #25(BE-A 관리자 금융 조회 · 복구 — `/api/v1/admin/**`, FE 범위 밖), PR #28(BE-B — 세션 수 제한 · OAuth 뒤 이전 세션 폐기 · CSRF Origin 검사 · 로그아웃 204 · 충전 내역 `GET /top-up-orders` · 주문 `createdAt` · 오늘의 운세 `content` · 공유 링크 · 공유 OpenAPI 재생성. **FE 파일을 직접 고쳤다** — 환불 포트 · adapter · 가짜 · `KeyOnlyIdempotentCommand` · 오류 종류 2개), PR #27(BE-A — 정책 확정: **고객센터 접수 → 관리자 API 로 충전 건별 남은 유료분 비례 환불, 사용자 환불 POST 제거**, `PARTIALLY_REFUNDED`, `REFUND_QUOTE_CHANGED`, COMMON · API_SPEC 정리 → Q-39 해결). BE-A 전달 문서 "FE 전달: 환불 화면 및 연결 작업"(10/13, 사용자 전달 — 저장소 밖)
+- **마지막으로 끝낸 작업** (10/13, `boyeon` `c6adbea` ~ `3f62019`, 4커밋): 매 단계 웹 대화가 작업 공간에서 diff 재현 · 검사 · 변이 확인 후 커밋
+  - `main` `bb3169c` 를 `boyeon` 에 병합 (`c6adbea`, `c262cf7` 문서 커밋 때문에 fast-forward 불가)
+  - 공유 OpenAPI 를 백엔드 `exportOpenApi` 로 다시 만들고(사용자 PC, H2 — 결과가 `payment-operations-v1.json` 과 같다) 생성 타입 갱신, 사용자 환불 신청 · `KeyOnlyIdempotentCommand` · `refund_not_eligible` 제거, 환불 조회 유지 · 가짜 404 `RESOURCE_NOT_FOUND`, `PARTIALLY_REFUNDED` 알려진 상태(완료 아님) (`78c8b10`, OPENAPI-FE-SYNC · REFUND-CS)
+  - PAY-03 유료 · 보너스 내역 — CREDITED 뒤 지갑을 다시 받아 `paidBalance` · `bonusBalance` 그대로, 가짜 지갑 유료 · 보너스 분리 (`4182746`)
+  - `WALLET_REVIEW_REQUIRED` — 구매 팝업 · 충전 화면에서 문의 안내 · 버튼 잠금, 구매 선택 삭제 (`3f62019`)
+  - 테스트 74 파일 · 852 개
+- **진짜 adapter 현황 — 전부 `ports/index.ts` 에 연결**: 세션 · 인물(`78952fe`) · 오행분석(`e6a603a`) · 지갑(유료 · 보너스 포함 `4182746`) · 충전 주문 생성 · 상품 목록 · 승인 · 주문 조회(`c46bfa7` · `b7af91a`) · 환불 조회(BE-B PR #28 → `78c8b10` 정리, 화면 미연결) · 토스 결제창(`ecaaba4`) · 수능운 견적 · 재확인 · 구매(`1fcd9c0`) · 운세 상품 목록(`e781919`) · 결과(`a352829`) · 구매 상태 조회(`9f1366e`). 일부러 던지는 것: 일반 운세 5종 견적 · 구매(Q-26 보강 — 와이어 칸 ↔ `questionKey`). 만들지 않은 것: 오늘의 운세 화면(Q-31 — X-02 범위), 충전 내역 · 주문 상세 · 환불 상태 화면(Q-41 6), 오늘의 운세 공유(와이어 · Q-31). 환불 신청은 서버에 없다(고객센터 · 관리자)
+- **화면 현황 (10/13, 최종 와이어 기준)**
   - 동작 + 배치: HOME-01 ~ 04, FORT-01 ~ 05, MATCH-01 ~ 03, CSAT-01 ~ 06, PAY-01 ~ 05, MY-01, INFO-01 · 02, COMMON-01, (팝업) 차감 확인 · 잔액 부족 — 가짜 모드에서 확인. 진짜 모드는 코드 연결만(스테이징 대기)
   - 부분: CSAT-04 결과 — 서버 구조로 그림, 카드 · 교시 · 분류 이름과 순서는 PD (Q-40 2). FORT-06 · 07 결과 — `key` · `content` 섹션, 요약 Q-05 · 공유 G-11 · 부적
   - 보류: TODAY-01 · 02 (Q-31 부분 — API 는 지수 5종만, X-02 의 한줄 운세 · 행운 · 공유 없음), GIFT-06 ~ 08 · MY-02 (팀 결정)
   - 규칙으로 막음: GIFT-01 ~ 05 · RECV-* · FORT-08 · 09 · CSAT-07 · TALBOX — 선물 · 부적은 OpenAPI 전 가짜 포트로도 만들지 않는다
 - **다음 작업** (막힌 것은 건너뛴다 — 지금 FE 가 답 없이 할 수 있는 코드 작업은 없다)
-  1. (확인 10/12 저녁) PR #24 연결 점검 — 지금 연결할 것 없음. 환불은 Q-41, `REFUND_PENDING` 은 지금 코드로 안전(UNKNOWN · null 허용 · 완료 표시 없음), `WALLET_REVIEW_REQUIRED` 는 COMMON 등재 뒤(Q-41 5). 미병합 관리자 브랜치는 FE 범위 밖
-  2. (BE-B · BE-A → FE) 스테이징 + 카카오 callback 프론트 주소 등록(R-04 · R-06) + 스테이징 상품 활성 → `API_PROXY_TARGET` · 진짜 모드로 실제 확인: 로그인 → 본인 등록 → 지갑 → 충전(토스 2단계 — 실제 승인 · 지급 수량) → 수능운 견적 · 구매 → 결과 · 준비물 체크 → 구매 상태(새로고침 복귀) → 로그아웃. 그다음 운영 도메인 실기기 (PG-5)
-  3. (FE, 답 오면) 일반 운세 5종 adapter (Q-26 보강), 오늘의 운세 (Q-31 범위), 문구 (Q-40 · Q-25 · Q-33), 환불 (Q-41), `WALLET_REVIEW_REQUIRED` 문의 안내 (Q-41 5), PAY-03 유료 · 보너스 내역 칸 (BE-A 차감 순서)
-  4. (FE) 푸터 남은 값 4개(R-07) · 정책 원고(Q-21 · Q-36) 오면 넣기
+  1. (BE-B · BE-A → FE) 스테이징 + 카카오 callback 프론트 주소 등록(R-04 · R-06) + `FRONTEND_BASE_URL` = 스테이징 FE 출처(CSRF Origin 검사) + 스테이징 상품 활성 → `API_PROXY_TARGET` · 진짜 모드로 실제 확인: 로그인 → 본인 등록 → 지갑 → 충전(토스 2단계 — 실제 승인 · 지급 수량 · 유료 · 보너스 내역) → 수능운 견적 · 구매 → 결과 · 준비물 체크 → 구매 상태(새로고침 복귀) → 로그아웃(204). 그다음 운영 도메인 실기기 (PG-5)
+  2. (FE, 답 오면) 충전 내역 · 주문 상세 환불 상태 · 고객센터 안내 (Q-41 6 — PD 배치 · 문구), 일반 운세 5종 adapter (Q-26 보강), 오늘의 운세 · 공유 (Q-31 범위), 문구 (Q-40 · Q-25 · Q-33)
+  3. (FE) 푸터 남은 값 4개(R-07) · 정책 원고(Q-21 — 10/13 비례 환불 기준 · Q-36) 오면 넣기
+  4. (FE, 선택) 테스트 타이밍 약한 곳 — `TopUpSuccess.test.tsx` "이어서 하기" 는 기본 1초 `findByRole` 에 기대 느린 PC 에서 한 번 실패했다(10/13). Testing Library `asyncUtilTimeout` 을 전역으로 늘릴지 판단
   5. (사용자) 미리보기 실기기 (Android Chrome · 카카오톡 인앱), Q-32 동의 · 디자인 적용 시작 시점
 - **`main` 배포 주의**: `main` 배포는 진짜 모드다(가짜 금지). 스테이징이 연결되기 전에는 API 호출 화면이 오류(프록시 대상 없음)로 보인다. 팀 확인은 `boyeon` 미리보기 주소(가짜 모드)로만 한다. 진짜 로그인은 고정 스테이징 · 운영 도메인에서만 된다 (R-04)
 - **보류 (재개 조건)**
@@ -41,9 +42,9 @@
   - 구매 실패 `failureCode` 의 화면 사용 — 목록은 COMMON 에 있다(PURCHASE_DEBIT_MISMATCH · READING_GENERATION_FAILED). 지금은 검사 · 보관하지 않는다 (`TODO(Q-38 c)`). 문의 채널 Q-38 g
   - 견적 `regularPrice` 표시 — Q-22 (지금은 검사만)
   - PAY-01 동의 · 안내 문구(토스 결제창 자체 필수 동의 포함), PAY-05 취소 · 실패 문구, 다시 결제 시 상품 유지 — Q-25 · Q-33 · Q-21
-  - PAY-03 유료 · 보너스 내역 칸 — 가짜 지갑이 잔액 하나뿐, BE-A 차감 순서 규칙 필요. 충전 `nextAction` CONTACT_SUPPORT 즉시 안내 문구 — PD
-  - 충전 환불 · `REFUND_PENDING` 화면 — Q-41 (와이어 없음 · 정책 미확정 · BE 기능 꺼짐)
-  - `WALLET_REVIEW_REQUIRED`(409) 문의 안내 — Q-41 5 (COMMON 미등재, 운영 플래그가 켜져야 난다). 지금은 일반 409 — 구매 팝업 "구매하지 못했습니다" · 충전 "결제를 시작하지 못했습니다"
+  - 충전 `nextAction` CONTACT_SUPPORT 즉시 안내 문구 — PD
+  - 충전 내역 · 주문 상세 · 환불 상태 · 고객센터 안내 화면 — Q-41 6 (와이어 없음, PD 배치 · 문구). 포트에 충전 내역 목록이 아직 없다(`GET /top-up-orders` 는 OpenAPI 에 있음)
+  - `WALLET_REVIEW_REQUIRED` · 처리 중 문의 안내 문구 · 문의 채널 — 지금은 링크 없는 임시 문장 `TODO(PD 문구)` (Q-38 g · Q-40)
   - 정책 원고 · 시행일 · 가입 약관 동의 · 만 14세 — Q-36 · Q-21 · R-07
   - 신살 — 1차 판매 여부 PD (Q-05 · F-03, 10/15)
   - 타인 정보 입력(MY-02 · 궁합 상대 새로 입력) — 권한 확인 문구 PD 후. 본인 수정 경로 Q-29. 인물 관계 이름(직접 입력)은 서버에 보내지 않는다 (`TODO(A-07 · BE-B)`)
@@ -52,15 +53,16 @@
   - 선물 위저드 · 선물 결제 · 부적 화면 — OpenAPI 대기 (Q-20), 가짜 포트로도 만들지 않는다 (선택지 B)
   - iOS Safari 실기기 — iPhone 확보 후 (R-03). Sentry 소스맵 — Phase 7
 - **막힌 점 · 전달할 것**
-  - 팀에 받을 것: BE — 스테이징 · callback · 상품 활성(R-04 · R-06), API_SPEC 정리(Q-39 1 ~ 3), 로컬 확인 방법(Q-39 4), Q-38 f, 환불 OpenAPI 합치기 · 새 오류 코드 COMMON 등재(Q-41 2 · 5), Q-26 보강 대응표. PD — Q-40 · Q-25 · Q-33 · Q-21 · Q-31 범위 · Q-41 1 · 3 · R-07 · Q-32. 세부는 `TEAM-QUESTIONS.md`
+  - 팀에 받을 것: BE — 스테이징 · callback · `FRONTEND_BASE_URL` · 상품 활성(R-04 · R-06), Q-38 f 공동 확인(A · B), Q-26 보강 대응표. PD — Q-41 6(충전 내역 · 주문 상세 배치 · 상태 문구) · Q-21(비례 환불 기준 원고) · Q-38 g(고객센터 채널 · 기한) · Q-40 · Q-25 · Q-33 · Q-31 범위 · R-07 · Q-32. 세부는 `TEAM-QUESTIONS.md`
+  - **BE-B 에 전할 것**: PR #28 이 FE 파일(포트 · adapter · 가짜 · `http.ts` · `idempotency.ts` · `errors.ts`)을 직접 고쳤다 — FE 는 10/13 에 환불 신청 부분을 지웠다(서버 POST 제거). 다음부터 FE 파일 변경은 PR 에서 빼거나 FE 를 리뷰어로 넣어 달라
   - **비밀값 교체 (사용자 → BE)**: 10/12 웹 대화에 `backend/.env` 가 붙여 넣어졌다 — Liner API 키 · 카카오 클라이언트 시크릿 교체 권고. 값은 어떤 문서에도 옮기지 않는다
   - FE 가 팀 문서 PR 로 고칠 것 (DOCS-TEAM-PR, 사용자 동의 후): A-01 개발 범위(심사 전 카카오만 · 심사 후 구글 · 네이버, Q-36 3), Q-19 답(T-01 · T-02, PD 확인 후), Q-32 디자인 시스템
   - 가짜 구현 환경 변수 (사용자가 `frontend/.env.local` 에 직접, 바꾸면 `pnpm dev` 재시작): `NEXT_PUBLIC_API_MODE=mock`, `NEXT_PUBLIC_MOCK_SESSION_SCENARIO`(signed_out · new_user · signed_in · signed_in_without_person · signed_in_with_other, 비우면 signed_out), `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO`(credited · paid_then_credited · stuck_paid · confirm_lost · processing_409 · rejected, 비우면 credited), `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO`(fulfilled · generation_failed · processing_409 · quote_expired · generating · review_required · refunded, 비우면 fulfilled), `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER`(toss 또는 비움), `NEXT_PUBLIC_TOSS_CLIENT_KEY`(문서용 테스트 키 — 원문은 문서 · Git · 스크린샷에 넣지 않는다). 미리보기에서는 왼쪽 아래 "가짜" 조작판이 우선 (MOCK-PANEL). 가짜 상태는 탭 메모리 — 새로고침하면 처음으로
   - 진짜 모드 로컬 연결: `API_PROXY_TARGET=http://localhost:8080` · `NEXT_PUBLIC_API_MODE=real` (BE-B 가 `.env.example` 에 적음). `.env.example` 에 `NEXT_PUBLIC_MOCK_*` · 토스 변수 줄은 아직 없다 (사용자 할 일)
   - 구매 선택 복원 저장값이 v3 (`afcd0b3`, 구매 키 추가) — v2 는 구매 키 없음으로 읽고, v1 은 버린다
   - Vercel "Automatically expose System Environment Variables" 켜짐(10/4) — 운영 mock 차단 · Sentry 키 검사가 기댄다. Production 의 `NEXT_PUBLIC_TOSS_CLIENT_KEY` 는 진짜 연결 때
-  - `pnpm test` — 보통 35 ~ 110초. 10/10 에 한 번 `HomeScreen.test.tsx` 가 실패하고 재실행에서 통과(`79a2df0` 로 완화). 또 나면 실패 로그를 받아 원인 확인
-  - 명세 정확도 (웹 대화 자체 점검): "이 조건을 빼면 이 테스트가 실패해야 한다" 요구가 10/8 ~ 10/11 에 여섯 번 성립하지 않았다. 10/12 는 변이 확인에서 테스트가 우연히(타이밍) 통과하던 경우를 찾아 지연 가짜 응답으로 고쳤고(구매 상태 반복 방지), 같은 결과가 되는 변이(404 검사 · 조회 중 닫기 · 복귀 가드)는 그대로 두었다. `satisfies` 는 객체 리터럴에만 이름 대조가 된다. `git apply --include` 의 경로에 `[type]` 이 있으면 글롭으로 읽혀 조용히 빠진다 — `\[type\]` 로 쓴다
+  - `pnpm test` — 보통 35 ~ 110초. 10/10 에 한 번 `HomeScreen.test.tsx` 가 실패하고 재실행에서 통과(`79a2df0` 로 완화). 10/13 사용자 PC 가 느릴 때(140 ~ 190초) 첫 실행은 11개 파일이 시작하지 못했고, 둘째는 `TopUpSuccess.test.tsx` "이어서 하기"(기본 1초 `findByRole`)가 실패 — 작업 공간 12회 반복은 통과. 그 뒤 검사는 `pnpm test --maxWorkers=2` 로 통과. 또 나면 로그를 `~/Downloads` 에 받아 확인
+  - 명세 정확도 (웹 대화 자체 점검): "이 조건을 빼면 이 테스트가 실패해야 한다" 요구가 10/8 ~ 10/11 에 여섯 번 성립하지 않았다. 10/12 는 변이 확인에서 테스트가 우연히(타이밍) 통과하던 경우를 찾아 지연 가짜 응답으로 고쳤고(구매 상태 반복 방지), 같은 결과가 되는 변이(404 검사 · 조회 중 닫기 · 복귀 가드)는 그대로 두었다. `satisfies` 는 객체 리터럴에만 이름 대조가 된다. `git apply --include` 의 경로에 `[type]` 이 있으면 글롭으로 읽혀 조용히 빠진다 — `\[type\]` 로 쓴다. 10/13: 화면이 같은 쿼리 키를 직접 구독하면 무효화 직후 다시 받아 `isInvalidated` 단언이 풀린다 — "옛 캐시 대신 새 값이 보인다" 로 확인. 신선한 캐시를 심은 테스트는 `enabled` 조건 변이를 못 잡는다 — 캐시 없는 테스트를 따로 둔다
   - PD 에게 받은 것: 선물 재발송 안내 문구(저장소 밖). 정책 초안 3종은 `docs/policies/`(`8fffac0`, PR #20 에서 BE-B 가 일부 수정 — PD 합의 확인 중) — 확정본 전 코드 반영 금지
   - 사업자등록증 원본은 저장소에 두지 않는다 (대표자 개인정보 포함). 푸터에는 4개 값만
   - 유저 플로우: FigJam `dd8IamO1coU9vpa4P7AgMi`(v1, 10/4). 와이어 배치 값은 웹 대화가 Figma 에서 읽어 지시문에 숫자로 넘긴다
@@ -81,7 +83,7 @@
 | 10/4 (일) | BE 스테이징 · 공통 응답 · 로그인 골격 (BE 일정) · Phase 1 FE 골격 | ⬜ FE 골격 완료(디자인 보류). BE 는 골격만(`a605afa`), 스테이징 · 로그인 미충족 — 재산정 중 (R-06) |
 | 10/10 (토) | BE 충전 · 토스 테스트 결제 · 디자인 에셋 1차 (D-03) | ⬜ BE-A 충전 주문 생성 · 지갑 API 는 `main`(PR #17), 승인 · 지급 · 스테이징 없음 (R-06). FE 는 생성 타입 · adapter 2개 |
 | 10/12 (월) | FE 심사용 사이트 (PG-1 ~ PG-5) | ⬜ 놓침 — FE 진짜 연결 코드는 끝(`afcd0b3`, 모든 포트). BE 기능도 `main` 에 있음. 스테이징이 없어 실제 확인 0 (R-06) |
-| 10/14 (수) 전후 | 카드사 심사 요청 | ⬜ 위험 — 스테이징이 나오는 날 실제 확인 · 토스 2단계 · 실기기. 늦으면 10/20 대안 판단 앞당겨 검토 |
+| 10/14 (수) 전후 | 카드사 심사 요청 | ⬜ 어려움 — 10/13 저녁까지 스테이징 없음. 나오는 날 실제 확인 · 토스 2단계 · 실기기. 10/20 대안 판단 앞당겨 검토 |
 | 10/15 (목) | 디자인 에셋 확정 · 콘텐츠 1차 (D-03 · D-04) | ⬜ 결과 이름 · 구매 상태 문구(Q-40)도 이날 |
 | 10/17 (토) | 본인 수능운 `사주/사주+부적` E2E | ⬜ |
 | 10/20 (화) | 콘텐츠 검수 · PG 미승인 시 대안 판단 | ⬜ |
@@ -95,6 +97,8 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| REFUND-CS | 충전 환불은 고객센터 접수 → 운영자 관리자 API 실행(BE-A PR #27). FE 는 환불 신청 버튼 · 신청 adapter 를 만들지 않고, BE-B 가 PR #28 에서 넣은 `requestRefund` · `KeyOnlyIdempotentCommand` · `refund_not_eligible` 을 지운다. 소유자 환불 조회(`getRefund`)는 BE-A 요청대로 유지 — 가짜는 `refunds` 픽스처로만 기록을 갖고 없으면 404 `RESOURCE_NOT_FOUND`(서버와 같음). `PARTIALLY_REFUNDED` · `REFUND_PENDING` 은 알려진 주문 상태지만 완료가 아니다. 화면(충전 내역 · 주문 상세)은 PD 배치 후(Q-41 6) (`78c8b10`) | 2026-10-13 | 사용자 (BE-A 전달 문서 · 추천 순서 채택) |
+| OPENAPI-FE-SYNC | BE 가 FE 에 넘긴 경우(BE-A `CUSTOMER_CENTER_REFUNDS_20261013.md` — "공유 OpenAPI 와 생성 타입은 FE 가 같은 PR 에서") 공유 `docs/openapi/api-v1.json` 은 FE 가 `backend/` 에서 `./gradlew --no-daemon exportOpenApi`(H2 테스트 DB)로 만들고 `pnpm api:types` 와 같은 커밋에 넣는다. 파일을 손으로 고치거나 백엔드 전용 스냅숏을 복사하지 않는다 — export 결과를 스냅숏과 대조만 한다. 실패하면 우회하지 않고 멈춘다 (`78c8b10`) | 2026-10-13 | 사용자 (BE-A 위임) |
 | PURCHASE-STATUS-UI | 구매 팝업은 서버 구매 상태로 분기한다 — 화면 분기는 `status`, 버튼 · 안내는 `nextAction`(API_SPEC 8장 상태표). 완료 = `FULFILLED` + `readingId`. `WAIT`(처리 중 · 보상 진행 중)은 처리 중 안내 + "결과 확인" 버튼, `RETRY_PURCHASE` 는 다시 시도, 그 밖의 실패는 문의 안내(새 구매를 열지 않음). 환급 문장은 `REFUNDED` + `COMPLETED` 일 때만. **처리 중 자동 반복 조회는 하지 않는다** — 결과 불명 · 처리 중 · 생성 실패 오류 뒤 상태 조회를 한 번만 자동으로 하고, 그 뒤는 사용자가 "결과 확인" 을 누를 때. 기록이 없으면(404) 자동 재전송하지 않고, 사용자가 누를 때만 같은 키 · 같은 견적으로 다시 보낸다(I-05). 처리 중에는 팝업을 닫지 못한다(Q-40 1 대기) (`9addcee`) | 2026-10-12 | 사용자 (추천 채택 — 자동 반복 조회 없음 · 새로고침 복귀까지 지금) |
 | RESULT-GUIDE-MODEL | 결과 포트 본문을 서버 구조로 바꾼다 — `SUNEUNG_GUIDE`(서버 `suneungGuide` 8개 항목: 요약 · 시험 당일 · 교시별 · 집중 팁 · 음식 · 준비물 · 마음 관리 · 부족한 오행) 또는 `SECTIONS`(예전 결과 · 일반 운세의 `key` · `content`, 모르는 key 는 UNKNOWN). VIEWER 의 섹션 타입(PERIOD_GUIDANCE · FOOD_RECOMMENDATION · CHECKLIST)과 `birthTimeUnknown` 삭제. 카드 순서는 API_SPEC 필드 순서, 빈 목록 카드는 그리지 않는다. 교시 · 준비물 분류는 아는 코드만 이름, 모르는 분류는 마지막. 이름은 `src/lib/reading/labels.ts` 임시값 `TODO(PD 문구)`(Q-40 2). 준비물 체크 저장 키는 예전과 같은 `PREPARATION`. 같은 준비물 id 가 두 번 오면 계약 위반 (`086ed90` · `a352829`) | 2026-10-12 | 사용자 (선택지 A 서버 구조를 옛 섹션으로 변환 · B 포트를 서버 구조로 중 B, 추천 채택) |
 | TOSS-LAUNCHER-SWITCH | 결제창 선택 — 진짜 모드는 토스 결제창. 가짜 모드는 `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER` 가 `toss` 일 때만 토스 결제창(1단계 시험용 — 토스에서 돌아오면 가짜 메모리가 비어 `/pay/success` 가 실패 화면, 의도), 비우거나 `fake` 는 가짜 결제창, 다른 값은 던진다 (`ecaaba4`) | 2026-10-11 | 사용자 (추천 채택) |
@@ -159,6 +163,7 @@
 
 ## 세션 로그
 
+- 2026-10-13 · 1 ~ 9단계: `main` PR #25 · #27 · #28 대조(BE-B 가 FE 파일 직접 수정 · BE-A 고객센터 환불 전환 · 사용자 환불 POST 제거 · `PARTIALLY_REFUNDED`), BE-A 전달 문서 "FE 전달: 환불 화면 및 연결 작업" 반영. `main` 병합(`c6adbea` — 사용자 PC 테스트가 느려 1회 타이밍 실패, 작업 공간에서 통과 확인), 공유 OpenAPI 서버 export · 환불 신청 제거(`78c8b10`, 결정 REFUND-CS · OPENAPI-FE-SYNC), PAY-03 유료 · 보너스 내역(`4182746`, 와이어 301:166 대조), `WALLET_REVIEW_REQUIRED` 문의 안내(`3f62019`). 매 단계 작업 공간 재현 · 변이 확인. Q-39 해결 · Q-41 부분(6 신설) · Q-21 정책 변경. 테스트 74 파일 · 852 개
 - 2026-10-12 (저녁) · 1 ~ 2단계: PR #26 병합(`30780c8`) 확인, `boyeon` 을 `main` 으로 fast-forward · push(`5edf304..30780c8`, FE · 공유 OpenAPI 차이 없음, stash@{0} 그대로). PR #24 · 미병합 `codex/admin-financial-recovery` 의 FE 연결 점검 → 연결할 것 없음, `WALLET_REVIEW_REQUIRED` 범위를 Q-41 5 로(이 문서 갱신). 코드 변경 없음
 - 2026-10-12 · 1 ~ 16단계: `main` PR #23(BE-B 카카오 OAuth · 세션 · CSRF · 인물 · OpenAPI 재생성) 확인, `boyeon` 을 `main` `7bac2a1` 로 fast-forward. 로컬 진짜 모드 확인 시도 → 사용자 PC PostgreSQL 인증에서 멈추고 "코드 작업 먼저" 로 전환. 세션 · 인물 adapter 정리(`78952fe`), 모든 포트 진짜 연결 · 운세 상품 목록(`e781919`), 결정 RESULT-GUIDE-MODEL → 결과 포트 · 화면(`086ed90`) · 결과 adapter(`a352829`), 구매 상태 조회(`9f1366e`), 결정 PURCHASE-STATUS-UI → 구매 팝업(`9addcee`), PURCHASE-KEY-STORE 구현(`afcd0b3`). 매 단계 작업 공간 재현 · 변이 확인. 오후 `main` PR #24(BE-A 충전 환불 · 대사, FE 변경 없음) → Q-41. 문서(PROGRESS · PHASES v3.3 · TEAM-QUESTIONS Q-39 ~ Q-41 · CLAUDE). 테스트 73 파일 · 833 개
 - 2026-10-11 (오후) · `main` 76b7f67(PR #19 · #21) 병합 + 수능운 `productName` · `regularPrice`(`41f93af`), 충전 adapter 상품 목록 · 승인 · 주문 조회(`b7af91a`), 토스 V2 결제창 + 가짜 모드 스위치(`ecaaba4`, 결정 TOSS-LAUNCHER-SWITCH · TOSS-ANONYMOUS), PAY-03 지급 수량(`15d98ff`). 토스 1단계 로컬 시험(사용자 PC Chrome, 문서용 테스트 키) 통과 — 결제창 표시 · 결제 · `/pay/success` 복귀. `boyeon` → `main` PR #22 병합. 테스트 69 파일 · 674 개
