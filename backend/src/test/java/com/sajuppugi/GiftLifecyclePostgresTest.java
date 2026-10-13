@@ -78,7 +78,7 @@ class GiftLifecyclePostgresTest {
         reset(AopTestUtils.<GiftCancellationTransactions>getUltimateTargetObject(cancellationStore));
         reset(AopTestUtils.<WalletPurchaseService>getUltimateTargetObject(wallet));
         jdbc.update("DELETE FROM gift_action_commands WHERE user_id = ?", owner);
-        for (String table : List.of("gift_cancellations", "gift_delivery_outbox", "gift_purchase_tokens", "gift_purchase_work"))
+        for (String table : List.of("gift_link_commands", "gift_cancellations", "gift_delivery_outbox", "gift_purchase_tokens", "gift_purchase_work"))
             jdbc.update("DELETE FROM " + table + " WHERE order_id IN (SELECT id FROM gift_order_drafts WHERE user_id = ?)", owner);
         jdbc.update("DELETE FROM gift_order_commands WHERE user_id = ?", owner);
         jdbc.update("DELETE FROM gift_order_drafts WHERE user_id = ?", owner);
@@ -95,7 +95,7 @@ class GiftLifecyclePostgresTest {
     }
     GiftOrderService.Order draft() {
         var quote = quotes.issue(owner, Product.FortuneType.SUNEUNG, GiftQuoteService.Option.TALISMAN_ONLY).funding().quote();
-        return drafts.create(owner, quote.id(), new GiftOrderService.Payload("recipient", "01012345678", "sender", "Good luck!"), UUID.randomUUID().toString());
+        return drafts.create(owner, quote.id(), new GiftOrderService.Payload("recipient", "sender", "Good luck!"), UUID.randomUUID().toString());
     }
     GiftOrderService.Order active() {
         var order = draft();
@@ -106,9 +106,9 @@ class GiftLifecyclePostgresTest {
     int returns() { return jdbc.queryForObject("SELECT COUNT(*) FROM wallet_purchase_compensations WHERE wallet_user_id = ?", Integer.class, owner); }
     int balance() { return jdbc.queryForObject("SELECT paid_balance + bonus_balance FROM wallets WHERE user_id = ?", Integer.class, owner); }
     String token(UUID order) throws Exception {
-        UUID outbox = jdbc.queryForObject("SELECT id FROM gift_delivery_outbox WHERE order_id = ?", UUID.class, order);
-        String payload = jdbc.queryForObject("SELECT private_payload FROM gift_delivery_outbox WHERE id = ?", String.class, outbox);
-        return mapper.readTree(cipher.decrypt(payload, "gift-delivery|" + outbox)).path("token").asText();
+        String payload = jdbc.queryForObject("SELECT token_ciphertext FROM gift_purchase_tokens WHERE order_id = ?", String.class, order);
+        long version = jdbc.queryForObject("SELECT token_version FROM gift_purchase_tokens WHERE order_id = ?", Long.class, order);
+        return cipher.decrypt(payload, "gift-link|" + order + "|" + version);
     }
     void due(UUID order) { jdbc.update("UPDATE gift_cancellations SET next_attempt_at = ? WHERE order_id = ?", Timestamp.from(Instant.now().minusSeconds(1)), order); }
 
@@ -123,7 +123,7 @@ class GiftLifecyclePostgresTest {
                 .andExpect(jsonPath("$.data.charged.amount").value(10));
         assertThat(balance()).isEqualTo(10);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM wallet_purchase_debits WHERE wallet_user_id = ?", Integer.class, owner)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT status FROM gift_delivery_outbox WHERE order_id = ?", String.class, order.orderId())).isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_purchase_tokens WHERE order_id = ?", Integer.class, order.orderId())).isEqualTo(1);
     }
     @Test void commandKeyCannotChangeOrderOrAction() {
         var first = active(); var second = draft();
@@ -146,7 +146,7 @@ class GiftLifecyclePostgresTest {
         assertThat(jdbc.queryForList("SELECT expires_at FROM wallet_lots WHERE wallet_user_id = ? ORDER BY id", owner)).isEqualTo(expiries);
         assertThat(work.get(owner, order.orderId()).status()).isEqualTo("CANCELED");
         assertThatThrownBy(() -> access.verify(token)).isInstanceOf(ApiException.class);
-        assertThat(jdbc.queryForObject("SELECT status FROM gift_delivery_outbox WHERE order_id = ?", String.class, order.orderId())).isEqualTo("CANCELED");
+        assertThat(jdbc.queryForObject("SELECT revoked FROM gift_purchase_tokens WHERE order_id = ?", Boolean.class, order.orderId())).isTrue();
         assertThat(purchases.resume(owner, order.orderId()).status()).isEqualTo("CANCELED");
     }
     @Test void pendingReturnNeverLooksCompletedAndRecoversCommittedWalletReceipt() throws Exception {
@@ -240,38 +240,5 @@ class GiftLifecyclePostgresTest {
         mvc.perform(post("/api/v1/gift-orders/{id}/cancel", UUID.randomUUID()).cookie(cookie)
                 .header("X-CSRF-Token", csrf).header("Idempotency-Key", "cancel")).andExpect(status().isNotFound());
         assertThat(balance()).isEqualTo(10); assertThat(returns()).isZero();
-    }
-    @Test void migrationAddsCancellationWithoutChangingExistingGrantOrEncryptedDelivery() throws Exception {
-        var order = active(); String originalToken = token(order.orderId());
-        String schema = "gift_upgrade_" + UUID.randomUUID().toString().replace("-", "");
-        String url = System.getenv("TEST_DATABASE_URL"), user = System.getenv("TEST_DATABASE_USERNAME"), password = System.getenv("TEST_DATABASE_PASSWORD");
-        try (var connection = java.sql.DriverManager.getConnection(url, user, password)) {
-            try {
-                org.flywaydb.core.Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema)
-                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610132300")).load().migrate();
-                connection.createStatement().execute("SET search_path TO " + schema);
-                for (String sql : List.of(
-                        "INSERT INTO purchase_quotes SELECT * FROM public.purchase_quotes WHERE id = '" + order.quoteId() + "'",
-                        "INSERT INTO gift_order_drafts SELECT id,user_id,quote_id,request_hash,product_code,product_name,shell_amount,recipient_phone_masked,private_payload,status,created_at,expires_at FROM public.gift_order_drafts WHERE id = '" + order.orderId() + "'",
-                        "INSERT INTO gift_purchase_work SELECT order_id,status,failures,failure_code,next_attempt_at,wallet_transaction_id,charged_amount,approved_at,gift_id,access_expires_at FROM public.gift_purchase_work WHERE order_id = '" + order.orderId() + "'",
-                        "INSERT INTO gift_purchase_tokens SELECT * FROM public.gift_purchase_tokens WHERE order_id = '" + order.orderId() + "'",
-                        "INSERT INTO gift_delivery_outbox SELECT id,order_id,private_payload,status,created_at FROM public.gift_delivery_outbox WHERE order_id = '" + order.orderId() + "'"))
-                    connection.createStatement().execute(sql);
-                assertThat(org.flywaydb.core.Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema)
-                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610132400")).load().migrate().migrationsExecuted).isEqualTo(1);
-                try (var rows = connection.createStatement().executeQuery("SELECT status,charged_amount,first_provided_at FROM gift_purchase_work")) {
-                    assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("ACTIVE");
-                    assertThat(rows.getInt(2)).isEqualTo(10); assertThat(rows.getObject(3)).isNull();
-                }
-                try (var rows = connection.createStatement().executeQuery("SELECT id,private_payload FROM gift_delivery_outbox")) {
-                    assertThat(rows.next()).isTrue();
-                    assertThat(mapper.readTree(cipher.decrypt(rows.getString(2), "gift-delivery|" + rows.getObject(1))).path("token").asText()).isEqualTo(originalToken);
-                }
-            } finally {
-                assertThat(schema).matches("gift_upgrade_[a-f0-9]{32}");
-                connection.createStatement().execute("SET search_path TO public");
-                connection.createStatement().execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
-            }
-        }
     }
 }

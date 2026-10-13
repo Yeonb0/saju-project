@@ -29,9 +29,8 @@ class GiftOpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/gift-quotes'].post.operationId").value("createGiftQuote"))
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders'].post.operationId").value("createGiftOrder"))
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders'].get.operationId").value("listGiftOrders"))
-                .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/delivery'].get.operationId").value("getGiftDelivery"))
-                .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/deliveries'].post.responses['202']").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/link-reissues'].post.responses['202']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/link'].get.operationId").value("getGiftLink"))
+                .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/link-reissues'].post.operationId").value("reissueGiftLink"))
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/purchase'].get.operationId").value("getGiftPurchase"))
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/purchase'].post.responses['202']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/gift-orders/{orderId}/purchase'].post.responses['200'].content['application/json'].schema['$ref']").value("#/components/schemas/ApiResponseGiftPurchaseResponse"))
@@ -40,7 +39,7 @@ class GiftOpenApiIntegrationTest {
                 .andExpect(jsonPath("$.components.schemas.GiftOrderResponse.properties.charged.oneOf[1].type").value("null"))
                 .andExpect(jsonPath("$.components.schemas.GiftPurchaseResponse.properties.returnedShells.type").exists())
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
-        assertThat(json).doesNotContain("private_payload", "recipientPhoneMasked\":\"010", "test_gsk_");
+        assertThat(json).doesNotContain("private_payload", "recipientPhone", "recipientPhoneMasked", "test_gsk_");
         String output = System.getProperty("gift.openapi.output");
         if (output != null) {
             Map<String, Object> schema = mapper.readValue(json, new TypeReference<>() {});

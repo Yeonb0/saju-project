@@ -1,6 +1,6 @@
 import { ROUTES } from "@/lib/screens";
 
-// 선물 토큰(/g/[token])은 유료 콘텐츠 접근 열쇠라 관측 도구(Sentry · PostHog)에 남기지 않는다.
+// 선물 토큰(/g#token=...)은 유료 콘텐츠 접근 열쇠라 관측 도구(Sentry · PostHog)에 남기지 않는다.
 // 쿼리(?…)와 해시(#…)는 통째로 지운다 — 결제 복귀 URL 의 paymentKey · orderId · amount 등이 들어 있다.
 
 type DynamicPattern = { pattern: string; regex: RegExp; params: number };

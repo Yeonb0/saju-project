@@ -47,7 +47,7 @@ public class GiftOrderService {
             var product = payable.productSnapshot();
             Instant now = clock.instant();
             order = new Order(UUID.randomUUID(), user, quoteId, requestHash, product.code(), product.productName(),
-                    gift.funding().quote().productSnapshot().price().amount(), mask(payload.recipientPhone()),
+                    gift.funding().quote().productSnapshot().price().amount(),
                     now, payable.expiresAt());
             orders.insert(order, cipher.encrypt(json(payload), order.userId() + "|" + order.orderId()));
             // The unique quote wins before binding a key; a competing request must have identical content.
@@ -71,8 +71,6 @@ public class GiftOrderService {
         return order;
     }
     private void validate(Payload payload) {
-        if (payload.recipientPhone() == null || !payload.recipientPhone().matches("010[0-9]{8}"))
-            throw new ApiException(ErrorCode.RECIPIENT_PHONE_INVALID);
         if (!validName(payload.recipientName()) || !validName(payload.senderName())
                 || payload.message() == null || payload.message().codePointCount(0, payload.message().length()) > 200
                 || payload.message().codePoints().anyMatch(c -> Character.isISOControl(c) && c != '\n')
@@ -82,14 +80,13 @@ public class GiftOrderService {
         return name != null && !name.isBlank() && name.codePointCount(0, name.length()) <= 40
                 && name.codePoints().noneMatch(Character::isISOControl);
     }
-    private String mask(String phone) { return "010-****-" + phone.substring(7); }
     private String json(Payload payload) {
         try { return mapper.writeValueAsString(payload); }
         catch (JsonProcessingException failure) { throw new IllegalStateException("Gift payload serialization failed"); }
     }
-    public record Payload(String recipientName, String recipientPhone, String senderName, String message) {
+    public record Payload(String recipientName, String senderName, String message) {
         @Override public String toString() { return "GiftPayload[REDACTED]"; }
     }
     public record Order(UUID orderId, UUID userId, UUID quoteId, String requestHash, String productCode,
-                        String productName, int amount, String recipientPhoneMasked, Instant createdAt, Instant expiresAt) {}
+                        String productName, int amount, Instant createdAt, Instant expiresAt) {}
 }

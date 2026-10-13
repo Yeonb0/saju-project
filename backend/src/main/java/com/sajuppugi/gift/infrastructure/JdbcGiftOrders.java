@@ -24,7 +24,7 @@ public class JdbcGiftOrders {
         return jdbc.query("SELECT o.* FROM gift_order_drafts o WHERE " + predicate, (rs, row) -> new Order(
                 rs.getObject("id", UUID.class), rs.getObject("user_id", UUID.class), rs.getObject("quote_id", UUID.class),
                 rs.getString("request_hash"), rs.getString("product_code"), rs.getString("product_name"),
-                rs.getInt("shell_amount"), rs.getString("recipient_phone_masked"),
+                rs.getInt("shell_amount"),
                 rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("expires_at").toInstant()), arguments)
                 .stream().findFirst();
     }
@@ -32,9 +32,9 @@ public class JdbcGiftOrders {
         jdbc.update("""
                 INSERT INTO gift_order_drafts(id, user_id, quote_id, request_hash, product_code, product_name,
                     shell_amount, recipient_phone_masked, private_payload, status, created_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'CREATED', ?, ?) ON CONFLICT DO NOTHING
+                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 'CREATED', ?, ?) ON CONFLICT DO NOTHING
                 """, order.orderId(), order.userId(), order.quoteId(), order.requestHash(), order.productCode(),
-                order.productName(), order.amount(), order.recipientPhoneMasked(), ciphertext,
+                order.productName(), order.amount(), ciphertext,
                 Timestamp.from(order.createdAt()), Timestamp.from(order.expiresAt()));
     }
     public void bind(UUID user, String keyHash, UUID order) {

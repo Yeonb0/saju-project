@@ -36,7 +36,7 @@ class GiftQuoteApiTest {
     @Test void orderDraftsRemainDisabledByDefault() throws Exception {
         mvc.perform(post("/api/v1/gift-orders").with(user(UUID.randomUUID().toString())).with(csrf())
                 .header("Idempotency-Key", "disabled").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"quoteId\":\"" + UUID.randomUUID() + "\",\"recipientName\":\"recipient\",\"recipientPhone\":\"01012345678\",\"senderName\":\"sender\",\"message\":\"hello\"}"))
+                .content("{\"quoteId\":\"" + UUID.randomUUID() + "\",\"recipientName\":\"recipient\",\"senderName\":\"sender\",\"message\":\"hello\"}"))
                 .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("GIFT_FULFILLMENT_UNAVAILABLE"));
         assertNoMoneyWrites();
     }
