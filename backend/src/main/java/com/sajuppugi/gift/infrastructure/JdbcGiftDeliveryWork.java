@@ -50,7 +50,7 @@ public class JdbcGiftDeliveryWork {
         }
         Instant now = clock.instant();
         var outbox = current(order);
-        if (!usable(order, now) || !"ACTIVE".equals(grant.status())) throw new ApiException(ErrorCode.GIFT_DELIVERY_NOT_ALLOWED);
+        if (!usable(order, now) || !deliveryOpen(order, now) || !"ACTIVE".equals(grant.status())) throw new ApiException(ErrorCode.GIFT_DELIVERY_NOT_ALLOWED);
         var available = availability(order, outbox.state(), now);
         if (!available.canResend()) throw new ApiException(ErrorCode.GIFT_DELIVERY_LIMIT_EXCEEDED);
         byte[] bytes = new byte[32]; random.nextBytes(bytes);
@@ -80,7 +80,7 @@ public class JdbcGiftDeliveryWork {
         var box = current(order);
         Instant now = clock.instant();
         var available = availability(order, box.state(), now);
-        boolean valid = usable(order, now);
+        boolean valid = usable(order, now) && deliveryOpen(order, now);
         return new GiftDeliveryUseCase.DeliveryView(GiftDeliveryUseCase.Status.valueOf(box.state()),
                 valid && available.canResend(), available.remainingResends(), available.nextResendAt());
     }
@@ -107,6 +107,10 @@ public class JdbcGiftDeliveryWork {
             return Optional.empty();
         }
         boolean lookup = job.started();
+        if (!lookup && !deliveryOpen(order, now)) {
+            finish(job, "CANCELED", now);
+            return Optional.empty();
+        }
         if ((lookup && job.lookups() >= 5) || (!lookup && job.sends() >= 4)) {
             finish(job, "REVIEW_REQUIRED", now);
             return Optional.empty();
@@ -129,7 +133,7 @@ public class JdbcGiftDeliveryWork {
                 WHERE j.id = ? AND j.state = 'IN_FLIGHT' AND j.lease_token = ? AND j.lease_until > ?
                 AND w.status = 'ACTIVE' AND w.access_expires_at > ? AND o.current_job_id = j.id
                 """, Integer.class, lease.jobId(), lease.token(), Timestamp.from(clock.instant()), Timestamp.from(clock.instant()));
-        return count != null && count == 1;
+        return count != null && count == 1 && (lease.lookup() || deliveryOpen(lease.orderId(), clock.instant()));
     }
     /** Decode outside the DB transaction. Raw phone/token values never enter logs or persisted result fields. */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -159,6 +163,7 @@ public class JdbcGiftDeliveryWork {
                 if (job.accepted() || (outcome == GiftAlimtalkProvider.Outcome.NOT_FOUND && !lease.lookup())) {
                     finish(job, "REVIEW_REQUIRED", now);
                 } else {
+                    if (!deliveryOpen(job.order(), now)) { finish(job, "CANCELED", now); break; }
                     var next = GiftDeliveryPolicy.nextAutomaticAttempt(job.sends(), now);
                     if (next.isEmpty()) finish(job, "FAILED", now);
                     else {
@@ -205,6 +210,12 @@ public class JdbcGiftDeliveryWork {
     }
     private boolean usable(UUID order, Instant now) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM gift_purchase_work WHERE order_id = ? AND status = 'ACTIVE' AND access_expires_at > ?", Integer.class, order, Timestamp.from(now)) == 1;
+    }
+    private boolean deliveryOpen(UUID order, Instant now) {
+        return jdbc.queryForObject("""
+                SELECT COUNT(*) FROM gift_purchase_work w JOIN gift_order_drafts d ON d.id = w.order_id
+                WHERE w.order_id = ? AND w.approved_at > ? AND w.approved_at <= ? AND d.phone_purged_at IS NULL
+                """, Integer.class, order, Timestamp.from(now.minus(GiftDeliveryPolicy.DELIVERY_VALIDITY)), Timestamp.from(now)) == 1;
     }
     private GiftDeliveryPolicy.ManualAvailability availability(UUID order, String state, Instant now) {
         Instant day = now.atZone(GiftDeliveryPolicy.DAY_ZONE).toLocalDate().atStartOfDay(GiftDeliveryPolicy.DAY_ZONE).toInstant();

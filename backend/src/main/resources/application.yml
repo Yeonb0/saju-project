@@ -53,6 +53,7 @@ app:
     recovery-enabled: ${GIFT_RECOVERY_ENABLED:false}
     delivery-enabled: ${GIFT_DELIVERY_ENABLED:false}
     delivery-worker-enabled: ${GIFT_DELIVERY_WORKER_ENABLED:false}
+    phone-cleanup-enabled: ${GIFT_PHONE_CLEANUP_ENABLED:false}
     retention-enabled: ${GIFT_RETENTION_ENABLED:false}
     retention-period: ${GIFT_RETENTION_PERIOD:PT0S}
     payload-key: ${GIFT_PAYLOAD_KEY:}

@@ -45,6 +45,8 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
     @Autowired JdbcGiftCipherMaintenance encryptionMaintenance;
     @Autowired @Qualifier("approvedTestPrivacy") JdbcGiftPrivacy privacy;
     @Autowired @Qualifier("jdbcGiftPrivacy") JdbcGiftPrivacy disabledPrivacy;
+    @Autowired @Qualifier("approvedPhoneCleanup") com.sajuppugi.gift.infrastructure.JdbcGiftPhoneCleanup phoneCleanup;
+    @Autowired @Qualifier("jdbcGiftPhoneCleanup") com.sajuppugi.gift.infrastructure.JdbcGiftPhoneCleanup disabledPhoneCleanup;
     @MockitoBean GiftAlimtalkProvider provider;
     @MockitoBean Clock clock;
     Instant time;
@@ -347,7 +349,7 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
         try (var connection = java.sql.DriverManager.getConnection(url, user, password)) {
             try {
                 org.flywaydb.core.Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema)
-                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610131600")).load().migrate();
+                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610132400")).load().migrate();
                 connection.createStatement().execute("SET search_path TO " + schema);
                 for (String sql : java.util.List.of(
                         "INSERT INTO purchase_quotes SELECT * FROM public.purchase_quotes WHERE id = '" + order.quoteId() + "'",
@@ -357,7 +359,7 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
                         "INSERT INTO gift_delivery_outbox SELECT id,order_id,private_payload,status,created_at FROM public.gift_delivery_outbox WHERE order_id = '" + order.orderId() + "'"))
                     connection.createStatement().execute(sql);
                 assertThat(org.flywaydb.core.Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema)
-                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610131700")).load().migrate().migrationsExecuted).isEqualTo(1);
+                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610132500")).load().migrate().migrationsExecuted).isEqualTo(1);
                 try (var rows = connection.createStatement().executeQuery("SELECT o.current_job_id,o.private_payload,j.state FROM gift_delivery_outbox o JOIN gift_delivery_jobs j ON j.id = o.current_job_id")) {
                     assertThat(rows.next()).isTrue(); assertThat(rows.getObject(1, UUID.class)).isEqualTo(originalJob);
                     assertThat(rows.getString(2)).isEqualTo(originalPayload); assertThat(rows.getString(3)).isEqualTo("PENDING");
@@ -367,6 +369,83 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
                 connection.createStatement().execute("SET search_path TO public"); connection.createStatement().execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
             }
         }
+    }
+    @Test void thirtyDayBoundaryBlocksDeliveryButPreservesNinetyDayAccess() throws Exception {
+        var order = active(); String token = token(order.orderId()); sent(order.orderId());
+        advance(30L * 86400 - 1);
+        assertThat(deliveries.get(owner, order.orderId()).canResend()).isTrue();
+        assertThat(phoneCleanup.purge(order.orderId())).isFalse();
+        advance(1);
+        assertThat(deliveries.get(owner, order.orderId()).canResend()).isFalse();
+        assertThatThrownBy(() -> deliveries.resend(owner, order.orderId(), new IdempotencyKey("day30")))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> deliveries.reissueLink(owner, order.orderId(), new IdempotencyKey("day30-reissue")))
+                .isInstanceOf(ApiException.class);
+        assertThat(phoneCleanup.candidates()).contains(order.orderId());
+        assertThat(phoneCleanup.purge(order.orderId())).isTrue();
+        assertThat(phoneCleanup.purge(order.orderId())).isFalse();
+        String encrypted = jdbc.queryForObject("SELECT private_payload FROM gift_order_drafts WHERE id = ?", String.class, order.orderId());
+        String remaining = cipher.decrypt(encrypted, owner + "|" + order.orderId());
+        assertThat(remaining).doesNotContain("recipientPhone", "01012345678").contains("Good luck!", "recipient", "sender");
+        assertThat(queries.list(owner, null, 20).items().getFirst().recipientPhoneMasked()).isEqualTo("REDACTED");
+        assertThat(access.verify(token).giftId()).isNotNull(); assertThat(returns()).isZero();
+        var replay = drafts.create(owner, order.quoteId(), new com.sajuppugi.gift.application.GiftOrderService.Payload("recipient", "01012345678", "sender", "Good luck!"), "replay-phone-cleanup");
+        assertThat(replay.orderId()).isEqualTo(order.orderId());
+        assertThat(jdbc.queryForObject("SELECT private_payload FROM gift_order_drafts WHERE id = ?", String.class, order.orderId())).isEqualTo(encrypted);
+    }
+    @Test void phoneCleanupPreservesUnknownOutcomeLookupWithoutResending() throws Exception {
+        var order = active(); String token = token(order.orderId()); UUID id = job(order.orderId());
+        doThrow(new IllegalStateException("synthetic timeout")).when(provider).send(any());
+        deliveries.process(id); assertThat(state(id)).isEqualTo("UNKNOWN");
+        advance(30L * 86400); assertThat(phoneCleanup.purge(order.orderId())).isTrue();
+        deliveries.process(id); assertThat(state(id)).isEqualTo("SENT");
+        verify(provider, times(1)).send(any()); verify(provider, times(1)).lookup(id);
+        assertThat(access.verify(token).giftId()).isNotNull();
+    }
+    @Test void verifiedAbsenceAfterThirtyDaysCannotScheduleAnotherSend() {
+        var order = active(); UUID id = job(order.orderId());
+        deliveryStore.claim(id).orElseThrow(); advance(30L * 86400);
+        doReturn(new Result(id, Outcome.NOT_FOUND)).when(provider).lookup(id);
+        phoneCleanup.purge(order.orderId()); deliveries.process(id);
+        assertThat(state(id)).isEqualTo("CANCELED"); verify(provider, never()).send(any());
+    }
+    @Test void phoneCleanupFencesLateSendButRetainsLookupAndAccess() throws Exception {
+        var order = active(); String token = token(order.orderId()); UUID id = job(order.orderId());
+        advance(30L * 86400 - 1); var lease = deliveryStore.claim(id).orElseThrow();
+        advance(1); assertThat(phoneCleanup.purge(order.orderId())).isTrue();
+        deliveryStore.apply(lease, new Result(id, Outcome.DELIVERED));
+        assertThat(state(id)).isEqualTo("IN_FLIGHT"); advance(181); deliveries.process(id);
+        assertThat(state(id)).isEqualTo("SENT"); verify(provider, never()).send(any());
+        assertThat(access.verify(token).giftId()).isNotNull();
+    }
+    @Test void freshPendingDeliveryStopsAtThirtyDaysWithoutTokenRevocation() throws Exception {
+        var order = active(); String token = token(order.orderId()); advance(30L * 86400);
+        assertThat(disabledPhoneCleanup.candidates()).isEmpty(); assertThat(disabledPhoneCleanup.purge(order.orderId())).isFalse();
+        assertThat(phoneCleanup.purge(order.orderId())).isTrue(); deliveries.process(job(order.orderId()));
+        assertThat(state(job(order.orderId()))).isEqualTo("CANCELED"); verify(provider, never()).send(any());
+        assertThat(access.verify(token).giftId()).isNotNull();
+    }
+    @Test void phoneCleanupAuditFailureRollsBackPersonalDataRemoval() {
+        var order = active(); advance(30L * 86400);
+        String payload = jdbc.queryForObject("SELECT private_payload FROM gift_order_drafts WHERE id = ?", String.class, order.orderId());
+        jdbc.execute("ALTER TABLE gift_delivery_events ADD CONSTRAINT synthetic_phone_audit CHECK (action <> 'RECIPIENT_PHONE_PURGED')");
+        try { assertThatThrownBy(() -> phoneCleanup.purge(order.orderId())).isInstanceOf(RuntimeException.class); }
+        finally { jdbc.execute("ALTER TABLE gift_delivery_events DROP CONSTRAINT synthetic_phone_audit"); }
+        assertThat(jdbc.queryForObject("SELECT private_payload FROM gift_order_drafts WHERE id = ?", String.class, order.orderId())).isEqualTo(payload);
+        assertThat(jdbc.queryForObject("SELECT phone_purged_at FROM gift_order_drafts WHERE id = ?", Timestamp.class, order.orderId())).isNull();
+        assertThat(phoneCleanup.purge(order.orderId())).isTrue();
+    }
+    @Test void corruptedPhoneCleanupHasBoundedRetriesAndDoesNotStarveHealthyOrder() {
+        var bad = active(); var healthy = active(); advance(30L * 86400);
+        jdbc.update("UPDATE gift_order_drafts SET private_payload = 'invalid' WHERE id = ?", bad.orderId());
+        for (int attempt = 1; attempt <= 5; attempt++) {
+            assertThatThrownBy(() -> phoneCleanup.purge(bad.orderId())).isInstanceOf(RuntimeException.class);
+            phoneCleanup.failed(bad.orderId());
+            assertThat(phoneCleanup.candidates()).doesNotContain(bad.orderId()).contains(healthy.orderId());
+            advance(Math.min(600, 30L << (attempt - 1)) + 1);
+        }
+        assertThat(jdbc.queryForObject("SELECT phone_cleanup_failures FROM gift_order_drafts WHERE id = ?", Integer.class, bad.orderId())).isEqualTo(5);
+        assertThat(phoneCleanup.candidates()).doesNotContain(bad.orderId()); assertThat(phoneCleanup.purge(healthy.orderId())).isTrue();
     }
     @TestConfiguration(proxyBeanMethods = false)
     static class PrivacyTestConfiguration {
@@ -380,6 +459,10 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
         @Bean("approvedTestPrivacy") JdbcGiftPrivacy approved(org.springframework.jdbc.core.JdbcTemplate jdbc,
                 JdbcGiftPurchaseWork work, JdbcGiftDeliveryWork deliveries, Clock clock) {
             return new JdbcGiftPrivacy(jdbc, work, deliveries, clock, true, java.time.Duration.ofDays(1));
+        }
+        @Bean("approvedPhoneCleanup") com.sajuppugi.gift.infrastructure.JdbcGiftPhoneCleanup phoneCleanup(org.springframework.jdbc.core.JdbcTemplate jdbc,
+                JdbcGiftPurchaseWork work, JdbcGiftDeliveryWork deliveries, GiftPayloadCipher cipher, com.fasterxml.jackson.databind.ObjectMapper mapper, Clock clock) {
+            return new com.sajuppugi.gift.infrastructure.JdbcGiftPhoneCleanup(jdbc, work, deliveries, cipher, mapper, clock, true);
         }
     }
 }

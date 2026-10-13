@@ -248,7 +248,7 @@ class GiftLifecyclePostgresTest {
         try (var connection = java.sql.DriverManager.getConnection(url, user, password)) {
             try {
                 org.flywaydb.core.Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema)
-                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610131500")).load().migrate();
+                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610132300")).load().migrate();
                 connection.createStatement().execute("SET search_path TO " + schema);
                 for (String sql : List.of(
                         "INSERT INTO purchase_quotes SELECT * FROM public.purchase_quotes WHERE id = '" + order.quoteId() + "'",
@@ -258,7 +258,7 @@ class GiftLifecyclePostgresTest {
                         "INSERT INTO gift_delivery_outbox SELECT id,order_id,private_payload,status,created_at FROM public.gift_delivery_outbox WHERE order_id = '" + order.orderId() + "'"))
                     connection.createStatement().execute(sql);
                 assertThat(org.flywaydb.core.Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema)
-                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610131600")).load().migrate().migrationsExecuted).isEqualTo(1);
+                        .target(org.flywaydb.core.api.MigrationVersion.fromVersion("202610132400")).load().migrate().migrationsExecuted).isEqualTo(1);
                 try (var rows = connection.createStatement().executeQuery("SELECT status,charged_amount,first_provided_at FROM gift_purchase_work")) {
                     assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("ACTIVE");
                     assertThat(rows.getInt(2)).isEqualTo(10); assertThat(rows.getObject(3)).isNull();
