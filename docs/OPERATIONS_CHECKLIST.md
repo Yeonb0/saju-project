@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: PR #37 backend CI Clock fixture 보완
+
+- PR #37 backend CI의 단일 실패를 같은 PostgreSQL 조건에서 재현했다. `GiftRecipientPostgresTest`가 상위 lifecycle의 신규 recipient API 테스트를 상속하면서 `Clock`을 Mockito mock으로 교체했지만 `instant()`만 설정하고 `withZone()`/`getZone()`은 설정하지 않아, `BirthInputNormalizer`의 서울 기준 날짜 검증이 정상 입력도 `INVALID_REQUEST`로 처리한 테스트 fixture 문제였다.
+- mock Clock에 `Asia/Seoul` zone과 `withZone` 동작을 명시했다. 실패했던 상속 테스트 단건을 재실행해 통과했고, 빈 migration 검증 DB `sajup_gift_recipient_20261014`에서 CI와 같은 `clean check bootJar` 전체를 실행해 성공했다. 제품 입력 검증·저장 코드는 변경하지 않았다. 적용: 날짜/시간 fixture 회귀, 6-6 CI 배포 산출물 검증. 원격 push와 PR 변경은 수행하지 않았다.
+
 ### 2026-10-14: BE-B 암호화 recipient profile·fulfillment intent
 
 - 공개 `POST /api/v1/public/gifts/recipient-profile`을 추가했다. 기존 `BirthInputNormalizer`와 이름 검증을 재사용하고, 일반 `people`이 아닌 신규 `gift_recipient_profiles`에 정규화 snapshot을 AES-GCM 암호화 저장한다. 응답과 충돌 오류에는 이름·생년정보·snapshot hash를 반환하지 않는다.

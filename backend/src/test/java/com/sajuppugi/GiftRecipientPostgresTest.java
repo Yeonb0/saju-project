@@ -35,7 +35,12 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
     @MockitoBean Clock clock;
     Instant time;
     final String snapshotHash = "a".repeat(64);
-    @BeforeEach void setClock() { time = now.truncatedTo(java.time.temporal.ChronoUnit.MICROS).plusSeconds(1); when(clock.instant()).thenAnswer(call -> time); }
+    @BeforeEach void setClock() {
+        time = now.truncatedTo(java.time.temporal.ChronoUnit.MICROS).plusSeconds(1);
+        when(clock.instant()).thenAnswer(call -> time);
+        when(clock.getZone()).thenReturn(java.time.ZoneId.of("Asia/Seoul"));
+        when(clock.withZone(any())).thenReturn(clock);
+    }
     void advance(long seconds) { time = time.plusSeconds(seconds); }
     com.sajuppugi.gift.application.GiftFulfillmentPort.Receipt accept(UUID order, UUID request) throws Exception {
         return recipients.accept(token(order), request, snapshotHash, () -> assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue());
