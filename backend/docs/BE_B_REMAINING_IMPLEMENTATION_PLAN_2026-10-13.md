@@ -4,6 +4,8 @@
 대상 브랜치: `feat/saju-calculation` (`0890241`)  
 관련 문서: [`BACKEND_ROLE_SPLIT.md`](BACKEND_ROLE_SPLIT.md), [`BE_B_FE_UNBLOCKING_IMPLEMENTATION_PLAN_2026-10-11.md`](BE_B_FE_UNBLOCKING_IMPLEMENTATION_PLAN_2026-10-11.md), [`PENDING_DECISIONS.md`](../../docs/PENDING_DECISIONS.md), [`OPERATIONS_CHECKLIST.md`](../../docs/OPERATIONS_CHECKLIST.md)
 
+진행 메모(2026-10-13): B-1의 durable render job/lease/fencing/retry 기반과 B-2의 본인 보관함·상세·다운로드 권한 API를 구현했다. 실제 renderer/private R2 저장·signed URL adapter와 승인 에셋, 부적 추가 구매는 아직 남아 있다. 동의 기록/API는 확정 정책 후 별도 구현됐다.
+
 ## 1. 목적과 현재 기준
 
 이 문서는 이미 구현된 BE-B 기반을 다시 만드는 계획이 아니라, 출시 흐름을 완결하기 위해 남은 BE-B 범위를 순서대로 정리한 실행 계획이다. 금전 차감·환불·선물 token·알림 발송의 최종 소유자는 BE-A이며, BE-B는 결과 생성·부적·개인 데이터·공유 projection을 공개 application service/port로 제공한다. 상대 모듈 repository나 테이블을 직접 접근하지 않는다.
