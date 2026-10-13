@@ -11,13 +11,17 @@ import { ApiContractError } from "@/lib/api/errors";
 import type { ApiClient } from "@/lib/api/http";
 import {
   createKeyedCommand,
+  createKeyOnlyCommand,
   createOrderBoundCommand,
 } from "@/lib/api/idempotency";
 import {
+  type CashRefund,
   type TopUpOrder,
   type TopUpOrderState,
   type TopUpPort,
   type TopUpProduct,
+  toCashRefundNextAction,
+  toCashRefundState,
   toTopUpNextAction,
   toTopUpOrderStatus,
   type Wallet,
@@ -31,6 +35,8 @@ const ORDER_BY_ID_PATH =
 const CONFIRM_PATH =
   "/api/v1/top-up-orders/{orderId}/confirm" satisfies keyof paths;
 const PRODUCTS_PATH = "/api/v1/products" satisfies keyof paths;
+const REFUND_PATH =
+  "/api/v1/top-up-orders/{orderId}/refund" satisfies keyof paths;
 
 const count = z.number().int().min(0);
 const text = z.string().min(1);
@@ -92,6 +98,34 @@ const productSchema = z.object({
     .nullable(),
 });
 const productsSchema = z.object({ items: z.array(productSchema) });
+const refundSchema = z.object({
+  refundId: z.uuid(),
+  orderId: z.uuid(),
+  state: text,
+  amount: count,
+  nextAction: text,
+  completedAt: z
+    .string()
+    .refine((value) => !Number.isNaN(Date.parse(value)))
+    .nullable(),
+});
+
+function toCashRefund(data: z.infer<typeof refundSchema>): CashRefund {
+  const wire = {
+    refundId: data.refundId,
+    orderId: data.orderId,
+    amount: data.amount,
+    completedAt: data.completedAt,
+  } satisfies Pick<
+    components["schemas"]["CashRefundResponse"],
+    "refundId" | "orderId" | "amount" | "completedAt"
+  >;
+  return {
+    ...wire,
+    state: toCashRefundState(data.state),
+    nextAction: toCashRefundNextAction(data.nextAction),
+  };
+}
 
 // 승인 · 조회 응답을 포트 모델로 바꾼다. null 을 0 으로 바꾸지 않는다
 function toOrderState(data: OrderData): TopUpOrderState {
@@ -270,6 +304,31 @@ export function createTopUpAdapter(client: ApiClient): TopUpPort {
         throw new ApiContractError(status, "충전 주문 조회 응답 모양이 다르다");
       }
       return toOrderState(parsed.data);
+    },
+
+    async requestRefund(orderId, idempotencyKey): Promise<CashRefund> {
+      const { status, data } = await client.request({
+        method: "POST",
+        path: REFUND_PATH.replace("{orderId}", encodeURIComponent(orderId)),
+        command: createKeyOnlyCommand(idempotencyKey),
+      });
+      const parsed = refundSchema.safeParse(data);
+      if (!parsed.success) {
+        throw new ApiContractError(status, "충전 환불 신청 응답 모양이 다르다");
+      }
+      return toCashRefund(parsed.data);
+    },
+
+    async getRefund(orderId): Promise<CashRefund> {
+      const { status, data } = await client.request({
+        method: "GET",
+        path: REFUND_PATH.replace("{orderId}", encodeURIComponent(orderId)),
+      });
+      const parsed = refundSchema.safeParse(data);
+      if (!parsed.success) {
+        throw new ApiContractError(status, "충전 환불 조회 응답 모양이 다르다");
+      }
+      return toCashRefund(parsed.data);
     },
   };
 }

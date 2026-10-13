@@ -22,6 +22,8 @@ describe("classifyApiError", () => {
     [409, "IDEMPOTENCY_REQUEST_PROCESSING", "request_processing"],
     [409, "QUOTE_EXPIRED", "quote_expired"],
     [409, "PRICE_CHANGED", "price_changed"],
+    [409, "REFUND_NOT_ELIGIBLE", "refund_not_eligible"],
+    [409, "WALLET_REVIEW_REQUIRED", "review_required"],
     [409, "SOMETHING_NEW", "conflict"],
     [404, "RESOURCE_NOT_FOUND", "not_found"],
     [410, "GIFT_EXPIRED", "gone"],

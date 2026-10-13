@@ -1,5 +1,17 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-13: FE 10/12 요청서 기준 BE-B 계약·스테이징 설정 점검
+
+- 적용 점검: 6-1 OAuth callback/세션/CSRF와 내부 returnTo, 6-6 고정 staging origin과 환경 분리, 6-9 OAuth·Liner 비밀값의 저장소 비노출.
+- 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정하고 고정 OpenAPI 파일을 다시 export했다.
+- 카카오 callback은 고정 프론트 origin의 `/api/v1/auth/kakao/callback`으로 등록하고, 같은 origin을 `FRONTEND_BASE_URL`에 설정해야 한다. Next.js `/api/v1` 프록시를 거치면 세션 쿠키가 프론트 origin에 설정된다. 이 설정값과 카카오 Developers 등록, Railway/Vercel 배포는 외부 계정 권한이 필요해 이 저장소에서 수행·검증하지 않았다.
+- tracked 파일에서 Liner API 키·카카오 client secret의 실제 값은 발견하지 않았고, `.env`와 `.env.*`는 Git ignore다. 기존 대화나 외부 콘솔 노출값의 실제 회전 여부는 키 원문을 열람하지 않고는 검증할 수 없으므로 공급자 콘솔에서 별도 완료해야 한다.
+- 오늘의 운세 API는 현재 소유한 활성 인물에 대해 KST 날짜, 5개 지수, 한줄 운세, 행운 색·아이템·장소, 오늘의 행동을 결정론적으로 반환한다. Liner 호출이나 원문 출생 입력을 새로 노출하지 않는다. 공유 landing은 G-11의 공개 범위·만료·철회 정책이 아직 미정이라 이번 API에 포함하지 않았다.
+- 세션 기본 TTL을 팀 결정과 같이 30일로 맞췄고, 활성 세션은 사용자별 5개로 제한한다. 새 로그인은 유지하며 한도를 넘으면 최근 사용 시각이 가장 오래된 기존 세션부터 짧은 PostgreSQL 트랜잭션에서 폐기한다. 외부 카카오 호출은 이 잠금/트랜잭션 밖에 있다. 분리 PostgreSQL 17.11에서 동시 6개 세션 생성 후 활성 세션 5개를 확인했다.
+- 2026-10-13 main 병합 후 고정 OpenAPI가 main 쪽 과거 산출물로 남아 생성 타입 검사가 실패한 것을 확인했다. 병합된 서버에서 계약을 다시 export하여 로그아웃 204, 오늘의 운세 상세 필드, 현금 환불 API와 `REFUND_PENDING` 상태를 함께 반영하고 FE 생성 타입을 갱신했다. 전용 PostgreSQL 17 DB에서 백엔드 503건 중 491건 통과·선택 제외 12건·실패 0건과 bootJar를 확인했고, 세션/인물/생성 PostgreSQL 선택 테스트 8건도 통과했다. 실제 PG·OAuth·배포·브라우저 E2E는 수행하지 않았다.
+- 2026-10-13 FE 환불 대상 선택을 위한 본인 충전 주문 목록 `GET /api/v1/top-up-orders`를 추가했다. 적용: 6-1 서버 소유권, 6-2 PostgreSQL 읽기·복합 커서, 6-6 새 Flyway 인덱스, 6-9 결제키·멱등키 비노출, 6-10 최대 50건 제한. 사용자 확인에 따르면 실제 카카오 로그인과 Liner 호출은 별도 확인 완료됐으나, 이 구현 과정에서 해당 외부 호출을 재실행하지 않았다.
+- 2026-10-13 확정된 G-11 오늘의 운세 정책에 따라 생성·공개 조회·철회 API를 추가했다. 날짜·지수 5개·한줄 운세·행운 항목만 24시간 비식별 snapshot으로 공개하고 이름·생년월일시·성별·personId·userId·오늘의 행동은 공개하지 않는다. 생성은 세션/CSRF/인물 소유권, 철회는 생성자 소유권을 검사하며 타인과 없는 리소스는 동일 404다. 인물 행 잠금과 사용자/인물/KST 날짜 unique로 동시 중복을 막고 활성 링크를 재사용한다. 공개 token은 32바이트 난수이며 DB에는 SHA-256 조회 hash와 AES-GCM 암호문만 저장한다. 적용: 6-1, 6-5, 6-6, 6-9. 빈 PostgreSQL 17 전용 DB에서 Flyway 35개가 모두 성공했고 백엔드 509건 중 497건 통과·선택 제외 12건·실패/오류 0건 및 bootJar를 확인했다. 프론트 생성 타입을 동기화하고 lint/typecheck, Vitest 841건, production build를 확인했다. 실제 배포·브라우저 공유 동작·부하/복원 시험은 수행하지 않았다.
+- 2026-10-13 공유 링크 장애 주입을 추가 검증했다. DB 제약 위반으로 최초 저장과 만료 링크 갱신을 강제로 실패시켜 각각 부분 행이 남지 않음, 이전 만료 snapshot/token이 보존됨, 이후 정상 재시도로 같은 share 행을 재활성화함을 확인했다. 활성 링크는 계산 계층 장애가 나도 먼저 재사용하며, 계산은 링크가 없거나 만료·철회된 경우에만 수행한다. 고정 세션 fixture를 정리하고 OAuth 세션 assertion 범위를 해당 테스트 사용자로 좁혀 같은 DB에서 전체 검증을 반복할 수 있게 했다. 새 PostgreSQL 17 전용 DB에서 Flyway 35개 성공 및 backend 512건 중 500건 통과·선택 제외 12건·실패/오류 0건, `clean check bootJar`를 두 번 연속 성공시켰다. 이 API에는 비동기 provider 호출·worker가 없어 worker lease 복구 대상은 아니다. 실제 프로세스 kill -9/네트워크 단절·staging 복구 연습은 여전히 남아 있다.
 ### 2026-10-12: PR #25 머지 전 교착 보완과 전체 재검증
 
 - 사용자 요청으로 관리자 PR #25 머지를 준비했다. 최신 main merge-tree 무충돌을 확인했지만 최초 Backend CI 1건 실패를 발견하여 바로 merge하지 않았다.
@@ -293,7 +305,9 @@ Q-35의 “자동 보상”은 환급 성공이 서버 상태로 확인된 때�
 
 **정상 결과:** 타인 조회·변경은 거절되고 개인정보가 응답에 없다. 미인증과 CSRF 오류가 계약에 맞게 반환된다. 외부 returnTo는 허용되지 않는다. 세션 저장 방식과 만료 정책이 분명하다. 재시작 시 로그아웃은 정책에 따라 가능하지만, 의도하지 않은 반복 로그아웃이나 서버별 로그인 상태 차이는 없어야 한다.
 
-**현재 다음 개발:** OAuth·세션·CSRF 발급·인물 소유권 연결. 다중 인스턴스라면 메모리 세션에만 의존하지 않는 저장 방식도 정한다.
+**현재 다음 개발:** DB 기반 OAuth state·세션·CSRF·인물 소유권은 구현됐다. 고정 staging
+프론트 proxy를 통한 실제 카카오 callback/cookie, 두 브라우저 A/B 소유권, 서버 재시작·다중
+인스턴스 동작을 실제 환경에서 확인한다.
 
 ### 6-2. DB와 지갑: 동시에 구매해도 돈이 맞는가?
 
@@ -443,7 +457,9 @@ LIMIT 20;
 
 **정상 결과:** 필요한 곳에 필요한 값만 남고 로그·분석·외부 전송에 불필요한 원문이 없다. 암호화 키는 데이터와 분리해 관리한다. 삭제/보존 정책을 설명할 수 있다.
 
-**현재 다음 개발:** 인물 정보 저장·암호화·삭제, 실제 외부 요청 검증과 보존 기간 확정. FE URL 마스킹과 수집 최소화 기반은 이미 있다.
+**현재 다음 개발:** 인물 정보 암호화 저장·soft delete·탈퇴 정리와 Liner facts-only 전송 기반은
+구현됐다. 실제 staging 로그/Sentry/분석/outbox의 가상 식별값 검색, 백업 보존·삭제 재반영,
+공급자 키 회전과 법정 보존기간 확정은 남아 있다.
 
 ### 6-10. 사용자 수가 늘어날 때: 어느 부분부터 느려지는가?
 
@@ -494,6 +510,31 @@ LIMIT 20;
 - [PostgreSQL EXPLAIN](https://www.postgresql.org/docs/17/using-explain.html): SQL 실행 계획을 읽는 방법.
 
 ## 9. 개발·검증 기록
+
+### 2026-10-12: PostgreSQL 인물 생성 경쟁 회귀 보강
+
+- 적용: 6-1의 인물 소유권 경계와 6-2의 동시 쓰기 검증을 위해, 격리된 `sajuppugi_test` PostgreSQL DB에서만 실행하는 `personConcurrencyPostgresTest`를 추가했다. 같은 owner의 동시 SELF 생성 2건에서는 정확히 한 건만 생성되고 나머지는 `PRIMARY_PERSON_ALREADY_EXISTS`인지, 동시 OTHER 생성 12건에서는 정확히 10건만 생성되고 나머지는 `PERSON_LIMIT_EXCEEDED`인지 확인한다. fixture 행과 owner lock 행은 각 시험 뒤 삭제한다.
+- `TEST_DATABASE_URL=jdbc:postgresql://localhost:55432/sajuppugi_test ./gradlew personConcurrencyPostgresTest`가 PostgreSQL 17 컨테이너에서 성공했다. H2 회귀의 기존 `PeopleApiTest`도 함께 재실행해 성공했다. 검증 범위는 `people`과 `person_owner_locks`이며 지갑·등껍질·결제 상태는 변경하지 않았다.
+- 현재 `people.owner_user_id`의 DB 외래 키는 아직 없다. 현재 실제 HTTP 인증은 users 행에서만 만들어지지만, 과거 데이터 호환과 테스트 fixture를 함께 다루는 별도 migration·정리 계획 없이 FK를 추가하지 않았다. 운영 배포 전 orphan 검사와 추가형 FK migration 계획이 필요하다. 실제 카카오 로그인 사용자로 한 인물 CRUD 브라우저 E2E도 미확인이다.
+- 후속 보강: `PersonService.create`는 활성 `users` 행이 없거나 탈퇴 대기 등 비활성 상태면 `PERSON_NOT_FOUND`로 거절한다. 따라서 controller/service 경유 신규 인물이 orphan owner에 연결되지 않으며, member 존재 여부도 이 resource API에서 노출하지 않는다. H2와 PostgreSQL owner-lock 회귀는 활성 사용자 fixture를 독립 커밋·정리하도록 바꿔 실제 worker transaction의 가시성 조건을 함께 검증했다. 물리 FK와 과거 orphan 정리는 여전히 별도 migration 전제다.
+- 이 보강 후 `./gradlew check bootJar --rerun-tasks`를 실행해 H2 회귀와 packaging을 함께 통과했다. 이는 staging 배포·실제 카카오·실제 토스 또는 운영 DB migration 검증은 아니다.
+
+### 2026-10-12: PostgreSQL 세션·CSRF 회귀 보강
+
+- 적용: 6-1의 서버 세션·CSRF·로그아웃 폐기와 6-6의 실제 PostgreSQL 검증 공백을 줄이기 위해, 격리된 `sajuppugi_test` PostgreSQL DB에서만 실행하는 `sessionSecurityPostgresTest` Gradle 작업과 회귀 시험을 추가했다. 이 시험은 임시 사용자·불투명 세션 hash를 만들고 `/session`의 CSRF 회전, CSRF 누락 로그아웃의 403, 유효 CSRF 로그아웃의 cookie 만료·DB revoke, 이후 보호 API의 401을 확인한 뒤 임시 행을 삭제한다.
+- 같은 작업에서 OAuth state를 동시에 두 번 소비하려는 PostgreSQL 요청도 추가 검증했다. 실제 `AuthRepository.consumeState` 호출 중 정확히 하나만 내부 returnTo를 받고 다른 하나는 빈 결과를 받아 state 재사용을 막는 조건부 UPDATE를 확인했다.
+- OAuth 성공 callback은 이제 기존 browser cookie의 세션을 새 세션이 저장된 뒤 revoke한다. provider 호출은 DB 작업 전에 끝내므로 wallet lock이나 장기 DB transaction 안에서 외부 호출을 기다리지 않는다. H2와 격리 PostgreSQL에서 mocked provider 성공 callback을 시험해 새 HttpOnly cookie 발급, 이전 세션 revoke 및 새 활성 세션 1건을 확인했다. 실제 카카오 제공자·브라우저 callback은 이 검증에 포함하지 않는다.
+- `POST /auth/logout` 성공 응답을 API_SPEC와 공통 응답 지침에 맞춰 `204 No Content`로 정렬했다. CSRF 검증, cookie 만료와 DB revoke는 그대로이며 H2·PostgreSQL 회귀에서 확인했다.
+- 세션 기반 POST/PATCH/DELETE에서 CSRF token만 맞더라도 `Origin`이 `FRONTEND_BASE_URL`의 origin과 다르면 `403 CSRF_FAILED`가 되도록 보강했다. Next 프록시의 동일 출처 요청과 Origin 헤더가 없는 비브라우저 검증은 유지한다. 공격자 origin + 유효 CSRF token이 로그아웃에 실패하는 H2 회귀와 PostgreSQL 세션 회귀를 확인했다. staging의 실제 proxy가 Origin을 보존하는지는 별도 E2E로 확인해야 한다.
+- `TEST_DATABASE_URL=jdbc:postgresql://localhost:55432/sajuppugi_test ./gradlew sessionSecurityPostgresTest`를 PostgreSQL 17 컨테이너에서 실행해 성공했다. 이어 기본 H2 PostgreSQL 호환 모드의 `./gradlew test --rerun-tasks`도 XML 기준 417건 중 실패/오류 0, opt-in 제외 8로 성공했다.
+- 이 검증은 실제 카카오 authorization code 교환·사용자 브라우저 cookie·staging HTTPS/CORS·다중 서버 세션 공유를 확인하지 않는다. 실제 OAuth 자격 증명이나 사용자 개인정보는 읽거나 출력하지 않았다.
+
+### 2026-10-12: BE-B FE 차단 해소 계획 현재 브랜치 대조
+
+- 기준: `feat/saju-calculation`의 `7a0bb7c`. `backend/docs/BE_B_FE_UNBLOCKING_IMPLEMENTATION_PLAN_2026-10-11.md`의 Phase 0~5 구현과, 문서에 당시 `예정`으로 남은 Phase 6의 서버 코드·계약·테스트를 현재 브랜치에서 대조했다. 인물 CRUD/암호화 저장·소유권·soft delete·owner lock, `ReadingSubjectPort` adapter, 관계 검증, 수능 typed guide와 fallback, KST 오늘의 운세, 구매 상태 조회/보상 상태 계약, 카카오 OAuth state·불투명 세션·CSRF·로그아웃 구현을 확인했다.
+- `./gradlew test --rerun-tasks`는 H2 PostgreSQL 호환 모드에서 성공했다. XML 기준 416건 중 실패/오류 0, opt-in 제외 7(실제 Liner, OpenAPI export, PostgreSQL recovery 4, wallet demo)이다. 이 실행은 실제 PostgreSQL이나 실제 카카오 제공자·브라우저를 검증하지 않는다.
+- 적용: 6-1 세션/CSRF/returnTo/소유권 단위·통합 시험, 6-2 인물 생성 경쟁 제어 코드, 6-3 Liner typed fallback 계약, 6-6 신규 Flyway migration, 6-9 인물 암호화와 토큰 해시 저장을 코드·문서로 재확인했다. 6-1의 실제 카카오 로그인·cookie, staging HTTPS/CORS 및 다중 인스턴스, 6-2의 이 변경 범위 PostgreSQL 경쟁 실행, 그리고 인물→견적→등껍질 차감→결과의 staging E2E는 미확인이다.
+- 계획 문서의 Phase 6 `예정` 표기는 현재 코드와 불일치한다. 이는 서버 구현의 존재 여부만 해소하며, 외부 환경 검증·BE-A/PD의 receipt/문의 채널 확정까지 완료됐다는 뜻은 아니다.
 
 ### 2026-10-11: Backend-B PR #20 최신 main 충돌 해결
 

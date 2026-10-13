@@ -45,6 +45,16 @@ const creditedData = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   });
 
+const refundData = (overrides: Record<string, unknown> = {}) => ({
+  refundId: "9b7a1c0d-5e8f-4a6b-8c1e-3f2b8c1e6a4d",
+  orderId: ORDER_ID,
+  state: "RESERVED",
+  amount: 1000,
+  nextAction: "POLL",
+  completedAt: null,
+  ...overrides,
+});
+
 const productData = (overrides: Record<string, unknown> = {}) => ({
   code: "FIXTURE_TOP_UP",
   category: "TOP_UP",
@@ -329,6 +339,16 @@ describe("충전 adapter — getOrder", () => {
     expect(state.grantedShellAmount).toBe(12);
     expect(state.walletBalance).toBe(40);
   });
+
+  it("REFUND_PENDING은 UNKNOWN으로 낮추지 않고 처리 중 상태로 보존한다", async () => {
+    const { adapter } = setup(
+      ok(orderData({ status: "REFUND_PENDING", nextAction: "POLL" })),
+    );
+    await expect(adapter.getOrder(ORDER_ID)).resolves.toMatchObject({
+      status: "REFUND_PENDING",
+      nextAction: "POLL",
+    });
+  });
 });
 
 describe("충전 adapter — listTopUpProducts", () => {
@@ -382,6 +402,52 @@ describe("충전 adapter — listTopUpProducts", () => {
   ])("j. 계약 위반(%s)은 ApiContractError", async (_name, make) => {
     const { adapter } = setup(ok(make()));
     await expect(adapter.listTopUpProducts()).rejects.toBeInstanceOf(
+      ApiContractError,
+    );
+  });
+});
+
+describe("충전 adapter — cash refund", () => {
+  it("신청은 CSRF와 같은 멱등 키를 보내고 202 상태를 보존한다", async () => {
+    const key = createIdempotencyKey();
+    const { adapter, sent } = setup(ok(refundData(), 202));
+    await expect(adapter.requestRefund(ORDER_ID, key)).resolves.toEqual({
+      ...refundData(),
+      state: "RESERVED",
+      nextAction: "POLL",
+    });
+    expect(sent(0)).toMatchObject({
+      url: `/api/v1/top-up-orders/${ORDER_ID}/refund`,
+      method: "POST",
+      body: undefined,
+    });
+    expect(sent(0).headers["Idempotency-Key"]).toBe(key);
+    expect(sent(0).headers["X-CSRF-Token"]).toBe("FIXTURE-CSRF");
+  });
+
+  it("조회는 본문·CSRF 없이 완료 시각을 그대로 돌려준다", async () => {
+    const completedAt = "2026-10-13T03:00:00Z";
+    const { adapter, sent } = setup(
+      ok(refundData({ state: "REFUNDED", nextAction: "NONE", completedAt })),
+    );
+    const refund = await adapter.getRefund(ORDER_ID);
+    expect(refund).toMatchObject({ state: "REFUNDED", completedAt });
+    expect(sent(0).method).toBe("GET");
+    expect(sent(0).body).toBeUndefined();
+    expect(sent(0).headers["X-CSRF-Token"]).toBeUndefined();
+  });
+
+  it("모르는 상태·행동은 UNKNOWN이고 잘못된 완료 시각은 계약 오류다", async () => {
+    const unknown = setup(
+      ok(refundData({ state: "NEW_STATE", nextAction: "NEW_ACTION" })),
+    );
+    await expect(unknown.adapter.getRefund(ORDER_ID)).resolves.toMatchObject({
+      state: "UNKNOWN",
+      nextAction: "UNKNOWN",
+    });
+
+    const invalid = setup(ok(refundData({ completedAt: "not-a-date" })));
+    await expect(invalid.adapter.getRefund(ORDER_ID)).rejects.toBeInstanceOf(
       ApiContractError,
     );
   });

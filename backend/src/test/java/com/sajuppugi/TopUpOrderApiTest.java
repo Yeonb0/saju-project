@@ -95,6 +95,56 @@ class TopUpOrderApiTest {
     }
 
     @Test
+    void listsOnlyOwnedOrdersNewestFirstWithBoundedCursorPagination() throws Exception {
+        UUID other = UUID.randomUUID();
+        try {
+            var oldest = orders.create(owner, "TEST_TOPUP", "list-1");
+            var middle = orders.create(owner, "TEST_TOPUP", "list-2");
+            var newest = orders.create(owner, "TEST_TOPUP", "list-3");
+            orders.create(other, "TEST_TOPUP", "list-other");
+            jdbc.update("UPDATE top_up_orders SET created_at = ? WHERE id = ?",
+                    java.sql.Timestamp.from(java.time.Instant.parse("2026-10-13T00:00:01Z")), oldest.id());
+            jdbc.update("UPDATE top_up_orders SET created_at = ? WHERE id = ?",
+                    java.sql.Timestamp.from(java.time.Instant.parse("2026-10-13T00:00:02Z")), middle.id());
+            jdbc.update("UPDATE top_up_orders SET created_at = ? WHERE id = ?",
+                    java.sql.Timestamp.from(java.time.Instant.parse("2026-10-13T00:00:03Z")), newest.id());
+
+            String first = mvc.perform(get("/api/v1/top-up-orders").with(user(owner.toString()))
+                            .param("size", "2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.items.length()").value(2))
+                    .andExpect(jsonPath("$.data.items[0].orderId").value(newest.id().toString()))
+                    .andExpect(jsonPath("$.data.items[1].orderId").value(middle.id().toString()))
+                    .andExpect(jsonPath("$.data.items[0].createdAt").exists())
+                    .andExpect(jsonPath("$.data.hasNext").value(true))
+                    .andExpect(jsonPath("$.data.nextCursor").isString())
+                    .andReturn().getResponse().getContentAsString();
+            String cursor = JsonPath.read(first, "$.data.nextCursor");
+
+            mvc.perform(get("/api/v1/top-up-orders").with(user(owner.toString()))
+                            .param("size", "2").param("cursor", cursor))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.items.length()").value(1))
+                    .andExpect(jsonPath("$.data.items[0].orderId").value(oldest.id().toString()))
+                    .andExpect(jsonPath("$.data.hasNext").value(false))
+                    .andExpect(jsonPath("$.data.nextCursor").doesNotExist());
+        } finally {
+            jdbc.update("DELETE FROM top_up_orders WHERE user_id = ?", other);
+        }
+    }
+
+    @Test
+    void listRejectsInvalidCursorAndUnboundedSizeAndRequiresAuthentication() throws Exception {
+        mvc.perform(get("/api/v1/top-up-orders")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/top-up-orders").with(user(owner.toString())).param("cursor", "bad"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/top-up-orders").with(user(owner.toString())).param("size", "0"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/top-up-orders").with(user(owner.toString())).param("size", "51"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void missingKeyAndInvalidInputDoNotCreate() throws Exception {
         mvc.perform(post("/api/v1/top-up-orders").with(user(owner.toString())).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"productCode\":\"TEST_TOPUP\"}"))
@@ -112,6 +162,7 @@ class TopUpOrderApiTest {
         mvc.perform(post("/api/v1/top-up-orders").with(user(owner.toString())).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"productCode\":\"TEST_TOPUP\"}")).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/top-up-orders/{id}", UUID.randomUUID())).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/top-up-orders")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/top-up-orders").with(user("invalid-principal")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).header("Idempotency-Key", "key")
                 .content("{\"productCode\":\"TEST_TOPUP\"}")).andExpect(status().isUnauthorized());

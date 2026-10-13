@@ -1,9 +1,9 @@
 # 뿌기사주 API 명세서
 
-> 버전: Draft v0.2
+> 버전: v1 구현 계약
 > 작성일: 2026-10-01
-> 최종 수정: 2026-10-03
-> 상태: P0 정책 결정 전 초안
+> 최종 수정: 2026-10-13
+> 상태: 실행 코드·생성 OpenAPI 기준. 별도로 미구현이라 표시한 항목은 목표 계약이다.
 > 참조: [`PRD.md`](./PRD.md), [`FUNCTIONAL_SPEC.md`](./FUNCTIONAL_SPEC.md), [`PENDING_DECISIONS.md`](./PENDING_DECISIONS.md), [`COMMON_RESPONSE_AND_ERROR_CODES.md`](./COMMON_RESPONSE_AND_ERROR_CODES.md)
 
 ## 1. 기본 규약
@@ -20,6 +20,8 @@
 ### 인증
 
 - 서버 세션 ID를 `HttpOnly + Secure + SameSite=Lax` 쿠키로 전달한다.
+- 세션은 기본 30일 뒤 만료한다. 동시 활성 세션은 5개까지이며 새 로그인은 유지하고,
+  한도를 넘으면 가장 오래 사용하지 않은 기존 세션부터 폐기한다.
 - 인증 필요 엔드포인트는 세션이 없으면 `401 AUTHENTICATION_REQUIRED`를 반환한다.
 - 소유권이 없으면 존재 여부를 숨겨야 하는 리소스는 `404`, 그 외는 `403`을 사용한다.
 - 상태 변경 요청은 CSRF 토큰 및 Origin 검증을 적용한다.
@@ -206,24 +208,37 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 ```json
 {
   "authenticated": true,
-  "user": { "id": "uuid", "nickname": "윤진" },
-  "expiresAt": "2026-10-31T00:00:00Z"
+  "userId": "uuid",
+  "nickname": "윤진",
+  "hasPrimaryPerson": true,
+  "expiresAt": "2026-10-31T00:00:00Z",
+  "csrfToken": "opaque-token"
 }
 ```
+
+- 응답은 공통 envelope의 `data` 안에 위 필드를 담는다.
+- 비로그인일 때 `authenticated=false`이며 나머지 필드는 `null`이다. 이 조회는 401로
+  처리하지 않는다.
+- 로그인 상태에서 매 조회마다 새 `csrfToken`을 발급한다. 상태 변경 요청은
+  `X-CSRF-Token` 헤더로 가장 최근 토큰을 보낸다.
 
 ### `POST /auth/logout`
 
 - 인증·CSRF 필요
 - 현재 세션 즉시 폐기
-- 응답: `204`
+- 세션 쿠키를 만료시킨다.
+- 응답: body 없는 `204 No Content`
 
 ### `GET /sessions`
 
-- 활성 기기 세션 목록. 토큰·세션 ID는 노출하지 않는다.
+- 목표 계약이며 현재 실행 API/OpenAPI에는 없다.
+- 활성 기기 세션 목록을 제공하려면 사용자가 구분할 수 있는 기기 표시값과 폐기용 공개 ID
+  계약을 먼저 확정해야 한다. 원문 세션 토큰은 노출하지 않는다.
 
 ### `DELETE /sessions/{sessionId}`
 
-- 특정 기기 로그아웃. 현재 세션 삭제도 허용한다.
+- 목표 계약이며 현재 실행 API/OpenAPI에는 없다. 공개 폐기 ID 계약 전에는 FE가 호출하지 않는다.
+- 현재 제공되는 로그아웃은 `POST /auth/logout`으로 현재 브라우저 세션만 폐기한다.
 
 ## 4. 사용자·인물
 
@@ -565,7 +580,14 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 ### `GET /top-up-orders/{orderId}`
 
 - 인증 필요, 타인/없는 주문은 동일 RESOURCE_NOT_FOUND(404). 생성/승인과 동일 응답 DTO다.
-- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`
+- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`. 활성 환불 절차가 있으면 공개 projection은 `REFUND_PENDING`일 수 있다.
+
+### `GET /top-up-orders`
+
+- 인증한 사용자가 소유한 충전 주문만 `createdAt DESC, orderId DESC` 순서로 반환한다.
+- `size` 기본값은 20, 허용 범위는 1~50이다. `cursor`는 서버가 반환한 불투명 문자열을 그대로 사용한다.
+- 응답은 `{ items, nextCursor, hasNext }`이며 각 항목은 단건 조회와 같은 상태 projection 및 `createdAt`을 포함한다.
+- 결제키, 멱등키 원문·해시, 공급자 원문과 다른 사용자의 주문은 반환하지 않는다.
 
 ### `POST /webhooks/toss-payments`
 
@@ -594,13 +616,21 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
     "studyWork": 80,
     "condition": 58
   },
+  "content": {
+    "oneLineFortune": "작은 자신감을 행동으로 옮기기 좋은 하루예요.",
+    "luckyColor": "민트",
+    "luckyItem": "책갈피",
+    "luckyPlace": "편안한 휴식 공간",
+    "todayAction": "비교보다 지금 할 수 있는 한 걸음에 집중해 보세요."
+  },
   "calculationVersion": "manse-2026.10-v1",
-  "contentVersion": "daily-score-2026.10-v1"
+  "contentVersion": "daily-2026.10-v2"
 }
 ```
 
 - 모든 지수는 0~100 정수다.
-- 장문 본문은 반환하지 않는다.
+- `content`는 한줄 운세, 행운 색·아이템·장소, 오늘의 행동을 담는다. 값은 UI 표시용
+  짧은 문자열이며 장문 생성 결과나 개인 출생 입력을 포함하지 않는다.
 - 동일 인물·날짜·계산/content 버전의 결과는 항상 같다.
 - Liner API를 호출하지 않고 서버의 결정론적 만세력 계산 결과와 KST 날짜만 사용한다.
 - 인물 없음·삭제·소유권 없음은 존재 여부를 숨기기 위해 `404 PERSON_NOT_FOUND`로 응답한다.
@@ -622,8 +652,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 - `personId`와 원문 생년 필드를 함께 보내거나 두 입력 모두 누락하면 `400 VALIDATION_FAILED`다.
 - 서버는 로그인한 사용자의 인물만 조회한다. 타인/미존재는 같은 `404 RESOURCE_NOT_FOUND`다.
-- 실제 인물 저장소 adapter가 미연결이면 `503 READING_FULFILLMENT_UNAVAILABLE`이다.
-  이번 구현은 인물 입력 계약 추가이며 OAuth·인물 저장 기능 자체를 완성한 것은 아니다.
+- 실제 인물 저장소 adapter로 현재 사용자가 소유한 활성 인물을 조회한다. 저장소 의존성 장애는
+  `503 READING_FULFILLMENT_UNAVAILABLE`로 처리할 수 있지만, 정상 구성에서 미연결 상태는 아니다.
 - 저장된 절기 경계일 인물의 출생 시간이 미상이면 원문 입력과 같은 `422 BIRTH_TIME_REQUIRED_AT_TERM`이다.
 
 기존 원문 입력도 유지한다.
@@ -769,8 +799,12 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
     "summary": "...",
     "examDayGuide": "...",
     "examPeriods": [
-      { "period": "BEFORE_FIRST_PERIOD", "guidance": "..." },
-      { "period": "BETWEEN_PERIODS", "guidance": "..." },
+      { "period": "BEFORE_ENTRY", "guidance": "..." },
+      { "period": "KOREAN", "guidance": "..." },
+      { "period": "MATH", "guidance": "..." },
+      { "period": "LUNCH", "guidance": "..." },
+      { "period": "ENGLISH", "guidance": "..." },
+      { "period": "ELECTIVES", "guidance": "..." },
       { "period": "FINAL_CHECK", "guidance": "..." }
     ],
     "focusTips": ["..."],
@@ -912,6 +946,22 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - 인증 없이 접근 가능한 공유 랜딩 데이터다.
 - 불투명 난수 ID를 사용하며 공개용 제목·설명·이미지·서비스 CTA만 반환한다.
 - 회원 ID, reading/talisman 내부 ID와 생년정보는 반환하지 않는다. 공개할 결과 범위는 `TBD(G-11)`에 따른다.
+
+### `POST /daily-fortunes/today/share?personId={personId}`
+
+- 인증·CSRF·인물 소유권 확인이 필요하다.
+- 날짜, 지수 5개, 한줄 운세, 행운 색·아이템·장소만 비식별 스냅샷으로 저장한다.
+- 같은 사용자·인물·KST 날짜의 철회되지 않고 만료되지 않은 공유는 같은 링크를 반환한다.
+- 응답은 `shareId`, 공개 `token`, `expiresAt`, 비식별 `fortune`이며 이름·생년월일시·성별·personId·userId를 포함하지 않는다.
+
+### `GET /daily-fortune-shares/{token}`
+
+- 인증 없이 조회한다. 32바이트 난수 기반 URL-safe token을 사용한다.
+- 생성 시점의 비식별 스냅샷만 반환한다. 24시간이 지나면 `SHARE_EXPIRED`, 철회되면 `SHARE_REVOKED`다.
+
+### `DELETE /daily-fortune-shares/{shareId}`
+
+- 인증·CSRF가 필요하며 생성자만 철회할 수 있다. 타인 또는 없는 shareId는 동일한 `SHARE_NOT_FOUND`다.
 
 ### `POST /talismans/{talismanId}/claim`
 
@@ -1088,13 +1138,13 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 실패: `FAILED → REFUNDED`
 
-#### 구매 상태 조회 계약 (2026-10-11, B안 A 수용 / 미구현)
+#### 구매 상태 조회 계약
 
-- GET /api/v1/reading-purchases/{purchaseId}
-- GET /api/v1/reading-purchases/by-quote/{quoteId}
-- 실제 사용자 소유권 검사, 타인/없는 자원은 같은 404 RESOURCE_NOT_FOUND.
+- GET /api/v1/reading-purchases/by-quote/{quoteId}만 제공한다. `purchaseId` 단건
+  조회 endpoint는 제공하지 않는다.
+- 실제 사용자 소유권 검사, 구매가 없거나 다른 사용자의 quote는 `404 PURCHASE_NOT_FOUND`다.
 - 이미 생성된 구매 조회/replay는 견적 만료와 무관하다. 최초 구매에만 만료 검사를 적용한다.
-- 공통 envelope의 data는 다음 모양이다. 현재 OpenAPI/실행 API 제공 완료가 아니다.
+- 공통 envelope의 `data`는 다음 모양이다.
 
 ```json
 {
@@ -1104,14 +1154,14 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "readingId": null,
   "compensationStatus": "NOT_REQUIRED",
   "failureCode": null,
-  "nextAction": "POLL",
-  "nextRetryAt": null,
-  "updatedAt": "2026-10-10T10:00:00Z"
+  "nextAction": "WAIT",
+  "createdAt": "2026-10-10T10:00:00Z",
+  "fulfilledAt": null
 }
 ```
 
 readingId는 FULFILLED에서만 값이 있다. compensationStatus는 NOT_REQUIRED/PENDING/COMPLETED/REVIEW_REQUIRED,
-nextAction은 POLL/VIEW_READING/CONTACT_SUPPORT/NONE이다. 잔액은 GET /wallet로 별도 조회한다.
+nextAction은 WAIT/VIEW_READING/RETRY_PURCHASE/CONTACT_SUPPORT다. 잔액은 GET /wallet로 별도 조회한다.
 REFUNDED는 보상 receipt 확인 후에만 저장한다. 새 조회 계약의 완료 표시는
 status=REFUNDED와 compensationStatus=COMPLETED가 일치해야 하며 오류 code만으로 표시하지 않는다.
 lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦은 생성 결과를 노출하지 않는다.
