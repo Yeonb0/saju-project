@@ -14,11 +14,15 @@ public class GiftPrivacyWorker {
     private static final Logger log = LoggerFactory.getLogger(GiftPrivacyWorker.class);
     private final JdbcGiftPrivacy privacy;
     public GiftPrivacyWorker(JdbcGiftPrivacy privacy) { this.privacy = privacy; }
-    @Scheduled(fixedDelayString = "${app.gift.retention-poll-delay:3600000}", initialDelayString = "${app.gift.retention-poll-delay:3600000}")
+    @Scheduled(fixedDelayString = "${app.gift.retention-poll-delay:60000}", initialDelayString = "${app.gift.retention-poll-delay:60000}")
     public void purge() {
         for (var id : privacy.candidates()) {
             try { privacy.purge(id); }
-            catch (RuntimeException failure) { log.warn("Gift privacy cleanup failed: orderId={}, type={}", id, failure.getClass().getSimpleName()); }
+            catch (RuntimeException failure) {
+                log.warn("Gift privacy cleanup failed: orderId={}, type={}", id, failure.getClass().getSimpleName());
+                try { privacy.failed(id); }
+                catch (RuntimeException persistence) { log.warn("Gift privacy retry record failed: orderId={}", id); }
+            }
         }
     }
 }

@@ -29,7 +29,9 @@ public class JdbcGiftAccess implements GiftAccessPort {
         var rows = jdbc.query("""
                 SELECT w.gift_id,w.access_expires_at FROM gift_purchase_tokens t
                 JOIN gift_purchase_work w ON w.order_id = t.order_id
-                WHERE t.token_hash = ? AND t.revoked = FALSE AND w.status = 'ACTIVE' AND w.access_expires_at > ?
+                WHERE t.token_hash = ? AND t.revoked = FALSE AND w.status = 'ACTIVE'
+                AND (w.access_expires_at > ? OR EXISTS (SELECT 1 FROM gift_recipient_receipts r
+                    WHERE r.order_id = w.order_id AND r.state IN ('ACCEPTED','REVIEW_REQUIRED') AND r.submitted_at < w.access_expires_at))
                 """, (rs, row) -> new GiftAccess(rs.getObject(1, UUID.class), rs.getTimestamp(2).toInstant()),
                 hash(rawToken), Timestamp.from(clock.instant()));
         return rows.stream().findFirst().orElseThrow(this::unavailable);

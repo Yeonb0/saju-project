@@ -38,6 +38,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
         "app.gift.purchases-enabled=true", "app.gift.delivery-enabled=true",
         "app.gift.payload-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="})
 @Import(GiftDeliveryPostgresTest.PrivacyTestConfiguration.class)
+@org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "TEST_DATABASE_URL", matches = "jdbc:postgresql:.*")
 class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
     @Autowired GiftDeliveryService deliveries;
     @Autowired JdbcGiftDeliveryWork deliveryStore;
@@ -162,7 +163,9 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
         assertThatThrownBy(() -> deliveries.resend(owner, order.orderId(), new IdempotencyKey("fourth"))).isInstanceOf(ApiException.class);
     }
     @Test void koreaMidnightResetsCountButNotCooldown() {
-        var order = active(); sent(order.orderId()); time = Instant.parse("2026-10-13T14:59:40Z");
+        var order = active(); sent(order.orderId());
+        time = time.atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate().plusDays(1)
+                .atStartOfDay(java.time.ZoneId.of("Asia/Seoul")).toInstant().minusSeconds(20);
         deliveries.resend(owner, order.orderId(), new IdempotencyKey("before-midnight")); sent(order.orderId()); advance(20);
         assertThat(deliveries.get(owner, order.orderId()).remainingResends()).isEqualTo(3);
         assertThat(deliveries.get(owner, order.orderId()).canResend()).isFalse(); advance(41);
@@ -241,10 +244,9 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
         String bad = java.util.Base64.getUrlEncoder().encodeToString("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertThatThrownBy(() -> queries.list(owner, bad, 20)).isInstanceOf(ApiException.class);
     }
-    @Test void disabledCleanupNeverDeletesAnythingAndZeroPeriodCannotEnableIt() {
+    @Test void disabledCleanupNeverDeletesAnything() {
         var order = active(); advance(200L * 86400);
         assertThat(disabledPrivacy.candidates()).isEmpty(); assertThat(disabledPrivacy.purge(order.orderId())).isFalse();
-        assertThatThrownBy(() -> new JdbcGiftPrivacy(jdbc, null, deliveryStore, clock, true, java.time.Duration.ZERO)).isInstanceOf(IllegalStateException.class);
         assertThat(jdbc.queryForObject("SELECT private_payload FROM gift_order_drafts WHERE id = ?", String.class, order.orderId())).isNotEmpty();
     }
     @Test void cleanupRetainsFinancialFactsAndDoesNotRehydrateReplayPersonalData() {
@@ -458,7 +460,7 @@ class GiftDeliveryPostgresTest extends GiftLifecyclePostgresTest {
         }
         @Bean("approvedTestPrivacy") JdbcGiftPrivacy approved(org.springframework.jdbc.core.JdbcTemplate jdbc,
                 JdbcGiftPurchaseWork work, JdbcGiftDeliveryWork deliveries, Clock clock) {
-            return new JdbcGiftPrivacy(jdbc, work, deliveries, clock, true, java.time.Duration.ofDays(1));
+            return new JdbcGiftPrivacy(jdbc, work, deliveries, clock, true);
         }
         @Bean("approvedPhoneCleanup") com.sajuppugi.gift.infrastructure.JdbcGiftPhoneCleanup phoneCleanup(org.springframework.jdbc.core.JdbcTemplate jdbc,
                 JdbcGiftPurchaseWork work, JdbcGiftDeliveryWork deliveries, GiftPayloadCipher cipher, com.fasterxml.jackson.databind.ObjectMapper mapper, Clock clock) {

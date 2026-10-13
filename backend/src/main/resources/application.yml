@@ -54,8 +54,8 @@ app:
     delivery-enabled: ${GIFT_DELIVERY_ENABLED:false}
     delivery-worker-enabled: ${GIFT_DELIVERY_WORKER_ENABLED:false}
     phone-cleanup-enabled: ${GIFT_PHONE_CLEANUP_ENABLED:false}
+    fulfillment-review-enabled: ${GIFT_FULFILLMENT_REVIEW_ENABLED:false}
     retention-enabled: ${GIFT_RETENTION_ENABLED:false}
-    retention-period: ${GIFT_RETENTION_PERIOD:PT0S}
     payload-key: ${GIFT_PAYLOAD_KEY:}
     payload-active-key-id: ${GIFT_PAYLOAD_ACTIVE_KEY_ID:}
     payload-keyring: ${GIFT_PAYLOAD_KEYRING:{}}
