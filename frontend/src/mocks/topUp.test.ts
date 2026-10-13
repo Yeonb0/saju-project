@@ -71,6 +71,16 @@ describe("가짜 충전 포트", () => {
     expect(state.walletBalance).toBe((await port.getWallet()).balance);
   });
 
+  it("승인하면 지갑의 유료 · 보너스가 상품의 paidAmount · bonusAmount 만큼 늘어난다", async () => {
+    const { port, ret } = await orderAndReturn();
+    const before = await port.getWallet();
+    await port.confirm(ret);
+    const after = await port.getWallet();
+    // FIXTURE_TOP_UP_B 의 픽스처 paidAmount 22 · bonusAmount 2 — 실제 지급량이 아니다
+    expect(after.paidBalance - before.paidBalance).toBe(22);
+    expect(after.bonusBalance - before.bonusBalance).toBe(2);
+  });
+
   it("같은 주문을 다시 승인하면 처음 결과 — 두 번 지급하지 않는다", async () => {
     const { port, ret } = await orderAndReturn();
     const first = await port.confirm(ret);

@@ -5,9 +5,10 @@
 // 처리 중 · 결과 불명확은 조회, 30초 초과는 확인 중 + 주문 확인 버튼. 새 결제 · 새 키로 유도하지 않는다.
 // 승인은 주문 하나에 한 번 — React StrictMode 의 이중 실행에도 inflight 로 한 번만 보낸다 (CONFIRM-KEY).
 // 디자인 요소 없음 (PG-FIRST). 배치는 LAYOUT-FIGMA PAY-03 · 04 · 05.
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ApiContractError } from "@/lib/api/errors";
 import {
   type ConfirmTopUpResult,
   confirmTopUp,
@@ -43,7 +44,7 @@ export function TopUpSuccess({
 }: {
   ret: PaymentReturn;
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports)
-  port?: Pick<TopUpPort, "confirm" | "getOrder">;
+  port?: Pick<TopUpPort, "confirm" | "getOrder" | "getWallet">;
   deps?: Deps;
 }) {
   // 포트는 렌더 중이 아니라 요청할 때 고른다 (진짜 구현이 없으면 오류 화면으로)
@@ -58,6 +59,13 @@ export function TopUpSuccess({
     // CREDITED 일 때만 — 잔액은 서버에서 다시 받는다 (TOPUP-DONE · P-09 · Q-22: 클라이언트에서 합산하지 않는다)
     queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
   }, [view.kind, queryClient]);
+
+  // 유료 · 보너스 내역은 지갑 응답 그대로 (P-09 · Q-22). 완료 뒤에만 받는다 — 렌더 중에 포트를 고르지 않는다
+  const wallet = useQuery({
+    queryKey: WALLET_QUERY_KEY,
+    queryFn: () => topUp().getWallet(),
+    enabled: view.kind === "credited",
+  });
 
   useEffect(() => {
     let alive = true;
@@ -83,6 +91,8 @@ export function TopUpSuccess({
 
   // 시끄럽게 실패: 계약 위반 · 예상 밖 오류는 오류 화면(error.tsx)으로
   if (view.kind === "error") throw view.error;
+  // 계약 위반은 시끄럽게, 그 밖의 조회 실패는 내역 칸만 비운다
+  if (wallet.error instanceof ApiContractError) throw wallet.error;
 
   function recheck() {
     setView({ kind: "confirming" });
@@ -133,11 +143,15 @@ export function TopUpSuccess({
                   : null}
               </span>
             </div>
-            {/* TODO(Q-17): 유료 · 보너스 내역 — 지갑 응답에 필드가 생기면 서버 값만 */}
+            {/* 현재 유료 · 보너스 잔액 — 지갑 응답 그대로. 없으면 비운다. TODO(PD 문구) */}
             <p
               data-slot="wallet-breakdown"
               className="mt-[14px] min-h-[16px] text-[13px] leading-[16px] text-[#737373]"
-            />
+            >
+              {wallet.data
+                ? `유료 ${wallet.data.paidBalance.toLocaleString("ko-KR")} · 보너스 ${wallet.data.bonusBalance.toLocaleString("ko-KR")}`
+                : null}
+            </p>
           </>
         }
         actions={

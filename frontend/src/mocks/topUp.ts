@@ -124,7 +124,7 @@ export function createFakeTopUpPort(
   function credit(stored: StoredOrder) {
     if (stored.status === "CREDITED") return;
     stored.status = "CREDITED";
-    wallet.credit(stored.product.creditedAmount);
+    wallet.credit(stored.product.paidAmount, stored.product.bonusAmount);
   }
 
   // 서버 규칙 흉내 (Q-17 해결): 상태별 다음 행동
@@ -163,7 +163,12 @@ export function createFakeTopUpPort(
 
   return {
     async getWallet() {
-      return { currency: "TURTLE_SHELL", balance: wallet.balance() };
+      return {
+        currency: "TURTLE_SHELL",
+        balance: wallet.balance(),
+        paidBalance: wallet.paid(),
+        bonusBalance: wallet.bonus(),
+      };
     },
 
     async listTopUpProducts() {

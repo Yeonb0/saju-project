@@ -6,7 +6,13 @@
 
 export type Money = Readonly<{ currency: string; amount: number }>;
 
-export type Wallet = Readonly<{ currency: string; balance: number }>;
+// paidBalance · bonusBalance: 현재 유료 · 보너스 잔액 — 서버 값만 (BE-A FE_REQUEST_RESPONSES 1장). 합계와 서로 맞추지 않는다 (P-09)
+export type Wallet = Readonly<{
+  currency: string;
+  balance: number;
+  paidBalance: number;
+  bonusBalance: number;
+}>;
 
 export type TopUpProduct = Readonly<{
   code: string;

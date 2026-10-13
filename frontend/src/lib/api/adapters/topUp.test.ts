@@ -127,11 +127,13 @@ describe("충전 adapter — getWallet", () => {
     expect(req.headers["Idempotency-Key"]).toBeUndefined();
   });
 
-  it("t2. 성공하면 { currency, balance } 만 돌려준다", async () => {
+  it("t2. 성공하면 합계 · 유료 · 보너스 잔액을 서버 값 그대로 돌려준다", async () => {
     const { adapter } = setup(ok(walletData()));
     await expect(adapter.getWallet()).resolves.toEqual({
       currency: "TURTLE_SHELL",
       balance: 30,
+      paidBalance: 20,
+      bonusBalance: 10,
     });
   });
 

@@ -172,8 +172,12 @@ export function createTopUpAdapter(client: ApiClient): TopUpPort {
         paidBalance: parsed.data.paidBalance,
         bonusBalance: parsed.data.bonusBalance,
       } satisfies components["schemas"]["WalletResponse"];
-      // paidBalance · bonusBalance 는 화면이 아직 안 써서 포트에 넣지 않는다
-      return { currency: wire.currency, balance: wire.balance };
+      return {
+        currency: wire.currency,
+        balance: wire.balance,
+        paidBalance: wire.paidBalance,
+        bonusBalance: wire.bonusBalance,
+      };
     },
 
     async createOrder(input, idempotencyKey): Promise<TopUpOrder> {
