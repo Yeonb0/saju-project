@@ -44,7 +44,8 @@ public class GiftCancellationTransactions {
                 id, Timestamp.from(now), Timestamp.from(now));
         work.stop(id, "CANCEL_PENDING", null);
         jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE WHERE order_id = ?", id);
-        jdbc.update("UPDATE gift_delivery_outbox SET status = 'CANCELED' WHERE order_id = ?", id);
+        jdbc.update("UPDATE gift_delivery_outbox SET status = 'CANCELED', private_payload = '' WHERE order_id = ?", id);
+        jdbc.update("UPDATE gift_delivery_jobs SET state = 'CANCELED', lease_token = NULL, lease_until = NULL WHERE order_id = ? AND state NOT IN ('SENT','FAILED','CANCELED')", id);
     }
     public Target ready(UUID user, UUID id) {
         var order = commands.owned(user, id);

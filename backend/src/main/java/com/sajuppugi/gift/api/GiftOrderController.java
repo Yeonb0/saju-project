@@ -19,10 +19,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/gift-orders")
 public class GiftOrderController {
     private final GiftOrderService orders;
+    private final com.sajuppugi.gift.application.GiftOrderQueryService queries;
     private final org.springframework.beans.factory.ObjectProvider<com.sajuppugi.gift.application.GiftPurchaseTransactions> purchases;
     public GiftOrderController(GiftOrderService orders,
-            org.springframework.beans.factory.ObjectProvider<com.sajuppugi.gift.application.GiftPurchaseTransactions> purchases) {
-        this.orders = orders; this.purchases = purchases;
+            org.springframework.beans.factory.ObjectProvider<com.sajuppugi.gift.application.GiftPurchaseTransactions> purchases,
+            com.sajuppugi.gift.application.GiftOrderQueryService queries) {
+        this.orders = orders; this.purchases = purchases; this.queries = queries;
     }
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -36,6 +38,12 @@ public class GiftOrderController {
     @Operation(operationId = "getGiftOrder")
     public ApiResponse<GiftOrderResponse> get(Authentication authentication, @PathVariable UUID orderId) {
         return ApiResponse.of(response(orders.get(user(authentication), orderId)));
+    }
+    @GetMapping
+    @Operation(operationId = "listGiftOrders", description = "Owner-only newest-first cursor page. Maximum size 50. No raw phone, message or token.")
+    public ApiResponse<com.sajuppugi.gift.application.GiftOrderQueryService.Page> list(Authentication auth,
+            @RequestParam(required = false) String cursor, @RequestParam(required = false) Integer size) {
+        return ApiResponse.of(queries.list(user(auth), cursor, size));
     }
     private UUID user(Authentication authentication) {
         try { return UUID.fromString(authentication.getName()); }

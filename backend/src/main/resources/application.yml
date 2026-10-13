@@ -51,7 +51,14 @@ app:
     orders-enabled: ${GIFT_ORDERS_ENABLED:false}
     purchases-enabled: ${GIFT_PURCHASES_ENABLED:false}
     recovery-enabled: ${GIFT_RECOVERY_ENABLED:false}
+    delivery-enabled: ${GIFT_DELIVERY_ENABLED:false}
+    delivery-worker-enabled: ${GIFT_DELIVERY_WORKER_ENABLED:false}
+    retention-enabled: ${GIFT_RETENTION_ENABLED:false}
+    retention-period: ${GIFT_RETENTION_PERIOD:PT0S}
     payload-key: ${GIFT_PAYLOAD_KEY:}
+    payload-active-key-id: ${GIFT_PAYLOAD_ACTIVE_KEY_ID:}
+    payload-keyring: ${GIFT_PAYLOAD_KEYRING:{}}
+    payload-reencryption-enabled: ${GIFT_PAYLOAD_REENCRYPTION_ENABLED:false}
   admin:
     enabled: ${ADMIN_OPERATIONS_ENABLED:false}
     recovery-enabled: ${ADMIN_RECOVERY_ENABLED:false}

@@ -50,6 +50,9 @@ public class JdbcGiftPurchaseWork {
     public void enqueue(UUID id, UUID order, String encryptedPayload, Instant now) {
         jdbc.update("INSERT INTO gift_delivery_outbox(id, order_id, private_payload, status, created_at) VALUES (?, ?, ?, 'PENDING', ?)",
                 id, order, encryptedPayload, Timestamp.from(now));
+        jdbc.update("INSERT INTO gift_delivery_jobs(id,order_id,state,next_attempt_at,created_at) VALUES (?,?,'PENDING',?,?)",
+                id, order, Timestamp.from(now), Timestamp.from(now));
+        jdbc.update("UPDATE gift_delivery_outbox SET current_job_id = ? WHERE id = ?", id, id);
     }
     public void stop(UUID order, String status, String code) {
         jdbc.update("UPDATE gift_purchase_work SET status = ?, failure_code = ? WHERE order_id = ?", status, code, order);
