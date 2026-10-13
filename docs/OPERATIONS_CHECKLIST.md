@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: PR #29 PostgreSQL CI 회귀 보완
+
+- PR #29의 Backend CI 실패를 동일 PostgreSQL 17 조건에서 재현했다. 제품 코드가 아니라 환불 upgrade fixture가 후속 migration 수를 정확히 1개로 고정한 단정과, 오늘의 운세 공유 fixture가 날짜를 2026-10-13으로 고정한 단정이 원인이었다. upgrade 검사는 1개 이상의 모든 후속 추가형 migration 적용과 기존 환불 행 보존을 확인하도록 바꾸고, 공유 검사는 애플리케이션의 서울 기준 `Clock`을 사용하도록 바꿨다. 적용: 6-6 추가형 migration 호환, 날짜 경계 회귀.
+- 새 PostgreSQL 17 전용 DB `saju_pr29_ci_fix2_20261014`에서 GitHub Backend CI와 같은 `clean check bootJar`를 실행해 544건 중 532건 통과·실패/오류 0·선택 제외 12와 bootJar 성공을 확인했다. 실제 staging 배포, worker 중단 복구, R2 renderer 연결은 이번 CI 보완 범위에서 검증하지 않았다.
+
 ### 2026-10-13: PR #29 최신 main 충돌 해결·통합 검증
 
 - 환불 정책 문서 충돌은 현재 `main`에 구현된 고객센터 잔여분 환불 정책으로 정리했다. `main`의 `V202610131200`과 겹치던 미병합 B migration은 부적 작업 `V202610131300`, 회원 동의 `V202610131400`으로 순서를 조정했다. 적용: 6-1 회원 동의/인물 생성 경계, 6-4 부적 작업 lease·재시도, 6-5 private 부적 자산, 6-6 additive migration 호환, 6-9 동의 기록 최소화.

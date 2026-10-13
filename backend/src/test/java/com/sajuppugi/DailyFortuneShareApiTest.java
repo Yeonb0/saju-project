@@ -17,7 +17,9 @@ import com.sajuppugi.share.DailyFortuneShareService;
 import com.sajuppugi.share.JdbcDailyFortuneShares;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -41,6 +43,7 @@ class DailyFortuneShareApiTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired DailyFortuneShareService shares;
+    @Autowired Clock clock;
     @Autowired JdbcDailyFortuneShares shareStore;
     @MockitoBean DailyFortuneService fortunes;
     UUID owner = UUID.randomUUID();
@@ -88,7 +91,8 @@ class DailyFortuneShareApiTest {
 
         String body = mvc.perform(get("/api/v1/daily-fortune-shares/{token}", token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.date").value("2026-10-13"))
+                .andExpect(jsonPath("$.data.date").value(
+                        LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul"))).toString()))
                 .andExpect(jsonPath("$.data.scores.overall").value(71))
                 .andExpect(jsonPath("$.data.content.oneLineFortune").value("오늘 문장"))
                 .andReturn().getResponse().getContentAsString();
@@ -207,14 +211,14 @@ class DailyFortuneShareApiTest {
     }
 
     private DailyFortuneService.DailyFortune fortune() {
-        return new DailyFortuneService.DailyFortune(LocalDate.of(2026, 10, 13), person,
+        return new DailyFortuneService.DailyFortune(LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul"))), person,
                 new DailyFortuneService.Scores(71, 62, 53, 44, 35),
                 new DailyFortuneService.DailyContent("오늘 문장", "민트", "책갈피", "공원", "한 걸음"),
                 "calc-v1", "daily-v2");
     }
 
     private DailyFortuneService.DailyFortune overflowingFortune() {
-        return new DailyFortuneService.DailyFortune(LocalDate.of(2026, 10, 13), person,
+        return new DailyFortuneService.DailyFortune(LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul"))), person,
                 new DailyFortuneService.Scores(71, 62, 53, 44, 35),
                 new DailyFortuneService.DailyContent("x".repeat(501), "민트", "책갈피", "공원", "한 걸음"),
                 "calc-v1", "daily-v2");
