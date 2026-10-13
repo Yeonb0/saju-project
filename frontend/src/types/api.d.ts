@@ -616,6 +616,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/talismans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTalismans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/talismans/{talismanId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTalisman"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/talismans/{talismanId}/download-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createTalismanDownloadUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/top-up-orders": {
         parameters: {
             query?: never;
@@ -764,6 +812,10 @@ export interface components {
             data?: components["schemas"]["DailyFortune"];
             traceId?: string;
         };
+        ApiResponseDownload: {
+            data?: components["schemas"]["Download"];
+            traceId?: string;
+        };
         ApiResponseFundedQuoteResponse: {
             data?: components["schemas"]["FundedQuoteResponse"];
             traceId?: string;
@@ -830,6 +882,14 @@ export interface components {
         };
         ApiResponseSuneungQuoteResponse: {
             data?: components["schemas"]["SuneungQuoteResponse"];
+            traceId?: string;
+        };
+        ApiResponseTalismanPage: {
+            data?: components["schemas"]["TalismanPage"];
+            traceId?: string;
+        };
+        ApiResponseTalismanView: {
+            data?: components["schemas"]["TalismanView"];
             traceId?: string;
         };
         ApiResponseWalletResponse: {
@@ -1123,6 +1183,11 @@ export interface components {
             /** Format: uuid */
             personId?: string;
             scores?: components["schemas"]["Scores"];
+        };
+        Download: {
+            /** Format: int64 */
+            expiresInSeconds?: number;
+            url?: string;
         };
         Event: {
             /** Format: date */
@@ -1518,6 +1583,28 @@ export interface components {
         Talisman: {
             /** Format: uuid */
             id?: string;
+            status?: string;
+        };
+        TalismanPage: {
+            hasNext: boolean;
+            items: components["schemas"]["TalismanView"][];
+            nextCursor?: string | null;
+        };
+        TalismanView: {
+            animal?: string;
+            contentVersion?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            description?: string;
+            element?: string;
+            fortuneType?: string;
+            /** Format: uuid */
+            id?: string;
+            phrase?: string;
+            /** Format: date-time */
+            readyAt?: string;
+            /** Format: uuid */
+            sourceReadingId?: string;
             status?: string;
         };
         TenGodPosition: {
@@ -5593,6 +5680,289 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSessionResponse"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listTalismans: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTalismanPage"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getTalisman: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                talismanId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTalismanView"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createTalismanDownloadUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                talismanId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDownload"];
                 };
             };
             /** @description Common error envelope; branch on code, not message. */
