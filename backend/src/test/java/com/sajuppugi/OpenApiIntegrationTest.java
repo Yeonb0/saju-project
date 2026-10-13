@@ -38,6 +38,8 @@ class OpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/daily-fortunes/today/share'].post.operationId").value("createDailyFortuneShare"))
                 .andExpect(jsonPath("$.paths['/api/v1/daily-fortune-shares/{token}'].get.operationId").value("getDailyFortuneShare"))
                 .andExpect(jsonPath("$.paths['/api/v1/daily-fortune-shares/{shareId}'].delete.operationId").value("revokeDailyFortuneShare"))
+                .andExpect(jsonPath("$.paths['/api/v1/me/consents'].get.operationId").value("getMemberConsents"))
+                .andExpect(jsonPath("$.paths['/api/v1/me/consents'].post.operationId").value("acceptMemberConsents"))
                 .andExpect(jsonPath("$.paths['/api/v1/top-up-orders/{orderId}/confirm'].post.responses['409'].content['application/json'].schema['$ref']")
                         .value("#/components/schemas/ApiError"))
                 .andExpect(jsonPath("$.components.schemas.ApiError.properties.details").exists())

@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public interface TalismanRepository {
     Optional<Talisman> findByReadingId(UUID readingId);
+    Optional<Talisman> findById(UUID talismanId);
     Optional<Talisman> findOwned(UUID ownerUserId, UUID talismanId);
     Talisman createPending(Talisman talisman);
     void markReady(UUID talismanId, AssetKeys assets, Instant readyAt);

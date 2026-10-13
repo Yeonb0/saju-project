@@ -137,6 +137,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseConsentStatus" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ConsentStatus"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseCreated" : {
         "properties" : {
           "data" : {
@@ -909,6 +920,54 @@
           }
         },
         "required" : [ "amount", "orderId", "paymentKey" ],
+        "type" : "object"
+      },
+      "ConsentRequest" : {
+        "properties" : {
+          "ageOver14Confirmed" : {
+            "type" : "boolean"
+          },
+          "marketingAgreed" : {
+            "type" : "boolean"
+          },
+          "privacyAgreed" : {
+            "type" : "boolean"
+          },
+          "termsAgreed" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "ageOver14Confirmed", "marketingAgreed", "privacyAgreed", "termsAgreed" ],
+        "type" : "object"
+      },
+      "ConsentStatus" : {
+        "properties" : {
+          "ageOver14Confirmed" : {
+            "type" : "boolean"
+          },
+          "agreedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "marketingAgreed" : {
+            "type" : "boolean"
+          },
+          "privacyAgreed" : {
+            "type" : "boolean"
+          },
+          "privacyVersion" : {
+            "type" : "string"
+          },
+          "requiredAccepted" : {
+            "type" : "boolean"
+          },
+          "termsAgreed" : {
+            "type" : "boolean"
+          },
+          "termsVersion" : {
+            "type" : "string"
+          }
+        },
         "type" : "object"
       },
       "Content" : {
@@ -3111,6 +3170,210 @@
           }
         },
         "tags" : [ "member-controller" ]
+      }
+    },
+    "/api/v1/me/consents" : {
+      "get" : {
+        "operationId" : "getMemberConsents",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConsentStatus"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "member-consent-controller" ]
+      },
+      "post" : {
+        "operationId" : "acceptMemberConsents",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConsentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConsentStatus"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description" : "Common error envelope; branch on code, not message."
+          }
+        },
+        "tags" : [ "member-consent-controller" ]
       }
     },
     "/api/v1/people" : {

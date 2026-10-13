@@ -1,5 +1,14 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: PR #29 PostgreSQL CI 회귀 보완
+
+- PR #29의 Backend CI 실패를 동일 PostgreSQL 17 조건에서 재현했다. 제품 코드가 아니라 환불 upgrade fixture가 후속 migration 수를 정확히 1개로 고정한 단정과, 오늘의 운세 공유 fixture가 날짜를 2026-10-13으로 고정한 단정이 원인이었다. upgrade 검사는 1개 이상의 모든 후속 추가형 migration 적용과 기존 환불 행 보존을 확인하도록 바꾸고, 공유 검사는 애플리케이션의 서울 기준 `Clock`을 사용하도록 바꿨다. 적용: 6-6 추가형 migration 호환, 날짜 경계 회귀.
+- 새 PostgreSQL 17 전용 DB `saju_pr29_ci_fix2_20261014`에서 GitHub Backend CI와 같은 `clean check bootJar`를 실행해 544건 중 532건 통과·실패/오류 0·선택 제외 12와 bootJar 성공을 확인했다. 이후 PR #32가 병합된 최신 main `4fbf888`과 충돌을 해소해 회원 동의와 gift 설정을 함께 보존하고 최신 30일 전화번호·목적별 파기 정책을 우선했다. 새 DB `saju_pr29_main_merge3_20261014`의 통합본에서 664건 중 652건 통과·실패/오류 0·선택 제외 12와 bootJar 성공을 재확인했다. 실제 staging 배포, worker 중단 복구, R2 renderer 연결은 이번 CI 보완 범위에서 검증하지 않았다.
+
+### 2026-10-13: PR #29 최신 main 충돌 해결·통합 검증
+
+- 환불 정책 문서 충돌은 현재 `main`에 구현된 고객센터 잔여분 환불 정책으로 정리했다. `main`의 `V202610131200`과 겹치던 미병합 B migration은 부적 작업 `V202610131300`, 회원 동의 `V202610131400`으로 순서를 조정했다. 적용: 6-1 회원 동의/인물 생성 경계, 6-4 부적 작업 lease·재시도, 6-5 private 부적 자산, 6-6 additive migration 호환, 6-9 동의 기록 최소화.
+- H2 대상 기능 테스트와 bootJar, FE TypeScript 검사를 통과했다. 새 PostgreSQL 17 전용 DB `saju_pr29_merge_20261013_1652`에서 전체 migration 적용과 대상 기능 테스트를 통과했으며 `202610131200` 환불 → `202610131300` 부적 작업 → `202610131400` 회원 동의 순서를 확인했다. 전체 H2 검사는 541건 중 기존 PostgreSQL 전용 SQL/fixture 비호환 32건이 실패하고 32건이 선택 제외되어 성공으로 기록하지 않는다. 실제 staging 배포·worker 프로세스 중단 복구·R2 renderer는 미검증이다.
 ### 2026-10-14: 정책 v2 후속, 기한 내 선물 접수 보호와 목적 종료 파기
 
 - 기준: PR #32 `codex/gift-fulfillment`, 소스 `32e9640`. FE·B 인증/회원/인물/운세 소스·공유 OpenAPI·실제 .env는 변경하지 않았다. 기본 운영 비활성과 local/test 제한을 유지했다. 아래 과거 기록의 임의 보관기간·만료 후 24시간 전체 보관 방식은 이번 정책으로 대체한다.
@@ -80,6 +89,12 @@
 - 남음: 문의 채널/환불 신청 경로/처리 기한/정책 시행일/PG 계약 담당자 지정, 법령상 예외 검토, 실제 PG·팀 통합 검증. 아래 이전 기록의 부분 환불 미정/후속 표시는 당시 상태이며 최신 부분 환불 미제공 결정을 우선한다. 기존 테스트 통과를 실제 PG 승인이나 최종 정책 법률 적합성으로 표시하지 않는다.
 
 ### 2026-10-13: FE 10/12 요청서 기준 BE-B 계약·스테이징 설정 점검
+
+- 2026-10-13 확정 정책에 맞춰 `GET/POST /api/v1/me/consents`와 `member_consents`를 추가했다. 서버가 현재 이용약관/개인정보처리방침 version(기본 `2026-10-14`), 만 14세 확인, 필수 동의 2종, 선택 마케팅 동의, 동의 시각을 저장하며 같은 사용자·같은 version 재전송은 한 행만 유지한다. 필수 동의 누락은 `REQUIRED_CONSENT_MISSING`으로 거절한다. 인물 생성 gate도 추가했지만 FE 선배포 호환을 위해 `MEMBER_CONSENT_REQUIRED_FOR_PERSON_CREATION=false`가 기본이며, FE가 동의 API를 연결한 환경부터 true로 전환한다. 적용: 6-1 서버 동의 경계/CSRF/활성 회원, 6-6 additive migration과 단계적 rollout, 6-9 최소 동의 기록·version. H2에서 동의/인물/회원 관련 11건과 bootJar·OpenAPI export, PostgreSQL 17.11 전용 DB에서 동의 중복·gate 2건, FE 생성 타입과 TypeScript 검사를 통과했다. 실제 브라우저 HOME-02 연결, staging gate 활성화, 정책 재동의/마케팅 동의 변경·철회 흐름은 아직 미검증/미구현이다.
+
+- 2026-10-13 PD의 환불정책·이용약관·개인정보처리방침 확정본을 수령해 `docs/POLICY_FINALIZATION_20261013.md`와 결정 문서에 반영했다. 적용 범위: 6-1 만 14세/약관 동의 서버 기록 필요, 6-2 환불 원장·같은 충전분 보너스 회수, 6-5 선물 연락처 최대 90일 보관·파기, 6-8 환불 처리 상태/이메일 문의, 6-9 최소 수집·외부 전송·retention, 6-6 실제 hosting/R2와 정책 문구 일치. 정책 확정은 구현·PG·법무·공급자 콘솔 검증 완료를 뜻하지 않는다. 특히 선물 파기 worker, PostHog/Sentry retention·마스킹, Railway/R2/알림톡 위탁·국외 이전 표와 실제 구성의 대조가 남아 있다.
+
+- 2026-10-13 BE-B 부적 비동기 처리의 첫 경계를 구현했다. 운세 결과와 같은 짧은 DB 트랜잭션에서 `PENDING` 부적과 `talisman_render_jobs`의 단일 작업을 남기고, worker가 lease token/fence로 점유한 뒤에만 `READY` asset key 또는 제한 재시도 뒤 `FAILED`를 저장하도록 했다. 렌더링·object storage는 port로만 추가했고, 승인 에셋과 실제 private R2 adapter가 아직 없으므로 `TALISMAN_RENDER_ENABLED`는 기본 false이며 worker는 기동하지 않는다. 적용: 6-4 durable job/lease/stale 완료 차단, 6-5 private object key 경계, 6-6 additive Flyway migration, 6-9 birth input·signed URL·raw token 비저장. H2 talisman 13건과 PostgreSQL 17.11 전용 `sajuppugi_test`에서 새 lease/재시도/완료 2건을 통과했다. 전체 H2 `clean check bootJar`는 기존 관리자 `FOR NO KEY UPDATE` 및 결제 대사 `ON CONFLICT`의 H2 비호환으로 514건 중 32건이 실패해 전체 성공으로 기록하지 않는다. 실제 renderer/R2, worker kill/restart, staging 및 파일 복원 시험은 아직 미실행이다.
 
 - 적용 점검: 6-1 OAuth callback/세션/CSRF와 내부 returnTo, 6-6 고정 staging origin과 환경 분리, 6-9 OAuth·Liner 비밀값의 저장소 비노출.
 - 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정하고 고정 OpenAPI 파일을 다시 export했다.
