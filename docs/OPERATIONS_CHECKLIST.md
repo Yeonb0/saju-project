@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: 1차 선물 직접 링크 기반 전환
+
+- 최신 `origin/main` `2e5964b`에서 `feat/gift-direct-links-v1`을 새로 만들었다. 선물 주문 입력·응답·목록에서 전화번호와 마스킹 번호를 제거하고, 결제 활성화 트랜잭션이 알림톡 outbox 대신 32바이트 난수 token의 SHA-256 hash와 구매 응답 복구용 암호문을 함께 저장하도록 바꿨다. 암호문 공개 기간은 24시간이며 정리 worker가 만료 뒤 NULL 처리한다. 장기 권한은 hash만 남는다.
+- 구매자 소유권을 검사하는 링크 조회와 명시적 재발급 API를 추가했다. 재발급은 요청키별 멱등이고 token version을 원자적으로 증가시키며 기존 hash를 교체한다. 기존 결제 시각 기준 90일 만료는 연장하지 않는다. 공유 URL은 `/g#token=...` fragment를 사용해 token이 HTTP 요청 경로·Referer·OG 요청에 실리지 않도록 했고 FE 관측 마스킹 검사를 함께 갱신했다. 알림톡 조회·재전송·재발급 controller와 신규 주문의 delivery job 생성은 제거했다. 과거 migration/table은 rolling compatibility를 위해 삭제하지 않았다.
+- 적용: 6-1 구매자 소유권/CSRF, 6-2 결제·grant·token 원자성/동시 활성화, 6-4 결제 복구와 token 공개정보 정리 worker, 6-5 32바이트 bearer token/hash 저장/version·폐기·원래 만료일, 6-6 추가형 migration, 6-9 전화번호 미수집·token 로그 노출 축소. PostgreSQL 17 tmpfs 새 DB에서 GitHub Backend CI와 같은 `clean check bootJar`를 실행해 XML 615건 중 603건 통과·12건 선택 제외·실패/오류 0과 bootJar 성공을 확인했다. gift OpenAPI export도 성공했다. FE는 pnpm 실행 파일이 PATH에 없어 설치된 동일 도구를 직접 실행했고 Biome, Next typegen, TypeScript, Vitest 852건, production build가 모두 성공했다.
+- 아직 검증하지 않은 범위: staging 브라우저 A→B 전달 E2E, access/proxy/Sentry/PostHog의 실제 운영 로그 설정, 24시간 정리 worker 강제 중단·재시작, 기존 알림톡 시대 암호 payload의 즉시 변환/파기, 혼합 버전 배포, 부하·백업 복원. 공개 수신·recipient profile·비동기 운세/부적 fulfillment·최초 제공·claim·일반 개인정보 파기는 후속 BE-B 범위다.
+
 ### 2026-10-14: PR #29 PostgreSQL CI 회귀 보완
 
 - PR #29의 Backend CI 실패를 동일 PostgreSQL 17 조건에서 재현했다. 제품 코드가 아니라 환불 upgrade fixture가 후속 migration 수를 정확히 1개로 고정한 단정과, 오늘의 운세 공유 fixture가 날짜를 2026-10-13으로 고정한 단정이 원인이었다. upgrade 검사는 1개 이상의 모든 후속 추가형 migration 적용과 기존 환불 행 보존을 확인하도록 바꾸고, 공유 검사는 애플리케이션의 서울 기준 `Clock`을 사용하도록 바꿨다. 적용: 6-6 추가형 migration 호환, 날짜 경계 회귀.

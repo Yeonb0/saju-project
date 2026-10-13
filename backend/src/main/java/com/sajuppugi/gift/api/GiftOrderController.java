@@ -32,7 +32,7 @@ public class GiftOrderController {
     public ApiResponse<GiftOrderResponse> create(Authentication authentication,
             @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody Request request) {
         return ApiResponse.of(response(orders.create(user(authentication), request.quoteId(),
-                new GiftOrderService.Payload(request.recipientName(), request.recipientPhone(), request.senderName(), request.message()), key)));
+                new GiftOrderService.Payload(request.recipientName(), request.senderName(), request.message()), key)));
     }
     @GetMapping("/{orderId}")
     @Operation(operationId = "getGiftOrder")
@@ -55,17 +55,17 @@ public class GiftOrderController {
         return new GiftOrderResponse(order.orderId(), order.quoteId(), work == null ? Status.CREATED : Status.valueOf(work.status()), order.productCode(),
                 order.productName(), new Price(Price.Currency.TURTLE_SHELL, order.amount()),
                 work == null || work.chargedAmount() == null ? null : new Price(Price.Currency.TURTLE_SHELL, work.chargedAmount()),
-                order.recipientPhoneMasked(), order.createdAt(), order.expiresAt());
+                order.createdAt(), order.expiresAt());
     }
     public enum Status { CREATED, PENDING, ACTIVE, REFUNDED, FAILED, REVIEW_REQUIRED, CANCEL_PENDING, CANCELED }
-    @Schema(name = "GiftOrderRequest", requiredProperties = {"quoteId", "recipientName", "recipientPhone", "senderName", "message"})
-    public record Request(@NotNull UUID quoteId, @NotNull String recipientName, @NotNull String recipientPhone,
+    @Schema(name = "GiftOrderRequest", requiredProperties = {"quoteId", "recipientName", "senderName", "message"})
+    public record Request(@NotNull UUID quoteId, @NotNull String recipientName,
                           @NotNull String senderName, @NotNull String message) {
         @Override public String toString() { return "GiftOrderRequest[REDACTED]"; }
     }
     @Schema(requiredProperties = {"orderId", "quoteId", "status", "productCode", "productName", "plannedCharge",
-            "charged", "recipientPhoneMasked", "createdAt", "expiresAt"})
+            "charged", "createdAt", "expiresAt"})
     public record GiftOrderResponse(UUID orderId, UUID quoteId, Status status, String productCode, String productName,
-            Price plannedCharge, @Schema(nullable = true) Price charged, String recipientPhoneMasked,
+            Price plannedCharge, @Schema(nullable = true) Price charged,
             Instant createdAt, Instant expiresAt) {}
 }

@@ -27,11 +27,10 @@ public class GiftOrderQueryService {
         if (owner == null || limit < 1 || limit > 50) throw new ApiException(ErrorCode.INVALID_REQUEST);
         Cursor boundary = decode(cursor);
         String sql = """
-                SELECT d.id,d.quote_id,d.product_code,d.product_name,d.shell_amount,d.recipient_phone_masked,
-                d.created_at,COALESCE(w.status,'CREATED') AS financial_status,w.charged_amount,w.access_expires_at,j.state AS delivery_state
+                SELECT d.id,d.quote_id,d.product_code,d.product_name,d.shell_amount,
+                d.created_at,COALESCE(w.status,'CREATED') AS financial_status,w.charged_amount,w.access_expires_at
                 FROM gift_order_drafts d LEFT JOIN gift_purchase_work w ON w.order_id = d.id
-                LEFT JOIN gift_delivery_outbox o ON o.order_id = d.id
-                LEFT JOIN gift_delivery_jobs j ON j.id = o.current_job_id WHERE d.user_id = ?
+                WHERE d.user_id = ?
                 """;
         List<Object> args = new ArrayList<>(List.of(owner));
         if (boundary != null) {
@@ -41,8 +40,7 @@ public class GiftOrderQueryService {
         sql += " ORDER BY d.created_at DESC,d.id DESC LIMIT ?"; args.add(limit + 1);
         var rows = jdbc.query(sql, (rs, row) -> new Item(rs.getObject("id", UUID.class), rs.getObject("quote_id", UUID.class),
                 rs.getString("product_code"), rs.getString("product_name"), rs.getInt("shell_amount"),
-                rs.getString("financial_status"), rs.getObject("charged_amount", Integer.class), rs.getString("delivery_state"),
-                rs.getString("recipient_phone_masked"), rs.getTimestamp("created_at").toInstant(),
+                rs.getString("financial_status"), rs.getObject("charged_amount", Integer.class), rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("access_expires_at") == null ? null : rs.getTimestamp("access_expires_at").toInstant()), args.toArray());
         boolean hasNext = rows.size() > limit;
         var items = List.copyOf(rows.subList(0, Math.min(rows.size(), limit)));
@@ -64,9 +62,8 @@ public class GiftOrderQueryService {
     private record Cursor(Instant createdAt, UUID orderId) {}
     @Schema(requiredProperties = {"items","nextCursor","hasNext"})
     public record Page(List<Item> items, @Schema(types = {"string","null"}) String nextCursor, boolean hasNext) {}
-    @Schema(requiredProperties = {"orderId","quoteId","productCode","productName","plannedShells","status","chargedShells","deliveryStatus","recipientPhoneMasked","createdAt","accessExpiresAt"})
+    @Schema(requiredProperties = {"orderId","quoteId","productCode","productName","plannedShells","status","chargedShells","createdAt","accessExpiresAt"})
     public record Item(UUID orderId, UUID quoteId, String productCode, String productName, int plannedShells, String status,
-            @Schema(types = {"integer","null"}) Integer chargedShells,
-            @Schema(types = {"string","null"}) String deliveryStatus, String recipientPhoneMasked, Instant createdAt,
+            @Schema(types = {"integer","null"}) Integer chargedShells, Instant createdAt,
             @Schema(types = {"string","null"}, format = "date-time") Instant accessExpiresAt) {}
 }

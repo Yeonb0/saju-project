@@ -44,8 +44,9 @@ public class JdbcGiftPurchaseWork {
                     approved_at = ?, gift_id = ?, access_expires_at = ?, failure_code = NULL WHERE order_id = ?
                 """, transaction, amount, Timestamp.from(approved), gift, Timestamp.from(expiry), order);
     }
-    public void token(UUID order, String hash) {
-        jdbc.update("INSERT INTO gift_purchase_tokens(token_hash, order_id) VALUES (?, ?)", hash, order);
+    public void token(UUID order, String hash, String ciphertext, Instant issuedAt, Instant revealUntil) {
+        jdbc.update("INSERT INTO gift_purchase_tokens(token_hash, order_id, token_ciphertext, issued_at, reveal_until) VALUES (?, ?, ?, ?, ?)",
+                hash, order, ciphertext, Timestamp.from(issuedAt), Timestamp.from(revealUntil));
     }
     public void enqueue(UUID id, UUID order, String encryptedPayload, Instant now) {
         jdbc.update("INSERT INTO gift_delivery_outbox(id, order_id, private_payload, status, created_at) VALUES (?, ?, ?, 'PENDING', ?)",
