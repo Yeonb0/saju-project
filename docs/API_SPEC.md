@@ -1072,7 +1072,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ## 11. 공개 선물 API
 
-> 이 장은 수신/생성/파일 접근의 설계이며 아직 실행 API가 없다. 내부 token 검증만 추가했고 임의 부적 접근은 차단한다. 최초 제공·취소의 경쟁과 B 콘텐츠 연결을 구현하기 전 공개하지 않는다.
+> 이 장은 수신/생성/파일 접근의 설계이며 아직 실행 HTTP API가 없다. A 내부 `GiftFulfillmentPort`에 영속 접수·최초 제공/취소 경쟁·수신 계정 연결과 settlement를 구현했다. 실제 B 생성/제공·파일 권한 연결 전 공개하지 않는다. 임의 부적 접근은 계속 차단한다. 상세는 `backend/docs/GIFT_RECIPIENT_HANDOFF.md`를 따르며 공유 OpenAPI·FE 타입은 변경하지 않았다.
 
 경로의 `{token}`은 로그·분석·에러 보고에서 마스킹한다.
 

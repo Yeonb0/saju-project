@@ -59,8 +59,8 @@
 ## 개인정보·암호문
 
 - SENT/FAILED/CANCELED 확정 시 발송 outbox의 원문 token이 담긴 암호문을 비운다. 수동 요청은 보존 중인 암호화 초안에서 새 token을 만든다. 결과 불명 검토 자료는 즉시 삭제하지 않는다.
-- 개인정보 정리는 기본 꺼져 있다. 실제 보관기간은 PD/운영 결정이 필요하고, 양수 기간을 명시하지 않고 켜면 기동을 거절한다. 테스트의 합성 1일 설정은 운영 정책이 아니다.
-- 정리 대상은 보관기간을 지난 만료 초안·취소/반환/실패 주문·링크 만료 후 24시간이 지난 ACTIVE다. 미만료·구매/취소 처리 중·금융 검토 주문과 살아 있는 발송 lease는 보존한다. 링크 폐기, 발송 차단, 암호문 삭제, 마스킹 번호 정리를 한 트랜잭션으로 처리한다.
+- 개인정보 정리는 기본 꺼져 있다. 후속 v2 구현은 임의 보관기간 설정 대신 실제 목적 종료를 적용한다. 상세는 `GIFT_RECIPIENT_HANDOFF.md`를 따른다.
+- 정리 대상은 만료 초안·취소/반환/실패 확정 주문·미접수 90일 만료·비회원 최초 제공 후 90일 종료·연결 수신자 탈퇴다. 기한 내 처리 중 receipt와 ACTIVE 수신자 계정 보관은 보호한다. 금융 처리/검토 중 주문과 살아 있는 발송 lease도 보존한다. 링크 폐기, 발송 차단, 암호문 삭제, 마스킹 번호 정리를 한 트랜잭션으로 처리한다.
 - 금융 원장·차감/반환 receipt·금액·요청 비교 hash는 남긴다. 중복 재요청이 삭제한 개인정보를 복원하지 않는다. 만료 정리는 자동 환급이 아니다. 장차 B 수신·재열람 기한이 추가되면 삭제 조건도 먼저 맞춰야 한다.
 - 기존 `v1`을 읽으면서 선택적으로 `v2:keyId:...` AES-GCM으로 쓴다. keyId도 인증 정보에 묶는다. 주문·발송 암호문을 함께 재암호화하며 부분 실패는 전체 롤백한다.
 - 키 전환 오류는 5회 제한 재시도 후 REVIEW_REQUIRED로 분리해 다른 주문의 전환을 막지 않는다. 검토 상태의 관리자 재처리 API는 후속이다.
@@ -76,7 +76,8 @@
 | GIFT_ORDERS_ENABLED / GIFT_PURCHASES_ENABLED | 기존 주문/구매 조건, WALLET_PURCHASES_ENABLED와 별도 암호화 키 필요 |
 | GIFT_DELIVERY_ENABLED | 실제 GiftAlimtalkProvider adapter가 있어야 수동 요청/발송 가능 |
 | GIFT_DELIVERY_WORKER_ENABLED | delivery와 adapter가 없으면 기동 거절 |
-| GIFT_RETENTION_ENABLED / GIFT_RETENTION_PERIOD | 확정된 양수 보관기간 필수 |
+| GIFT_RETENTION_ENABLED | 목적 종료 조건으로 정리, 임의 추가 보관기간 없음 |
+| GIFT_FULFILLMENT_REVIEW_ENABLED | 접수 후 24시간 미제공을 운영 검토로 기록, 자동 환급 아님 |
 | GIFT_PAYLOAD_ACTIVE_KEY_ID / GIFT_PAYLOAD_KEYRING | 선택 v2 keyId와 JSON keyring, 각 키 32바이트 Base64 |
 | GIFT_PAYLOAD_REENCRYPTION_ENABLED | 활성 v2 key가 있어야 worker 기동 |
 
@@ -88,8 +89,8 @@ local/test 밖 활성화 제한을 유지한다. 게시 전 최종 발송/키 �
 
 - 대행사 선택/API 계약, 발신 프로필·템플릿 승인, 실제 adapter와 sandbox 전달/조회 검증.
 - 알림톡 webhook은 미구현이다. 대행사 서명·이벤트 중복/상관 검증 및 B 소유 CSRF 필터의 예외 합의가 필요하다. 이번에는 B 필터를 변경하지 않고 상태 조회 복구만 구현했다.
-- B의 수신자 입력·최초 생성·최초 제공과 취소의 원자적 경계, 90일/24시간 유예·재열람·계정 연결·부적 파일 권한·settlement port. 공개 수신 API는 아직 없다.
-- PD 보관기간, 메시지 금칙어, SMS 대체/직접 링크 공유 여부. 확정 전 임의로 활성화하지 않는다.
+- A 내부 접수/제공/계정 연결/settlement는 후속 구현됐다. B 수신자 입력·생성·제공 callback 및 부적 파일 권한 연결과 공개 수신 API는 아직 없다.
+- 목적별 파기 조건의 실제 B 연결·운영 확인, 메시지 금칙어, SMS 대체/직접 링크 공유 여부. 준비 확인 전 임의로 활성화하지 않는다.
 - 관리자 선물 검토/재처리 권한·운영 알림은 별도 검증 범위다. 다른 사람 주문의 수동 재발송 API를 열어두지 않았다.
 - FE는 위 API와 기존 견적→초안→purchase→상태 조회를 연결해야 한다. 실제 수신 콘텐츠·브라우저 E2E 완료로 안내하지 않는다.
 
