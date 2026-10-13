@@ -6,23 +6,37 @@
 export const FIXTURE_BALANCE = 7;
 
 export type FakeWallet = {
+  // 유료 + 보너스 (가짜 서버 안의 계산 — 화면은 합산하지 않는다)
   balance(): number;
-  credit(amount: number): void;
-  // 잔액이 모자라면 바꾸지 않고 false
-  debit(amount: number): boolean;
+  paid(): number;
+  bonus(): number;
+  credit(paid: number, bonus?: number): void;
+  // 모자라면 바꾸지 않고 null, 있으면 뺀 양을 돌려준다 (되돌릴 때 그대로 credit)
+  // 실제 차감 순서는 서버가 만료 빠른 순, 가짜는 만료일이 없어 보너스 먼저
+  debit(amount: number): { paid: number; bonus: number } | null;
 };
 
-export function createFakeWallet(initial = FIXTURE_BALANCE): FakeWallet {
-  let balance = initial;
+export function createFakeWallet(
+  initialPaid = FIXTURE_BALANCE,
+  initialBonus = 0,
+): FakeWallet {
+  let paid = initialPaid;
+  let bonus = initialBonus;
   return {
-    balance: () => balance,
-    credit(amount) {
-      balance += amount;
+    balance: () => paid + bonus,
+    paid: () => paid,
+    bonus: () => bonus,
+    credit(paidAmount, bonusAmount = 0) {
+      paid += paidAmount;
+      bonus += bonusAmount;
     },
     debit(amount) {
-      if (balance < amount) return false;
-      balance -= amount;
-      return true;
+      if (paid + bonus < amount) return null;
+      const fromBonus = Math.min(bonus, amount);
+      const fromPaid = amount - fromBonus;
+      bonus -= fromBonus;
+      paid -= fromPaid;
+      return { paid: fromPaid, bonus: fromBonus };
     },
   };
 }

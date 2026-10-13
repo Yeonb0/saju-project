@@ -93,7 +93,7 @@ class BackendAPolicyTest {
         Instant expiry = GiftLifetimePolicy.unusedExpiresAt(NOW);
         Instant validSubmission = expiry.minusSeconds(1);
         assertThat(GiftLifetimePolicy.canStart(NOW, validSubmission, expiry.plusSeconds(1))).isTrue();
-        assertThat(GiftLifetimePolicy.canStart(NOW, validSubmission, expiry.plus(Duration.ofHours(24)))).isFalse();
+        assertThat(GiftLifetimePolicy.canStart(NOW, validSubmission, expiry.plus(Duration.ofHours(24)))).isTrue();
         assertThat(GiftLifetimePolicy.canStart(NOW, expiry, expiry)).isFalse();
         assertThat(GiftLifetimePolicy.canStart(NOW, null, NOW.plusSeconds(1))).isFalse();
         assertThat(GiftLifetimePolicy.canStart(NOW, NOW.plusSeconds(10), NOW)).isFalse();

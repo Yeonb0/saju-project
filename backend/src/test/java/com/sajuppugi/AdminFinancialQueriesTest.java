@@ -109,6 +109,30 @@ class AdminFinancialQueriesTest {
         assertThat(queries.ledger(operator, customer, null, 10).items()).hasSize(1);
         assertThat(queries.audits(operator, null, 10).items()).isNotEmpty();
     }
+    @Test void exactOrderLookupRequiresGrantAndAuditsWithoutSecrets() throws Exception {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO top_up_orders(id,user_id,key_hash,product_code,amount_krw,paid_shells,bonus_shells,status,created_at) VALUES (?,?,?,'TEST',1000,10,0,'CREDITED',?)",
+                id, customer, "synthetic-private-key", Timestamp.from(NOW));
+        String path = "/api/v1/admin/top-up-orders/" + id;
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).with(user(customer.toString()).roles("ADMIN"))).andExpect(status().isForbidden());
+        String body = mvc.perform(get(path).with(user(operator.toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.orderId").value(id.toString()))
+                .andExpect(jsonPath("$.data.userId").value(customer.toString())).andReturn().getResponse().getContentAsString();
+        assertThat(body).doesNotContain("synthetic-private-key", "paymentKey", "keyHash");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_events WHERE operator_id = ? AND target_id = ?", Integer.class, operator, id)).isEqualTo(1);
+        mvc.perform(get("/api/v1/admin/top-up-orders/" + UUID.randomUUID()).with(user(operator.toString())))
+                .andExpect(status().isNotFound());
+    }
+    @Test void exactOrderLookupFailsClosedWhenAuditFails() throws Exception {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO top_up_orders(id,user_id,key_hash,product_code,amount_krw,paid_shells,bonus_shells,status,created_at) VALUES (?,?,?,'TEST',1000,10,0,'CREDITED',?)",
+                id, customer, id.toString(), Timestamp.from(NOW));
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx ->
+                doThrow(new IllegalStateException("Synthetic audit failure")).when(audit).append(any()));
+        mvc.perform(get("/api/v1/admin/top-up-orders/" + id).with(user(operator.toString())))
+                .andExpect(status().isInternalServerError());
+    }
     private UUID member() {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id,kakao_subject,nickname,status,created_at,updated_at) VALUES (?,?,'Synthetic member','ACTIVE',?,?)", id, "synthetic-" + id, Timestamp.from(NOW), Timestamp.from(NOW));

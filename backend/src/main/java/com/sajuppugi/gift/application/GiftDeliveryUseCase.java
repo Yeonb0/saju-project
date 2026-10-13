@@ -12,7 +12,7 @@ public interface GiftDeliveryUseCase {
 
     DeliveryView reissueLink(UUID purchaserId, UUID giftOrderId, IdempotencyKey key);
 
-    enum Status { PENDING, SENT, FAILED }
+    enum Status { PENDING, IN_FLIGHT, RETRY, UNKNOWN, SENT, FAILED, REVIEW_REQUIRED, CANCELED }
 
     record DeliveryView(Status status, boolean canResend, int remainingResends, Instant nextResendAt) {}
 }

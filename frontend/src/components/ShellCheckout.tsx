@@ -251,6 +251,11 @@ export function ShellCheckout({
     },
     onError: (error, next) => {
       const kind = classifyApiError(error);
+      // 지갑 확인 필요 (409 WALLET_REVIEW_REQUIRED, Q-41 5): 서버가 차감 전에 막았다. 같은 구매를 다시 보내지 않고 문의 안내 — 저장한 선택 · 키도 지운다
+      if (kind === "review_required") {
+        clearPurchaseSelection();
+        return;
+      }
       // 서버가 잔액 · 가격 · 견적이 달라졌다고 하면 새 견적으로 다시 확인받는다 (값은 새 견적)
       if (
         kind === "insufficient_balance" ||
@@ -534,6 +539,12 @@ export function ShellCheckout({
               {/* TODO(PD 문구) */}
               <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
             </p>
+          ) : errorKind === "review_required" ? (
+            // 다시 시도 없이 문의 안내 (Q-41 5, COMMON). 문의 채널은 미정 — 링크를 넣지 않는다 (Q-38 g). TODO(PD 문구)
+            <p role="alert" className={NOTE_CLASS}>
+              확인이 필요한 결제가 있어 지금은 사용할 수 없습니다. 고객센터로
+              문의해 주세요
+            </p>
           ) : errorKind !== null && !requoting ? (
             // TODO(PD 문구): 오류 종류별 안내
             <p role="alert" className={NOTE_CLASS}>
@@ -544,7 +555,12 @@ export function ShellCheckout({
             <Button
               variant="popup"
               onClick={() => onConfirm(current)}
-              disabled={busy || outcomePending || known !== null}
+              disabled={
+                busy ||
+                outcomePending ||
+                known !== null ||
+                errorKind === "review_required"
+              }
             >
               {/* TODO(PD 문구) */}
               사용하기

@@ -971,20 +971,22 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ## 10. 선물 견적·주문
 
+> 2026-10-13 구현 계약: 선물은 등껍질 결제이며 수능 1명만 지원한다. 견적·암호화 초안·`POST /gift-orders/{orderId}/purchase`·구매 상태 GET·`POST /gift-orders/{orderId}/cancel`을 local/test 기본 비활성으로 구현했다. ACTIVE는 차감/권한 저장이며 발송/콘텐츠 완료가 아니다. 현재 계약과 남은 작업은 `backend/docs/GIFT_IMPLEMENTATION_20261013.md`, backend 전용 OpenAPI는 `backend/docs/openapi/gift-operations-v1.json`을 따른다. 과거 원화 confirm은 지원하지 않는다. 11장의 공개 수신·파일 API는 설계 초안으로 미구현이며 FE 연결 근거로 사용하지 않는다.
+
 ### `POST /gift-quotes`
 
 ```json
 {
-  "fortuneType": "LOVE",
+  "fortuneType": "SUNEUNG",
   "option": "TALISMAN_ONLY"
 }
 ```
 
-- 응답에는 원화 가격, 제공 콘텐츠, 판매 가능 여부, 견적 만료 시각을 포함한다.
+- 응답에는 등껍질 가격(`charged`), 제공 콘텐츠, 견적 만료 시각, 현재 잔액·부족량·충전 추천을 포함한다. 인증·CSRF가 필요하다.
 - 응답의 `includedContents`에는 옵션별 제공물(`LETTER`, `TALISMAN`, `READING`, `SUNEUNG_CHECKLIST`)을 명시한다.
 - 선물 옵션은 `TALISMAN_ONLY`와 `READING_WITH_TALISMAN`만 허용하며 `READING_ONLY`는 거부한다.
 - 수능 `TALISMAN_ONLY`에는 편지·부적·수능 체크리스트가 포함되고 전체 수능 사주 결과는 포함되지 않는다.
-- 가격은 `TBD(P-03A)` 확정 후 고정한다.
+- 1차는 수능 1명만 지원한다. 부적 단독 10개, 사주+부적 15개이며 상품은 기본 비활성이다. `GET /gift-quotes/{quoteId}`는 본인 견적 조회다.
 
 ### `POST /gift-orders`
 
@@ -996,68 +998,81 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "recipientName": "민지",
   "recipientPhone": "01012345678",
   "senderName": "윤진",
-  "message": "긴장하지 말고 잘 보고 와!",
-  "talismanType": "FOCUS"
+  "message": "긴장하지 말고 잘 보고 와!"
 }
 ```
 
 - 수신자 생년정보를 받지 않는다.
 - `recipientPhone`은 알림톡 발송을 위한 필수 입력이다. 저장·조회·로그에서는 암호화 또는 마스킹하며 보관기간은 `TBD(G-10A)`다.
-- 메시지는 200자·금칙어·제어문자 검증을 수행한다.
+- 메시지는 200 code point·제어문자 검증을 수행한다. 금칙어 정책은 미구현이다. 새 CREATED 초안은 미차감이며 `charged=null`이다.
 
-### `POST /gift-orders/{orderId}/confirm`
+### `POST /gift-orders/{orderId}/purchase`
 
 - 인증·CSRF·`Idempotency-Key` 필요
-- 토스페이먼츠 승인 후 금액 일치 검증
-- 성공 시 gift와 토큰 링크를 활성화하고 알림톡 발송 작업을 멱등하게 생성한다.
-- 비동기 발송에 필요한 원문 토큰 URL은 암호화된 전달 outbox에만 보관하고 발송 성공 또는 재시도 보관기간 종료 후 삭제한다. gift 테이블에는 토큰 해시만 유지한다.
+- 본문 없이 명시적인 등껍질 구매 의도를 등록하고 기존 차감 receipt로 재개한다. 선물에 원화/토스 confirm은 없다.
+- 차감 확인 후 gift 권한·token hash·암호화 발송 의도를 저장한다. ACTIVE는 이 저장의 완료이며 실제 알림톡 발송/콘텐츠 생성 완료가 아니다.
+- 원문 token은 암호화 outbox에만 저장하고 일반 응답에 반환하지 않는다. 실제 발송·삭제 worker는 후속이며 운영 활성화는 금지한다.
+- `GET /gift-orders/{orderId}/purchase`로 같은 금융 상태를 조회한다. PENDING/CANCEL_PENDING의 POST 응답은 202다.
 
 ```json
 {
   "orderId": "uuid",
   "giftId": "uuid",
   "status": "ACTIVE",
-  "delivery": {
-    "channel": "KAKAO_ALIMTALK",
-    "status": "PENDING",
-    "recipientPhoneMasked": "010-****-5678"
-  }
+  "chargedShells": 10,
+  "returnedShells": null,
+  "approvedAt": "2026-10-13T00:00:00Z",
+  "nextAction": "NONE"
 }
 ```
 
 ### `GET /gift-orders`
 
-- 구매자의 보낸 선물 목록
+- local/test 구현: 구매자의 보낸 선물 목록. size 기본 20, 1~50, cursor는 서버 응답을 그대로 사용한다.
+- items/nextCursor/hasNext 응답, 금융 status와 deliveryStatus를 분리한다. chargedShells/deliveryStatus/accessExpiresAt은 null 가능하다. 상세 계약은 `backend/docs/GIFT_DELIVERY_HANDOFF_20261013.md`를 따른다.
 - 원문 토큰과 전체 휴대전화번호를 반환하지 않는다.
 
 ### `GET /gift-orders/{orderId}`
 
 - 구매자 소유 주문·선물 상태
+- 실제 금융 상태와 charged를 반환한다. expiresAt은 원 견적 기한이며 선물 링크 만료일이 아니다.
+
+### `GET /gift-orders/{orderId}/delivery`
+
+- 구매자 전용 발송 상태와 canResend/remainingResends/nextResendAt. 실제 대행사 adapter 미연결 시 canResend=false다.
+- 발송 상태는 PENDING/IN_FLIGHT/RETRY/UNKNOWN/SENT/FAILED/REVIEW_REQUIRED/CANCELED이며 금융 상태와 별개다.
 
 ### `POST /gift-orders/{orderId}/deliveries`
 
+- local/test 구현, 실제 대행사 adapter는 미연결
 - 인증·CSRF·`Idempotency-Key` 필요
-- 기존 유효 링크를 동일 수신자에게 알림톡으로 재발송하고 감사 로그를 기록한다.
+- 구 링크를 폐기하고 같은 수신자에게 새 token의 발송 job을 예약한다. 202는 예약이지 전달 완료가 아니다. token 원문은 반환하지 않는다.
+- 주문별 재발송+재발급 합산 일 3회·1분 간격, 같은 요청 키 재전송은 횟수를 중복 사용하지 않는다. UNKNOWN/IN_FLIGHT/검토 상태에는 수동 요청하지 않는다.
+- 실제 구매 차감 시각부터 30일 미만에만 새 발송을 허용한다. 30일 이후 전화번호 정리는 별도 worker로 수행하며 기존 90일 링크 권한과 결과 불명 조회는 유지한다.
 
 ### `POST /gift-orders/{orderId}/link-reissues`
 
+- local/test 구현, 실제 대행사 adapter는 미연결
 - 인증·CSRF·`Idempotency-Key` 필요
-- 기존 토큰을 폐기하고 새 토큰을 발급한 뒤 수신자에게 알림톡으로 발송한다.
-- 응답에는 새 원문 토큰을 반환하지 않고 발송 상태와 마스킹된 번호만 반환한다.
+- 기존 토큰을 폐기하고 새 토큰의 발송 작업을 예약한다. 202이며 선물 만료일은 연장하지 않는다.
+- 응답은 발송 상태와 요청 가능 여부이고 새 원문 토큰을 반환하지 않는다. 마스킹 번호는 주문/목록에서 조회한다.
 
 ### `POST /webhooks/alimtalk`
 
+- 설계·미구현
 - 알림톡 대행사의 서명과 이벤트 ID를 검증하고 멱등 처리한다.
 - 발송 성공·실패·수신 불가 상태를 선물 전달 기록에 반영한다.
 - 원문 휴대전화번호와 선물 토큰을 로그에 남기지 않는다.
 
-### `POST /gift-orders/{orderId}/refunds`
+### `POST /gift-orders/{orderId}/cancel`
 
-- 사용자 셀프 취소 허용 범위 또는 관리자 권한
-- 수신자가 선물을 열어 콘텐츠 제공이 시작되기 전까지만 정책상 허용되는 전액 취소를 처리한다.
-- 제공 개시 기준은 `TBD(G-09)`다.
+- 구매자 인증·CSRF·Idempotency-Key가 필요하다. 실제 등껍질 차감 후 7일 이내, 최초 콘텐츠 제공 전 ACTIVE 선물만 취소한다.
+- 링크/발송 차단과 취소 의도를 먼저 저장한다. 원 거래 유료/보너스를 원 지급분·만료일로 반환하고 receipt를 확인한 뒤 CANCELED다. 현금 환불이 아니다.
+- CANCEL_PENDING은 미완료이며 POST 202다. 5회 실패 소진은 REVIEW_REQUIRED다. 공개 콘텐츠 제공 API는 아직 없으며 B의 최초 제공 처리는 같은 선물 잠금과 조정해야 한다.
 
 ## 11. 공개 선물 API
+
+> 이 장은 수신/생성/파일 접근의 설계이며 아직 실행 HTTP API가 없다. A 내부 `GiftFulfillmentPort`에 영속 접수·최초 제공/취소 경쟁·수신 계정 연결과 settlement를 구현했다. 실제 B 생성/제공·파일 권한 연결 전 공개하지 않는다. 임의 부적 접근은 계속 차단한다. 상세는 `backend/docs/GIFT_RECIPIENT_HANDOFF.md`를 따르며 공유 OpenAPI·FE 타입은 변경하지 않았다.
 
 경로의 `{token}`은 로그·분석·에러 보고에서 마스킹한다.
 

@@ -87,13 +87,24 @@ class QuoteFundingTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = Product.Category.class, names = {"GIFT", "TOP_UP"})
-    void doesNotExtendFundingContractToGiftsOrCashTopUps(Product.Category category) {
+    @EnumSource(value = Product.Category.class, names = {"TOP_UP"})
+    void doesNotExtendFundingContractToCashTopUps(Product.Category category) {
         when(catalog.getQuote(USER, QUOTE)).thenReturn(quote(category,
                 category == Product.Category.TOP_UP ? Price.Currency.KRW : Price.Currency.TURTLE_SHELL, 10));
         assertThatThrownBy(() -> service.get(USER, QUOTE)).isInstanceOfSatisfying(ApiException.class,
                 exception -> assertThat(exception.errorCode()).isEqualTo(ErrorCode.INVALID_REQUEST));
         verifyNoInteractions(wallets);
+    }
+
+    @Test
+    void giftFundingUsesExistingWalletAndRecommendationWithoutDebit() {
+        when(catalog.getQuote(USER, QUOTE)).thenReturn(quote(Product.Category.GIFT, Price.Currency.TURTLE_SHELL, 10));
+        when(wallets.getBalance(USER)).thenReturn(new WalletBalance(5, 0));
+        when(catalog.availableTopUps()).thenReturn(List.of(topUp("SMALL", 1000, 10, 0)));
+        var view = service.get(USER, QUOTE);
+        assertThat(view.shortage()).isEqualTo(5);
+        assertThat(view.balanceAfter()).isNull();
+        assertThat(view.recommendedTopUp()).isEqualTo("SMALL");
     }
 
     @Test

@@ -11,6 +11,7 @@ public final class GiftDeliveryPolicy {
     public static final ZoneId DAY_ZONE = ZoneId.of("Asia/Seoul");
     public static final int DAILY_MANUAL_LIMIT = 3;
     public static final Duration MANUAL_INTERVAL = Duration.ofMinutes(1);
+    public static final Duration DELIVERY_VALIDITY = Duration.ofDays(30);
     private static final List<Duration> RETRY_DELAYS = List.of(
             Duration.ofMinutes(1), Duration.ofMinutes(5), Duration.ofMinutes(30));
 

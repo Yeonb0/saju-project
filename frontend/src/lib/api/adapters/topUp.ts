@@ -11,7 +11,6 @@ import { ApiContractError } from "@/lib/api/errors";
 import type { ApiClient } from "@/lib/api/http";
 import {
   createKeyedCommand,
-  createKeyOnlyCommand,
   createOrderBoundCommand,
 } from "@/lib/api/idempotency";
 import {
@@ -173,8 +172,12 @@ export function createTopUpAdapter(client: ApiClient): TopUpPort {
         paidBalance: parsed.data.paidBalance,
         bonusBalance: parsed.data.bonusBalance,
       } satisfies components["schemas"]["WalletResponse"];
-      // paidBalance · bonusBalance 는 화면이 아직 안 써서 포트에 넣지 않는다
-      return { currency: wire.currency, balance: wire.balance };
+      return {
+        currency: wire.currency,
+        balance: wire.balance,
+        paidBalance: wire.paidBalance,
+        bonusBalance: wire.bonusBalance,
+      };
     },
 
     async createOrder(input, idempotencyKey): Promise<TopUpOrder> {
@@ -304,19 +307,6 @@ export function createTopUpAdapter(client: ApiClient): TopUpPort {
         throw new ApiContractError(status, "충전 주문 조회 응답 모양이 다르다");
       }
       return toOrderState(parsed.data);
-    },
-
-    async requestRefund(orderId, idempotencyKey): Promise<CashRefund> {
-      const { status, data } = await client.request({
-        method: "POST",
-        path: REFUND_PATH.replace("{orderId}", encodeURIComponent(orderId)),
-        command: createKeyOnlyCommand(idempotencyKey),
-      });
-      const parsed = refundSchema.safeParse(data);
-      if (!parsed.success) {
-        throw new ApiContractError(status, "충전 환불 신청 응답 모양이 다르다");
-      }
-      return toCashRefund(parsed.data);
     },
 
     async getRefund(orderId): Promise<CashRefund> {

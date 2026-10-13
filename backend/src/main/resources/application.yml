@@ -53,6 +53,19 @@ app:
       privacy-version: ${PRIVACY_VERSION:2026-10-14}
       # Enable only after the FE sends consent before creating the primary person.
       required-for-person-creation: ${MEMBER_CONSENT_REQUIRED_FOR_PERSON_CREATION:false}
+  gift:
+    orders-enabled: ${GIFT_ORDERS_ENABLED:false}
+    purchases-enabled: ${GIFT_PURCHASES_ENABLED:false}
+    recovery-enabled: ${GIFT_RECOVERY_ENABLED:false}
+    delivery-enabled: ${GIFT_DELIVERY_ENABLED:false}
+    delivery-worker-enabled: ${GIFT_DELIVERY_WORKER_ENABLED:false}
+    phone-cleanup-enabled: ${GIFT_PHONE_CLEANUP_ENABLED:false}
+    fulfillment-review-enabled: ${GIFT_FULFILLMENT_REVIEW_ENABLED:false}
+    retention-enabled: ${GIFT_RETENTION_ENABLED:false}
+    payload-key: ${GIFT_PAYLOAD_KEY:}
+    payload-active-key-id: ${GIFT_PAYLOAD_ACTIVE_KEY_ID:}
+    payload-keyring: ${GIFT_PAYLOAD_KEYRING:{}}
+    payload-reencryption-enabled: ${GIFT_PAYLOAD_REENCRYPTION_ENABLED:false}
   admin:
     enabled: ${ADMIN_OPERATIONS_ENABLED:false}
     recovery-enabled: ${ADMIN_RECOVERY_ENABLED:false}
