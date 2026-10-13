@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,6 +36,13 @@ class SessionSecurityIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired AuthService auth;
+
+    @AfterEach
+    void removeFixedSessionFixtures() {
+        jdbc.update("DELETE FROM user_sessions WHERE token_hash IN (?, ?)",
+                SecretHash.sha256("session-for-real-filter-test"), SecretHash.sha256("expired-session-filter-test"));
+        jdbc.update("DELETE FROM users WHERE nickname IN (?, ?)", "테스트", "만료");
+    }
 
     @Test
     void sessionCsrfLogoutAndRevocationUseTheSameOpaqueCookie() throws Exception {
@@ -64,8 +72,12 @@ class SessionSecurityIntegrationTest {
         mvc.perform(post("/api/v1/auth/logout").cookie(cookie))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CSRF_FAILED"));
+        mvc.perform(post("/api/v1/auth/logout").cookie(cookie).header("X-CSRF-Token", csrf)
+                        .header("Origin", "https://attacker.example"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_FAILED"));
         mvc.perform(post("/api/v1/auth/logout").cookie(cookie).header("X-CSRF-Token", csrf))
-                .andExpect(status().isOk())
+                .andExpect(status().isNoContent())
                 .andExpect(result -> assertThat(result.getResponse().getHeader("Set-Cookie")).contains("Max-Age=0"));
         mvc.perform(get("/api/v1/me").cookie(cookie))
                 .andExpect(status().isUnauthorized())

@@ -5,6 +5,10 @@
 > 대상: FE 요청서 `뿌기사주 팀 요청서 (FE, 10/11)`의 BE-B 항목
 > 생성 모델: **Liner API** (`LinerApiProvider`) — OpenAI API는 사용하지 않는다.
 
+> 2026-10-13 현재: 아래 본문은 10/11 당시의 구현 계획과 문제 인식 기록이다. 현재 상태는
+> 바로 아래 진행 현황과 체크리스트를 기준으로 하며, 당시의 “없다/미구현” 문장을 현재 상태로
+> 해석하지 않는다.
+
 ## 구현 진행 현황
 
 | 단계 | 상태 | 비고 |
@@ -17,7 +21,7 @@
 | Phase 4 오늘의 운세 | 완료 | 인증 GET, 소유 인물, KST 날짜, 결정론적 0~100 지수 구현 |
 | Phase 5 구매 상태 계약 | BE-B 범위 완료 | by-quote 조회, 상태/보상/nextAction/failureCode 및 POST 필드 구현 |
 | Phase 5 BE-A/PD 후속 | 외부 확인 필요 | receipt 포트 승인, REVIEW_REQUIRED 고객 문의 채널 |
-| Phase 6 | 예정 | 카카오 로그인·세션·CSRF |
+| Phase 6 | 로컬 구현 완료·staging 미검증 | 카카오 OAuth, DB 세션, CSRF/Origin, 로그아웃, 30일·5세션 제한 구현 |
 
 ## 1. 목적과 우선순위
 
@@ -48,7 +52,7 @@
 - `RelationType`과 일반 운세 API의 궁합 요청 필드는 이미 일부 존재한다.
 - `SecurityConfig`는 보호 대상 API와 401/403 envelope를 갖고 있으나 실제 로그인 경로·세션 인증·CSRF 토큰 발급은 없다.
 
-### 아직 없어 FE를 막는 것
+### 2026-10-11 당시 없어 FE를 막던 것
 
 - `person` 패키지, migration, repository, controller, `ReadingSubjectPort` 구현체가 없다.
 - `auth`, `member` 구현이 없고, `/api/v1/**` 호출을 인증시킬 수 없다.
@@ -420,21 +424,21 @@ FE가 고정 스테이징 도메인에서 카카오로 로그인한 뒤, 세션 
 
 ### 로그인 전
 
-- [ ] API_SPEC/OpenAPI에 인물, relationType, 수능 typed response, 오늘의 운세 계약이 있다.
-- [ ] 인물을 생성·수정·삭제하고 다른 사용자 인물 접근은 막힌다.
-- [ ] 실제 `ReadingSubjectPort` 구현체가 저장된 인물을 운세 서비스에 제공한다.
-- [ ] 일반 운세·수능운의 견적/구매에서 포트 부재 503이 사라진다.
-- [ ] 궁합이 유효한 relationType과 서로 다른 두 소유 인물을 요구한다.
-- [ ] 수능 응답이 Liner 성공/fallback 양쪽에서 typed guide를 제공한다.
-- [ ] 오늘의 운세가 KST 기준 날짜와 0~100 점수를 반환한다.
+- [x] API_SPEC/OpenAPI에 인물, relationType, 수능 typed response, 오늘의 운세 계약이 있다.
+- [x] 인물을 생성·수정·삭제하고 다른 사용자 인물 접근은 막힌다.
+- [x] 실제 `ReadingSubjectPort` 구현체가 저장된 인물을 운세 서비스에 제공한다.
+- [x] 일반 운세·수능운의 견적/구매에서 포트 부재 503이 사라진다.
+- [x] 궁합이 유효한 relationType과 서로 다른 두 소유 인물을 요구한다.
+- [x] 수능 응답이 Liner 성공/fallback 양쪽에서 typed guide를 제공한다.
+- [x] 오늘의 운세가 KST 기준 날짜·0~100 점수와 X-02의 한줄/행운 항목을 반환한다.
 
 ### 로그인 후
 
 - [ ] 카카오 authorize/callback이 고정 스테이징 redirect URI에서 동작한다.
-- [ ] `GET /session`이 로그인 상태와 csrfToken을 반환한다.
-- [ ] FE가 `X-CSRF-Token`을 실어 POST/PATCH/DELETE를 성공시킨다.
+- [x] `GET /session`이 로그인 상태와 csrfToken을 반환한다(로컬/H2·PostgreSQL 검증).
+- [x] `X-CSRF-Token` 및 Origin 검사를 통과한 상태 변경 요청이 성공한다(서버 통합 테스트).
 - [ ] CSRF 실패는 한 번만 토큰 갱신 후 재시도한다.
-- [ ] 로그아웃 뒤 세션 cookie가 즉시 무효다.
+- [x] 로그아웃 뒤 세션 cookie와 DB 세션이 즉시 무효다(로컬/H2·PostgreSQL 검증).
 - [ ] 인물 생성 → 견적 → 등껍질 차감/구매 → 수능 결과 조회의 E2E를 스테이징에서 확인한다.
 
 ## 8. 외부 결정/차단 요소

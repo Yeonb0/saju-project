@@ -4,6 +4,7 @@
 // 아래 상품 · 금액 · 잔액은 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다 (P-02 · P-03 값을 옮기지 않는다).
 import { ApiError, ApiNetworkError } from "@/lib/api/errors";
 import type {
+  CashRefund,
   PaymentReturn,
   TopUpNextAction,
   TopUpOrder,
@@ -110,6 +111,8 @@ export function createFakeTopUpPort(
   const creditAfterPolls = options.creditAfterPolls ?? 2;
   const orders = new Map<string, StoredOrder>();
   const orderIdByKey = new Map<string, string>();
+  const refunds = new Map<string, CashRefund>();
+  const refundOrderByKey = new Map<string, string>();
   const wallet = options.wallet ?? createFakeWallet();
 
   const fail = (status: number, code: string) =>
@@ -232,6 +235,38 @@ export function createFakeTopUpPort(
         if (stored.polls >= creditAfterPolls) credit(stored);
       }
       return stateOf(stored);
+    },
+
+    async requestRefund(orderId, idempotencyKey) {
+      const stored = find(orderId);
+      const keyedOrder = refundOrderByKey.get(idempotencyKey);
+      if (keyedOrder && keyedOrder !== orderId) {
+        throw fail(409, "IDEMPOTENCY_KEY_REUSED");
+      }
+      const existing = refunds.get(orderId);
+      if (existing) return existing;
+      if (stored.status !== "CREDITED") {
+        throw fail(409, "REFUND_NOT_ELIGIBLE");
+      }
+      stored.status = "REFUND_PENDING";
+      const refund: CashRefund = {
+        refundId: crypto.randomUUID(),
+        orderId,
+        state: "RESERVED",
+        amount: stored.order.amount.amount,
+        nextAction: "POLL",
+        completedAt: null,
+      };
+      refunds.set(orderId, refund);
+      refundOrderByKey.set(idempotencyKey, orderId);
+      return refund;
+    },
+
+    async getRefund(orderId) {
+      find(orderId);
+      const refund = refunds.get(orderId);
+      if (!refund) throw fail(404, "REFUND_NOT_FOUND");
+      return refund;
     },
   };
 }

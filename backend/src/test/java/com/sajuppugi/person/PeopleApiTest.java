@@ -21,9 +21,13 @@ import com.sajuppugi.person.domain.Person;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.sql.Timestamp;
 import java.util.UUID;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,21 +36,31 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Transactional
 class PeopleApiTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired PersonService service;
     @Autowired ReadingSubjectPort readingSubjects;
+    private final Set<UUID> createdUsers = ConcurrentHashMap.newKeySet();
+
+    @AfterEach
+    void removeSyntheticRows() {
+        for (UUID userId : createdUsers) {
+            jdbc.update("DELETE FROM people WHERE owner_user_id = ?", userId);
+            jdbc.update("DELETE FROM person_owner_locks WHERE owner_user_id = ?", userId);
+            jdbc.update("DELETE FROM users WHERE id = ?", userId);
+        }
+        createdUsers.clear();
+    }
 
     @Test
     void createsListsUpdatesAndDeletesOwnedPersonWithoutPlaintextStorage() throws Exception {
         UUID owner = UUID.randomUUID();
+        insertActiveUser(owner);
 
         mvc.perform(post("/api/v1/people").with(user(owner.toString())).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(selfBody("민지")))
@@ -81,6 +95,7 @@ class PeopleApiTest {
     @Test
     void enforcesSelfOtherConsentOwnershipAndOtherLimit() throws Exception {
         UUID owner = UUID.randomUUID();
+        insertActiveUser(owner);
         service.create(owner, Person.ProfileType.SELF, "본인", birth(), null, false);
         assertCode(() -> service.create(owner, Person.ProfileType.SELF, "본인2", birth(), null, false),
                 ErrorCode.PRIMARY_PERSON_ALREADY_EXISTS);
@@ -104,6 +119,7 @@ class PeopleApiTest {
     @Test
     void rejectsInvalidBirthInputAndUnauthenticatedAccess() throws Exception {
         UUID owner = UUID.randomUUID();
+        insertActiveUser(owner);
         mvc.perform(post("/api/v1/people").with(user(owner.toString())).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(selfBody("민지").replace("\"isLeapMonth\":false", "\"isLeapMonth\":true")))
@@ -115,6 +131,7 @@ class PeopleApiTest {
     @Test
     void serializesConcurrentSelfCreationForTheSameOwner() throws Exception {
         UUID owner = UUID.randomUUID();
+        insertActiveUser(owner);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var start = new java.util.concurrent.CountDownLatch(1);
             Callable<Object> create = () -> {
@@ -142,6 +159,7 @@ class PeopleApiTest {
     @Test
     void neverCreatesMoreThanTenOthersUnderConcurrentRequests() throws Exception {
         UUID owner = UUID.randomUUID();
+        insertActiveUser(owner);
         try (var executor = Executors.newFixedThreadPool(12)) {
             var start = new java.util.concurrent.CountDownLatch(1);
             var tasks = java.util.stream.IntStream.range(0, 12).<Callable<Object>>mapToObj(index -> () -> {
@@ -167,9 +185,29 @@ class PeopleApiTest {
                 """, Integer.class, owner)).isEqualTo(10);
     }
 
+    @Test
+    void rejectsPersonCreationForMissingOrInactiveMembers() {
+        assertCode(() -> service.create(UUID.randomUUID(), Person.ProfileType.SELF, "본인", birth(), null, false),
+                ErrorCode.PERSON_NOT_FOUND);
+        UUID pending = UUID.randomUUID();
+        insertActiveUser(pending);
+        jdbc.update("UPDATE users SET status = 'WITHDRAWAL_PENDING' WHERE id = ?", pending);
+        assertCode(() -> service.create(pending, Person.ProfileType.SELF, "본인", birth(), null, false),
+                ErrorCode.PERSON_NOT_FOUND);
+    }
+
     private BirthInput birth() {
         return new BirthInput(LocalDate.of(2008, 3, 12), LocalTime.of(13, 25), false,
                 BirthInput.CalendarType.SOLAR, false, BirthInput.Gender.FEMALE);
+    }
+
+    private void insertActiveUser(UUID id) {
+        var now = Timestamp.from(java.time.Instant.now());
+        jdbc.update("""
+                INSERT INTO users (id, kakao_subject, nickname, status, created_at, updated_at)
+                VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+                """, id, "person-test-" + id, "테스트", now, now);
+        createdUsers.add(id);
     }
 
     private String selfBody(String name) {

@@ -13,7 +13,41 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** 현재 세션 로그아웃 */
         post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/daily-fortune-shares/{shareId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeDailyFortuneShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/daily-fortune-shares/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Public anonymized snapshot. No person or user identifiers are returned. */
+        get: operations["getDailyFortuneShare"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -30,6 +64,23 @@ export interface paths {
         get: operations["today"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/daily-fortunes/today/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Creates or reuses the active 24-hour anonymized share for the owned person and KST date. */
+        post: operations["createDailyFortuneShare"];
         delete?: never;
         options?: never;
         head?: never;
@@ -556,7 +607,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description Lists only the authenticated user's top-up orders, newest first. */
+        get: operations["listTopUpOrders"];
         put?: never;
         post: operations["createTopUpOrder"];
         delete?: never;
@@ -598,6 +650,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/top-up-orders/{orderId}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTopUpRefund"];
+        put?: never;
+        /** @description Full unused top-up only, policy-gated. REFUNDED alone proves verified cash cancellation; otherwise poll this resource. */
+        post: operations["requestTopUpRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/wallet": {
         parameters: {
             query?: never;
@@ -629,6 +698,10 @@ export interface components {
         };
         ApiResponseBasicSajuResult: {
             data?: components["schemas"]["BasicSajuResult"];
+            traceId?: string;
+        };
+        ApiResponseCashRefundResponse: {
+            data?: components["schemas"]["CashRefundResponse"];
             traceId?: string;
         };
         ApiResponseCategoryListResponse: {
@@ -663,6 +736,10 @@ export interface components {
             data?: components["schemas"]["CompatibilityReadingResponse"];
             traceId?: string;
         };
+        ApiResponseCreated: {
+            data?: components["schemas"]["Created"];
+            traceId?: string;
+        };
         ApiResponseDailyFortune: {
             data?: components["schemas"]["DailyFortune"];
             traceId?: string;
@@ -677,6 +754,10 @@ export interface components {
         };
         ApiResponseMemberResponse: {
             data?: components["schemas"]["MemberResponse"];
+            traceId?: string;
+        };
+        ApiResponseOrderListResponse: {
+            data?: components["schemas"]["OrderListResponse"];
             traceId?: string;
         };
         ApiResponseOrderResponse: {
@@ -723,12 +804,12 @@ export interface components {
             data?: components["schemas"]["SinsalReadingResponse"];
             traceId?: string;
         };
-        ApiResponseSuneungQuoteResponse: {
-            data?: components["schemas"]["SuneungQuoteResponse"];
+        ApiResponseSnapshot: {
+            data?: components["schemas"]["Snapshot"];
             traceId?: string;
         };
-        ApiResponseVoid: {
-            data?: unknown;
+        ApiResponseSuneungQuoteResponse: {
+            data?: components["schemas"]["SuneungQuoteResponse"];
             traceId?: string;
         };
         ApiResponseWalletResponse: {
@@ -769,6 +850,18 @@ export interface components {
             hanja?: string;
             /** @enum {string} */
             yinYang?: "YANG" | "YIN";
+        };
+        CashRefundResponse: {
+            /** Format: int32 */
+            amount: number;
+            /** Format: date-time */
+            completedAt: string | null;
+            nextAction: string;
+            /** Format: uuid */
+            orderId: string;
+            /** Format: uuid */
+            refundId: string;
+            state: string;
         };
         CategoryListResponse: {
             hasNext?: boolean;
@@ -937,6 +1030,12 @@ export interface components {
             orderId: string;
             paymentKey: string;
         };
+        Content: {
+            luckyColor?: string;
+            luckyItem?: string;
+            luckyPlace?: string;
+            oneLineFortune?: string;
+        };
         Counterpart: {
             displayName?: string;
             /** Format: uuid */
@@ -963,8 +1062,24 @@ export interface components {
         CreateRequest: {
             productCode: string;
         };
+        Created: {
+            /** Format: date-time */
+            expiresAt?: string;
+            fortune?: components["schemas"]["Snapshot"];
+            /** Format: uuid */
+            shareId?: string;
+            token?: string;
+        };
+        DailyContent: {
+            luckyColor?: string;
+            luckyItem?: string;
+            luckyPlace?: string;
+            oneLineFortune?: string;
+            todayAction?: string;
+        };
         DailyFortune: {
             calculationVersion?: string;
+            content?: components["schemas"]["DailyContent"];
             contentVersion?: string;
             /** Format: date */
             date?: string;
@@ -1043,11 +1158,18 @@ export interface components {
             /** Format: date-time */
             withdrawalRequestedAt?: string;
         };
+        OrderListResponse: {
+            hasNext: boolean;
+            items: components["schemas"]["OrderResponse"][];
+            nextCursor: string | null;
+        };
         OrderResponse: {
             /** Format: int32 */
             amount: number;
             /** Format: int32 */
             bonusShellAmount: number;
+            /** Format: date-time */
+            createdAt: string;
             /** Format: int32 */
             creditedShellAmount: number;
             currency: string;
@@ -1064,7 +1186,7 @@ export interface components {
             processing: boolean;
             productCode: string;
             /** @enum {string} */
-            status: "CREATED" | "PAYMENT_PENDING" | "PAID" | "CREDITED" | "FAILED" | "CANCELED" | "REFUNDED";
+            status: "CREATED" | "PAYMENT_PENDING" | "PAID" | "CREDITED" | "FAILED" | "CANCELED" | "REFUNDED" | "REFUND_PENDING";
             /** Format: int32 */
             walletBalance: number | null;
         };
@@ -1298,6 +1420,12 @@ export interface components {
             specialStars?: components["schemas"]["SectionContent"];
             summary?: components["schemas"]["SectionContent"];
         };
+        Snapshot: {
+            content?: components["schemas"]["Content"];
+            /** Format: date */
+            date?: string;
+            scores?: components["schemas"]["Scores"];
+        };
         StandardPurchaseRequest: {
             /** Format: uuid */
             personId: string;
@@ -1429,13 +1557,197 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description 세션과 쿠키를 폐기했습니다. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    revokeDailyFortuneShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getDailyFortuneShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
+                    "*/*": components["schemas"]["ApiResponseSnapshot"];
                 };
             };
             /** @description Common error envelope; branch on code, not message. */
@@ -1530,6 +1842,100 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseDailyFortune"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createDailyFortuneShare: {
+        parameters: {
+            query: {
+                personId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCreated"];
                 };
             };
             /** @description Common error envelope; branch on code, not message. */
@@ -5038,6 +5444,101 @@ export interface operations {
             };
         };
     };
+    listTopUpOrders: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseOrderListResponse"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     createTopUpOrder: {
         parameters: {
             query?: never;
@@ -5263,6 +5764,205 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseOrderResponse"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getTopUpRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCashRefundResponse"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Common error envelope; branch on code, not message. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    requestTopUpRefund: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved or review required */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCashRefundResponse"];
+                };
+            };
+            /** @description Reserved or processing; poll refund */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseCashRefundResponse"];
                 };
             };
             /** @description Common error envelope; branch on code, not message. */
