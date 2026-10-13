@@ -31,6 +31,18 @@ public class AdminFinancialQueries {
         append(actor, "ADMIN_ORDER_VIEW", "ORDER_LIST", actor);
         return page(rows, limit, v -> v.orderId());
     }
+    public AdminOrder order(UUID actor, UUID id) {
+        access.require(actor, false);
+        var rows = jdbc.query("""
+                SELECT o.id,o.user_id,o.amount_krw,o.status,o.created_at,r.state,r.resolution
+                FROM top_up_orders o LEFT JOIN top_up_refunds r ON r.order_id = o.id WHERE o.id = ?
+                """, (rs, row) -> new AdminOrder(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class),
+                rs.getInt(3), rs.getString(4), rs.getTimestamp(5).toInstant(),
+                "CANCEL_REJECTED".equals(rs.getString(7)) ? "REJECTED" : rs.getString(6)), id);
+        var result = rows.stream().findFirst().orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        append(actor, "ADMIN_ORDER_VIEW", "ORDER", id);
+        return result;
+    }
     public Page<AdminRefund> refunds(UUID actor, UUID after, int limit) {
         authorize(actor, limit);
         var rows = jdbc.query("SELECT * FROM top_up_refunds WHERE (CAST(? AS UUID) IS NULL OR id > CAST(? AS UUID)) ORDER BY id LIMIT ?",

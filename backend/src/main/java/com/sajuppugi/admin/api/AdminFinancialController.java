@@ -22,6 +22,11 @@ public class AdminFinancialController {
     public ApiResponse<Page<AdminRefund>> refunds(Authentication auth, @RequestParam(required = false) UUID after, @RequestParam(defaultValue = "50") int limit) {
         return ApiResponse.of(queries.refunds(UUID.fromString(auth.getName()), after, limit));
     }
+    @GetMapping("/top-up-orders/{orderId}")
+    @io.swagger.v3.oas.annotations.Operation(operationId = "adminGetTopUpOrder", description = "Exact support lookup protected by database operator grant and mandatory audit. No payment secrets.")
+    public ApiResponse<AdminOrder> order(Authentication auth, @PathVariable UUID orderId) {
+        return ApiResponse.of(queries.order(UUID.fromString(auth.getName()), orderId));
+    }
     @GetMapping("/wallets/{userId}/transactions")
     public ApiResponse<Page<AdminLedger>> ledger(Authentication auth, @PathVariable UUID userId, @RequestParam(required = false) UUID after, @RequestParam(defaultValue = "50") int limit) {
         return ApiResponse.of(queries.ledger(UUID.fromString(auth.getName()), userId, after, limit));
