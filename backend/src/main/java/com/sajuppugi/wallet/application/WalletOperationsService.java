@@ -19,9 +19,11 @@ public class WalletOperationsService {
     private final WalletRepository wallets;
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final org.springframework.beans.factory.ObjectProvider<WalletPurchaseSettlementPort> settlements;
 
-    public WalletOperationsService(WalletRepository wallets, JdbcTemplate jdbc, Clock clock) {
-        this.wallets = wallets; this.jdbc = jdbc; this.clock = clock;
+    public WalletOperationsService(WalletRepository wallets, JdbcTemplate jdbc, Clock clock,
+                                   org.springframework.beans.factory.ObjectProvider<WalletPurchaseSettlementPort> settlements) {
+        this.wallets = wallets; this.jdbc = jdbc; this.clock = clock; this.settlements = settlements;
     }
 
     @Transactional(timeout = 10)
@@ -73,6 +75,59 @@ public class WalletOperationsService {
                 ? jdbc.query("SELECT user_id FROM wallets ORDER BY user_id LIMIT ?", (rs, row) -> rs.getObject(1, UUID.class), size)
                 : jdbc.query("SELECT user_id FROM wallets WHERE user_id > ? ORDER BY user_id LIMIT ?", (rs, row) -> rs.getObject(1, UUID.class), cursor, size);
     }
+
+    @Transactional(timeout = 10)
+    public RemainingTopUpRefund remainingTopUp(UUID user, UUID order, int originalAmount, int paid, int bonus) {
+        var before = wallets.lock(user);
+        assertUsable(user);
+        Instant now = clock.instant();
+        if (!inspect(before, now)) throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.WALLET_REVIEW_REQUIRED);
+        var granted = jdbc.query("""
+                SELECT l.lot_id FROM wallet_transaction_lines l JOIN wallet_top_up_receipts r
+                ON r.transaction_id = l.transaction_id WHERE r.order_id = ? AND r.wallet_user_id = ?
+                """, (rs, row) -> rs.getObject(1, UUID.class), order, user);
+        var lots = before.lots().stream().filter(l -> granted.contains(l.id())).toList();
+        if (lots.isEmpty() || lots.size() != granted.size()
+                || lots.stream().filter(l -> l.balanceType() == WalletLot.BalanceType.PAID).mapToInt(WalletLot::grantedAmount).sum() != paid
+                || lots.stream().filter(l -> l.balanceType() == WalletLot.BalanceType.BONUS).mapToInt(WalletLot::grantedAmount).sum() != bonus)
+            throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.REFUND_NOT_ELIGIBLE);
+        // An unfinished purchase could still restore these lots; settle it before cash cancellation.
+        var unsettled = jdbc.query("""
+                SELECT DISTINCT d.quote_id,d.transaction_id FROM wallet_purchase_debits d
+                JOIN wallet_transaction_lines used ON used.transaction_id = d.transaction_id
+                JOIN wallet_transaction_lines granted ON granted.lot_id = used.lot_id
+                JOIN wallet_top_up_receipts g ON g.transaction_id = granted.transaction_id
+                WHERE g.order_id = ? AND used.amount < 0
+                AND NOT EXISTS (SELECT 1 FROM wallet_purchase_compensations c WHERE c.original_transaction_id = d.transaction_id)
+                """, (rs, row) -> new UnsettledPurchase(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class)), order);
+        if (unsettled.stream().anyMatch(p -> settlements.stream().noneMatch(s -> s.fulfilled(user, p.quoteId(), p.transactionId()))))
+            throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.REFUND_NOT_ELIGIBLE);
+        int remainingPaid = lots.stream().filter(l -> l.balanceType() == WalletLot.BalanceType.PAID && l.isUsableAt(now))
+                .mapToInt(WalletLot::remainingAmount).sum();
+        if (remainingPaid == 0) throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.REFUND_NOT_ELIGIBLE);
+        int remainingBonus = lots.stream().filter(l -> l.balanceType() == WalletLot.BalanceType.BONUS)
+                .mapToInt(WalletLot::remainingAmount).sum();
+        return new RemainingTopUpRefund(RemainingTopUpRefund.proratedAmount(originalAmount, paid, remainingPaid), remainingPaid, remainingBonus);
+    }
+
+    @Transactional(timeout = 10)
+    public RemainingTopUpRefund reclaimRemainingTopUp(UUID user, UUID order, UUID refund, int amount, int paid, int bonus,
+                                                     RemainingTopUpRefund expected) {
+        var quote = remainingTopUp(user, order, amount, paid, bonus);
+        if (!quote.equals(expected)) throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.REFUND_QUOTE_CHANGED);
+        var before = wallets.lock(user);
+        var granted = jdbc.query("""
+                SELECT l.lot_id FROM wallet_transaction_lines l JOIN wallet_top_up_receipts r
+                ON r.transaction_id = l.transaction_id WHERE r.order_id = ? AND r.wallet_user_id = ?
+                """, (rs, row) -> rs.getObject(1, UUID.class), order, user);
+        var lots = before.lots().stream().filter(l -> granted.contains(l.id()) && l.remainingAmount() > 0).toList();
+        var after = before.lots().stream().map(l -> granted.contains(l.id()) ? zero(l) : l).toList();
+        var lines = lots.stream().map(l -> new WalletTransaction.Allocation(l.id(), -l.remainingAmount())).toList();
+        Instant now = clock.instant();
+        wallets.record(before, after, balance(after, now), new WalletTransaction(UUID.randomUUID(), user,
+                WalletTransaction.Type.REFUND, -Math.addExact(quote.paidShells(), quote.bonusShells()), refund, null, lines, now));
+        return quote;
+    }
     @Transactional(timeout = 10)
     public void returnRejectedCashRefund(UUID user, UUID refund) {
         var before = wallets.lock(user);
@@ -96,6 +151,7 @@ public class WalletOperationsService {
                 refund, original.id(), transaction, Timestamp.from(now));
     }
     private record Original(UUID id, int amount) {}
+    private record UnsettledPurchase(UUID quoteId, UUID transactionId) {}
     public void assertUsable(UUID user) {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM wallet_integrity_findings WHERE wallet_user_id = ? AND kind = 'EXTERNAL_CANCEL_REVIEW' AND resolved_at IS NULL", Integer.class, user);
         if (count != null && count > 0) throw new com.sajuppugi.common.api.ApiException(com.sajuppugi.common.api.ErrorCode.WALLET_REVIEW_REQUIRED);

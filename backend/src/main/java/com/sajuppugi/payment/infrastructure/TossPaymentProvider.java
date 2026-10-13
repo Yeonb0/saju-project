@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -86,7 +87,8 @@ public class TossPaymentProvider implements PaymentProviderPort {
     public Result cancel(UUID orderId, UUID refundId, int amountKrw, String reasonCode) {
         Objects.requireNonNull(orderId);
         Objects.requireNonNull(refundId);
-        if (amountKrw <= 0 || !"UNUSED_TOP_UP".equals(reasonCode)) return unknown(orderId, "TOSS_CANCEL_INVALID");
+        boolean remaining = "REMAINING_TOP_UP".equals(reasonCode);
+        if (amountKrw <= 0 || !(remaining || "UNUSED_TOP_UP".equals(reasonCode))) return unknown(orderId, "TOSS_CANCEL_INVALID");
         try {
             // Resolve the raw provider key transiently; only its hash is stored in our database.
             JsonNode payment = client.get().uri("/v1/payments/orders/{id}", orderId)
@@ -94,36 +96,48 @@ public class TossPaymentProvider implements PaymentProviderPort {
             if (payment == null || !orderId.toString().equals(text(payment, "orderId"))
                     || !"KRW".equals(text(payment, "currency")) || !"NORMAL".equals(text(payment, "type"))
                     || !payment.path("totalAmount").isIntegralNumber() || !payment.path("totalAmount").canConvertToInt()
-                    || payment.path("totalAmount").intValue() != amountKrw) return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
+                    || payment.path("totalAmount").intValue() < amountKrw
+                    || !remaining && payment.path("totalAmount").intValue() != amountKrw) return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
+            int originalAmount = payment.path("totalAmount").intValue();
             String key = text(payment, "paymentKey");
             if (key == null || !key.matches("[A-Za-z0-9_-]{1,200}")) return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
-            if ("CANCELED".equals(text(payment, "status")) && zeroBalance(payment))
-                return new Result(Outcome.CANCELED, orderId, hash(key), amountKrw, "KRW", null);
+            if ("CANCELED".equals(text(payment, "status")) && zeroBalance(payment) && amountKrw == originalAmount)
+                return new Result(Outcome.CANCELED, orderId, hash(key), originalAmount, "KRW", null);
             if (!"DONE".equals(text(payment, "status")) || !payment.path("balanceAmount").isIntegralNumber()
-                    || payment.path("balanceAmount").longValue() != amountKrw) return unknown(orderId, "TOSS_CANCEL_REVIEW_REQUIRED");
+                    || payment.path("balanceAmount").longValue() != originalAmount) return unknown(orderId, "TOSS_CANCEL_REVIEW_REQUIRED");
+            if (remaining && amountKrw < originalAmount && payment.path("isPartialCancelable").isBoolean()
+                    && !payment.path("isPartialCancelable").booleanValue())
+                return new Result(Outcome.CANCEL_REJECTED, orderId, hash(key), originalAmount, "KRW", "CASH_REFUND_REJECTED");
+            if (remaining && "가상계좌".equals(text(payment, "method")))
+                return new Result(Outcome.CANCEL_REJECTED, orderId, hash(key), originalAmount, "KRW", "CASH_REFUND_REJECTED");
             return client.post().uri("/v1/payments/{key}/cancel", key)
                     .header("Idempotency-Key", "top-up-refund-" + refundId)
-                    .body(Map.of("cancelReason", "Unused top-up refund", "cancelAmount", amountKrw))
+                    .body(Map.of("cancelReason", remaining ? "Remaining paid top-up refund" : "Unused top-up refund", "cancelAmount", amountKrw))
                     .exchange((request, response) -> {
                         if (response.getStatusCode().value() == 400) {
                             byte[] error = response.getBody().readNBytes(MAX_RESPONSE_BYTES + 1);
                             if (error.length <= MAX_RESPONSE_BYTES && "REFUND_REJECTED".equals(text(mapper.readTree(error), "code"))) {
                                 Result stillPaid = lookup(orderId);
-                                if (stillPaid.outcome() == Outcome.CANCELED) return stillPaid;
+                                var intent = new com.sajuppugi.payment.domain.TopUpConfirmationIntent(orderId, hash(key), originalAmount, Instant.EPOCH);
+                                if (stillPaid.confirmsRefund(intent, amountKrw)) return stillPaid;
                                 if (stillPaid.outcome() == Outcome.APPROVED && hash(key).equals(stillPaid.paymentKeyHash())
-                                        && stillPaid.amountKrw() == amountKrw)
-                                    return new Result(Outcome.CANCEL_REJECTED, orderId, hash(key), amountKrw, "KRW", "CASH_REFUND_REJECTED");
+                                        && stillPaid.amountKrw() == originalAmount)
+                                    return new Result(Outcome.CANCEL_REJECTED, orderId, hash(key), originalAmount, "KRW", "CASH_REFUND_REJECTED");
                             }
                             return unknown(orderId, "TOSS_CANCEL_UNVERIFIED");
                         }
                         JsonNode canceled = readPayment(response);
                         if (canceled == null || !orderId.toString().equals(text(canceled, "orderId"))
                                 || !key.equals(text(canceled, "paymentKey")) || !"KRW".equals(text(canceled, "currency"))
-                                || !"NORMAL".equals(text(canceled, "type")) || !"CANCELED".equals(text(canceled, "status"))
-                                || !zeroBalance(canceled) || !canceled.path("totalAmount").isIntegralNumber()
+                                || !"NORMAL".equals(text(canceled, "type")) || !canceled.path("totalAmount").isIntegralNumber()
                                 || !canceled.path("totalAmount").canConvertToInt()
-                                || canceled.path("totalAmount").longValue() != amountKrw) return unknown(orderId, "TOSS_CANCEL_UNVERIFIED");
-                        return new Result(Outcome.CANCELED, orderId, hash(key), amountKrw, "KRW", null);
+                                || canceled.path("totalAmount").longValue() != originalAmount) return unknown(orderId, "TOSS_CANCEL_UNVERIFIED");
+                        if (amountKrw == originalAmount && "CANCELED".equals(text(canceled, "status")) && zeroBalance(canceled))
+                            return new Result(Outcome.CANCELED, orderId, hash(key), originalAmount, "KRW", null);
+                        Integer canceledAmount = verifiedPartialAmount(canceled, originalAmount);
+                        if (remaining && canceledAmount != null && canceledAmount == amountKrw)
+                            return new Result(Outcome.UNKNOWN, orderId, hash(key), originalAmount, "KRW", "PAYMENT_PARTIAL_CANCEL_REVIEW", canceledAmount);
+                        return unknown(orderId, "TOSS_CANCEL_UNVERIFIED");
                     });
         } catch (RuntimeException failure) { return unknown(orderId, "TOSS_TRANSPORT_ERROR"); }
     }
@@ -160,7 +174,8 @@ public class TossPaymentProvider implements PaymentProviderPort {
                 JsonNode balance = payment.path("balanceAmount");
                 if (!balance.isIntegralNumber() || !balance.canConvertToInt() || balance.intValue() <= 0 || balance.intValue() >= amount.intValue())
                     return unknown(orderId, "TOSS_RESPONSE_MISMATCH");
-                return new Result(Outcome.UNKNOWN, orderId, hash(paymentKey), amount.intValue(), "KRW", "PAYMENT_PARTIAL_CANCEL_REVIEW");
+                return new Result(Outcome.UNKNOWN, orderId, hash(paymentKey), amount.intValue(), "KRW", "PAYMENT_PARTIAL_CANCEL_REVIEW",
+                        verifiedPartialAmount(payment, amount.intValue()));
             }
             Outcome outcome = switch (Objects.toString(text(payment, "status"), "")) {
                 case "DONE" -> Outcome.APPROVED;
@@ -185,6 +200,25 @@ public class TossPaymentProvider implements PaymentProviderPort {
 
     private String text(JsonNode value, String field) {
         return value.path(field).isTextual() ? value.path(field).textValue() : null;
+    }
+
+    private Integer verifiedPartialAmount(JsonNode payment, int original) {
+        if (!"PARTIAL_CANCELED".equals(text(payment, "status"))) return null;
+        JsonNode balance = payment.path("balanceAmount"), cancels = payment.path("cancels");
+        if (!balance.isIntegralNumber() || !balance.canConvertToInt() || balance.intValue() <= 0
+                || balance.intValue() >= original || !cancels.isArray() || cancels.isEmpty()) return null;
+        long sum = 0;
+        var keys = new java.util.HashSet<String>();
+        for (JsonNode cancel : cancels) {
+            String transaction = text(cancel, "transactionKey");
+            JsonNode amount = cancel.path("cancelAmount");
+            if (!"DONE".equals(text(cancel, "cancelStatus")) || transaction == null || transaction.isBlank()
+                    || transaction.length() > 64 || !keys.add(transaction) || !amount.isIntegralNumber()
+                    || !amount.canConvertToInt() || amount.intValue() <= 0) return null;
+            sum += amount.intValue();
+            if (sum >= original) return null;
+        }
+        return sum == original - balance.intValue() ? (int) sum : null;
     }
 
     private String hash(String value) {

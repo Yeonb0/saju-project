@@ -18,5 +18,5 @@ public record TopUpOrder(UUID id, UUID userId, String productCode, int amountKrw
         Math.addExact(paidShells, bonusShells);
     }
 
-    public enum Status { CREATED, PAYMENT_PENDING, PAID, CREDITED, FAILED, CANCELED, REFUNDED, REFUND_PENDING }
+    public enum Status { CREATED, PAYMENT_PENDING, PAID, CREDITED, FAILED, CANCELED, REFUNDED, REFUND_PENDING, PARTIALLY_REFUNDED }
 }

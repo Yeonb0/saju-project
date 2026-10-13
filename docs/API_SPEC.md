@@ -547,7 +547,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 | `TURTLE_SHELL_500` | 500 | 80 | 580 | 50,000원 |
 
 - 승인 완료 시 유료분과 보너스분을 별도 원장 행 또는 동일 거래의 구분 가능한 lot으로 기록한다.
-- 지급 만료는 유료 5년/보너스 1년(Asia/Seoul 달력 기준)이며 차감은 확정 P-02A 정책을 따른다.
+- 지급 만료는 유료 5년/보너스 1년(Asia/Seoul 달력 기준)이다. 차감은 만료가 빠른 지급분부터, 만료가 같으면 보너스부터, 그것도 같으면 먼저 지급된 지급분부터 한다 (확정 P-02A, 2026-10-12 사용자 재확인).
 
 ### `POST /top-up-orders/{orderId}/confirm`
 
@@ -580,7 +580,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 ### `GET /top-up-orders/{orderId}`
 
 - 인증 필요, 타인/없는 주문은 동일 RESOURCE_NOT_FOUND(404). 생성/승인과 동일 응답 DTO다.
-- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`. 활성 환불 절차가 있으면 공개 projection은 `REFUND_PENDING`일 수 있다.
+- 상태: `CREATED`, `PAYMENT_PENDING`, `PAID`, `CREDITED`, `FAILED`, `CANCELED`, `REFUNDED`, `REFUND_PENDING`, `PARTIALLY_REFUNDED`
+- `REFUND_PENDING`은 미완료/검토 중, `PARTIALLY_REFUNDED`는 원 결제액보다 적은 잔여 유료분 환불이 확인된 주문의 외부 projection이다. DB 주문 상태는 환불 완료 시 `REFUNDED`이며 원 결제액/지급량 스냅샷은 유지한다. 실제 현금 반환액은 소유자 `GET /top-up-orders/{orderId}/refund`의 `amount`와 `state=REFUNDED`·`completedAt`으로 확인한다. 일반 사용자 환불 POST는 제공하지 않는다.
 
 ### `GET /top-up-orders`
 
@@ -1105,24 +1106,24 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ## 12. 관리자 API
 
-모든 요청은 관리자 세션·CSRF·역할 검사와 감사 사유를 요구한다.
+아래는 PR #25 및 2026-10-13 고객센터 환불 후속으로 구현한 관리자 금융 API다. 기본 비활성이며 실제 로그인 세션과 DB 운영자 권한이 필요하다. 조회도 감사 기록을 남기고 POST에는 CSRF·복구 권한·사유·요청키가 필요하다. 전체 경로는 `/api/v1` 기준이다.
 
-| Method | Path | 역할 | 기능 |
-|---|---|---|---|
-| GET | `/admin/users/{id}` | ADMIN/CS | 마스킹 계정 상태 |
-| GET | `/admin/orders/{id}` | ADMIN/CS | 주문·결제 상태 |
-| GET | `/admin/wallets/{userId}/transactions` | ADMIN/CS | 원장 조회 |
-| POST | `/admin/wallets/{userId}/adjustments` | ADMIN/제한 CS | 보상·조정 |
-| POST | `/admin/refunds` | ADMIN/제한 CS | 전액·부분 환불 |
-| POST | `/admin/gifts/{giftId}/revoke` | ADMIN/CS | 토큰 폐기 |
-| POST | `/admin/gifts/{giftId}/link-reissues` | ADMIN/CS | 토큰 재발급 |
-| POST | `/admin/gifts/{giftId}/deliveries` | ADMIN/CS | 알림톡 재발송 |
-| POST | `/admin/gifts/{giftId}/recipient-reset` | ADMIN/CS | 입력 잠금 초기화 |
-| POST | `/admin/content-versions/{version}/deploy` | ADMIN | 콘텐츠 배포 |
-| POST | `/admin/content-versions/{version}/rollback` | ADMIN | 롤백 |
-| GET | `/admin/audit-logs` | ADMIN | 감사 로그 |
+| Method | Path | 기능 |
+|---|---|---|
+| GET | `/admin/top-up-orders` | 충전 주문 조회 |
+| GET | `/admin/refunds` | 현금 환불 상태 조회 |
+| GET | `/admin/wallets/{userId}` | 지갑 저장 잔액·사용 가능 지급분 점검 |
+| GET | `/admin/wallets/{userId}/transactions` | 원장 조회 |
+| GET | `/admin/incidents` | 운영 이상 조회 |
+| GET | `/admin/audit-events` | 감사 기록 조회 |
+| POST | `/admin/top-up-orders/{orderId}/reconcile` | PG 조회에 근거한 주문·환불 상태 재확인. 새 PG 승인/취소 호출 없음 |
+| GET | `/admin/recovery-commands/{commandId}` | 재확인 작업 결과 조회 |
+| POST | `/admin/refund-cases` | 본인/주문 대조 후 고객센터 접수 기록. PG 호출/회수 없음 |
+| GET | `/admin/refund-cases/{caseId}` | 접수·환불 상태와 금액·회수량 조회 |
+| GET | `/admin/refund-cases/{caseId}/quote` | 현재 잔여 유료분 환불액·보너스 회수량 확인 |
+| POST | `/admin/refund-cases/{caseId}/execute` | 확인한 금액·수량 재검사, 회수 예약 후 PG 전액/부분 취소 |
 
-- 관리자 API로 사용자의 생년정보를 수정할 수 없다.
+관리자 전용 계약은 `backend/docs/openapi/admin-operations-v1.json`에 있다. 접수는 `orderId/customerUserId/supportReference/receivedAt`, 실행은 quote의 `expectedAmount/expectedPaidShells/expectedBonusShells`를 받는다. 임의 금액 지정이 아니라 서버 계산값의 확인이며 변경 시 409 `REFUND_QUOTE_CHANGED`다. 실제 결제액 × 잔여 유료분 ÷ 최초 유료 지급량(원 미만 올림), 수수료 0, 남은 보너스 회수·사용 보너스 무공제다. 최초 실행 권한·감사·영속 요청키 및 미완료 복구를 적용한다. 임의 잔액 조정·제한 해제·생년정보 수정·가상계좌 계좌 입력은 제공하지 않는다. 세부 절차: `backend/docs/CUSTOMER_CENTER_REFUNDS_20261013.md`.
 
 ## 13. 상태 머신
 
@@ -1165,8 +1166,7 @@ nextAction은 WAIT/VIEW_READING/RETRY_PURCHASE/CONTACT_SUPPORT다. 잔액은 GET
 REFUNDED는 보상 receipt 확인 후에만 저장한다. 새 조회 계약의 완료 표시는
 status=REFUNDED와 compensationStatus=COMPLETED가 일치해야 하며 오류 code만으로 표시하지 않는다.
 lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦은 생성 결과를 노출하지 않는다.
-전체 상태 조합과 receipt 포트 보완 등 남은 계약은
-[10/11 회신 반영 기록](../backend/docs/TEAM_CONTRACT_DECISIONS_20261011.md)을 따른다.
+전체 상태 조합은 8장 표를 따른다. 지갑 차감/보상 receipt는 BE-A, 구매 상태와 결과 생성은 BE-B가 담당한다.
 
 ### 선물 주문·선물
 

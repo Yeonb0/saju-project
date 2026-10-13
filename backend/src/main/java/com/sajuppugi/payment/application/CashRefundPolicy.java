@@ -10,7 +10,7 @@ public class CashRefundPolicy {
     private final boolean enabled;
     public CashRefundPolicy(@Value("${app.toss.refunds-enabled:false}") boolean enabled) { this.enabled = enabled; }
     public boolean enabled() { return enabled; }
-    // Deliberately narrower than unresolved partial-refund/fee policy. Approval is an explicit deployment gate.
+    // Retained for the internal unused-full regression path; support cases settle all eligible paid remainder.
     public boolean allowsFullUnused(Instant created, Instant now) {
         return enabled && !now.isBefore(created) && !now.isAfter(created.plus(Duration.ofDays(7)));
     }
