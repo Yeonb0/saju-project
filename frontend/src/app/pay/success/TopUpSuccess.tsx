@@ -5,6 +5,7 @@
 // 처리 중 · 결과 불명확은 조회, 30초 초과는 확인 중 + 주문 확인 버튼. 새 결제 · 새 키로 유도하지 않는다.
 // 승인은 주문 하나에 한 번 — React StrictMode 의 이중 실행에도 inflight 로 한 번만 보낸다 (CONFIRM-KEY).
 // 디자인 요소 없음 (PG-FIRST). 배치는 LAYOUT-FIGMA PAY-03 · 04 · 05.
+// 문구는 PD 확정 (FUNCTIONAL_SPEC 7장 결제 결과 화면 v0.4, Q-33 · Q-50). 다시 결제하기는 서버가 재결제를 허용할 때만 (nextAction RETRY_PAYMENT).
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -17,6 +18,7 @@ import {
 import { getTopUpPort } from "@/lib/ports";
 import type { PaymentReturn, TopUpPort } from "@/lib/ports/topUp";
 import { loadPurchaseSelection } from "@/lib/purchase/restore";
+import { supportMailtoHref } from "@/lib/support/contact";
 import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 import {
   PAY_ACTION_PRIMARY,
@@ -102,12 +104,11 @@ export function TopUpSuccess({
   }
 
   if (view.kind === "confirming") {
-    // 처음엔 위쪽만 (PD 메모 301:189)
     return (
       <PayResultLayout
         variant="waiting"
-        // TODO(PD 문구)
-        title={<output className="block">결제를 확인하고 있습니다</output>}
+        title={<output className="block">결제를 확인하고 있어요</output>}
+        sub={<p>잠시만 기다려 주세요. 이 화면을 닫지 말아 주세요.</p>}
       />
     );
   }
@@ -116,13 +117,12 @@ export function TopUpSuccess({
     return (
       <PayResultLayout
         variant="done"
-        // TODO(PD 문구)
-        title={<output className="block">충전이 완료되었습니다</output>}
-        // 서버가 준 이번 지급 수량만 (TOPUP-DONE, Q-17 해결). null 이면 비운다. 단위 · 문구 TODO(PD 문구)
+        title={<output className="block">충전 완료!</output>}
+        // 서버가 준 이번 지급 수량만 (TOPUP-DONE, Q-17 해결). null 이면 부제를 비운다
         sub={
           <span data-slot="credited-amount">
             {view.grantedShellAmount !== null
-              ? view.grantedShellAmount.toLocaleString("ko-KR")
+              ? `등껍질 ${view.grantedShellAmount.toLocaleString("ko-KR")}개가 들어왔어요`
               : null}
           </span>
         }
@@ -158,12 +158,10 @@ export function TopUpSuccess({
           <>
             {resumePath !== null ? (
               // 앞 화면이 저장한 선택으로 차감 확인 팝업을 다시 연다 (PURCHASE-RESTORE).
-              // TODO(PD 문구): 원래 구매에 맞는 문구(PD 메모 301:179)
               <Link href={resumePath} className={PAY_ACTION_PRIMARY}>
-                이어서 하기
+                이어서 사주 보러 가기
               </Link>
             ) : null}
-            {/* TODO(PD 문구) */}
             <Link href="/" className={PAY_ACTION_SECONDARY}>
               홈으로
             </Link>
@@ -177,18 +175,22 @@ export function TopUpSuccess({
     return (
       <PayResultLayout
         variant="waiting"
-        // TODO(PD 문구)
-        title={<output className="block">결제를 확인하고 있습니다</output>}
-        // TODO(PD 문구) — 새 결제를 권하지 않는다 (TOPUP-DONE)
-        box={<p>결제 확인이 늦어지고 있습니다</p>}
+        title={<output className="block">결제를 확인하고 있어요</output>}
+        sub={<p>잠시만 기다려 주세요. 이 화면을 닫지 말아 주세요.</p>}
+        // 새 결제를 권하지 않는다 (TOPUP-DONE · Q-50)
+        box={
+          <p>
+            확인이 조금 늦어지고 있어요. 다시 결제하지 말고 아래 버튼으로 주문
+            상태를 확인해 주세요.
+          </p>
+        }
         actions={
-          // TODO(PD 문구)
           <button
             type="button"
             className={PAY_ACTION_PRIMARY}
             onClick={recheck}
           >
-            주문 확인
+            주문 확인하기
           </button>
         }
       />
@@ -212,22 +214,48 @@ export function TopUpSuccess({
     );
   }
 
+  // 서버가 확인 필요(CONTACT_SUPPORT)로 답했다 — 다시 결제하기 없이 문의 (FUNCTIONAL_SPEC 7장)
+  if (view.next === "contact") {
+    const contactHref = supportMailtoHref({
+      kind: "topUpOrder",
+      id: view.orderId,
+    });
+    return (
+      <PayResultLayout
+        variant="failed"
+        title={
+          <p role="alert">확인이 필요한 결제예요. 고객센터로 문의해 주세요.</p>
+        }
+        actions={
+          <>
+            {contactHref === null ? null : (
+              <a href={contactHref} className={PAY_ACTION_PRIMARY}>
+                문의하기
+              </a>
+            )}
+            <Link href="/" className={PAY_ACTION_SECONDARY}>
+              홈으로
+            </Link>
+          </>
+        }
+      />
+    );
+  }
+
   return (
     <PayResultLayout
       variant="failed"
-      // TODO(PD 문구)
-      title={<p role="alert">충전이 완료되지 않았습니다</p>}
-      // TODO(PD 문구 · Q-33): 원인별 안내 — 서버 · PG 원문은 쓰지 않는다
-      sub={null}
-      // TODO(PD 문구): 지급 · 청구 안내 — 원인별로 사실이 달라 확정 전 비운다
-      box={<p data-slot="pay-result-note" />}
+      title={<p role="alert">결제가 완료되지 않았어요</p>}
+      sub={<p>결제 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.</p>}
+      box={<p>결제가 완료되지 않아 등껍질은 지급되지 않았어요.</p>}
       actions={
         <>
-          {/* TODO(PD 메모 301:201): 고른 상품 유지 — 저장 방식 미정이라 충전 화면 처음으로 간다. TODO(PD 문구) */}
-          <Link href="/wallet" className={PAY_ACTION_PRIMARY}>
-            충전으로 돌아가기
-          </Link>
-          {/* TODO(PD 문구) */}
+          {/* 서버가 재결제를 허용할 때만 (Q-50). 고른 상품 유지는 다음 단계 TOPUP-RETRY-URL — 지금은 충전 화면 처음으로 간다 */}
+          {view.next === "retry" ? (
+            <Link href="/wallet" className={PAY_ACTION_PRIMARY}>
+              다시 결제하기
+            </Link>
+          ) : null}
           <Link href="/" className={PAY_ACTION_SECONDARY}>
             홈으로
           </Link>

@@ -27,6 +27,7 @@ const FIXTURE_SELF: PersonSummary = {
   personId: "55555555-5555-4555-8555-555555555555",
   isSelf: true,
   name: "FIXTURE",
+  relationType: null,
 };
 
 // 픽스처일 뿐이며 실제 사용자와 무관하다 (signed_in_with_other 의 저장된 타인)
@@ -34,6 +35,7 @@ const FIXTURE_OTHER: PersonSummary = {
   personId: "77777777-7777-4777-8777-777777777777",
   isSelf: false,
   name: "FIXTURE OTHER",
+  relationType: "FAMILY",
 };
 
 export function createFakeAccount(scenario: FakeSessionScenario): FakeAccount {

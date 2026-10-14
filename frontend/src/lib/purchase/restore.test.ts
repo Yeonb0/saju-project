@@ -19,6 +19,9 @@ const VALUE: PurchaseSelection = {
     productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
     personId: "66666666-6666-4666-8666-666666666666",
     counterpartPersonId: null,
+    productOption: null,
+    questionKey: null,
+    relationType: null,
   },
   purchaseKey: null,
 };
@@ -150,14 +153,14 @@ describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
     expect(loadPurchaseSelection(T0 + 1)?.purchaseKey).toBeNull();
     expect(
       JSON.parse(sessionStorage.getItem(PURCHASE_SELECTION_KEY) ?? "{}"),
-    ).toMatchObject({ v: 3, purchaseKey: null });
+    ).toMatchObject({ v: 4, purchaseKey: null });
   });
 
   it("빈 문자열 키는 저장값 무효 — 읽을 때 지운다", () => {
     sessionStorage.setItem(
       PURCHASE_SELECTION_KEY,
       JSON.stringify({
-        v: 3,
+        v: 4,
         savedAt: T0,
         returnPath: "/suneung",
         quoteId: VALUE.quoteId,
@@ -169,7 +172,7 @@ describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
     expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
   });
 
-  it("v: 2 저장값은 purchaseKey null 로 읽힌다 (배포 전 충전 복귀 값)", () => {
+  it("v: 2 저장값은 질문이 없어 되살릴 수 없다 — 읽을 때 지운다 (배포 전 충전 복귀 값은 24시간 안에 사라진다)", () => {
     sessionStorage.setItem(
       PURCHASE_SELECTION_KEY,
       JSON.stringify({
@@ -180,10 +183,8 @@ describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
         selection: VALUE.selection,
       }),
     );
-    expect(loadPurchaseSelection(T0 + 1)).toEqual({
-      ...VALUE,
-      purchaseKey: null,
-    });
+    expect(loadPurchaseSelection(T0 + 1)).toBeNull();
+    expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
   });
 
   it("24시간 만료는 키가 있어도 같다", () => {
@@ -192,6 +193,94 @@ describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
       loadPurchaseSelection(T0 + PURCHASE_SELECTION_TTL_MS - 1)?.purchaseKey,
     ).toBe(KEY);
     expect(loadPurchaseSelection(T0 + PURCHASE_SELECTION_TTL_MS)).toBeNull();
+    expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
+  });
+});
+
+describe("구매 선택 복원 — 질문 선택 (v: 4, Q-26)", () => {
+  // 픽스처일 뿐이며 실제 상품 · 규칙과 무관하다
+  const PERSON = "66666666-6666-4666-8666-666666666666";
+  const OTHER = "99999999-9999-4999-8999-999999999999";
+  const general = (
+    selection: Partial<PurchaseSelection["selection"]>,
+  ): PurchaseSelection => ({
+    returnPath: "/fortune/love/questions",
+    quoteId: VALUE.quoteId,
+    selection: {
+      fortuneType: "LOVE",
+      productCode: "FIXTURE_LOVE_READING_WITH_TALISMAN",
+      personId: PERSON,
+      counterpartPersonId: null,
+      productOption: "READING_WITH_TALISMAN",
+      questionKey: "CURRENT_RELATIONSHIP",
+      relationType: null,
+      ...selection,
+    },
+    purchaseKey: null,
+  });
+  const compat = general({
+    fortuneType: "COMPATIBILITY",
+    productCode: "FIXTURE_COMPATIBILITY_READING_ONLY",
+    counterpartPersonId: OTHER,
+    productOption: "READING_ONLY",
+    questionKey: "OVERALL_MATCH",
+    relationType: "CRUSH",
+  });
+
+  it("d. 일반 운세 · 궁합 · 수능운 각각 세 필드가 저장 · 읽기에서 그대로 돌아온다", () => {
+    for (const value of [general({}), compat, VALUE]) {
+      savePurchaseSelection(value, T0);
+      expect(loadPurchaseSelection(T0 + 1)).toEqual(value);
+    }
+  });
+
+  const rawOf = (v: number, selection: Record<string, unknown>) =>
+    JSON.stringify({
+      v,
+      savedAt: T0,
+      returnPath: "/suneung",
+      quoteId: VALUE.quoteId,
+      selection,
+      ...(v >= 3 ? { purchaseKey: null } : {}),
+    });
+
+  it.each([
+    [
+      "수능운 + questionKey 있음",
+      { ...VALUE.selection, questionKey: "OVERALL_FLOW" },
+    ],
+    [
+      "일반 + questionKey null",
+      { ...general({}).selection, questionKey: null },
+    ],
+    [
+      "일반 + 다른 운세의 questionKey",
+      { ...general({}).selection, questionKey: "OVERALL_FLOW" },
+    ],
+    ["궁합 + relationType null", { ...compat.selection, relationType: null }],
+    [
+      "궁합 아님 + relationType 있음",
+      { ...general({}).selection, relationType: "LOVER" },
+    ],
+    [
+      "productOption UNKNOWN",
+      { ...general({}).selection, productOption: "UNKNOWN" },
+    ],
+    [
+      "일반 + productOption null",
+      { ...general({}).selection, productOption: null },
+    ],
+  ])("e. %s 는 읽으면 null 이고 저장소에서 사라진다", (_name, selection) => {
+    sessionStorage.setItem(PURCHASE_SELECTION_KEY, rawOf(4, selection));
+    expect(loadPurchaseSelection(T0 + 1)).toBeNull();
+    expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
+  });
+
+  it.each([
+    3, 2,
+  ])("e. v: %i 원문은 읽으면 null 이고 저장소에서 사라진다", (v) => {
+    sessionStorage.setItem(PURCHASE_SELECTION_KEY, rawOf(v, VALUE.selection));
+    expect(loadPurchaseSelection(T0 + 1)).toBeNull();
     expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
   });
 });

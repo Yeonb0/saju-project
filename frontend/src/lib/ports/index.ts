@@ -1,6 +1,5 @@
 // 포트 구현 선택은 이 파일 한 곳에서만 한다 (docs/FRONTEND.md 1-2, MOCK-PORT).
 // 진짜 구현(src/lib/api/adapters)은 모든 포트에 연결돼 있다. 진짜 모드는 가짜로 돌아가지 않는다.
-// 예외: 일반 운세 5종의 견적 · 구매는 운세 adapter 가 요청 전에 던진다 (SUNEUNG-ADAPTER-FIRST, Q-26).
 // 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
 // 모르는 값은 기본값으로 덮지 않고 던진다.

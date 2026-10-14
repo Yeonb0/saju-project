@@ -1,5 +1,6 @@
 // 가짜 인물 (개발 서버 · 미리보기 전용, MOCK-PORT). 가짜 세션과 같은 가짜 계정을 본다.
 import { ApiError } from "@/lib/api/errors";
+import { RELATION_TYPE_OF_KIND } from "@/lib/person/relation";
 import type { PersonPort, PersonSummary } from "@/lib/ports/person";
 import type { FakeAccount } from "./account";
 
@@ -31,6 +32,7 @@ export function createFakePersonPort(account: FakeAccount): PersonPort {
         personId: crypto.randomUUID(),
         isSelf: true,
         name: input.name,
+        relationType: null,
       };
       account.setSelf(person);
       return { ...person };
@@ -47,6 +49,7 @@ export function createFakePersonPort(account: FakeAccount): PersonPort {
         personId: crypto.randomUUID(),
         isSelf: false,
         name: input.name,
+        relationType: RELATION_TYPE_OF_KIND[input.relation.kind],
       };
       account.addOther(person);
       return { ...person };

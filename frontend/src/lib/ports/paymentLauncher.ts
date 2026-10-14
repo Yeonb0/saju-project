@@ -14,5 +14,9 @@ export class PaymentCanceledError extends Error {
 
 export type PaymentLauncher = {
   // 서버 주문 값(orderId · amount)만 쓴다. 금액을 계산하지 않는다 (P-08 · P-09)
-  requestPayment(order: TopUpOrder): Promise<void>;
+  // retryProductCode: 주문을 만든 상품 코드 — 실패 복귀(failUrl)에만 붙여 다시 결제하기가 상품을 유지한다 (TOPUP-RETRY-URL)
+  requestPayment(
+    order: TopUpOrder,
+    options: Readonly<{ retryProductCode: string }>,
+  ): Promise<void>;
 };

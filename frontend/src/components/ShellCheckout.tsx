@@ -10,17 +10,20 @@ import * as Sentry from "@sentry/nextjs";
 // 결정 PURCHASE-STATUS-UI (2026-10-12, 사용자 — 처리 중 자동 반복 조회 없음, 결과 확인은 상태 조회), F-06, COMMON 4.8,
 // PURCHASE-KEY-STORE (2026-10-10 결정, 2026-10-12 구현 — 상태 조회가 OpenAPI 에 들어옴): 구매를 보내기 직전 견적 ID 와 구매 키만 저장해 두고,
 // 돌아오면 그 키로 상태 조회부터 한다 (frontend/CLAUDE.md 브라우저 저장소: 키 · 견적 ID 만, 생년정보 · 가격 · 잔액 금지).
+// 완료(FULFILLED + readingId, Q-38)는 바로 결과로 넘기지 않고 팝업 안에서 「준비가 끝났어요!」 + 「결과 보러 가기」 를 보인다 —
+// FUNCTIONAL_SPEC 8장 v0.4 "구매 상태 화면" 완료 줄. 결과 화면 이동(onPurchased)은 버튼을 누를 때 한 번만 부른다.
 // 앞 화면(CSAT-01 · FORT-02 · 03 · MATCH-03 · FORT-07)이 띄운다. 디자인 요소 없음 (PG-FIRST).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
-import { GenerationScene } from "@/components/GenerationScene";
+import { GenerationDone, GenerationScene } from "@/components/GenerationScene";
 import { Modal } from "@/components/Modal";
 import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
 import { loginHref } from "@/lib/auth/returnTo";
+import { BUSINESS_INFO } from "@/lib/business";
 import { getFortunePort, getTopUpPort } from "@/lib/ports";
 import type {
   FortunePort,
@@ -37,6 +40,7 @@ import {
   isGenerationFailureError,
   purchaseOutcomeOf,
 } from "@/lib/reading/generation";
+import { type SupportRef, supportMailtoHref } from "@/lib/support/contact";
 import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
@@ -81,6 +85,28 @@ function CloseButton({
   );
 }
 
+const LINK_CLASS = "mt-[8px] text-[16px] underline";
+
+// 「문의하기」 — 메일 앱을 연다 (FUNCTIONAL_SPEC 8장 · 13장). 전자우편주소가 없으면 그리지 않는다
+function SupportLink({ supportRef }: { supportRef?: SupportRef }) {
+  const href = supportMailtoHref(supportRef);
+  if (href === null) return null;
+  return (
+    <a href={href} className={LINK_CLASS}>
+      문의하기
+    </a>
+  );
+}
+
+// 생성 실패 화면의 「홈으로」 (FUNCTIONAL_SPEC 8장 구매 상태 화면)
+function HomeLink() {
+  return (
+    <Link href="/" className={LINK_CLASS}>
+      홈으로
+    </Link>
+  );
+}
+
 // 추천 충전 상품이 상품 목록에 없거나 비활성일 때의 경고 — 상품 code 만 보낸다 (본문 · 인적정보 금지, CLAUDE.md 관측)
 function reportMismatchToSentry(productCode: string) {
   Sentry.captureMessage("recommended top-up not in product list", {
@@ -91,40 +117,51 @@ function reportMismatchToSentry(productCode: string) {
 
 type Intent = { quoteId: string; key: string };
 
-// 결과를 아직 모를 때의 안내 + 결과 확인 버튼. 견적이 있는 화면과 없는 화면(재개 중)이 같은 문구 · 같은 동작을 쓴다
+// 결과를 아직 모를 때의 안내 + 다시 확인하기 버튼. 견적이 있는 화면과 없는 화면(재개 중)이 같은 문구 · 같은 동작을 쓴다
+// 상태 조회 중이면 COMMON-02(버튼 없음), 그 밖에는 COMMON-03 (FUNCTIONAL_SPEC 8장 v0.4 · Q-40)
 function PendingNotice({
+  checking,
   loginRequired,
   lookupFailed,
   returnPath,
   onCheck,
   disabled,
 }: {
+  checking: boolean;
   loginRequired: boolean;
   lookupFailed: boolean;
   returnPath: string;
   onCheck: () => void;
   disabled: boolean;
 }) {
+  if (checking) {
+    return (
+      <output className={`block ${NOTE_CLASS}`}>
+        <span className="block">구매를 처리하고 있어요</span>
+        <span className="block">
+          잠시만 기다려 주세요. 창을 닫지 말아 주세요.
+        </span>
+      </output>
+    );
+  }
   return (
     <>
-      {/* TODO(PD 문구) */}
-      <output className={`block ${NOTE_CLASS}`}>처리 중입니다</output>
+      <output className={`block ${NOTE_CLASS}`}>
+        <span className="block">구매 결과를 아직 확인하지 못했어요</span>
+        <span className="block" role={lookupFailed ? "alert" : undefined}>
+          잠시 후 다시 확인해 주세요.
+        </span>
+      </output>
       {loginRequired ? (
         <p className={NOTE_CLASS}>
           {/* TODO(PD 문구) */}
           <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
         </p>
-      ) : lookupFailed ? (
-        // TODO(PD 문구)
-        <p role="alert" className={NOTE_CLASS}>
-          확인하지 못했습니다. 다시 확인해 주세요
-        </p>
       ) : null}
       {/* 상태 조회 → 서버에 기록이 없으면 같은 키 · 같은 본문으로 다시 보낸다 (I-05, PURCHASE-STATUS-UI) */}
       <div className="flex justify-center">
         <Button variant="popup" onClick={onCheck} disabled={disabled}>
-          {/* TODO(PD 문구) */}
-          결과 확인
+          다시 확인하기
         </Button>
       </div>
     </>
@@ -191,6 +228,10 @@ export function ShellCheckout({
       selection.productCode,
       selection.personId,
       selection.counterpartPersonId,
+      // 질문 · 옵션 · 관계를 바꾸고 팝업을 다시 열면 새 견적을 받는다 (이전 질문의 견적을 재사용하지 않는다)
+      selection.productOption,
+      selection.questionKey,
+      selection.relationType,
       resumeQuoteId,
       round,
     ],
@@ -277,15 +318,22 @@ export function ShellCheckout({
     },
   });
 
-  // 서버 상태가 완료가 되면 한 번만 결과를 넘긴다
+  // 서버 상태가 완료가 되면 한 번만 복원값을 지운다 — 구매는 끝났다. 결과로 가는 것은 「결과 보러 가기」 를 누를 때다
   const fulfilledReadingId =
     outcome?.kind === "fulfilled" ? outcome.readingId : null;
+  const cleared = useRef(false);
   useEffect(() => {
+    if (fulfilledReadingId === null || cleared.current) return;
+    cleared.current = true;
+    clearPurchaseSelection();
+  }, [fulfilledReadingId]);
+
+  // 「결과 보러 가기」 — 두 번 눌러도 onPurchased 는 한 번
+  function onViewResult() {
     if (fulfilledReadingId === null || delivered.current) return;
     delivered.current = true;
-    clearPurchaseSelection();
     onPurchased({ readingId: fulfilledReadingId });
-  }, [fulfilledReadingId, onPurchased]);
+  }
 
   // 재개 (PURCHASE-KEY-STORE): 저장해 둔 견적 ID · 구매 키로 처음 한 번 상태를 조회한다. 같은 키로 이어 가므로 새 키를 만들지 않는다 (I-05)
   const startLookup = lookup.mutate;
@@ -397,6 +445,12 @@ export function ShellCheckout({
   }
 
   const failure = outcome?.kind === "failed" ? outcome.failure : null;
+  // 실패 화면 「문의하기」 메일 제목의 번호 — 구매번호가 있으면 그것, 없으면 이 구매 의도의 견적번호 (FUNCTIONAL_SPEC 13장)
+  const failureRef: SupportRef | undefined = known?.purchaseId
+    ? { kind: "purchase", id: known.purchaseId }
+    : intent.current
+      ? { kind: "quote", id: intent.current.quoteId }
+      : undefined;
 
   // 생성이 끝난 구매는 다시 보내지 않는다 — 다시 시도는 새 견적(새 구매 의도 · 새 키)으로
   function retryAfterFailure() {
@@ -413,15 +467,23 @@ export function ShellCheckout({
     <Modal
       open={open}
       onOpenChange={(next) => {
-        // 구매 명령이 나간 동안에는 닫지 않는다 — 결과를 놓치지 않게
-        if (!next && (busy || outcomePending)) return;
+        // 구매 명령이 나간 동안에는 닫지 않는다 — 결과를 놓치지 않게. 완료 블록이 보이는 동안도 닫지 않는다
+        // (완료 줄의 버튼은 「결과 보러 가기」 하나뿐, FUNCTIONAL_SPEC 8장)
+        if (!next && (busy || outcomePending || fulfilledReadingId !== null)) {
+          return;
+        }
         onOpenChange(next);
       }}
-      layout={purchase.isPending ? "screen" : "popup"}
+      layout={
+        purchase.isPending || fulfilledReadingId !== null ? "screen" : "popup"
+      }
       // TODO(PD 문구): 제목 — 잔액 부족이면 다른 제목
       title={insufficient ? "등껍질 부족" : "등껍질 사용 확인"}
     >
-      {purchase.isPending ? (
+      {fulfilledReadingId !== null ? (
+        // 완료 — 구매 응답이든 재개 조회든 같은 블록 (FUNCTIONAL_SPEC 8장 구매 상태 화면)
+        <GenerationDone onView={onViewResult} />
+      ) : purchase.isPending ? (
         // 생성은 구매 요청 안에서 끝난다 (F-06) — 기다리는 동안 대기 장면
         <GenerationScene failure={null} />
       ) : failure ? (
@@ -431,11 +493,12 @@ export function ShellCheckout({
             <div className={ACTIONS_CLASS}>
               {failure.next === "retry" ? (
                 <Button variant="popup" onClick={retryAfterFailure}>
-                  {/* TODO(PD 문구) */}
                   다시 시도
                 </Button>
-              ) : null}
-              <CloseButton onClick={() => onOpenChange(false)} />
+              ) : (
+                <SupportLink supportRef={failureRef} />
+              )}
+              <HomeLink />
             </div>
           }
         />
@@ -453,6 +516,7 @@ export function ShellCheckout({
         // 견적 없이 처리 중 (재개 중 · 서버 상태가 처리 중) — 정보 줄 없이 처리 중 블록과 닫기만
         <>
           <PendingNotice
+            checking={lookup.isPending}
             loginRequired={lookupLoginRequired}
             lookupFailed={lookup.isError}
             returnPath={returnPath}
@@ -528,6 +592,7 @@ export function ShellCheckout({
           <p data-slot="disclaimer" className={NOTE_CLASS} />
           {outcomePending ? (
             <PendingNotice
+              checking={lookup.isPending}
               loginRequired={lookupLoginRequired}
               lookupFailed={lookup.isError}
               returnPath={returnPath}
@@ -540,11 +605,17 @@ export function ShellCheckout({
               <Link href={loginHref(returnPath)}>다시 로그인해 주세요</Link>
             </p>
           ) : errorKind === "review_required" ? (
-            // 다시 시도 없이 문의 안내 (Q-41 5, COMMON). 문의 채널은 미정 — 링크를 넣지 않는다 (Q-38 g). TODO(PD 문구)
-            <p role="alert" className={NOTE_CLASS}>
-              확인이 필요한 결제가 있어 지금은 사용할 수 없습니다. 고객센터로
-              문의해 주세요
-            </p>
+            // 다시 시도 없이 문의 안내 (Q-41 5) — COMMON-04. 문의하기는 메일 앱 (Q-38 g · Q-47)
+            <div className={NOTE_CLASS}>
+              <p role="alert">확인이 필요한 구매예요</p>
+              <p>고객센터로 문의해 주시면 빠르게 도와드릴게요.</p>
+              {BUSINESS_INFO.email === null ? null : (
+                <p>{BUSINESS_INFO.email}</p>
+              )}
+              <SupportLink
+                supportRef={{ kind: "quote", id: current.quoteId }}
+              />
+            </div>
           ) : errorKind !== null && !requoting ? (
             // TODO(PD 문구): 오류 종류별 안내
             <p role="alert" className={NOTE_CLASS}>

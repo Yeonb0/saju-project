@@ -170,6 +170,9 @@ export function SuneungInfoScreen({
             productCode: product.code,
             personId: person.personId,
             counterpartPersonId: null,
+            productOption: null,
+            questionKey: null,
+            relationType: null,
           }}
           targetName={person.name}
           // TODO(PD 문구)

@@ -90,6 +90,9 @@ function launcher(
   });
 }
 
+// 픽스처일 뿐이며 실제 상품 코드와 무관하다
+const OPTIONS = { retryProductCode: "FIXTURE_TOP_UP_X" };
+
 // 이벤트를 걸 때까지 기다린다
 async function waitForHandlers(handlers: Handlers) {
   await vi.waitFor(() => {
@@ -101,7 +104,7 @@ async function waitForHandlers(handlers: Handlers) {
 describe("토스 결제창 (TOSS-SDK)", () => {
   it("a. 호출 순서: loadTossPayments → widgets(ANONYMOUS) → setAmount(KRW, 서버 금액) → renderPaymentWindow(orderName)", async () => {
     const sdk = fakeSdk();
-    void launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER);
+    void launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER, OPTIONS);
     await waitForHandlers(sdk.handlers);
     expect(sdk.calls).toEqual([
       "loadTossPayments",
@@ -117,7 +120,7 @@ describe("토스 결제창 (TOSS-SDK)", () => {
 
   it("b. paymentRequest 이벤트에서 정확한 인자로 requestPayment", async () => {
     const sdk = fakeSdk();
-    void launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER);
+    void launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER, OPTIONS);
     await waitForHandlers(sdk.handlers);
     await sdk.handlers.paymentRequest?.();
     expect(sdk.requestPayment).toHaveBeenCalledTimes(1);
@@ -125,7 +128,7 @@ describe("토스 결제창 (TOSS-SDK)", () => {
       orderId: ORDER.orderId,
       orderName: "FIXTURE 주문",
       successUrl: `${ORIGIN}/pay/success`,
-      failUrl: `${ORIGIN}/pay/fail`,
+      failUrl: `${ORIGIN}/pay/fail?product=FIXTURE_TOP_UP_X`,
     });
     expect(Object.keys(sdk.args.requestPayment as object).sort()).toEqual([
       "failUrl",
@@ -138,7 +141,9 @@ describe("토스 결제창 (TOSS-SDK)", () => {
   it("b. 결제 요청이 리다이렉트되면 Promise 는 끝나지 않는다", async () => {
     const sdk = fakeSdk();
     const done = vi.fn();
-    launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER).then(done, done);
+    launcher(sdk.loadSdk, CLIENT_KEY)
+      .requestPayment(ORDER, OPTIONS)
+      .then(done, done);
     await waitForHandlers(sdk.handlers);
     await sdk.handlers.paymentRequest?.();
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -147,7 +152,10 @@ describe("토스 결제창 (TOSS-SDK)", () => {
 
   it("c. cancel 이벤트면 destroy 를 부르고 PaymentCanceledError 로 reject", async () => {
     const sdk = fakeSdk();
-    const result = launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER);
+    const result = launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(
+      ORDER,
+      OPTIONS,
+    );
     const settled = result.catch((error: unknown) => error);
     await waitForHandlers(sdk.handlers);
     await sdk.handlers.cancel?.();
@@ -165,7 +173,7 @@ describe("토스 결제창 (TOSS-SDK)", () => {
       },
     });
     const settled = launcher(sdk.loadSdk, CLIENT_KEY)
-      .requestPayment(ORDER)
+      .requestPayment(ORDER, OPTIONS)
       .catch((error: unknown) => error);
     await waitForHandlers(sdk.handlers);
     await sdk.handlers.cancel?.();
@@ -180,7 +188,7 @@ describe("토스 결제창 (TOSS-SDK)", () => {
       },
     });
     const settled = launcher(sdk.loadSdk, CLIENT_KEY)
-      .requestPayment(ORDER)
+      .requestPayment(ORDER, OPTIONS)
       .catch((error: unknown) => error);
     await waitForHandlers(sdk.handlers);
     await sdk.handlers.paymentRequest?.();
@@ -196,7 +204,7 @@ describe("토스 결제창 (TOSS-SDK)", () => {
   ])("e. clientKey %s 이면 SDK 를 부르지 않고 던지며 메시지에 키가 없다", async (_name, clientKey) => {
     const sdk = fakeSdk();
     const error = await launcher(sdk.loadSdk, clientKey)
-      .requestPayment(ORDER)
+      .requestPayment(ORDER, OPTIONS)
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(Error);
     expect(sdk.loadSdk).not.toHaveBeenCalled();
@@ -206,10 +214,13 @@ describe("토스 결제창 (TOSS-SDK)", () => {
   it("f. 통화가 KRW 가 아니면 SDK 를 부르지 않고 던진다", async () => {
     const sdk = fakeSdk();
     await expect(
-      launcher(sdk.loadSdk, CLIENT_KEY).requestPayment({
-        ...ORDER,
-        amount: { currency: "TURTLE_SHELL", amount: 2222 },
-      }),
+      launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(
+        {
+          ...ORDER,
+          amount: { currency: "TURTLE_SHELL", amount: 2222 },
+        },
+        OPTIONS,
+      ),
     ).rejects.toThrow();
     expect(sdk.loadSdk).not.toHaveBeenCalled();
   });
@@ -222,7 +233,7 @@ describe("토스 결제창 (TOSS-SDK)", () => {
       },
     });
     await expect(
-      launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER),
+      launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER, OPTIONS),
     ).rejects.toBe(failure);
   });
 });

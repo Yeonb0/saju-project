@@ -15,6 +15,9 @@ async function selectionFor(port: ReturnType<typeof createFakeFortunePort>) {
     productCode: product.code,
     personId: PERSON_ID,
     counterpartPersonId: null,
+    productOption: null,
+    questionKey: null,
+    relationType: null,
   };
   return { product, selection };
 }
@@ -397,5 +400,100 @@ describe("가짜 운세 구매 포트 — fortuneType 규칙 (ADAPTER-HTTP 흉�
     const quote = await port.createQuote(selection);
     expect(quote.charged).toEqual(product.price);
     expect("price" in quote).toBe(false);
+  });
+});
+
+describe("가짜 운세 구매 포트 — 질문 선택 규칙 (GeneralReadingService 흉내)", () => {
+  // 픽스처일 뿐이며 실제 상품 · 규칙과 무관하다
+  const OTHER_ID = "99999999-9999-4999-8999-999999999999";
+  const love = (over: Partial<FortuneSelection> = {}): FortuneSelection => ({
+    fortuneType: "LOVE",
+    productCode: "FIXTURE_LOVE_READING_ONLY",
+    personId: PERSON_ID,
+    counterpartPersonId: null,
+    productOption: "READING_ONLY",
+    questionKey: "CURRENT_RELATIONSHIP",
+    relationType: null,
+    ...over,
+  });
+  const compat = (over: Partial<FortuneSelection> = {}): FortuneSelection => ({
+    fortuneType: "COMPATIBILITY",
+    productCode: "FIXTURE_COMPATIBILITY_READING_ONLY",
+    personId: PERSON_ID,
+    counterpartPersonId: OTHER_ID,
+    productOption: "READING_ONLY",
+    questionKey: "OVERALL_MATCH",
+    relationType: "LOVER",
+    ...over,
+  });
+  const codeOfQuote = async (selection: FortuneSelection) => {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    return port.createQuote(selection).then(
+      () => null,
+      (error: unknown) => codeOf(error),
+    );
+  };
+
+  it("f. createQuote 오류 code 가 서버 규칙을 따른다", async () => {
+    const { selection } = await selectionFor(
+      createFakeFortunePort({ wallet: createFakeWallet(100) }),
+    );
+    // 수능운 + questionKey
+    expect(
+      await codeOfQuote({ ...selection, questionKey: "OVERALL_FLOW" }),
+    ).toBe("INVALID_REQUEST");
+    // 일반 운세에서 옵션이 상품의 option 과 다르다
+    expect(
+      await codeOfQuote(love({ productOption: "READING_WITH_TALISMAN" })),
+    ).toBe("INVALID_REQUEST");
+    // 모르는 questionKey
+    expect(await codeOfQuote(love({ questionKey: "NO_SUCH_KEY" }))).toBe(
+      "INVALID_QUESTION_KEY",
+    );
+    // 궁합 relationType null
+    expect(await codeOfQuote(compat({ relationType: null }))).toBe(
+      "RELATION_TYPE_REQUIRED",
+    );
+    // 궁합 상대 null
+    expect(await codeOfQuote(compat({ counterpartPersonId: null }))).toBe(
+      "COMPATIBILITY_PERSON_REQUIRED",
+    );
+    // 궁합이 아닌데 relationType
+    expect(await codeOfQuote(love({ relationType: "LOVER" }))).toBe(
+      "INVALID_REQUEST",
+    );
+  });
+
+  it("g. 일반 운세 정상 견적은 구매까지 성공한다", async () => {
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const selection = love();
+    const { quoteId } = await port.createQuote(selection);
+    const result = await port.purchase({ quoteId, selection }, "key-q-1");
+    expect(result.status).toBe("FULFILLED");
+    const compatSelection = compat();
+    const compatQuote = await port.createQuote(compatSelection);
+    const compatResult = await port.purchase(
+      { quoteId: compatQuote.quoteId, selection: compatSelection },
+      "key-q-2",
+    );
+    expect(compatResult.status).toBe("FULFILLED");
+  });
+
+  it("h. 견적은 질문 A, purchase 는 같은 quoteId 에 질문 B 면 422 INVALID_REQUEST 이고 차감하지 않는다", async () => {
+    const wallet = createFakeWallet(100);
+    const port = createFakeFortunePort({ wallet });
+    const quoted = love({ questionKey: "CURRENT_RELATIONSHIP" });
+    const { quoteId } = await port.createQuote(quoted);
+    const error = await port
+      .purchase(
+        { quoteId, selection: love({ questionKey: "MARRIAGE" }) },
+        "key-q-3",
+      )
+      .then(
+        () => null,
+        (e: unknown) => e,
+      );
+    expect(codeOf(error)).toBe("INVALID_REQUEST");
+    expect(wallet.balance()).toBe(100);
   });
 });
