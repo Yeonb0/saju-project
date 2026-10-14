@@ -19,6 +19,8 @@ public enum ErrorCode {
     GIFT_DELIVERY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "알림톡 발송 연결 준비 중입니다."),
     GIFT_DELIVERY_NOT_ALLOWED(HttpStatus.CONFLICT, "현재 재발송할 수 없는 선물입니다."),
     GIFT_DELIVERY_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "재발송 횟수 또는 대기 시간을 확인해 주세요."),
+    GIFT_LINK_REISSUE_NOT_ALLOWED(HttpStatus.CONFLICT, "현재 선물 링크를 재발급할 수 없습니다."),
+    GIFT_LINK_REISSUE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "링크 재발급 횟수 또는 대기 시간을 확인해 주세요."),
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "목록 조회 위치를 확인해 주세요."),
     MALFORMED_JSON(HttpStatus.BAD_REQUEST, "JSON 요청 형식을 확인해 주세요."),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "입력값을 확인해 주세요."),

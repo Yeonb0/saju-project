@@ -12,6 +12,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.UUID;
@@ -25,6 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(name = "app.gift.purchases-enabled", havingValue = "true")
 public class GiftLinkService {
     private static final Duration REVEAL_WINDOW = Duration.ofHours(24);
+    private static final Duration REISSUE_WINDOW = Duration.ofDays(30);
+    private static final Duration REISSUE_INTERVAL = Duration.ofMinutes(1);
+    private static final ZoneId DAY_ZONE = ZoneId.of("Asia/Seoul");
+    private static final int DAILY_REISSUE_LIMIT = 3;
     private final JdbcTemplate jdbc;
     private final GiftPayloadCipher cipher;
     private final Clock clock;
@@ -56,21 +61,26 @@ public class GiftLinkService {
         if (!prior.isEmpty()) {
             Command command = prior.getFirst();
             if (!command.orderId().equals(orderId)) throw new ApiException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
-            return view(current, true);
+            return replay(current, command);
         }
-        if (!"ACTIVE".equals(current.status()) || current.revoked() || !clock.instant().isBefore(current.expiresAt()))
-            throw new ApiException(ErrorCode.GIFT_CANCEL_NOT_ALLOWED);
+        if (!reissueOpen(current)) throw new ApiException(ErrorCode.GIFT_LINK_REISSUE_NOT_ALLOWED);
+        if (!availability(current).allowed()) throw new ApiException(ErrorCode.GIFT_LINK_REISSUE_LIMIT_EXCEEDED);
         long version = current.version() + 1;
+        // Reserve the cross-order key before changing the token. A losing command must not rotate it.
+        int reserved = jdbc.update("""
+                INSERT INTO gift_link_commands(user_id,key_hash,order_id,token_version,created_at) VALUES (?,?,?,?,?)
+                ON CONFLICT (user_id,key_hash) DO NOTHING
+                """, buyer, keyHash, orderId, version, Timestamp.from(clock.instant()));
+        if (reserved == 0) throw new ApiException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
         String raw = newToken();
         Instant now = clock.instant();
-        jdbc.update("""
+        int changed = jdbc.update("""
                 UPDATE gift_purchase_tokens SET token_hash = ?,token_version = ?,token_ciphertext = ?,
                     issued_at = ?,reveal_until = ? WHERE order_id = ? AND token_version = ? AND revoked = FALSE
                 """, hash(raw), version, cipher.encrypt(raw, context(orderId, version)), Timestamp.from(now),
                 Timestamp.from(now.plus(REVEAL_WINDOW)), orderId, current.version());
-        jdbc.update("INSERT INTO gift_link_commands(user_id,key_hash,order_id,token_version,created_at) VALUES (?,?,?,?,?)",
-                buyer, keyHash, orderId, version, Timestamp.from(now));
-        return new Link(orderId, current.giftId(), version, current.expiresAt(), shareUrl(raw), false);
+        if (changed != 1) throw new IllegalStateException("Gift link rotation did not update its locked token");
+        return get(buyer, orderId);
     }
 
     @Transactional(timeout = 5)
@@ -94,12 +104,12 @@ public class GiftLinkService {
         }
         var rows = jdbc.query("""
                 SELECT w.gift_id,w.status,w.access_expires_at,t.revoked,t.token_version,t.token_ciphertext,
-                    t.issued_at,t.reveal_until FROM gift_order_drafts d
+                    t.issued_at,t.reveal_until,w.approved_at FROM gift_order_drafts d
                 JOIN gift_purchase_work w ON w.order_id=d.id JOIN gift_purchase_tokens t ON t.order_id=w.order_id
                 WHERE d.user_id=? AND d.id=?
                 """ + (lock ? " FOR UPDATE OF t" : ""), (rs, row) -> new Token(orderId,
                 rs.getObject(1, UUID.class), rs.getString(2), rs.getTimestamp(3).toInstant(), rs.getBoolean(4),
-                rs.getLong(5), rs.getString(6), instant(rs.getTimestamp(7)), instant(rs.getTimestamp(8))), buyer, orderId);
+                rs.getLong(5), rs.getString(6), instant(rs.getTimestamp(7)), instant(rs.getTimestamp(8)), instant(rs.getTimestamp(9))), buyer, orderId);
         return rows.stream().findFirst().orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
@@ -109,7 +119,42 @@ public class GiftLinkService {
                 && "ACTIVE".equals(token.status()) && clock.instant().isBefore(token.expiresAt())) {
             url = shareUrl(cipher.decrypt(token.ciphertext(), context(token.orderId(), token.version())));
         }
-        return new Link(token.orderId(), token.giftId(), token.version(), token.expiresAt(), url, reused);
+        var available = availability(token);
+        return new Link(token.orderId(), token.giftId(), token.version(), token.expiresAt(), url, reused,
+                available.allowed(), available.remaining(), available.next());
+    }
+
+    private Link replay(Token current, Command command) {
+        // An old command must never return a newer command's bearer credential or restore a purged one.
+        var available = availability(current);
+        return command.version() == current.version() ? view(current, true)
+                : new Link(current.orderId(), current.giftId(), command.version(), current.expiresAt(), null, true,
+                    available.allowed(), available.remaining(), available.next());
+    }
+
+    private boolean reissueOpen(Token token) {
+        Instant now = clock.instant();
+        return "ACTIVE".equals(token.status()) && !token.revoked() && now.isBefore(token.expiresAt())
+                && token.approvedAt() != null && !now.isBefore(token.approvedAt())
+                && now.isBefore(token.approvedAt().plus(REISSUE_WINDOW));
+    }
+
+    private Availability availability(Token token) {
+        if (!reissueOpen(token)) return new Availability(false, 0, null);
+        Instant now = clock.instant();
+        var today = now.atZone(DAY_ZONE).toLocalDate();
+        Instant start = today.atStartOfDay(DAY_ZONE).toInstant();
+        Instant end = today.plusDays(1).atStartOfDay(DAY_ZONE).toInstant();
+        var usage = jdbc.query("""
+                SELECT COUNT(*) FILTER (WHERE created_at >= ? AND created_at < ?),MAX(created_at)
+                FROM gift_link_commands WHERE order_id = ?
+                """, (rs, row) -> new Usage(rs.getInt(1), instant(rs.getTimestamp(2))),
+                Timestamp.from(start), Timestamp.from(end), token.orderId()).getFirst();
+        int remaining = Math.max(0, DAILY_REISSUE_LIMIT - usage.count());
+        Instant next = usage.last() == null ? null : usage.last().plus(REISSUE_INTERVAL);
+        if (remaining == 0 && (next == null || end.isAfter(next))) next = end;
+        if (next != null && !next.isAfter(now)) next = null;
+        return new Availability(remaining > 0 && next == null, remaining, next);
     }
 
     private String newToken() {
@@ -125,9 +170,12 @@ public class GiftLinkService {
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
     private record Token(UUID orderId, UUID giftId, String status, Instant expiresAt, boolean revoked,
-                         long version, String ciphertext, Instant issuedAt, Instant revealUntil) {}
+                         long version, String ciphertext, Instant issuedAt, Instant revealUntil, Instant approvedAt) {}
     private record Command(UUID orderId, long version) {}
-    public record Link(UUID orderId, UUID giftId, long tokenVersion, Instant expiresAt, String shareUrl, boolean reused) {
+    private record Usage(int count, Instant last) {}
+    private record Availability(boolean allowed, int remaining, Instant next) {}
+    public record Link(UUID orderId, UUID giftId, long tokenVersion, Instant expiresAt, String shareUrl, boolean reused,
+                       boolean canReissue, int remainingReissues, Instant nextReissueAt) {
         @Override public String toString() { return "GiftLink[REDACTED]"; }
     }
 }

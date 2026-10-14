@@ -1,5 +1,13 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: A 직접 공유 재발급 마무리
+
+- #39 `4002187`에서 `codex/gift-direct-link-hardening`를 분리했다. 사용자 확정인 실제 차감부터 30일 미만·주문별 KST 하루 3회·1분 간격을 구현했다. 서버 Link 응답에 canReissue/remainingReissues/nextReissueAt를 추가했다. 동일 요청 replay는 횟수를 재사용하지 않고, 후속 재발급 이후 이전 key replay는 이전 version/shareUrl=null을 반환한다.
+- work→token 잠금과 요청 key 선점/회전을 같은 트랜잭션에 묶는다. 다른 주문의 동일 key 동시 요청은 하나만 성공하고 나머지는 409 IDEMPOTENCY_KEY_REUSED다. 실패 주문 token·원장은 바꾸지 않는다. 기존 미제공 취소/권한/비밀값 보호를 유지했다. 정책 v3·최종 화면 문구는 PD 반영이 필요하다.
+- 기능 명세 `/g`·전화번호 미수집·복사/공유, 결정 문서 G-05/G-07/G-10/G-10A, PRD, API 설명과 A/B 역할 안내를 직접 공유 기준으로 정리했다. 알림톡 기반과 migration은 삭제하지 않는다. 공개 수신·생성/부적·claim 완주는 B/FE 범위이고 운영 선물 암호화는 아직 local/test 제한이다.
+- 별도 PostgreSQL 17 `localhost:55433/saju_pr33_compat`에서 direct-link/admin suite 총 49건 전부 통과·실패/오류/선택 제외 0. bootJar/exportGiftOpenApi 성공. Clock의 PostgreSQL microsecond 경계를 맞춘 뒤 재검증했다. 30일 직전/정확한 종료, 59/60초, KST 자정/횟수 리셋, 동일/교차 주문 동시성, expired replay 무복원, 실제 세션 CSRF/소유권, no-store 응답, 기존 관리자·금융 lifecycle을 확인했다.
+- 적용: 6-1 소유권/CSRF, 6-2 잠금/원장 불변/멱등성, 6-5 token/기간·재발급, 6-8 운영 조회/문의, 6-9 비밀값 무복원. 새 migration/실제 환경 설정은 없다. FE 타입/화면은 gift OpenAPI의 추가 필드와 새 error code를 반영해야 한다. 실제 브라우저·외부 API·운영 배포·OS 중단/부하/복원은 이번 검사에서 수행하지 않았다.
+
 ### 2026-10-14: A 견적번호 고객센터 운영 조회
 
 - PR #33 호환 보완 `4ef8f40`에서 `codex/admin-quote-support`를 분리했다. `GET /api/v1/admin/purchase-quotes/{quoteId}`로 만료된 견적 포함 상품/가격 snapshot, A의 확정 차감/반환 transaction·수량·시각과 연결된 선물 주문을 조회한다. `NO_DEBIT_RECEIPT`/`DEBIT_COMMITTED`/`RETURN_COMMITTED`는 A 원장 사실이며 B 생성/제공이나 PG 현금 환불 상태를 뜻하지 않는다.

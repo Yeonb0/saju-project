@@ -996,22 +996,21 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 {
   "quoteId": "uuid",
   "recipientName": "민지",
-  "recipientPhone": "01012345678",
   "senderName": "윤진",
   "message": "긴장하지 말고 잘 보고 와!"
 }
 ```
 
 - 수신자 생년정보를 받지 않는다.
-- `recipientPhone`은 알림톡 발송을 위한 필수 입력이다. 저장·조회·로그에서는 암호화 또는 마스킹하며 보관기간은 `TBD(G-10A)`다.
+- 1차 직접 공유 신규 주문은 `recipientPhone`을 받거나 저장하지 않는다. 알림톡은 2차다.
 - 메시지는 200 code point·제어문자 검증을 수행한다. 금칙어 정책은 미구현이다. 새 CREATED 초안은 미차감이며 `charged=null`이다.
 
 ### `POST /gift-orders/{orderId}/purchase`
 
 - 인증·CSRF·`Idempotency-Key` 필요
 - 본문 없이 명시적인 등껍질 구매 의도를 등록하고 기존 차감 receipt로 재개한다. 선물에 원화/토스 confirm은 없다.
-- 차감 확인 후 gift 권한·token hash·암호화 발송 의도를 저장한다. ACTIVE는 이 저장의 완료이며 실제 알림톡 발송/콘텐츠 생성 완료가 아니다.
-- 원문 token은 암호화 outbox에만 저장하고 일반 응답에 반환하지 않는다. 실제 발송·삭제 worker는 후속이며 운영 활성화는 금지한다.
+- 차감 확인 후 gift 권한·token hash·24시간 구매자 조회용 token 암호문을 저장한다. ACTIVE는 이 저장의 완료이며 직접 전달/콘텐츠 생성 완료가 아니다. 신규 알림톡 outbox는 만들지 않는다.
+- 구매자 응답의 `shareUrl`은 `/g#token=...`다. 원문 조회기간 종료·취소·만료에는 null이며 관리자/일반 목록에 원문을 제공하지 않는다. 운영 선물 암호화는 아직 local/test 제한이다.
 - `GET /gift-orders/{orderId}/purchase`로 같은 금융 상태를 조회한다. PENDING/CANCEL_PENDING의 POST 응답은 202다.
 
 ```json
@@ -1022,14 +1021,15 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "chargedShells": 10,
   "returnedShells": null,
   "approvedAt": "2026-10-13T00:00:00Z",
-  "nextAction": "NONE"
+  "nextAction": "NONE",
+  "shareUrl": "https://example.invalid/g#token=synthetic-placeholder"
 }
 ```
 
 ### `GET /gift-orders`
 
 - local/test 구현: 구매자의 보낸 선물 목록. size 기본 20, 1~50, cursor는 서버 응답을 그대로 사용한다.
-- items/nextCursor/hasNext 응답, 금융 status와 deliveryStatus를 분리한다. chargedShells/deliveryStatus/accessExpiresAt은 null 가능하다. 상세 계약은 `backend/docs/GIFT_DELIVERY_HANDOFF_20261013.md`를 따른다.
+- items/nextCursor/hasNext 응답을 반환한다. 신규 직접 공유 주문에 알림톡 deliveryStatus는 없으며 실제 generated gift OpenAPI를 따른다. chargedShells/accessExpiresAt은 null 가능하다. 상세 계약은 `backend/docs/GIFT_DIRECT_LINK_HANDOFF_20261014.md`를 따른다.
 - 원문 토큰과 전체 휴대전화번호를 반환하지 않는다.
 
 ### `GET /gift-orders/{orderId}`
@@ -1039,27 +1039,27 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `GET /gift-orders/{orderId}/delivery`
 
-- 구매자 전용 발송 상태와 canResend/remainingResends/nextResendAt. 실제 대행사 adapter 미연결 시 canResend=false다.
-- 발송 상태는 PENDING/IN_FLIGHT/RETRY/UNKNOWN/SENT/FAILED/REVIEW_REQUIRED/CANCELED이며 금융 상태와 별개다.
+- 1차 직접 공유에서 HTTP controller는 제거됐다. 기존 알림톡 내부 서비스·DB는 2차/과거 주문용으로 보존한다.
 
 ### `POST /gift-orders/{orderId}/deliveries`
 
-- local/test 구현, 실제 대행사 adapter는 미연결
-- 인증·CSRF·`Idempotency-Key` 필요
-- 구 링크를 폐기하고 같은 수신자에게 새 token의 발송 job을 예약한다. 202는 예약이지 전달 완료가 아니다. token 원문은 반환하지 않는다.
-- 주문별 재발송+재발급 합산 일 3회·1분 간격, 같은 요청 키 재전송은 횟수를 중복 사용하지 않는다. UNKNOWN/IN_FLIGHT/검토 상태에는 수동 요청하지 않는다.
-- 실제 구매 차감 시각부터 30일 미만에만 새 발송을 허용한다. 30일 이후 전화번호 정리는 별도 worker로 수행하며 기존 90일 링크 권한과 결과 불명 조회는 유지한다.
+- 1차 직접 공유에서 제공하지 않는다. 알림톡 발송 API는 2차 계약이다.
+
+### `GET /gift-orders/{orderId}/link`
+
+- 구매자 로그인·소유권을 검사한 뒤 링크를 조회한다. 24시간 원문 공개기간이 끝나면 shareUrl=null이다. 수신자의 90일 권한을 뜻하는 expiresAt과 구분한다.
+- orderId/giftId/tokenVersion/expiresAt/shareUrl/reused와 현재 canReissue/remainingReissues/nextReissueAt를 반환한다. 상세 schema는 generated gift OpenAPI를 따른다.
 
 ### `POST /gift-orders/{orderId}/link-reissues`
 
-- local/test 구현, 실제 대행사 adapter는 미연결
-- 인증·CSRF·`Idempotency-Key` 필요
-- 기존 토큰을 폐기하고 새 토큰의 발송 작업을 예약한다. 202이며 선물 만료일은 연장하지 않는다.
-- 응답은 발송 상태와 요청 가능 여부이고 새 원문 토큰을 반환하지 않는다. 마스킹 번호는 주문/목록에서 조회한다.
+- 구매자 인증·소유권·CSRF·`Idempotency-Key` 필요. 200 응답은 token 재발급 완료이며 실제 전달/콘텐츠 완료를 뜻하지 않는다.
+- 실제 구매 차감부터 30일 미만, 주문별 KST 하루 3회·1분 간격으로 재발급한다. 새 token과 24시간 원문 공개기간을 만들고 구 token을 폐기하며 선물 만료일은 연장하지 않는다.
+- 동일 key replay는 횟수를 다시 쓰지 않는다. 이전 key 이후 다른 재발급이 있었다면 이전 version과 shareUrl=null을 반환한다. 다른 주문에 같은 key를 사용하면 409 IDEMPOTENCY_KEY_REUSED다.
+- 기간/상태 제한은 GIFT_LINK_REISSUE_NOT_ALLOWED, 횟수/간격 제한은 GIFT_LINK_REISSUE_LIMIT_EXCEEDED다. 원문 조회/재발급 계약은 gift OpenAPI와 `GIFT_DIRECT_LINK_HANDOFF_20261014.md`를 따른다.
 
 ### `POST /webhooks/alimtalk`
 
-- 설계·미구현
+- 2차 알림톡 설계·미구현. 1차 직접 공유에는 없다.
 - 알림톡 대행사의 서명과 이벤트 ID를 검증하고 멱등 처리한다.
 - 발송 성공·실패·수신 불가 상태를 선물 전달 기록에 반영한다.
 - 원문 휴대전화번호와 선물 토큰을 로그에 남기지 않는다.

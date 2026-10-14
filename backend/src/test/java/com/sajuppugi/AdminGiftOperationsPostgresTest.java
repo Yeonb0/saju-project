@@ -290,7 +290,7 @@ class AdminGiftOperationsPostgresTest extends GiftLifecyclePostgresTest {
                     var link = links.reissue(owner, order.orderId(), new com.sajuppugi.common.idempotency.IdempotencyKey("race-link"));
                     assertThat(link.toString()).doesNotContain(link.shareUrl());
                 } catch (ApiException rejected) {
-                    assertThat(rejected.errorCode()).isEqualTo(com.sajuppugi.common.api.ErrorCode.GIFT_CANCEL_NOT_ALLOWED);
+                    assertThat(rejected.errorCode()).isEqualTo(com.sajuppugi.common.api.ErrorCode.GIFT_LINK_REISSUE_NOT_ALLOWED);
                 }
                 return true;
             });
