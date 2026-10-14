@@ -15,10 +15,10 @@ describe("sentryOptions", () => {
 
   it("beforeSend 가 request.url 을 가린다", () => {
     const event = {
-      request: { url: "https://x.vercel.app/g/abc123?ref=kakao" },
+      request: { url: "https://x.vercel.app/g#token=abc123" },
     } as ErrorEvent;
     expect(options.beforeSend(event).request?.url).toBe(
-      "https://x.vercel.app/g/[token]",
+      "https://x.vercel.app/g",
     );
   });
 
@@ -26,20 +26,18 @@ describe("sentryOptions", () => {
     const event = {
       request: {
         url: "https://x.vercel.app/",
-        headers: { Referer: "https://x.vercel.app/g/abc123?x=1" },
+        headers: { Referer: "https://x.vercel.app/g#token=abc123" },
         query_string: "x=1",
       },
     } as unknown as ErrorEvent;
     const masked = options.beforeSend(event);
-    expect(masked.request?.headers?.Referer).toBe(
-      "https://x.vercel.app/g/[token]",
-    );
+    expect(masked.request?.headers?.Referer).toBe("https://x.vercel.app/g");
     expect(masked.request?.query_string).toBeUndefined();
   });
 
   it("beforeBreadcrumb 가 data.url 을 가린다", () => {
-    const breadcrumb = { data: { url: "/g/abc123?x=1" } } as Breadcrumb;
-    expect(options.beforeBreadcrumb(breadcrumb).data?.url).toBe("/g/[token]");
+    const breadcrumb = { data: { url: "/g#token=abc123" } } as Breadcrumb;
+    expect(options.beforeBreadcrumb(breadcrumb).data?.url).toBe("/g");
   });
 });
 
@@ -61,15 +59,15 @@ describe("posthogOptions", () => {
     const result = {
       uuid: "u",
       event: "$pageview",
-      properties: { $initial_pathname: "/g/abc123" },
+      properties: { $initial_pathname: "/g#token=abc123" },
       $set_once: {
-        $initial_current_url: "https://x.vercel.app/g/abc123?ref=kakao",
+        $initial_current_url: "https://x.vercel.app/g#token=abc123",
       },
     } as unknown as CaptureResult;
     const masked = before(result);
-    expect(masked?.properties.$initial_pathname).toBe("/g/[token]");
+    expect(masked?.properties.$initial_pathname).toBe("/g");
     expect(masked?.$set_once?.$initial_current_url).toBe(
-      "https://x.vercel.app/g/[token]",
+      "https://x.vercel.app/g",
     );
   });
 
@@ -86,20 +84,20 @@ describe("posthogOptions", () => {
     const result = {
       uuid: "u",
       event: "custom",
-      properties: { $current_url: "/g/abc123" },
+      properties: { $current_url: "/g#token=abc123" },
     } as CaptureResult;
     expect(() => before(result)).not.toThrow();
-    expect(before(result)?.properties.$current_url).toBe("/g/[token]");
+    expect(before(result)?.properties.$current_url).toBe("/g");
   });
 
   it("before_send 가 $current_url 을 가린다", () => {
     const result = {
       uuid: "u",
       event: "$pageview",
-      properties: { $current_url: "https://x.vercel.app/g/abc123?ref=kakao" },
+      properties: { $current_url: "https://x.vercel.app/g#token=abc123" },
     } as CaptureResult;
     expect(before(result)?.properties.$current_url).toBe(
-      "https://x.vercel.app/g/[token]",
+      "https://x.vercel.app/g",
     );
   });
 });

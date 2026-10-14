@@ -10,6 +10,7 @@ import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.gift.application.GiftOrderService;
 import com.sajuppugi.gift.application.GiftPurchaseTransactions;
 import com.sajuppugi.gift.application.GiftPurchaseService;
+import com.sajuppugi.gift.application.GiftLinkService;
 import com.sajuppugi.gift.application.GiftQuoteService;
 import com.sajuppugi.gift.domain.GiftLifetimePolicy;
 import com.sajuppugi.gift.infrastructure.GiftPayloadCipher;
@@ -40,6 +41,7 @@ class GiftPurchasePersistenceTest {
     @Autowired GiftQuoteService quotes;
     @Autowired GiftPurchaseTransactions purchases;
     @Autowired GiftPurchaseService service;
+    @Autowired GiftLinkService linksService;
     @Autowired WalletPurchasePort wallet;
     @Autowired WalletPurchaseReceiptPort receipts;
     @Autowired GiftPayloadCipher cipher;
@@ -53,7 +55,7 @@ class GiftPurchasePersistenceTest {
     }
     @AfterEach void cleanup() {
         reset(AopTestUtils.<JdbcGiftPurchaseWork>getUltimateTargetObject(work));
-        for (String table : List.of("gift_delivery_outbox", "gift_purchase_tokens", "gift_purchase_work")) {
+        for (String table : List.of("gift_link_commands", "gift_delivery_outbox", "gift_purchase_tokens", "gift_purchase_work")) {
             jdbc.update("DELETE FROM " + table + " WHERE order_id IN (SELECT id FROM gift_order_drafts WHERE user_id = ?)", owner);
         }
         jdbc.update("DELETE FROM gift_order_commands WHERE user_id = ?", owner);
@@ -70,7 +72,7 @@ class GiftPurchasePersistenceTest {
     }
     private GiftOrderService.Order order() {
         UUID quote = quotes.issue(owner, Product.FortuneType.SUNEUNG, GiftQuoteService.Option.TALISMAN_ONLY).funding().quote().id();
-        return drafts.create(owner, quote, new GiftOrderService.Payload("recipient", "01012345678", "sender", "message"), UUID.randomUUID().toString());
+        return drafts.create(owner, quote, new GiftOrderService.Payload("recipient", "sender", "message"), UUID.randomUUID().toString());
     }
     private void grant() {
         Instant now = Instant.now();
@@ -85,13 +87,13 @@ class GiftPurchasePersistenceTest {
     private int debits() {
         return jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transactions WHERE wallet_user_id = ? AND type = 'PURCHASE'", Integer.class, owner);
     }
-    private int sends(UUID order) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM gift_delivery_outbox WHERE order_id = ?", Integer.class, order);
+    private int links(UUID order) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM gift_purchase_tokens WHERE order_id = ?", Integer.class, order);
     }
     private void due(UUID order) {
         jdbc.update("UPDATE gift_purchase_work SET next_attempt_at = ? WHERE order_id = ?", Timestamp.from(Instant.now().minusSeconds(1)), order);
     }
-    @Test void activationCommitsOneDebitAndEncryptedPendingDeliveryWithoutSending() {
+    @Test void activationCommitsOneDebitAndEncryptedDirectLink() {
         grant(); var order = order();
         purchases.begin(owner, order.orderId());
         var active = purchases.activate(owner, order.orderId());
@@ -100,25 +102,23 @@ class GiftPurchasePersistenceTest {
         assertThat(purchases.activate(owner, order.orderId())).isEqualTo(active);
         assertThat(debits()).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT paid_balance FROM wallets WHERE user_id = ?", Integer.class, owner)).isEqualTo(10);
-        assertThat(sends(order.orderId())).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT status FROM gift_delivery_outbox WHERE order_id = ?", String.class, order.orderId())).isEqualTo("PENDING");
-        UUID outbox = jdbc.queryForObject("SELECT id FROM gift_delivery_outbox WHERE order_id = ?", UUID.class, order.orderId());
-        String encrypted = jdbc.queryForObject("SELECT private_payload FROM gift_delivery_outbox WHERE id = ?", String.class, outbox);
-        assertThat(encrypted).startsWith("v1:").doesNotContain("01012345678", "recipient", "token");
-        assertThat(cipher.decrypt(encrypted, "gift-delivery|" + outbox)).contains("token", "01012345678");
+        assertThat(links(order.orderId())).isEqualTo(1);
+        String encrypted = jdbc.queryForObject("SELECT token_ciphertext FROM gift_purchase_tokens WHERE order_id = ?", String.class, order.orderId());
+        assertThat(encrypted).startsWith("v1:").doesNotContain("recipient", "token");
+        assertThat(cipher.decrypt(encrypted, "gift-link|" + order.orderId() + "|1")).hasSize(43);
         assertThat(jdbc.queryForObject("SELECT token_hash FROM gift_purchase_tokens WHERE order_id = ?", String.class, order.orderId())).matches("[a-f0-9]{64}");
         assertThat(jdbc.queryForObject("SELECT access_expires_at FROM gift_purchase_work WHERE order_id = ?", Timestamp.class, order.orderId()).toInstant())
                 .isEqualTo(GiftLifetimePolicy.unusedExpiresAt(active.approvedAt()));
     }
-    @Test void outboxFailureRollsBackGrantButRecoversCommittedDebitAfterQuoteExpiry() {
+    @Test void linkPersistenceFailureRollsBackGrantButRecoversCommittedDebitAfterQuoteExpiry() {
         grant(); var order = order(); purchases.begin(owner, order.orderId());
-        doThrow(new IllegalStateException("synthetic-outbox-failure"))
-                .when(AopTestUtils.<JdbcGiftPurchaseWork>getUltimateTargetObject(work)).enqueue(any(), any(), anyString(), any());
+        doThrow(new IllegalStateException("synthetic-link-failure"))
+                .when(AopTestUtils.<JdbcGiftPurchaseWork>getUltimateTargetObject(work)).token(any(), anyString(), anyString(), any(), any());
         assertThatThrownBy(() -> purchases.activate(owner, order.orderId())).isInstanceOf(org.springframework.dao.DataAccessException.class);
         assertThat(debits()).isEqualTo(1);
         var evidence = receipts.findDebitEvidence(owner, order.quoteId()).orElseThrow();
         assertThat(purchases.get(owner, order.orderId()).status()).isEqualTo("PENDING");
-        assertThat(sends(order.orderId())).isZero();
+        assertThat(links(order.orderId())).isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_purchase_tokens WHERE order_id = ?", Integer.class, order.orderId())).isZero();
         reset(AopTestUtils.<JdbcGiftPurchaseWork>getUltimateTargetObject(work));
         Instant expired = Instant.now().minusSeconds(1);
@@ -129,7 +129,7 @@ class GiftPurchasePersistenceTest {
         assertThat(active.approvedAt()).isEqualTo(evidence.committedAt());
         assertThat(active.walletTransactionId()).isEqualTo(evidence.receipt().transactionId());
         assertThat(debits()).isEqualTo(1);
-        assertThat(sends(order.orderId())).isEqualTo(1);
+        assertThat(links(order.orderId())).isEqualTo(1);
     }
     @Test void simultaneousActivationConvergesOnOneGiftAndDebit() throws Exception {
         grant(); var order = order(); purchases.begin(owner, order.orderId());
@@ -140,33 +140,50 @@ class GiftPurchasePersistenceTest {
             start.countDown();
             assertThat(a.get(20, TimeUnit.SECONDS).giftId()).isEqualTo(b.get(20, TimeUnit.SECONDS).giftId());
         }
-        assertThat(debits()).isEqualTo(1); assertThat(sends(order.orderId())).isEqualTo(1);
+        assertThat(debits()).isEqualTo(1); assertThat(links(order.orderId())).isEqualTo(1);
+    }
+    @Test void buyerCanReplayAndExplicitlyRotateLinkWithoutExtendingExpiry() {
+        grant(); var order = order();
+        var active = service.purchase(owner, order.orderId());
+        var initial = linksService.get(owner, order.orderId());
+        assertThat(initial.shareUrl()).startsWith("http://localhost:3000/g#token=");
+        assertThat(initial.expiresAt()).isEqualTo(GiftLifetimePolicy.unusedExpiresAt(active.approvedAt()));
+        assertThatThrownBy(() -> linksService.get(UUID.randomUUID(), order.orderId())).isInstanceOf(ApiException.class);
+
+        var first = linksService.reissue(owner, order.orderId(), new IdempotencyKey("rotate-once"));
+        var replay = linksService.reissue(owner, order.orderId(), new IdempotencyKey("rotate-once"));
+        assertThat(first.tokenVersion()).isEqualTo(2);
+        assertThat(replay.tokenVersion()).isEqualTo(2);
+        assertThat(replay.shareUrl()).isEqualTo(first.shareUrl());
+        assertThat(first.expiresAt()).isEqualTo(initial.expiresAt());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_link_commands WHERE order_id = ?", Integer.class, order.orderId())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_purchase_tokens WHERE order_id = ?", Integer.class, order.orderId())).isEqualTo(1);
     }
     @Test void compensatedDebitDoesNotActivateOrEnqueue() {
         grant(); var order = order(); purchases.begin(owner, order.orderId());
         var debit = wallet.debit(owner, order.quoteId(), new IdempotencyKey("preexisting"));
         wallet.compensate(debit.transactionId(), "GIFT_GENERATION_FAILED", new IdempotencyKey("refund"));
         assertThat(purchases.activate(owner, order.orderId()).status()).isEqualTo("REFUNDED");
-        assertThat(sends(order.orderId())).isZero(); assertThat(debits()).isEqualTo(1);
+        assertThat(links(order.orderId())).isZero(); assertThat(debits()).isEqualTo(1);
     }
     @Test void saleClosureWithoutDebitFailsWithoutAutomaticRetry() {
         grant(); var order = order();
         jdbc.update("UPDATE products SET active = FALSE WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'");
         assertThat(service.purchase(owner, order.orderId()).status()).isEqualTo("FAILED");
         due(order.orderId()); service.recoverDue();
-        assertThat(debits()).isZero(); assertThat(sends(order.orderId())).isZero();
+        assertThat(debits()).isZero(); assertThat(links(order.orderId())).isZero();
     }
     @Test void inconsistentReceiptAmountRequiresReviewWithoutGrant() {
         grant(); var order = order(); purchases.begin(owner, order.orderId());
         wallet.debit(owner, order.quoteId(), new IdempotencyKey("preexisting"));
         jdbc.update("UPDATE gift_order_drafts SET shell_amount = 15 WHERE id = ?", order.orderId());
         assertThat(purchases.activate(owner, order.orderId()).status()).isEqualTo("REVIEW_REQUIRED");
-        assertThat(sends(order.orderId())).isZero(); assertThat(debits()).isEqualTo(1);
+        assertThat(links(order.orderId())).isZero(); assertThat(debits()).isEqualTo(1);
     }
     @Test void insufficientBalanceFailsWithoutDebitOrDeliveryAndOwnershipIsEnforced() {
         var order = order(); purchases.begin(owner, order.orderId());
         assertThat(purchases.activate(owner, order.orderId()).status()).isEqualTo("FAILED");
-        assertThat(debits()).isZero(); assertThat(sends(order.orderId())).isZero();
+        assertThat(debits()).isZero(); assertThat(links(order.orderId())).isZero();
         assertThatThrownBy(() -> purchases.begin(UUID.randomUUID(), order.orderId())).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> purchases.activate(UUID.randomUUID(), order.orderId())).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> purchases.get(UUID.randomUUID(), order.orderId())).isInstanceOf(ApiException.class);
@@ -190,8 +207,8 @@ class GiftPurchasePersistenceTest {
     }
     @Test void durableRecoveryOnlyProcessesExplicitIntentAndRespectsBackoff() {
         grant(); var order = order(); var draftOnly = order();
-        doThrow(new IllegalStateException("synthetic-outbox-failure"))
-                .when(AopTestUtils.<JdbcGiftPurchaseWork>getUltimateTargetObject(work)).enqueue(any(), any(), anyString(), any());
+        doThrow(new IllegalStateException("synthetic-link-failure"))
+                .when(AopTestUtils.<JdbcGiftPurchaseWork>getUltimateTargetObject(work)).token(any(), anyString(), anyString(), any(), any());
         var pending = service.purchase(owner, order.orderId());
         assertThat(pending.status()).isEqualTo("PENDING");
         assertThat(pending.failures()).isEqualTo(1);
@@ -205,6 +222,6 @@ class GiftPurchasePersistenceTest {
         assertThat(purchases.get(owner, order.orderId()).status()).isEqualTo("ACTIVE");
         assertThat(debits()).isEqualTo(1);
         assertThat(receipts.findDebit(owner, draftOnly.quoteId())).isEmpty();
-        assertThat(sends(order.orderId())).isEqualTo(1);
+        assertThat(links(order.orderId())).isEqualTo(1);
     }
 }

@@ -1,7 +1,5 @@
 package com.sajuppugi.gift.application;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ErrorCode;
 import com.sajuppugi.common.idempotency.IdempotencyKey;
@@ -17,9 +15,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -37,13 +35,12 @@ public class GiftPurchaseTransactions {
     private final WalletPurchasePort wallet;
     private final WalletPurchaseReceiptPort receipts;
     private final GiftPayloadCipher cipher;
-    private final ObjectMapper mapper;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
     public GiftPurchaseTransactions(JdbcGiftOrders orders, JdbcGiftPurchaseWork work, WalletPurchasePort wallet,
-            WalletPurchaseReceiptPort receipts, GiftPayloadCipher cipher, ObjectMapper mapper, Clock clock) {
+            WalletPurchaseReceiptPort receipts, GiftPayloadCipher cipher, Clock clock) {
         this.orders = orders; this.work = work; this.wallet = wallet; this.receipts = receipts;
-        this.cipher = cipher; this.mapper = mapper; this.clock = clock;
+        this.cipher = cipher; this.clock = clock;
         // Cipher refuses non-local/test profiles and missing synthetic/local encryption configuration.
         cipher.fingerprint("gift-purchase-startup");
     }
@@ -94,17 +91,15 @@ public class GiftPurchaseTransactions {
         } else if (!clock.instant().isBefore(GiftLifetimePolicy.unusedExpiresAt(evidence.committedAt()))) {
             work.stop(id, "REVIEW_REQUIRED", "GIFT_RECOVERY_WINDOW_EXPIRED");
         } else {
-            UUID gift = UUID.randomUUID(), outbox = UUID.randomUUID();
+            UUID gift = UUID.randomUUID();
             byte[] bytes = new byte[32];
             random.nextBytes(bytes);
             String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-            String original = cipher.decrypt(work.payload(id), user + "|" + id);
-            String delivery = json(Map.of("giftId", gift, "token", token, "orderPayload", original));
             work.activate(id, debit.transactionId(), debit.debitedAmount(), evidence.committedAt(), gift,
                     GiftLifetimePolicy.unusedExpiresAt(evidence.committedAt()));
-            work.token(id, hash(token));
-            // Grant, hashed token and encrypted send intent commit together, after the independent wallet receipt.
-            work.enqueue(outbox, id, cipher.encrypt(delivery, "gift-delivery|" + outbox), clock.instant());
+            Instant issuedAt = clock.instant();
+            work.token(id, hash(token), cipher.encrypt(token, "gift-link|" + id + "|1"), issuedAt,
+                    issuedAt.plus(java.time.Duration.ofHours(24)));
         }
         return work.get(id, false).orElseThrow();
     }
@@ -117,10 +112,6 @@ public class GiftPurchaseTransactions {
     }
     private GiftOrderService.Order owned(UUID user, UUID id) {
         return orders.owned(user, id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-    }
-    private String json(Object payload) {
-        try { return mapper.writeValueAsString(payload); }
-        catch (JsonProcessingException failure) { throw new IllegalStateException("Gift delivery serialization failed"); }
     }
     private String hash(String value) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }

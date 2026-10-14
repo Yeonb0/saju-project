@@ -5,10 +5,10 @@ import { maskUrl } from "./maskUrl";
 // 이 파일의 토큰 · 주문번호 · 금액은 픽스처일 뿐, 실제 형식 · 가격과 무관하다.
 
 describe("maskUrl", () => {
-  it("선물 토큰을 패턴으로 바꾸고, 절대 URL 은 origin 을 유지하며 쿼리 · 해시를 지운다", () => {
-    expect(maskUrl("/g/abc123")).toBe("/g/[token]");
-    expect(maskUrl("https://x.vercel.app/g/abc123?ref=kakao#top")).toBe(
-      "https://x.vercel.app/g/[token]",
+  it("선물 토큰 fragment를 제거하고, 절대 URL 은 origin 을 유지한다", () => {
+    expect(maskUrl("/g#token=abc123")).toBe("/g");
+    expect(maskUrl("https://x.vercel.app/g#token=abc123")).toBe(
+      "https://x.vercel.app/g",
     );
   });
 

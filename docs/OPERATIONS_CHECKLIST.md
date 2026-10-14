@@ -10,6 +10,12 @@
 - 검사: 권한/CSRF/최소 응답·목록 cursor/검토 필터·중복·변경 입력·동시 재개·운영자 합산 한도·감사 실패 rollback·권한 철회·비활성 worker/이미 파기 거절·목적 조건 보호·재개 후 실제 전화번호 정리/replay 무복원·전환 재개 무암호문 수정·금융 불변. 관리자 전용 OpenAPI만 생성했으며 공유 계약/FE 타입은 그대로다.
 - 적용: 6-1 서버 권한/CSRF, 6-2 잠금/원장 불변/원자성, 6-4 영속 대응/제한 재개, 6-5 비밀 링크 비노출, 6-6 추가 migration/비활성/분리 DB, 6-8 감사/문의 조회, 6-9 개인정보 무복원. 실제 알림톡/PG·FE/B E2E·운영 배포/삭제·OS 강제 종료·부하/백업 복원은 미검증이다. 문서: `backend/docs/ADMIN_GIFT_OPERATIONS_20261014.md`.
 - 남음: 관리자 발송 결과 불명 재조회/재발송·B 생성 재개·선물 금융 검토 복구·실제 알림 채널·운세 구매/견적 문의 검색·외부 adapter. 조회할 수 있다는 이유로 강제 완료/반환/재발급 기능까지 구현됐다고 표시하지 않는다.
+### 2026-10-14: 1차 선물 직접 링크 기반 전환
+
+- 최신 `origin/main` `2e5964b`에서 `feat/gift-direct-links-v1`을 새로 만들었다. 선물 주문 입력·응답·목록에서 전화번호와 마스킹 번호를 제거하고, 결제 활성화 트랜잭션이 알림톡 outbox 대신 32바이트 난수 token의 SHA-256 hash와 구매 응답 복구용 암호문을 함께 저장하도록 바꿨다. 암호문 공개 기간은 24시간이며 정리 worker가 만료 뒤 NULL 처리한다. 장기 권한은 hash만 남는다.
+- 구매자 소유권을 검사하는 링크 조회와 명시적 재발급 API를 추가했다. 재발급은 요청키별 멱등이고 token version을 원자적으로 증가시키며 기존 hash를 교체한다. 기존 결제 시각 기준 90일 만료는 연장하지 않는다. 공유 URL은 `/g#token=...` fragment를 사용해 token이 HTTP 요청 경로·Referer·OG 요청에 실리지 않도록 했고 FE 관측 마스킹 검사를 함께 갱신했다. 알림톡 조회·재전송·재발급 controller와 신규 주문의 delivery job 생성은 제거했다. 과거 migration/table은 rolling compatibility를 위해 삭제하지 않았다.
+- 적용: 6-1 구매자 소유권/CSRF, 6-2 결제·grant·token 원자성/동시 활성화, 6-4 결제 복구와 token 공개정보 정리 worker, 6-5 32바이트 bearer token/hash 저장/version·폐기·원래 만료일, 6-6 추가형 migration, 6-9 전화번호 미수집·token 로그 노출 축소. PostgreSQL 17 tmpfs 새 DB에서 GitHub Backend CI와 같은 `clean check bootJar`를 실행해 XML 615건 중 603건 통과·12건 선택 제외·실패/오류 0과 bootJar 성공을 확인했다. gift OpenAPI export도 성공했다. FE는 pnpm 실행 파일이 PATH에 없어 설치된 동일 도구를 직접 실행했고 Biome, Next typegen, TypeScript, Vitest 852건, production build가 모두 성공했다.
+- 아직 검증하지 않은 범위: staging 브라우저 A→B 전달 E2E, access/proxy/Sentry/PostHog의 실제 운영 로그 설정, 24시간 정리 worker 강제 중단·재시작, 기존 알림톡 시대 암호 payload의 즉시 변환/파기, 혼합 버전 배포, 부하·백업 복원. 공개 수신·recipient profile·비동기 운세/부적 fulfillment·최초 제공·claim·일반 개인정보 파기는 후속 BE-B 범위다.
 
 ### 2026-10-14: PR #29 PostgreSQL CI 회귀 보완
 
@@ -100,6 +106,8 @@
 - 남음: 문의 채널/환불 신청 경로/처리 기한/정책 시행일/PG 계약 담당자 지정, 법령상 예외 검토, 실제 PG·팀 통합 검증. 아래 이전 기록의 부분 환불 미정/후속 표시는 당시 상태이며 최신 부분 환불 미제공 결정을 우선한다. 기존 테스트 통과를 실제 PG 승인이나 최종 정책 법률 적합성으로 표시하지 않는다.
 
 ### 2026-10-13: FE 10/12 요청서 기준 BE-B 계약·스테이징 설정 점검
+
+- 2026-10-13 부적 보관함의 인증·소유권 경계를 추가했다. `GET /api/v1/talismans`, `GET /api/v1/talismans/{id}`, `POST /api/v1/talismans/{id}/download-url`은 ownership join으로 본인 자원만 조회하며 타인/없는 ID를 같은 404로 처리한다. 목록은 최대 50건의 bounded cursor이고 private object key·owner ID를 응답하지 않는다. 다운로드는 READY 원본에만 10분 URL을 요청하고, 실제 `TalismanAssetAccess`가 없는 환경은 503으로 닫힌다. DB 읽기 transaction이 끝난 뒤 signer를 호출해 외부 호출 동안 transaction/lock을 유지하지 않는다. 적용: 6-1 서버 소유권·인증/CSRF, 6-4 PENDING/FAILED 상태, 6-5 private asset·단기 URL, 6-9 object key 비노출, 6-10 bounded pagination. H2 2건과 PostgreSQL 17.11 전용 DB 2건에서 2페이지 cursor, 타인 404, PENDING 거절, READY URL을 확인했고 bootJar·OpenAPI export·FE TypeScript 검사를 통과했다. 실제 private R2 signer, URL 만료/재사용, 브라우저 보관함, 부하 검증은 아직 미구현/미실행이다.
 
 - 2026-10-13 확정 정책에 맞춰 `GET/POST /api/v1/me/consents`와 `member_consents`를 추가했다. 서버가 현재 이용약관/개인정보처리방침 version(기본 `2026-10-14`), 만 14세 확인, 필수 동의 2종, 선택 마케팅 동의, 동의 시각을 저장하며 같은 사용자·같은 version 재전송은 한 행만 유지한다. 필수 동의 누락은 `REQUIRED_CONSENT_MISSING`으로 거절한다. 인물 생성 gate도 추가했지만 FE 선배포 호환을 위해 `MEMBER_CONSENT_REQUIRED_FOR_PERSON_CREATION=false`가 기본이며, FE가 동의 API를 연결한 환경부터 true로 전환한다. 적용: 6-1 서버 동의 경계/CSRF/활성 회원, 6-6 additive migration과 단계적 rollout, 6-9 최소 동의 기록·version. H2에서 동의/인물/회원 관련 11건과 bootJar·OpenAPI export, PostgreSQL 17.11 전용 DB에서 동의 중복·gate 2건, FE 생성 타입과 TypeScript 검사를 통과했다. 실제 브라우저 HOME-02 연결, staging gate 활성화, 정책 재동의/마케팅 동의 변경·철회 흐름은 아직 미검증/미구현이다.
 
