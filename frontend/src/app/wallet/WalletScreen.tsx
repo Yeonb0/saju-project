@@ -43,12 +43,15 @@ export function WalletScreen({
   port,
   launcher,
   fortunePort,
+  retryProductCode = null,
 }: {
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 진짜 구현이 없으면 던져 오류 화면으로 간다.
   // 포트는 렌더 중이 아니라 요청할 때 고른다: 빌드의 정적 렌더에서 진짜 모드 오류로 빌드가 멈추지 않게.
   port?: TopUpPort;
   launcher?: PaymentLauncher;
   fortunePort?: FortunePort;
+  // 결제 실패 · 취소 뒤 다시 결제하기가 넘긴 상품 코드 (TOPUP-RETRY-URL, FUNCTIONAL_SPEC 7장). 모양만 검사된 값 — 판매 중일 때만 미리 고른다
+  retryProductCode?: string | null;
 }) {
   const router = useRouter();
   const topUp = () => port ?? getTopUpPort();
@@ -92,16 +95,32 @@ export function WalletScreen({
   const shortageQuote =
     quote.data && quote.data.shortage > 0 ? quote.data : null;
 
+  // 다시 결제하기의 상품 유지 (TOPUP-RETRY-URL): 서버 목록에 있고 판매 중일 때만, 사용자가 아직 고르지 않았을 때 한 번만 미리 고른다.
+  // 없거나 비활성이면 아무것도 고르지 않는다(오류 아님). 잔액 부족 추천보다 앞선다. 동의 체크는 미리 하지 않는다.
+  const retryPreselected = useRef(false);
+  useEffect(() => {
+    if (retryPreselected.current || retryProductCode === null) return;
+    if (selected !== null || !products.data) return;
+    retryPreselected.current = true;
+    if (products.data.some((p) => p.code === retryProductCode && p.active)) {
+      // 같은 렌더에서 아래 추천 미리 고르기가 덮어쓰지 않게 막는다
+      preselected.current = true;
+      setSelected(retryProductCode);
+    }
+  }, [retryProductCode, selected, products.data]);
+
   // 추천 충전 상품은 서버 값 (P-06). 사용자가 아직 고르지 않았을 때 한 번만 미리 고른다
   const preselected = useRef(false);
   useEffect(() => {
     if (preselected.current || selected !== null || !shortageQuote) return;
+    // 다시 결제하기 상품이 있으면 그쪽이 먼저다 — 목록을 받은 뒤 그 판정이 끝날 때까지 기다린다
+    if (retryProductCode !== null && !retryPreselected.current) return;
     const code = shortageQuote.recommendedTopUp;
     if (code === null) return;
     if (!products.data?.some((p) => p.code === code && p.active)) return;
     preselected.current = true;
     setSelected(code);
-  }, [selected, shortageQuote, products.data]);
+  }, [selected, shortageQuote, products.data, retryProductCode]);
   // 구매 의도 하나에 키 하나 — 실패 후 다시 눌러도 같은 상품이면 같은 키 (I-05)
   const intent = useRef<Intent | null>(null);
   // 같은 틱의 두 번째 탭은 렌더 전이라 isPending 이 아직 false 다 — ref 로 한 번 더 막는다
@@ -113,7 +132,9 @@ export function WalletScreen({
         { productCode: next.productCode },
         next.key,
       );
-      await pay().requestPayment(created);
+      await pay().requestPayment(created, {
+        retryProductCode: next.productCode,
+      });
     },
   });
 

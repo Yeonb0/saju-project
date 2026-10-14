@@ -48,6 +48,28 @@ describe("/pay/fail (PAY-05)", () => {
     expect(document.body.textContent).not.toContain("FIXTURE");
   });
 
+  it("product=FIXTURE_TOP_UP_X 면 다시 결제하기가 상품을 유지하고, 그 코드는 화면 글자에 없다 (TOPUP-RETRY-URL)", async () => {
+    // 픽스처일 뿐이며 실제 상품 코드와 무관하다
+    render(await Page(props({ product: "FIXTURE_TOP_UP_X" })));
+    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
+      "href",
+      "/wallet?product=FIXTURE_TOP_UP_X",
+    );
+    expect(document.body.textContent).not.toContain("FIXTURE_TOP_UP_X");
+  });
+
+  it.each([
+    ["이상한 값", { product: "x<y" }],
+    ["없음", {}],
+    ["여러 번", { product: ["FIXTURE_TOP_UP_X", "FIXTURE_TOP_UP_Y"] }],
+  ])("product %s 면 다시 결제하기는 /wallet", async (_name, query) => {
+    render(await Page(props(query)));
+    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
+      "href",
+      "/wallet",
+    );
+  });
+
   it("다시 결제하기(/wallet) · 홈으로(/) 링크, 헤더 없음", async () => {
     render(await Page(props({})));
     const links = within(screen.getByTestId("app-cta")).getAllByRole("link");

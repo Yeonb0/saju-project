@@ -51,12 +51,15 @@ describe("포트 선택 (MOCK-PORT)", () => {
       status: "PAYMENT_PENDING" as const,
     };
 
+    // 픽스처일 뿐이며 실제 상품 코드와 무관하다
+    const OPTIONS = { retryProductCode: "FIXTURE_TOP_UP_X" };
+
     // 토스 결제창은 키가 없으면 SDK 를 부르기 전에 던진다 — 가짜 결제창과 구별하는 데 쓴다
     async function opensToss(
       launcher: ReturnType<typeof selectPaymentLauncher>,
     ) {
       const error = await launcher
-        .requestPayment(ORDER)
+        .requestPayment(ORDER, OPTIONS)
         .catch((e: unknown) => e);
       return error instanceof Error && error.message.includes("TOSS-SDK");
     }
@@ -67,7 +70,10 @@ describe("포트 선택 (MOCK-PORT)", () => {
       "fake",
     ])("h. 가짜 모드 %j 는 가짜 결제창 — navigate 로 /pay/success", async (raw) => {
       const navigate = vi.fn();
-      await selectPaymentLauncher("mock", navigate, raw).requestPayment(ORDER);
+      await selectPaymentLauncher("mock", navigate, raw).requestPayment(
+        ORDER,
+        OPTIONS,
+      );
       expect(navigate.mock.calls[0][0]).toContain("/pay/success");
     });
 
@@ -105,13 +111,16 @@ describe("포트 선택 (MOCK-PORT)", () => {
 
   it("가짜 결제창은 서버 주문 값 그대로 /pay/success 로 보낸다", async () => {
     const navigate = vi.fn();
-    await selectPaymentLauncher("mock", navigate).requestPayment({
-      // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다
-      orderId: "33333333-3333-4333-8333-333333333333",
-      orderName: "FIXTURE",
-      amount: { currency: "KRW", amount: 1111 },
-      status: "PAYMENT_PENDING",
-    });
+    await selectPaymentLauncher("mock", navigate).requestPayment(
+      {
+        // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다
+        orderId: "33333333-3333-4333-8333-333333333333",
+        orderName: "FIXTURE",
+        amount: { currency: "KRW", amount: 1111 },
+        status: "PAYMENT_PENDING",
+      },
+      { retryProductCode: "FIXTURE_TOP_UP_X" },
+    );
     const url = new URL(navigate.mock.calls[0][0], "http://localhost");
     expect(url.pathname).toBe("/pay/success");
     expect(url.searchParams.get("orderId")).toBe(

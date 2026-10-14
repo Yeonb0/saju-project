@@ -58,6 +58,60 @@ const mailSubject = (link: HTMLElement) =>
     (link.getAttribute("href") ?? "").split("?subject=")[1] ?? "",
   );
 
+describe("WalletScreen — 다시 결제하기 상품 유지 (TOPUP-RETRY-URL, FUNCTIONAL_SPEC 7장)", () => {
+  // 픽스처일 뿐이며 실제 상품 코드 · 가격과 무관하다
+  const renderRetry = (retryProductCode: string | null) => {
+    const port = createFakeTopUpPort();
+    const launcher: PaymentLauncher = { requestPayment: vi.fn(async () => {}) };
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <WalletScreen
+          port={port}
+          launcher={launcher}
+          retryProductCode={retryProductCode}
+        />
+      </QueryClientProvider>,
+    );
+    return { port, launcher };
+  };
+  const checkedRadios = () =>
+    (screen.getAllByRole("radio") as HTMLInputElement[])
+      .filter((r) => r.checked)
+      .map((r) => r.value);
+
+  it("판매 중인 상품이면 처음부터 골라져 있고, 동의는 미리 체크하지 않아 결제하기는 꺼져 있다", async () => {
+    renderRetry("FIXTURE_TOP_UP_C");
+    await waitFor(() => expect(checkedRadios()).toEqual(["FIXTURE_TOP_UP_C"]));
+    expect(screen.getByRole("checkbox", { name: AGREEMENT })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+  });
+
+  it.each([
+    ["비활성 상품", "FIXTURE_TOP_UP_INACTIVE"],
+    ["목록에 없는 코드", "FIXTURE_NOT_IN_LIST"],
+  ])("%s 이면 아무것도 고르지 않고 오류도 아니다", async (_name, code) => {
+    renderRetry(code);
+    await screen.findAllByRole("radio");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(checkedRadios()).toEqual([]);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("결제하기 → requestPayment 두 번째 인자는 고른 상품 code", async () => {
+    const user = userEvent.setup();
+    const { launcher } = renderRetry("FIXTURE_TOP_UP_C");
+    await waitFor(() => expect(checkedRadios()).toEqual(["FIXTURE_TOP_UP_C"]));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await waitFor(() =>
+      expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
+    );
+    expect(vi.mocked(launcher.requestPayment).mock.calls[0][1]).toEqual({
+      retryProductCode: "FIXTURE_TOP_UP_C",
+    });
+  });
+});
+
 describe("WalletScreen (PAY-01)", () => {
   it("서버(가짜) 상품 값을 그대로 보여 주고, 비활성 상품은 고를 수 없다", async () => {
     setup();
@@ -209,7 +263,10 @@ describe("WalletScreen (PAY-01)", () => {
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
     const order = await createOrder.mock.results[0].value;
-    expect(launcher.requestPayment).toHaveBeenCalledWith(order);
+    // 두 번째 인자: 주문을 만든 상품 코드 (TOPUP-RETRY-URL) — 2번째 카드는 FIXTURE_TOP_UP_B
+    expect(launcher.requestPayment).toHaveBeenCalledWith(order, {
+      retryProductCode: "FIXTURE_TOP_UP_B",
+    });
   });
 
   it("실패 후 다시 눌러도 같은 상품이면 같은 Idempotency-Key", async () => {
@@ -437,13 +494,17 @@ describe("WalletScreen (PAY-01)", () => {
       );
     }
 
-    function renderWith(fortune: FortunePort) {
+    function renderWith(
+      fortune: FortunePort,
+      retryProductCode: string | null = null,
+    ) {
       return render(
         <QueryClientProvider client={makeQueryClient()}>
           <WalletScreen
             port={createFakeTopUpPort()}
             launcher={{ requestPayment: vi.fn(async () => {}) }}
             fortunePort={fortune}
+            retryProductCode={retryProductCode}
           />
         </QueryClientProvider>,
       );
@@ -617,6 +678,18 @@ describe("WalletScreen (PAY-01)", () => {
       await settle();
       expect(getQuote).not.toHaveBeenCalled();
       expect(shortageBlock(container)).toBeNull();
+    });
+
+    it("retryProductCode 와 잔액 부족 추천이 둘 다 있으면 retryProductCode 가 골라진다 (TOPUP-RETRY-URL)", async () => {
+      const { fortune, quote } = await makeQuote();
+      // 추천(서버 값)과 다른 판매 중 상품을 다시 결제하기 상품으로 쓴다 (픽스처일 뿐이다)
+      expect(quote.recommendedTopUp).not.toBe("FIXTURE_TOP_UP_D");
+      saveFor(quote);
+      renderWith(fortune, "FIXTURE_TOP_UP_D");
+      await waitFor(() => expect(checkedCodes()).toEqual(["FIXTURE_TOP_UP_D"]));
+      // 추천이 뒤늦게 덮어쓰지 않는다
+      await settle();
+      expect(checkedCodes()).toEqual(["FIXTURE_TOP_UP_D"]);
     });
 
     it("j. 화면을 그린 뒤에도 저장값이 그대로 남는다", async () => {
