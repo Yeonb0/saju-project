@@ -75,11 +75,23 @@ public class GiftLinkService {
 
     @Transactional(timeout = 5)
     public int purgeExpired() {
-        return jdbc.update("UPDATE gift_purchase_tokens SET token_ciphertext = NULL WHERE token_ciphertext IS NOT NULL AND reveal_until <= ?",
-                Timestamp.from(clock.instant()));
+        return jdbc.update("""
+                UPDATE gift_purchase_tokens t SET token_ciphertext = NULL
+                WHERE t.token_ciphertext IS NOT NULL AND (t.reveal_until <= ? OR t.revoked = TRUE OR EXISTS
+                    (SELECT 1 FROM gift_purchase_work w WHERE w.order_id = t.order_id
+                        AND (w.status <> 'ACTIVE' OR w.access_expires_at <= ?)))
+                """, Timestamp.from(clock.instant()), Timestamp.from(clock.instant()));
     }
 
     private Token owned(UUID buyer, UUID orderId, boolean lock) {
+        // Match cancellation, first provision and privacy maintenance: work before token.
+        if (lock) {
+            var grants = jdbc.query("""
+                    SELECT w.order_id FROM gift_purchase_work w JOIN gift_order_drafts d ON d.id = w.order_id
+                    WHERE d.user_id = ? AND d.id = ? FOR UPDATE OF w
+                    """, (rs, row) -> rs.getObject(1, UUID.class), buyer, orderId);
+            if (grants.isEmpty()) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
         var rows = jdbc.query("""
                 SELECT w.gift_id,w.status,w.access_expires_at,t.revoked,t.token_version,t.token_ciphertext,
                     t.issued_at,t.reveal_until FROM gift_order_drafts d
@@ -115,5 +127,7 @@ public class GiftLinkService {
     private record Token(UUID orderId, UUID giftId, String status, Instant expiresAt, boolean revoked,
                          long version, String ciphertext, Instant issuedAt, Instant revealUntil) {}
     private record Command(UUID orderId, long version) {}
-    public record Link(UUID orderId, UUID giftId, long tokenVersion, Instant expiresAt, String shareUrl, boolean reused) {}
+    public record Link(UUID orderId, UUID giftId, long tokenVersion, Instant expiresAt, String shareUrl, boolean reused) {
+        @Override public String toString() { return "GiftLink[REDACTED]"; }
+    }
 }

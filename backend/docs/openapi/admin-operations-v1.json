@@ -286,6 +286,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseAdminOrder" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AdminOrder"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseAdminRecoveryResponse" : {
         "properties" : {
           "data" : {
@@ -323,6 +334,17 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/AdminWallet"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseDetail" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Detail"
           },
           "traceId" : {
             "type" : "string"
@@ -385,6 +407,116 @@
         },
         "type" : "object"
       },
+      "ApiResponsePageSummary" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageSummary"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseReopened" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Reopened"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Delivery" : {
+        "properties" : {
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "jobId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "leaseUntil" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "lookups" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "nextAttemptAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "providerAccepted" : {
+            "type" : "boolean"
+          },
+          "sends" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "submissionStarted" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "Detail" : {
+        "properties" : {
+          "deliveries" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Delivery"
+            },
+            "type" : "array"
+          },
+          "events" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Event"
+            },
+            "type" : "array"
+          },
+          "maintenance" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Maintenance"
+            },
+            "type" : "array"
+          },
+          "order" : {
+            "$ref" : "#/components/schemas/Summary"
+          }
+        },
+        "type" : "object"
+      },
+      "Event" : {
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "actorId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "eventId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "jobId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Execution" : {
         "properties" : {
           "expectedAmount" : {
@@ -424,6 +556,26 @@
           }
         },
         "required" : [ "customerUserId", "orderId", "receivedAt", "supportReference" ],
+        "type" : "object"
+      },
+      "Maintenance" : {
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "lastRequestedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "remainingCycles" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "requestedCycles" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
         "type" : "object"
       },
       "PageAdminAuditEvent" : {
@@ -521,6 +673,53 @@
         "required" : [ "hasNext", "items", "nextCursor" ],
         "type" : "object"
       },
+      "PageSummary" : {
+        "properties" : {
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Summary"
+            },
+            "type" : "array"
+          },
+          "nextCursor" : {
+            "format" : "uuid",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
+      "Reopened" : {
+        "properties" : {
+          "kind" : {
+            "enum" : [ "PHONE_CLEANUP", "PRIVATE_CLEANUP", "PAYLOAD_REENCRYPTION" ],
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reasonCode" : {
+            "enum" : [ "SYSTEM_RECOVERY", "CUSTOMER_INQUIRY" ],
+            "type" : "string"
+          },
+          "requestId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "requestedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Request" : {
         "properties" : {
           "reasonCode" : {
@@ -529,6 +728,104 @@
           }
         },
         "required" : [ "reasonCode" ],
+        "type" : "object"
+      },
+      "Summary" : {
+        "properties" : {
+          "accessExpiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "buyerId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "chargedShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "cipherState" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "deliveryMode" : {
+            "type" : "string"
+          },
+          "deliveryState" : {
+            "type" : "string"
+          },
+          "failureCode" : {
+            "type" : "string"
+          },
+          "firstProvidedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "giftId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "linkIssuedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "linkRetrievable" : {
+            "type" : "boolean"
+          },
+          "linkRevealUntil" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "phoneCleanupFailures" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "phonePurgedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "privateCleanupFailures" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "privatePayloadPurgedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "recipientState" : {
+            "type" : "string"
+          },
+          "reviewAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "tokenVersion" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "walletTransactionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
         "type" : "object"
       }
     },
@@ -598,6 +895,134 @@
           }
         },
         "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/gift-orders" : {
+      "get" : {
+        "operationId" : "adminListGiftOrders",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "buyerId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "reviewOnly",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-gift-controller" ]
+      }
+    },
+    "/api/v1/admin/gift-orders/{orderId}" : {
+      "get" : {
+        "operationId" : "adminGetGiftOrder",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-gift-controller" ]
+      }
+    },
+    "/api/v1/admin/gift-orders/{orderId}/maintenance-reopens" : {
+      "post" : {
+        "description" : "Reopens an exhausted cleanup/key-rotation retry cycle only; REOPENED does not mean cleanup or rotation completed. No delivery, content or wallet mutation.",
+        "operationId" : "adminReopenGiftMaintenance",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseReopened"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "adminCsrf" : [ ],
+          "adminSession" : [ ]
+        } ],
+        "tags" : [ "admin-gift-maintenance-controller" ]
       }
     },
     "/api/v1/admin/incidents" : {
@@ -881,6 +1306,34 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponsePageAdminOrder"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/top-up-orders/{orderId}" : {
+      "get" : {
+        "description" : "Exact support lookup protected by database operator grant and mandatory audit. No payment secrets.",
+        "operationId" : "adminGetTopUpOrder",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminOrder"
                 }
               }
             },

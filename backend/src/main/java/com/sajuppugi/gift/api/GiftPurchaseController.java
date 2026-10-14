@@ -79,5 +79,7 @@ public class GiftPurchaseController {
             @Schema(types = {"integer","null"}) Integer chargedShells,
             @Schema(types = {"integer","null"}) Integer returnedShells,
             @Schema(types = {"string","null"}, format = "date-time") Instant approvedAt, String nextAction,
-            @Schema(types = {"string","null"}) String shareUrl) {}
+            @Schema(types = {"string","null"}) String shareUrl) {
+        @Override public String toString() { return "GiftPurchaseResponse[REDACTED]"; }
+    }
 }
