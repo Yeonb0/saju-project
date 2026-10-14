@@ -161,6 +161,9 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
       productCode: SUNEUNG_CODE,
       personId: OTHER.personId,
       counterpartPersonId: null,
+      productOption: null,
+      questionKey: null,
+      relationType: null,
     });
   });
 
@@ -214,6 +217,9 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
       productCode: SUNEUNG_CODE,
       personId: OTHER.personId,
       counterpartPersonId: null,
+      productOption: null,
+      questionKey: null,
+      relationType: null,
     });
     savePurchaseSelection({
       returnPath: "/suneung",
@@ -223,6 +229,9 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
         productCode: SUNEUNG_CODE,
         personId: OTHER.personId,
         counterpartPersonId: null,
+        productOption: null,
+        questionKey: null,
+        relationType: null,
       },
     });
     const { createQuote, getQuote } = setup({ personPort, fortunePort });
@@ -240,6 +249,9 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
       productCode: SUNEUNG_CODE,
       personId: OTHER.personId,
       counterpartPersonId: null,
+      productOption: null,
+      questionKey: null,
+      relationType: null,
     });
     savePurchaseSelection({
       returnPath: "/suneung",
@@ -249,6 +261,9 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
         productCode: SUNEUNG_CODE,
         personId: OTHER.personId,
         counterpartPersonId: null,
+        productOption: null,
+        questionKey: null,
+        relationType: null,
       },
       // 픽스처일 뿐이다
       purchaseKey: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -269,6 +284,9 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
         productCode: "FIXTURE_OTHER_PRODUCT",
         personId: OTHER.personId,
         counterpartPersonId: null,
+        productOption: null,
+        questionKey: null,
+        relationType: null,
       },
     });
     setup();
@@ -286,6 +304,9 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
         productCode: SUNEUNG_CODE,
         personId: OTHER.personId,
         counterpartPersonId: null,
+        productOption: null,
+        questionKey: null,
+        relationType: null,
       },
     };
     savePurchaseSelection(saved);
@@ -333,6 +354,9 @@ describe("SuneungInfoScreen — fortuneType (ADAPTER-HTTP)", () => {
         productCode: SUNEUNG_CODE,
         personId: OTHER.personId,
         counterpartPersonId: null,
+        productOption: "READING_WITH_TALISMAN" as const,
+        questionKey: "CURRENT_RELATIONSHIP",
+        relationType: null,
       },
     });
     setup();

@@ -18,6 +18,9 @@ const SUNEUNG: FortuneSelection = {
   productCode: "FIXTURE_SUNEUNG",
   personId: PERSON_ID,
   counterpartPersonId: null,
+  productOption: null,
+  questionKey: null,
+  relationType: null,
 };
 
 const quoteData = (overrides: Record<string, unknown> = {}) => ({

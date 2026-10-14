@@ -54,6 +54,9 @@ describe("MockPanel (MOCK-PANEL)", () => {
         productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
         personId: "66666666-6666-4666-8666-666666666666",
         counterpartPersonId: null,
+        productOption: null,
+        questionKey: null,
+        relationType: null,
       },
     });
     render(<MockPanel />);

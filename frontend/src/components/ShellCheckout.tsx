@@ -226,6 +226,10 @@ export function ShellCheckout({
       selection.productCode,
       selection.personId,
       selection.counterpartPersonId,
+      // 질문 · 옵션 · 관계를 바꾸고 팝업을 다시 열면 새 견적을 받는다 (이전 질문의 견적을 재사용하지 않는다)
+      selection.productOption,
+      selection.questionKey,
+      selection.relationType,
       resumeQuoteId,
       round,
     ],

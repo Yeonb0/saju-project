@@ -4,21 +4,34 @@
 // FORT-02 · FORT-03 · MATCH-03 유료 운세 질문 + 옵션 선택 (docs/FRONTEND.md 3장, Figma 195:611 · 248:956 · 248:849 · 195:620 · 245:240).
 // 궁합(MATCH-03)은 본인 + 상대 (Q-26) — 상대 ID 를 견적 · 복원 · 복귀 경로에 넣는다.
 // 근거: CHECKOUT-POPUP (차감 확인은 이 화면 안 Modal), P-03 (옵션 둘: 부적 포함 / 사주만), P-09 (가격 · 등껍질 수량은 이 화면에서 표시하지 않는다 — 팝업이 서버 견적으로 보인다),
-// PURCHASE-RESTORE (충전 후 복귀하면 선택을 되살리고 저장한 견적을 재확인), F-07 (판매 판단은 서버 active 기준), Q-26 · F-04 (질문 입력은 확정 전이라 자리만),
+// PURCHASE-RESTORE (충전 후 복귀하면 질문 선택까지 되살리고 저장한 견적을 재확인), F-07 (판매 판단은 서버 active 기준),
+// Q-26 · FUNCTIONAL_SPEC 8장 "정보·질문" (선택지 칩 — 질문(questionKey)은 모든 운세, 관계(relationType)는 궁합. 고르기 전에는 구매 버튼 비활성. 고민 입력은 F-04 로 1차 없음),
 // A-02 · A-03 (로그인 가드는 page.tsx 의 RequireSession), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다), LAYOUT-FIGMA. 디자인 요소 없음 (PG-FIRST).
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
+import { Chip } from "@/components/Chip";
 import { ShellCheckout } from "@/components/ShellCheckout";
+import {
+  isQuestionKeyOf,
+  QUESTION_SETS,
+  type QuestionFortuneType,
+  type QuestionOption,
+  RELATION_QUESTION,
+} from "@/lib/fortune/questions";
 import {
   FORTUNE_LABELS,
   FORTUNE_TYPE_OF_SLUG,
   type FortuneSlug,
 } from "@/lib/navigation";
 import { getFortunePort, getPersonPort } from "@/lib/ports";
-import type { FortunePort, FortuneProduct } from "@/lib/ports/fortune";
+import type {
+  FortunePort,
+  FortuneProduct,
+  RelationType,
+} from "@/lib/ports/fortune";
 import type { PersonPort } from "@/lib/ports/person";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import {
@@ -30,9 +43,47 @@ import {
 const TALISMAN_LABEL = "사주 보고 부적도 받기";
 const READING_ONLY_LABEL = "사주만 보기";
 
-// 질문 자리 (입력 아님) — 와이어의 회색 상자. TODO(PD 토큰 v0): 와이어 임시값
-const LABEL_CLASS = "text-[20px] font-semibold leading-[24px]";
-const BOX_CLASS = "bg-[#d9d9d9] text-[20px] font-semibold";
+// 질문 제목 · 칩 묶음 배치 (LAYOUT-FIGMA FORT-02 347:203 · MATCH-03 347:264). TODO(PD 토큰 v0): 와이어 임시값
+const QUESTION_TITLE_CLASS = "ml-[24px] text-[15px] font-bold leading-[normal]";
+const CHIPS_CLASS =
+  "mt-[12px] ml-[24px] flex w-[354px] flex-wrap gap-x-[8px] gap-y-[10px]";
+
+// 칩 묶음 — 하나만 고른다 (다른 칩을 누르면 바뀌고, 같은 칩을 다시 눌러도 해제하지 않는다)
+function QuestionGroup({
+  id,
+  title,
+  options,
+  selectedKey,
+  onSelect,
+  className,
+}: {
+  id: string;
+  title: string;
+  options: readonly QuestionOption[];
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
+  className: string;
+}) {
+  return (
+    <>
+      <p id={id} className={`${className} ${QUESTION_TITLE_CLASS}`}>
+        {title}
+      </p>
+      {/* biome-ignore lint/a11y/useSemanticElements: 질문 제목(<p id>)을 aria-labelledby 로 잇는 묶음 구조로 정했다 (칩 묶음 — fieldset 아님) */}
+      <div role="group" aria-labelledby={id} className={CHIPS_CLASS}>
+        {options.map((option) => (
+          <Chip
+            key={option.key}
+            selected={selectedKey === option.key}
+            onClick={() => onSelect(option.key)}
+          >
+            {option.label}
+          </Chip>
+        ))}
+      </div>
+    </>
+  );
+}
 
 // 같은 option 의 활성 상품은 하나여야 한다 (P-03). 둘 이상이면 계약과 다르다
 function onlyActive(
@@ -82,6 +133,9 @@ export function FortuneQuestionsScreen({
   });
 
   const [chosenCode, setChosenCode] = useState<string | null>(null);
+  // 선택지 칩 (처음엔 아무것도 고르지 않는다). 관계는 궁합만
+  const [questionKey, setQuestionKey] = useState<string | null>(null);
+  const [relationType, setRelationType] = useState<RelationType | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   // 충전 후 복귀면 저장해 둔 견적 ID — 팝업을 닫으면 비운다 (다음 열기는 새 견적)
   const [resumeQuoteId, setResumeQuoteId] = useState<string | null>(null);
@@ -139,15 +193,24 @@ export function FortuneQuestionsScreen({
     // 다른 화면의 저장값은 건드리지 않는다
     if (saved === null || saved.returnPath !== returnPath) return;
     const codes = [talisman?.code, readingOnly?.code];
+    const savedProduct = [talisman, readingOnly].find(
+      (p) => p?.code === saved.selection.productCode,
+    );
     if (
       saved.selection.fortuneType !== fortuneType ||
       saved.selection.personId !== personId ||
       saved.selection.counterpartPersonId !== counterpartPersonId ||
-      !codes.includes(saved.selection.productCode)
+      !codes.includes(saved.selection.productCode) ||
+      // 저장한 질문이 이 운세의 키가 아니거나, 저장한 옵션이 저장한 상품의 옵션과 다르면 되살리지 않는다
+      saved.selection.questionKey === null ||
+      !isQuestionKeyOf(fortuneType, saved.selection.questionKey) ||
+      savedProduct?.option !== saved.selection.productOption
     ) {
       clearPurchaseSelection();
       return;
     }
+    setQuestionKey(saved.selection.questionKey);
+    setRelationType(saved.selection.relationType);
     setChosenCode(saved.selection.productCode);
     setResumeQuoteId(saved.quoteId);
     setResumePurchaseKey(saved.purchaseKey);
@@ -185,8 +248,10 @@ export function FortuneQuestionsScreen({
       : chosen.option === "READING_WITH_TALISMAN"
         ? TALISMAN_LABEL
         : READING_ONLY_LABEL;
-  // 첫 질문(연애 상태 · 관계)이 있는 운세
-  const hasFirstQuestion = slug === "love" || isCompat;
+  // 고르기 전에는 구매 버튼이 비활성이다 (FUNCTIONAL_SPEC 8장) — 질문은 모든 운세, 관계는 궁합만
+  const canChoose =
+    questionKey !== null && (!isCompat || relationType !== null);
+  const questionSet = QUESTION_SETS[fortuneType as QuestionFortuneType];
   const soldOut = list !== null && talisman === null && readingOnly === null;
   const ready = person !== null && !targetInvalid && list !== null && !soldOut;
   // TODO(PD 문구): 두 사람 표시
@@ -196,6 +261,8 @@ export function FortuneQuestionsScreen({
       : (person?.name ?? "");
 
   function choose(product: FortuneProduct) {
+    // 방어 — 버튼이 비활성이라 보통 오지 않는다
+    if (!canChoose) return;
     setChosenCode(product.code);
     setCheckoutOpen(true);
   }
@@ -208,16 +275,28 @@ export function FortuneQuestionsScreen({
       backHref={`/fortune/${slug}`}
       cta={
         ready ? (
-          // TODO(P-09 · PD 문구): 버튼 둘째 줄 — 서버 가격 표시 방식 확정 후
+          // TODO(P-09 · Q-22): 버튼 둘째 줄 가격 표시 — 서버 가격 표시 방식 확정 후
           <div className="flex flex-col items-center gap-[17px] pb-[32px]">
+            {/* 결제 CTA 위 고지 (FUNCTIONAL_SPEC 3장 · F-08 · D-05, 와이어 347:227) */}
+            <p className="text-center text-[12px] leading-[normal] text-[#737373]">
+              운세와 부적은 재미와 참고를 위한 콘텐츠예요.
+            </p>
             {talisman ? (
-              <Button variant="cta" onClick={() => choose(talisman)}>
+              <Button
+                variant="cta"
+                onClick={() => choose(talisman)}
+                disabled={!canChoose}
+              >
                 {/* TODO(PD 문구) */}
                 {TALISMAN_LABEL}
               </Button>
             ) : null}
             {readingOnly ? (
-              <Button variant="cta" onClick={() => choose(readingOnly)}>
+              <Button
+                variant="cta"
+                onClick={() => choose(readingOnly)}
+                disabled={!canChoose}
+              >
                 {/* TODO(PD 문구) */}
                 {READING_ONLY_LABEL}
               </Button>
@@ -228,33 +307,25 @@ export function FortuneQuestionsScreen({
     >
       {targetInvalid ? null : (
         <>
-          {/* LAYOUT-FIGMA: 질문 자리 — 입력 칸이 아니라 aria-hidden 회색 상자 */}
-          {hasFirstQuestion ? (
-            <>
-              {/* TODO(PD 문구) */}
-              <p className={`mt-[59px] ml-[37px] ${LABEL_CLASS}`}>
-                {isCompat ? "관계" : "연애 상태"}
-              </p>
-              {/* TODO(Q-26): 선택지 목록 · 서버 키 대기 — 연애 상태(love) · 관계(compatibility) */}
-              <div
-                aria-hidden
-                className={`mt-[22px] ml-[37px] h-[57px] w-[335px] ${BOX_CLASS}`}
-              />
-              {/* TODO(PD 문구) */}
-              <p className={`mt-[48px] ml-[37px] ${LABEL_CLASS}`}>
-                알고 싶은 부분
-              </p>
-            </>
-          ) : (
-            // TODO(PD 문구)
-            <p className={`mt-[46px] ml-[42px] ${LABEL_CLASS}`}>
-              알고 싶은 부분
-            </p>
-          )}
-          {/* TODO(F-04 · Q-26): 고민 입력 — 결과 미반영 기준, 확정 전 입력 칸 없음 */}
-          <div
-            aria-hidden
-            className={`mt-[22px] ${hasFirstQuestion ? "ml-[37px]" : "ml-[42px]"} h-[125px] w-[335px] ${BOX_CLASS}`}
+          {/* 선택지 칩 (LAYOUT-FIGMA 347:203 · 347:264). 궁합은 관계 묶음 다음에 질문 묶음.
+              TODO(Q-26 관계 미리 고르기): 저장된 관계가 애인이면 「연인」을 미리 고른다 — 인물 목록 모델에 관계가 없어 아직 안 함 (FUNCTIONAL_SPEC 8장) */}
+          {isCompat ? (
+            <QuestionGroup
+              id="question-relation"
+              title={RELATION_QUESTION.title}
+              options={RELATION_QUESTION.options}
+              selectedKey={relationType}
+              onSelect={(key) => setRelationType(key as RelationType)}
+              className="mt-[32px]"
+            />
+          ) : null}
+          <QuestionGroup
+            id="question-main"
+            title={questionSet.title}
+            options={questionSet.options}
+            selectedKey={questionKey}
+            onSelect={setQuestionKey}
+            className={isCompat ? "mt-[36px]" : "mt-[32px]"}
           />
 
           {soldOut ? (
@@ -277,6 +348,10 @@ export function FortuneQuestionsScreen({
                 productCode: chosen.code,
                 personId,
                 counterpartPersonId,
+                productOption:
+                  chosen.option === "UNKNOWN" ? null : chosen.option,
+                questionKey,
+                relationType: isCompat ? relationType : null,
               }}
               targetName={targetName}
               optionLabel={chosenLabel}

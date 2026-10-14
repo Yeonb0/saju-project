@@ -470,6 +470,9 @@ describe("WalletScreen (PAY-01)", () => {
       productCode: "FIXTURE_OVERALL_READING_ONLY",
       personId: "fixture-person",
       counterpartPersonId: null,
+      productOption: "READING_ONLY" as const,
+      questionKey: "OVERALL_FLOW",
+      relationType: null,
     };
 
     async function makeQuote(balance = 2): Promise<{
