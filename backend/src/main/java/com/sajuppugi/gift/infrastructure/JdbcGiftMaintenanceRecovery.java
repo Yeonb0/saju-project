@@ -34,7 +34,7 @@ public class JdbcGiftMaintenanceRecovery implements GiftMaintenanceRecoveryPort 
         // Reserve under the order lock; a durable replay must not reset another retry cycle.
         if (!authorizeAndReserve.getAsBoolean()) return;
         int changed = switch (kind) {
-            case PHONE_CLEANUP -> phone ? jdbc.update("UPDATE gift_order_drafts SET phone_cleanup_failures = 0,phone_cleanup_next_attempt_at = NULL WHERE id = ? AND phone_purged_at IS NULL AND phone_cleanup_failures = 5", order) : 0;
+            case PHONE_CLEANUP -> phone ? jdbc.update("UPDATE gift_order_drafts SET phone_cleanup_failures = 0,phone_cleanup_next_attempt_at = NULL WHERE id = ? AND recipient_phone_masked IS NOT NULL AND phone_purged_at IS NULL AND phone_cleanup_failures = 5", order) : 0;
             case PRIVATE_CLEANUP -> privacy ? jdbc.update("UPDATE gift_order_drafts SET private_cleanup_failures = 0,private_cleanup_next_attempt_at = NULL WHERE id = ? AND private_payload_purged_at IS NULL AND private_cleanup_failures = 5", order) : 0;
             case PAYLOAD_REENCRYPTION -> reencrypt && cipher.versionedActive() ? jdbc.update("DELETE FROM gift_payload_reencryption_work WHERE order_id = ? AND active_key_id = ? AND state = 'REVIEW_REQUIRED' AND failures = 5", order, cipher.activeKeyId()) : 0;
         };

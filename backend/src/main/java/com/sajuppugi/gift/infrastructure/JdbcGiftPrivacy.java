@@ -69,7 +69,7 @@ public class JdbcGiftPrivacy {
                     Integer.class, order, Timestamp.from(now));
             if (inFlight != null && inFlight > 0) return false;
         } else if (!List.of("CANCELED", "REFUNDED", "FAILED").contains(grant.status())) return false;
-        jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE WHERE order_id = ?", order);
+        jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE,token_ciphertext = NULL WHERE order_id = ?", order);
         jdbc.update("UPDATE gift_delivery_jobs SET state = 'CANCELED',lease_token = NULL,lease_until = NULL WHERE order_id = ? AND state NOT IN ('SENT','FAILED','CANCELED')", order);
         jdbc.update("UPDATE gift_delivery_outbox SET private_payload = '',status = 'CANCELED' WHERE order_id = ?", order);
         jdbc.update("UPDATE gift_order_drafts SET private_payload = '',recipient_phone_masked = 'REDACTED',private_payload_purged_at = ? WHERE id = ?", Timestamp.from(now), order);

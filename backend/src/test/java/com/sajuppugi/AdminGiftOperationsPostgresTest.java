@@ -34,6 +34,8 @@ class AdminGiftOperationsPostgresTest extends GiftLifecyclePostgresTest {
     @Autowired AdminGiftMaintenanceService maintenance;
     @Autowired JdbcGiftPhoneCleanup phones;
     @Autowired JdbcGiftPrivacy privacy;
+    @Autowired com.sajuppugi.gift.infrastructure.JdbcGiftCipherMaintenance cipherMaintenance;
+    @Autowired com.sajuppugi.gift.application.GiftLinkService links;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     UUID operator, viewer;
     @BeforeEach void operators() {
@@ -54,7 +56,14 @@ class AdminGiftOperationsPostgresTest extends GiftLifecyclePostgresTest {
         jdbc.update("INSERT INTO admin_operator_grants(user_id,active,can_recover,created_at,updated_at) VALUES (?,TRUE,?,?,?)",
                 id, recovery, Timestamp.from(now), Timestamp.from(now));
     }
-    void exhausted(UUID order) { jdbc.update("UPDATE gift_order_drafts SET phone_cleanup_failures = 5 WHERE id = ?", order); }
+    void exhausted(UUID order) {
+        jdbc.update("UPDATE gift_order_drafts SET recipient_phone_masked = '010****5678',phone_cleanup_failures = 5 WHERE id = ?", order);
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM gift_delivery_outbox WHERE order_id = ?", Integer.class, order) == 0) {
+            UUID job = UUID.randomUUID();
+            jdbc.update("INSERT INTO gift_delivery_outbox(id,order_id,private_payload,status,created_at) VALUES (?,?,'','PENDING',?)",
+                    job, order, Timestamp.from(now));
+        }
+    }
     void request(UUID order, String key) { maintenance.request(operator, order, Kind.PHONE_CLEANUP, key, Reason.SYSTEM_RECOVERY); }
     int failures(UUID order) { return jdbc.queryForObject("SELECT phone_cleanup_failures FROM gift_order_drafts WHERE id = ?", Integer.class, order); }
     long audits(String action) { return jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit_events WHERE operator_id = ? AND action = ?", Long.class, operator, action); }
@@ -67,7 +76,9 @@ class AdminGiftOperationsPostgresTest extends GiftLifecyclePostgresTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.order.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.order.chargedShells").value(10)).andReturn().getResponse().getContentAsString();
         assertThat(json).doesNotContain("01012345678", "Good luck!", rawToken, "private_payload", "key_hash", "lease_token", "recipientPhone", "recipientName");
-        assertThat(admin.detail(operator, order.orderId()).deliveries()).hasSize(1);
+        assertThat(admin.detail(operator, order.orderId()).deliveries()).isEmpty();
+        assertThat(admin.detail(operator, order.orderId()).order().deliveryMode()).isEqualTo("DIRECT_LINK");
+        assertThat(admin.detail(operator, order.orderId()).order().linkRetrievable()).isTrue();
         assertThatThrownBy(() -> admin.detail(operator, UUID.randomUUID())).isInstanceOf(ApiException.class);
     }
     @Test void reviewFilterAndStableCursorIncludeFailuresAndOverdueAcceptedReceipts() {
@@ -186,5 +197,109 @@ class AdminGiftOperationsPostgresTest extends GiftLifecyclePostgresTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_payload_reencryption_work WHERE order_id = ?", Integer.class, order.orderId())).isZero();
         assertThat(jdbc.queryForObject("SELECT private_payload FROM gift_order_drafts WHERE id = ?", String.class, order.orderId())).isEqualTo(original);
         assertThat(balance()).isEqualTo(10);
+    }
+
+    @Test void directLinksHaveSafeMetadataAndNoPhoneMaintenanceEvenWithStaleFailures() throws Exception {
+        var order = active(); String raw = token(order.orderId());
+        jdbc.update("UPDATE gift_order_drafts SET phone_cleanup_failures = 5 WHERE id = ?", order.orderId());
+        assertThat(admin.list(operator, owner, null, 20, true).items()).isEmpty();
+        assertThatThrownBy(() -> request(order.orderId(), "no-phone")).isInstanceOf(ApiException.class);
+        assertThat(phones.purge(order.orderId())).isFalse();
+        assertThat(audits("ADMIN_GIFT_MAINTENANCE_REOPEN")).isZero();
+        var detail = admin.detail(operator, order.orderId());
+        assertThat(detail.order().tokenVersion()).isEqualTo(1);
+        assertThat(detail.order().linkIssuedAt()).isNotNull();
+        assertThat(detail.order().deliveryState()).isNull();
+        assertThat(detail.order().linkRetrievable()).isTrue();
+        String json = mapper.writeValueAsString(detail);
+        assertThat(json).doesNotContain(raw, "token_ciphertext", "token_hash", "/g#token=");
+        jdbc.update("UPDATE gift_purchase_tokens SET reveal_until = ? WHERE order_id = ?", Timestamp.from(now.minusSeconds(1)), order.orderId());
+        assertThat(admin.detail(operator, order.orderId()).order().linkRetrievable()).isFalse();
+        assertThat(balance()).isEqualTo(10); assertThat(returns()).isZero();
+    }
+
+    @Test void tokenOnlyKeyRotationPreservesCredentialVersionExpiryAndLedger() throws Exception {
+        var order = active(); String raw = token(order.orderId());
+        var env = new org.springframework.mock.env.MockEnvironment(); env.setActiveProfiles("test");
+        var rootCipher = new com.sajuppugi.gift.infrastructure.GiftPayloadCipher(true,
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", env);
+        String context = "gift-link|" + order.orderId() + "|1";
+        jdbc.update("UPDATE gift_purchase_tokens SET token_ciphertext = ? WHERE order_id = ?", rootCipher.encrypt(raw, context), order.orderId());
+        var original = jdbc.queryForMap("SELECT token_hash,token_version,issued_at,reveal_until FROM gift_purchase_tokens WHERE order_id = ?", order.orderId());
+        assertThat(cipherMaintenance.candidates()).contains(order.orderId());
+        assertThat(cipherMaintenance.reencrypt(order.orderId())).isTrue();
+        assertThat(token(order.orderId())).isEqualTo(raw);
+        assertThat(jdbc.queryForObject("SELECT token_ciphertext FROM gift_purchase_tokens WHERE order_id = ?", String.class, order.orderId())).startsWith("v2:test:");
+        assertThat(jdbc.queryForMap("SELECT token_hash,token_version,issued_at,reveal_until FROM gift_purchase_tokens WHERE order_id = ?", order.orderId())).isEqualTo(original);
+        assertThat(cipherMaintenance.candidates()).doesNotContain(order.orderId());
+        assertThat(cipherMaintenance.reencrypt(order.orderId())).isFalse();
+        assertThat(balance()).isEqualTo(10); assertThat(returns()).isZero();
+    }
+
+    @Test void corruptedTokenRollsBackDraftKeyRotationAndMovesToBoundedReview() {
+        var order = active();
+        var env = new org.springframework.mock.env.MockEnvironment(); env.setActiveProfiles("test");
+        var rootCipher = new com.sajuppugi.gift.infrastructure.GiftPayloadCipher(true, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", env);
+        String original = rootCipher.encrypt("{\"senderName\":\"synthetic\"}", owner + "|" + order.orderId());
+        jdbc.update("UPDATE gift_order_drafts SET private_payload = ? WHERE id = ?", original, order.orderId());
+        jdbc.update("UPDATE gift_purchase_tokens SET token_ciphertext = 'v1:corrupted' WHERE order_id = ?", order.orderId());
+        assertThatThrownBy(() -> cipherMaintenance.reencrypt(order.orderId())).hasRootCauseInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT private_payload FROM gift_order_drafts WHERE id = ?", String.class, order.orderId())).isEqualTo(original);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_delivery_events WHERE order_id = ? AND action = 'PAYLOAD_REENCRYPTED'", Integer.class, order.orderId())).isZero();
+        for (int attempt = 0; attempt < 5; attempt++) {
+            jdbc.update("UPDATE gift_payload_reencryption_work SET next_attempt_at = ? WHERE order_id = ?", Timestamp.from(now.minusSeconds(1)), order.orderId());
+            cipherMaintenance.failed(order.orderId());
+        }
+        assertThat(admin.detail(operator, order.orderId()).order().cipherState()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(cipherMaintenance.candidates()).doesNotContain(order.orderId());
+        maintenance.request(operator, order.orderId(), Kind.PAYLOAD_REENCRYPTION, "token-review", Reason.SYSTEM_RECOVERY);
+        assertThat(cipherMaintenance.candidates()).contains(order.orderId());
+        assertThat(jdbc.queryForObject("SELECT token_ciphertext FROM gift_purchase_tokens WHERE order_id = ?", String.class, order.orderId())).isEqualTo("v1:corrupted");
+    }
+
+    @Test void canceledAndPurposeEndedLinksDiscardCiphertextWithoutRestoringOnReplay() {
+        var order = active(); cancellations.cancel(owner, order.orderId(), "discard");
+        assertThat(jdbc.queryForObject("SELECT token_ciphertext FROM gift_purchase_tokens WHERE order_id = ?", String.class, order.orderId())).isNull();
+        cancellations.cancel(owner, order.orderId(), "discard");
+        assertThat(admin.detail(operator, order.orderId()).order().linkRetrievable()).isFalse();
+        assertThat(privacy.purge(order.orderId())).isTrue();
+        assertThat(returns()).isEqualTo(1); assertThat(balance()).isEqualTo(20);
+    }
+
+    @Test void revealCleanupPreservesValidBearerHashAndPurposeCleanupRevokesIt() throws Exception {
+        var order = active(); String raw = token(order.orderId());
+        jdbc.update("UPDATE gift_purchase_tokens SET reveal_until = ? WHERE order_id = ?", Timestamp.from(now.minusSeconds(1)), order.orderId());
+        links.purgeExpired();
+        assertThat(jdbc.queryForObject("SELECT token_ciphertext FROM gift_purchase_tokens WHERE order_id = ?", String.class, order.orderId())).isNull();
+        assertThat(access.verify(raw).giftId()).isNotNull();
+        jdbc.update("UPDATE gift_purchase_work SET approved_at = ?,access_expires_at = ? WHERE order_id = ?",
+                Timestamp.from(now.minusSeconds(91L * 86400)), Timestamp.from(now.minusSeconds(1)), order.orderId());
+        assertThat(privacy.purge(order.orderId())).isTrue();
+        assertThatThrownBy(() -> access.verify(raw)).isInstanceOf(ApiException.class);
+        assertThat(balance()).isEqualTo(10); assertThat(returns()).isZero();
+    }
+
+    @Test void cancelAndLinkReissueSerializeWithoutRestoringRevokedCiphertext() throws Exception {
+        var order = active(); String original = token(order.orderId());
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var cancel = pool.submit(() -> { start.await(); cancellations.cancel(owner, order.orderId(), "race-cancel"); return true; });
+            var reissue = pool.submit(() -> {
+                start.await();
+                try {
+                    var link = links.reissue(owner, order.orderId(), new com.sajuppugi.common.idempotency.IdempotencyKey("race-link"));
+                    assertThat(link.toString()).doesNotContain(link.shareUrl());
+                } catch (ApiException rejected) {
+                    assertThat(rejected.errorCode()).isEqualTo(com.sajuppugi.common.api.ErrorCode.GIFT_CANCEL_NOT_ALLOWED);
+                }
+                return true;
+            });
+            start.countDown(); cancel.get(10, TimeUnit.SECONDS); reissue.get(10, TimeUnit.SECONDS);
+        }
+        assertThat(jdbc.queryForObject("SELECT revoked FROM gift_purchase_tokens WHERE order_id = ?", Boolean.class, order.orderId())).isTrue();
+        assertThat(jdbc.queryForObject("SELECT token_ciphertext FROM gift_purchase_tokens WHERE order_id = ?", String.class, order.orderId())).isNull();
+        assertThatThrownBy(() -> access.verify(original)).isInstanceOf(ApiException.class);
+        assertThat(admin.detail(operator, order.orderId()).order().linkRetrievable()).isFalse();
+        assertThat(balance()).isEqualTo(20); assertThat(returns()).isEqualTo(1);
     }
 }

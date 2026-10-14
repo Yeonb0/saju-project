@@ -21,12 +21,15 @@ public class AdminGiftQueries {
                 w.gift_id,w.wallet_transaction_id,w.charged_amount,w.first_provided_at,w.access_expires_at,
                 w.failure_code,r.state AS recipient_state,r.submitted_at,r.review_at,j.state AS delivery_state,
                 d.phone_purged_at,d.private_payload_purged_at,d.phone_cleanup_failures,d.private_cleanup_failures,
-                c.state AS cipher_state
+                c.state AS cipher_state,t.token_version,t.issued_at,t.reveal_until,t.revoked,
+                (t.token_ciphertext IS NOT NULL) AS link_cipher_available,
+                (d.recipient_phone_masked IS NOT NULL OR o.order_id IS NOT NULL) AS legacy_delivery
             FROM gift_order_drafts d LEFT JOIN gift_purchase_work w ON w.order_id = d.id
             LEFT JOIN gift_recipient_receipts r ON r.order_id = d.id
             LEFT JOIN gift_delivery_outbox o ON o.order_id = d.id
             LEFT JOIN gift_delivery_jobs j ON j.id = o.current_job_id
             LEFT JOIN gift_payload_reencryption_work c ON c.order_id = d.id
+            LEFT JOIN gift_purchase_tokens t ON t.order_id = d.id
             """;
     private final JdbcTemplate jdbc;
     private final AdminAccessService access;
@@ -43,7 +46,7 @@ public class AdminGiftQueries {
                 AND (CAST(? AS UUID) IS NULL OR d.id > CAST(? AS UUID))
                 AND (? = FALSE OR w.status = 'REVIEW_REQUIRED' OR j.state = 'REVIEW_REQUIRED'
                     OR r.state = 'REVIEW_REQUIRED' OR (r.state = 'ACCEPTED' AND r.review_at <= ?)
-                    OR (d.phone_purged_at IS NULL AND d.phone_cleanup_failures = 5)
+                    OR (d.recipient_phone_masked IS NOT NULL AND d.phone_purged_at IS NULL AND d.phone_cleanup_failures = 5)
                     OR (d.private_payload_purged_at IS NULL AND d.private_cleanup_failures = 5)
                     OR c.state = 'REVIEW_REQUIRED')
                 ORDER BY d.id LIMIT ?
@@ -73,7 +76,12 @@ public class AdminGiftQueries {
                 rs.getObject("gift_id", UUID.class), rs.getString("order_state"), rs.getObject("wallet_transaction_id", UUID.class),
                 rs.getObject("charged_amount", Integer.class), instant(rs,"created_at"), instant(rs,"first_provided_at"), instant(rs,"access_expires_at"),
                 rs.getString("failure_code"), rs.getString("recipient_state"), instant(rs,"submitted_at"), instant(rs,"review_at"), rs.getString("delivery_state"),
-                instant(rs,"phone_purged_at"), instant(rs,"private_payload_purged_at"), rs.getInt("phone_cleanup_failures"), rs.getInt("private_cleanup_failures"), rs.getString("cipher_state"));
+                instant(rs,"phone_purged_at"), instant(rs,"private_payload_purged_at"), rs.getInt("phone_cleanup_failures"), rs.getInt("private_cleanup_failures"), rs.getString("cipher_state"),
+                rs.getBoolean("legacy_delivery") ? "ALIMTALK_LEGACY" : "DIRECT_LINK",
+                rs.getObject("token_version", Long.class), instant(rs,"issued_at"), instant(rs,"reveal_until"),
+                rs.getBoolean("link_cipher_available") && !rs.getBoolean("revoked") && "ACTIVE".equals(rs.getString("order_state"))
+                    && instant(rs,"reveal_until") != null && clock.instant().isBefore(instant(rs,"reveal_until"))
+                    && instant(rs,"access_expires_at") != null && clock.instant().isBefore(instant(rs,"access_expires_at")));
     }
     private Instant instant(ResultSet rs, String column) throws SQLException {
         var value = rs.getTimestamp(column); return value == null ? null : value.toInstant();
@@ -84,7 +92,8 @@ public class AdminGiftQueries {
     public record Summary(UUID orderId, UUID buyerId, UUID quoteId, UUID giftId, String status, UUID walletTransactionId,
             Integer chargedShells, Instant createdAt, Instant firstProvidedAt, Instant accessExpiresAt, String failureCode,
             String recipientState, Instant submittedAt, Instant reviewAt, String deliveryState,
-            Instant phonePurgedAt, Instant privatePayloadPurgedAt, int phoneCleanupFailures, int privateCleanupFailures, String cipherState) {}
+            Instant phonePurgedAt, Instant privatePayloadPurgedAt, int phoneCleanupFailures, int privateCleanupFailures, String cipherState,
+            String deliveryMode, Long tokenVersion, Instant linkIssuedAt, Instant linkRevealUntil, boolean linkRetrievable) {}
     public record Delivery(UUID jobId, String state, int sends, int lookups, boolean submissionStarted, boolean providerAccepted,
             Instant nextAttemptAt, Instant leaseUntil, Instant completedAt) {}
     public record Event(UUID eventId, UUID actorId, UUID jobId, String action, Instant occurredAt) {}
