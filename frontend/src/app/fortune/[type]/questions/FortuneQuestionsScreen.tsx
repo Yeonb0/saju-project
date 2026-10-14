@@ -143,6 +143,7 @@ export function FortuneQuestionsScreen({
   const [resumePurchaseKey, setResumePurchaseKey] = useState<string | null>(
     null,
   );
+  const relationPrefilled = useRef(false);
   const restored = useRef(false);
   const redirected = useRef(false);
 
@@ -183,6 +184,18 @@ export function FortuneQuestionsScreen({
   const list = products.data ?? null;
   const talisman = list ? onlyActive(list, "READING_WITH_TALISMAN") : null;
   const readingOnly = list ? onlyActive(list, "READING_ONLY") : null;
+
+  // 관계 미리 고르기 (궁합만): 상대의 저장 관계가 애인(LOVER)이면 「연인」을 미리 고른다. 인물 목록이 온 뒤 한 번만.
+  // 그 밖의 관계는 미리 고르지 않는다 — 저장한 사람의 관계와 서버 relationType 목록이 달라 자동으로 맞추지 않는다 (FUNCTIONAL_SPEC 8장).
+  // 아래 복원 effect 보다 앞에 둔다 — 복원값이 있으면 복원이 덮어쓴다. 질문 칩은 고르지 않은 채라 옵션 버튼은 여전히 비활성이다.
+  const counterpartRelation = counterpart?.relationType ?? null;
+  useEffect(() => {
+    if (relationPrefilled.current || !people.data || targetInvalid) return;
+    relationPrefilled.current = true;
+    if (counterpartRelation === "LOVER") {
+      setRelationType((current) => current ?? "LOVER");
+    }
+  }, [people.data, targetInvalid, counterpartRelation]);
 
   // 충전 후 복귀 (PURCHASE-RESTORE): 인물 · 상품이 모두 온 뒤 한 번만 읽는다
   useEffect(() => {
@@ -308,7 +321,7 @@ export function FortuneQuestionsScreen({
       {targetInvalid ? null : (
         <>
           {/* 선택지 칩 (LAYOUT-FIGMA 347:203 · 347:264). 궁합은 관계 묶음 다음에 질문 묶음.
-              TODO(Q-26 관계 미리 고르기): 저장된 관계가 애인이면 「연인」을 미리 고른다 — 인물 목록 모델에 관계가 없어 아직 안 함 (FUNCTIONAL_SPEC 8장) */}
+              상대의 저장 관계가 애인이면 「연인」을 미리 골라 둔다 (위 effect, FUNCTIONAL_SPEC 8장 · API_SPEC 4장 relationType) */}
           {isCompat ? (
             <QuestionGroup
               id="question-relation"

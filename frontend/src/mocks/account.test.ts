@@ -34,6 +34,7 @@ describe("가짜 계정 (MOCK-PORT)", () => {
         personId: "77777777-7777-4777-8777-777777777777",
         isSelf: false,
         name: "FIXTURE OTHER",
+        relationType: "FAMILY",
       },
     ]);
   });

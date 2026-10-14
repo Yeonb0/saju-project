@@ -1,12 +1,9 @@
 import { z } from "zod";
 import { ApiContractError } from "@/lib/api/errors";
 import type { ApiClient } from "@/lib/api/http";
-import type {
-  CALENDARS,
-  GENDERS,
-  PersonFormOutput,
-  RELATIONS,
-} from "@/lib/person/schema";
+import { RELATION_TYPE_OF_KIND } from "@/lib/person/relation";
+import type { CALENDARS, GENDERS, PersonFormOutput } from "@/lib/person/schema";
+import { RELATION_TYPES } from "@/lib/ports/fortune";
 import type { PersonPort, PersonSummary } from "@/lib/ports/person";
 import type { components } from "@/types/api";
 
@@ -14,6 +11,8 @@ const personSchema = z.object({
   id: z.uuid(),
   profileType: z.enum(["SELF", "OTHER"]),
   displayName: z.string().min(1),
+  // 키는 있어야 한다 (API_SPEC 4장 · PersonResponse 가 항상 보낸다). 값은 모르는 서버 값도 받아 summary 에서 UNKNOWN 으로 바꾼다
+  relationType: z.string().nullable(),
 });
 
 type CreatePerson = components["schemas"]["CreatePersonRequest"];
@@ -28,10 +27,11 @@ const GENDER: Record<(typeof GENDERS)[number], CreatePerson["gender"]> = {
   female: "FEMALE",
   unspecified: "UNSPECIFIED",
 };
-const RELATION_TYPE: Record<
-  (typeof RELATIONS)[number],
+// 화면 관계 → 서버 관계 표는 src/lib/person/relation.ts. 표가 생성 타입 enum 과 어긋나면 typecheck 가 깨진다
+RELATION_TYPE_OF_KIND satisfies Record<
+  string,
   NonNullable<CreatePerson["relationType"]>
-> = { mother: "FAMILY", father: "FAMILY", partner: "LOVER", custom: "OTHER" };
+>;
 
 const peopleSchema = z.object({ items: z.array(personSchema) });
 
@@ -56,7 +56,7 @@ export function createPersonAdapter(client: ApiClient): PersonPort {
       gender: GENDER[input.gender],
       ...(input.relation === null
         ? {}
-        : { relationType: RELATION_TYPE[input.relation.kind] }),
+        : { relationType: RELATION_TYPE_OF_KIND[input.relation.kind] }),
       thirdPartyAuthorizationConfirmed: !self,
     } satisfies components["schemas"]["CreatePersonRequest"];
     const { status, data } = await client.request({
@@ -98,5 +98,9 @@ function summary(person: z.infer<typeof personSchema>): PersonSummary {
     personId: person.id,
     isSelf: person.profileType === "SELF",
     name: person.displayName,
+    relationType:
+      person.relationType === null
+        ? null
+        : (RELATION_TYPES.find((t) => t === person.relationType) ?? "UNKNOWN"),
   };
 }

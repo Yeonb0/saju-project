@@ -47,6 +47,7 @@ const OTHER: PersonSummary = {
   personId: "99999999-9999-4999-8999-999999999999",
   isSelf: false,
   name: "FIXTURE OTHER",
+  relationType: "FAMILY",
 };
 const SELF_ID = "55555555-5555-4555-8555-555555555555"; // src/mocks/account.ts 의 본인 픽스처
 const SELF_NAME = "FIXTURE";
@@ -554,6 +555,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
         personId: "88888888-8888-4888-8888-888888888888",
         isSelf: false,
         name: "FIXTURE OTHER2",
+        relationType: "FAMILY" as const,
       };
       const account = createFakeAccount("signed_in");
       account.addOther({ ...OTHER });
@@ -969,5 +971,139 @@ describe("FortuneQuestionsScreen — 선택지 칩 (Q-26 · FUNCTIONAL_SPEC 8장
     expect(screen.queryByText("관계")).toBeNull();
     expect(screen.queryByText("알고 싶은 부분")).toBeNull();
     expect(screen.getByText("두 사람은 어떤 사이예요?")).toBeInTheDocument();
+  });
+});
+
+describe("FortuneQuestionsScreen — 궁합 관계 미리 고르기 (Q-26 · FUNCTIONAL_SPEC 8장 · API_SPEC 4장 relationType)", () => {
+  const RELATION_LABELS = [
+    "연인",
+    "썸 · 짝사랑",
+    "친구",
+    "가족",
+    "직장 · 학교",
+    "기타",
+  ];
+
+  // 상대의 저장 관계를 정해 둔 인물 포트 (픽스처일 뿐이다)
+  function portsWith(relationType: PersonSummary["relationType"]) {
+    const base = ports();
+    const account = createFakeAccount("signed_in");
+    account.addOther({ ...OTHER, relationType });
+    return { ...base, personPort: createFakePersonPort(account) };
+  }
+
+  const setupCompat = (
+    relationType: PersonSummary["relationType"],
+    extra: Injected = {},
+  ) => {
+    const { personPort, fortunePort } = portsWith(relationType);
+    return setup({
+      slug: "compatibility",
+      counterpartId: OTHER.personId,
+      personPort,
+      fortunePort,
+      ...extra,
+    });
+  };
+
+  const pressedOf = (labels: readonly string[]) =>
+    labels.map((label) => hiddenChip(label).getAttribute("aria-pressed"));
+
+  it("e. 상대가 LOVER 면 「연인」만 처음부터 눌려 있고, 질문 칩은 모두 안 눌린 채 옵션 버튼은 disabled", async () => {
+    setupCompat("LOVER");
+    const buttons = await ctaButtons();
+    await waitFor(() =>
+      expect(hiddenChip("연인")).toHaveAttribute("aria-pressed", "true"),
+    );
+    expect(pressedOf(RELATION_LABELS)).toEqual([
+      "true",
+      "false",
+      "false",
+      "false",
+      "false",
+      "false",
+    ]);
+    const question = screen.getByRole("group", { name: "가장 궁금한 건?" });
+    for (const c of within(question).getAllByRole("button")) {
+      expect(c).toHaveAttribute("aria-pressed", "false");
+    }
+    for (const b of buttons) expect(b).toBeDisabled();
+  });
+
+  it.each([
+    ["FAMILY"],
+    ["OTHER"],
+    [null],
+    ["UNKNOWN"],
+  ] as const)("f. 상대가 %s 면 관계 칩이 모두 안 눌려 있다", async (relationType) => {
+    setupCompat(relationType);
+    await ctaButtons();
+    expect(pressedOf(RELATION_LABELS)).toEqual(Array(6).fill("false"));
+  });
+
+  it("g. 상대가 LOVER 여도 복원 저장값의 관계가 FRIEND 면 「친구」가 눌리고 「연인」은 안 눌린다 (복원이 이긴다)", async () => {
+    const { fortunePort, personPort } = portsWith("LOVER");
+    const selection = {
+      fortuneType: "COMPATIBILITY" as const,
+      productCode: "FIXTURE_COMPATIBILITY_READING_WITH_TALISMAN",
+      personId: SELF_ID,
+      counterpartPersonId: OTHER.personId,
+      productOption: "READING_WITH_TALISMAN" as const,
+      questionKey: "COMMUNICATION",
+      relationType: "FRIEND" as const,
+    };
+    const quote = await fortunePort.createQuote(selection);
+    savePurchaseSelection({
+      returnPath: `/fortune/compatibility/questions?personId=${SELF_ID}&counterpartId=${OTHER.personId}`,
+      quoteId: quote.quoteId,
+      selection,
+    });
+    setup({
+      slug: "compatibility",
+      counterpartId: OTHER.personId,
+      fortunePort,
+      personPort,
+    });
+    await screen.findByRole("dialog");
+    expect(hiddenChip("친구")).toHaveAttribute("aria-pressed", "true");
+    expect(hiddenChip("연인")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("h. 미리 고른 뒤 「친구」를 누르면 「친구」로 바뀌고, 질문을 고른 뒤 견적 selection 의 relationType 이 FRIEND", async () => {
+    const user = userEvent.setup();
+    const { createQuote } = setupCompat("LOVER");
+    const buttons = await ctaButtons();
+    await waitFor(() =>
+      expect(hiddenChip("연인")).toHaveAttribute("aria-pressed", "true"),
+    );
+    await pick(user, "친구");
+    expect(hiddenChip("친구")).toHaveAttribute("aria-pressed", "true");
+    expect(hiddenChip("연인")).toHaveAttribute("aria-pressed", "false");
+    await pick(user, "대화 · 소통");
+    await user.click(buttons[0]);
+    await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
+    expect(createQuote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relationType: "FRIEND",
+        questionKey: "COMMUNICATION",
+        counterpartPersonId: OTHER.personId,
+      }),
+    );
+  });
+
+  it("i. 궁합이 아닌 love 는 인물 목록에 LOVER 인 사람이 있어도 관계 묶음이 없고 견적 selection 의 relationType 은 null", async () => {
+    const user = userEvent.setup();
+    const { personPort, fortunePort } = portsWith("LOVER");
+    const { createQuote } = setup({ slug: "love", personPort, fortunePort });
+    const buttons = await ctaButtons();
+    expect(
+      screen.queryByRole("group", { name: "두 사람은 어떤 사이예요?" }),
+    ).toBeNull();
+    await pick(user, "지금 관계");
+    await user.click(buttons[0]);
+    await waitFor(() => expect(createQuote).toHaveBeenCalledTimes(1));
+    expect(createQuote).toHaveBeenCalledWith(
+      expect.objectContaining({ relationType: null }),
+    );
   });
 });

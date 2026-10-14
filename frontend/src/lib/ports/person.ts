@@ -10,11 +10,15 @@
 // - 본인을 두 번 저장할 때의 서버 규칙은 API_SPEC 에 없다 — TODO(BE-B).
 // - 실패는 src/lib/api/errors.ts 의 오류 클래스로 던진다.
 import type { PersonFormOutput } from "@/lib/person/schema";
+import type { RelationType } from "@/lib/ports/fortune";
 
 export type PersonSummary = {
   personId: string;
   isSelf: boolean;
   name: string;
+  // 서버가 저장한 관계 (API_SPEC 4장 GET /people relationType). 본인은 null, 모르는 서버 값은 "UNKNOWN".
+  // 화면의 관계(엄마 · 아빠 · 애인 · 직접 입력)와 목록이 달라 자동으로 맞추지 않는다 (FUNCTIONAL_SPEC 8장)
+  relationType: RelationType | "UNKNOWN" | null;
 };
 
 export type PersonPort = {

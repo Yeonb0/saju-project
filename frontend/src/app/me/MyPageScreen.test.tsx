@@ -40,6 +40,7 @@ function ports() {
     personId: "99999999-9999-4999-8999-999999999999",
     isSelf: false,
     name: OTHER_NAME,
+    relationType: "FAMILY",
   });
   return {
     sessionPort: createFakeSessionPort({ account }),

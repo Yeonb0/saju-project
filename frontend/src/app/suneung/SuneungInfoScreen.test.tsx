@@ -47,6 +47,7 @@ const OTHER: PersonSummary = {
   personId: "99999999-9999-4999-8999-999999999999",
   isSelf: false,
   name: "FIXTURE OTHER",
+  relationType: "FAMILY",
 };
 
 // 픽스처일 뿐이며 실제 계산 · 규칙과 무관하다
