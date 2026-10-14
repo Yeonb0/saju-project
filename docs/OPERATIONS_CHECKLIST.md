@@ -1,5 +1,70 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: 1차 선물 직접 링크 기반 전환
+
+- 최신 `origin/main` `2e5964b`에서 `feat/gift-direct-links-v1`을 새로 만들었다. 선물 주문 입력·응답·목록에서 전화번호와 마스킹 번호를 제거하고, 결제 활성화 트랜잭션이 알림톡 outbox 대신 32바이트 난수 token의 SHA-256 hash와 구매 응답 복구용 암호문을 함께 저장하도록 바꿨다. 암호문 공개 기간은 24시간이며 정리 worker가 만료 뒤 NULL 처리한다. 장기 권한은 hash만 남는다.
+- 구매자 소유권을 검사하는 링크 조회와 명시적 재발급 API를 추가했다. 재발급은 요청키별 멱등이고 token version을 원자적으로 증가시키며 기존 hash를 교체한다. 기존 결제 시각 기준 90일 만료는 연장하지 않는다. 공유 URL은 `/g#token=...` fragment를 사용해 token이 HTTP 요청 경로·Referer·OG 요청에 실리지 않도록 했고 FE 관측 마스킹 검사를 함께 갱신했다. 알림톡 조회·재전송·재발급 controller와 신규 주문의 delivery job 생성은 제거했다. 과거 migration/table은 rolling compatibility를 위해 삭제하지 않았다.
+- 적용: 6-1 구매자 소유권/CSRF, 6-2 결제·grant·token 원자성/동시 활성화, 6-4 결제 복구와 token 공개정보 정리 worker, 6-5 32바이트 bearer token/hash 저장/version·폐기·원래 만료일, 6-6 추가형 migration, 6-9 전화번호 미수집·token 로그 노출 축소. PostgreSQL 17 tmpfs 새 DB에서 GitHub Backend CI와 같은 `clean check bootJar`를 실행해 XML 615건 중 603건 통과·12건 선택 제외·실패/오류 0과 bootJar 성공을 확인했다. gift OpenAPI export도 성공했다. FE는 pnpm 실행 파일이 PATH에 없어 설치된 동일 도구를 직접 실행했고 Biome, Next typegen, TypeScript, Vitest 852건, production build가 모두 성공했다.
+- 아직 검증하지 않은 범위: staging 브라우저 A→B 전달 E2E, access/proxy/Sentry/PostHog의 실제 운영 로그 설정, 24시간 정리 worker 강제 중단·재시작, 기존 알림톡 시대 암호 payload의 즉시 변환/파기, 혼합 버전 배포, 부하·백업 복원. 공개 수신·recipient profile·비동기 운세/부적 fulfillment·최초 제공·claim·일반 개인정보 파기는 후속 BE-B 범위다.
+
+### 2026-10-14: PR #29 PostgreSQL CI 회귀 보완
+
+- PR #29의 Backend CI 실패를 동일 PostgreSQL 17 조건에서 재현했다. 제품 코드가 아니라 환불 upgrade fixture가 후속 migration 수를 정확히 1개로 고정한 단정과, 오늘의 운세 공유 fixture가 날짜를 2026-10-13으로 고정한 단정이 원인이었다. upgrade 검사는 1개 이상의 모든 후속 추가형 migration 적용과 기존 환불 행 보존을 확인하도록 바꾸고, 공유 검사는 애플리케이션의 서울 기준 `Clock`을 사용하도록 바꿨다. 적용: 6-6 추가형 migration 호환, 날짜 경계 회귀.
+- 새 PostgreSQL 17 전용 DB `saju_pr29_ci_fix2_20261014`에서 GitHub Backend CI와 같은 `clean check bootJar`를 실행해 544건 중 532건 통과·실패/오류 0·선택 제외 12와 bootJar 성공을 확인했다. 이후 PR #32가 병합된 최신 main `4fbf888`과 충돌을 해소해 회원 동의와 gift 설정을 함께 보존하고 최신 30일 전화번호·목적별 파기 정책을 우선했다. 새 DB `saju_pr29_main_merge3_20261014`의 통합본에서 664건 중 652건 통과·실패/오류 0·선택 제외 12와 bootJar 성공을 재확인했다. 실제 staging 배포, worker 중단 복구, R2 renderer 연결은 이번 CI 보완 범위에서 검증하지 않았다.
+
+### 2026-10-13: PR #29 최신 main 충돌 해결·통합 검증
+
+- 환불 정책 문서 충돌은 현재 `main`에 구현된 고객센터 잔여분 환불 정책으로 정리했다. `main`의 `V202610131200`과 겹치던 미병합 B migration은 부적 작업 `V202610131300`, 회원 동의 `V202610131400`으로 순서를 조정했다. 적용: 6-1 회원 동의/인물 생성 경계, 6-4 부적 작업 lease·재시도, 6-5 private 부적 자산, 6-6 additive migration 호환, 6-9 동의 기록 최소화.
+- H2 대상 기능 테스트와 bootJar, FE TypeScript 검사를 통과했다. 새 PostgreSQL 17 전용 DB `saju_pr29_merge_20261013_1652`에서 전체 migration 적용과 대상 기능 테스트를 통과했으며 `202610131200` 환불 → `202610131300` 부적 작업 → `202610131400` 회원 동의 순서를 확인했다. 전체 H2 검사는 541건 중 기존 PostgreSQL 전용 SQL/fixture 비호환 32건이 실패하고 32건이 선택 제외되어 성공으로 기록하지 않는다. 실제 staging 배포·worker 프로세스 중단 복구·R2 renderer는 미검증이다.
+### 2026-10-14: 정책 v2 후속, 기한 내 선물 접수 보호와 목적 종료 파기
+
+- 기준: PR #32 `codex/gift-fulfillment`, 소스 `32e9640`. FE·B 인증/회원/인물/운세 소스·공유 OpenAPI·실제 .env는 변경하지 않았다. 기본 운영 비활성과 local/test 제한을 유지했다. 아래 과거 기록의 임의 보관기간·만료 후 24시간 전체 보관 방식은 이번 정책으로 대체한다.
+- 실제 구매 차감부터 90일 미만에 영속 접수한 동일 요청은 만료 뒤에도 처리한다. 접수 후 24시간 미제공은 내부 REVIEW_REQUIRED이며 권리를 만료시키거나 자동 환급하지 않는다. 최초 제공 후 90일 재열람, ACTIVE 수신자 계정 연결·소유권과 선물 완료 settlement를 내부 port로 구현했다. 공개 수신 HTTP·B 생성/파일 권한은 아직 미연결이다.
+- 접수/수신 저장 callback, 최초 제공/콘텐츠 저장 callback과 감사는 각각 같은 짧은 트랜잭션으로 묶는다. callback에서 외부 호출·별도 커밋을 하지 않는다. 취소와 제공은 같은 work 잠금으로 직렬화하고 중복 요청은 기존 receipt를 재사용한다. 제공 확정은 실제 서버 응답 제공 경계이며 생성 완료만으로 찍지 않는다. 네트워크 너머 수신 성공을 관측했다고 주장하지 않는다.
+- A 개인정보는 미신청 90일 종료·비회원 최초 제공 후 90일 종료·연결 수신자 탈퇴·취소/반환/실패 확정 등 목적 종료에 맞춰 정리한다. 처리 중인 접수·ACTIVE 수신자 계정 보관·금융 처리/검토·살아 있는 발송 lease는 보호한다. 임의 추가 보관기간을 제거하고 정리 오류는 제한 backoff 5회 뒤 운영 검토로 분리한다. 금융 원장/receipt는 보존한다. 전화번호 30일 정책은 그대로다.
+- B 회원 익명화의 기존 30일 보관과 B 생년정보/콘텐츠 DB/파일 파기는 수정하지 않았다. A 삭제 후보 전환이 서비스 전체의 즉시 완전 삭제를 의미하지 않는다. 기본 1분 worker는 꺼져 있으며 실제 활성화·공급자 사본·백업 파기는 별도 확인이 필요하다.
+- Docker 엔진 확인 뒤 분리 tmpfs 테스트 DB만 시작하고 새 `saju_gift_grace_20261013`에서 검증했다. PostgreSQL read-only SQL로 Flyway 44개 모두 success=true 확인. 최종 `check bootJar exportGiftOpenApi` 성공, XML 660건 중 648 통과·12 선택 제외·실패/오류 0. 신규 수신 suite는 24건(신규 12 + lifecycle 상속 12)이다. 공유 계약/FE 타입은 변경하지 않았다.
+- 검사: 정확한 90일 접수 경계·만료 후 복구·24시간 검토·중복/다른 입력 충돌·동시 접수·DB/감사 실패 rollback·제공/취소 경쟁·완료 정산·재열람 경계·계정 소유권/탈퇴·취소 완료 후 개인정보 정리·5회 오류 격리. 초기 선별/전체 실행의 고정 날짜 fixture 실패를 실행 날짜와 무관하게 수정한 뒤 최종 전체를 재실행했다. 초기 전체 H2 금융 검사는 PostgreSQL 잠금 문법을 대체하지 못했으며 통과 근거로 삼지 않는다.
+- 적용: 6-1 소유권/접근 차단, 6-2 잠금·receipt·원장 불변/rollback, 6-4 영속 접수/운영 검토/오류 격리, 6-5 token 기한·재열람·계정 연결, 6-6 추가 migration/기본 비활성, 6-8 감사, 6-9 목적별 파기. 실제 Alimtalk/PG/FE·B E2E·운영 배포·OS 강제 종료·부하/백업 복원·혼합 버전 운영은 미검증이다.
+- 전달 문서: `backend/docs/GIFT_RECIPIENT_HANDOFF.md`, `backend/docs/PD_POLICY_V2_REVISION_REQUEST.md`. PD 문서에는 신청/제공 구분·30일 재발급·파기 기준·승인/생성 지연·법정 예외/공급자 확인을 정리했다. 법률 검토 완료 문서가 아니다.
+
+### 2026-10-13: PD·FE 정책 반영, 30일 발송 종료와 PR 최종 검증
+
+- 최신 origin/main e16a91d를 충돌 없이 통합했다. main 대비 FE·B 인증/회원/인물/운세 코드·공유 OpenAPI 변경은 없다. 기존 A 선물 견적·초안·구매·취소·발송 복구와 이번 보완을 같은 선물 기능 PR 범위로 준비했다. 실제 `.env`·개발 DB·권한·판매 활성화는 변경하지 않았다.
+- 사용자 확정: 알림톡 재발송·알림톡을 통한 링크 재발급은 실제 구매 차감 시각부터 30일 미만에만 허용한다. 30일 종료 뒤 원문 전화번호·마스킹 번호·발송 outbox를 정리하되 메시지·기존 token 권한·90일 기한·금융 증거는 유지한다. 원문 전화번호 없이 기존 작업 ID로 결과 불명 조회를 계속하며 새 발송은 하지 않는다. 동일 요청 replay가 전화번호를 복원하지 않는다.
+- GIFT_PHONE_CLEANUP_ENABLED=false가 기본이다. worker는 기본 1분마다 짧은 주문 잠금으로 개인정보 수정·작업 차단·감사를 함께 커밋한다. 오류는 5회 제한 재시도 후 자동 후보에서 제외해 운영 검토가 필요하다. 실제 운영 삭제·대행사 사본·백업 파기는 미검증이다. DB에 삭제 의도를 구현한 것과 모든 환경에서 실제 삭제 완료는 구분한다.
+- 관리자 `GET /api/v1/admin/top-up-orders/{orderId}`를 추가했다. 정확한 충전 주문 조회, DB 운영자 권한, 비밀값 비노출, 같은 트랜잭션 감사 실패 시 응답 차단을 확인했다. FE용이 아니며 운세 purchaseId/quoteId 관리자 검색은 여전히 없다. 소스 커밋 8f197b3와 973e488.
+- 미성년자 결제를 차단하거나 별도 충전 한도를 넣지 않았다. 결제 전 법정대리인 동의·취소 가능성 안내는 전달 문서에 기록했다. 안내만으로 동의 확인 완료로 간주하지 않으며 실제 동의 확인·PG 조건·사용분 법정 취소 예외는 미완료다. B 온보딩·탈퇴 개인정보 정리와 FE 문구/상태 화면은 직접 수정하지 않았다.
+- B 미병합 PR의 131300/131400과 A 미게시 선물 migration 번호 중복을 발견했다. A 선물 7개만 132100~132700으로 재배치했고 이미 공유된 migration은 수정하지 않았다. 옛 선물 검증 DB에 새 번호를 섞지 않는다. B migration은 더 앞 번호이므로 운영 배포 전에 전체 집합과 배포 순서를 확인해야 한다. B PR 통합 실행을 검증한 것은 아니다.
+- PostgreSQL 17.11/55432의 새 분리 DB saju_gift_pr_final_20261013에서 최종 `clean check bootJar exportGiftOpenApi` 성공. XML 총 636건, 통과 624, 선택 제외 12, 실패/오류 0. read-only SQL로 migration 43개 모두 success=true와 최종 132100~132700 번호를 확인했다. 선물 delivery suite 50건은 기존 lifecycle 상속 12건을 포함한다. 이번 추가 전화번호 경계 7건과 관리자 단건 2건 모두 통과했다.
+- 검사: 30일 직전·정확한 종료, 재발송/재발급 거절, 원문·마스킹 삭제 및 메시지 보존, 90일 token 검증 유지, UNKNOWN 조회·확정 부재 뒤 재발송 차단, 늦은 send 차단/lookup 재개, 감사 실패 rollback, 5회 오류 격리, replay 후 개인정보 미복원, 관리자 권한·단건 조회·감사 실패. 전체 suite에 기존 구매/취소/원장·동시성·업그레이드 검증도 포함됐다. 첫 선별 실행의 Spring 감사 spy 설정 오류는 테스트 트랜잭션 안에서 stub하도록 고친 뒤 전체 재검증했다.
+- 적용: 6-1 관리자 소유권·권한, 6-2 잠금·금융 불변, 6-4 결과 불명·제한 재개, 6-5 링크 권한/발송 기한 분리, 6-6 migration·비활성, 6-8 감사, 6-9 목적별 삭제. 실제 알림톡·PG·FE/B 수신 E2E·운영 배포·OS 강제 종료·부하·백업 복원은 수행하지 않았다. 문서: backend/docs/A_POLICY_TEAM_HANDOFF_20261013.md 및 GIFT_DELIVERY_HANDOFF_20261013.md.
+
+### 2026-10-13: 선물 발송·목록·개인정보 정리·키 버전 후속 구현
+
+- `codex/gift-fulfillment`의 A 선물 모듈에 발송 port/worker, 구매자 목록·상태·재발송/재발급, 보관 정리와 키 버전 전환을 추가했다. 소스 커밋 `14d0aae`. FE·B 인증/인물/운세 코드·공유 OpenAPI와 실제 `.env`는 변경하지 않았다. 기본 비활성과 local/test 제한을 유지했다.
+- 사용자 결정: 재발송+재발급 합산 선물 주문별 하루 3회, 1분 간격. 동일 요청 키 replay는 횟수를 다시 쓰지 않고 구 token은 폐기하며 선물 기한은 연장하지 않는다. 실제 대행사가 없으면 수동 요청은 503이다.
+- 발송 작업/lease를 짧은 트랜잭션에 저장하고 provider 호출은 트랜잭션 밖이다. 접수/응답 불명은 같은 작업을 조회하며 blind resend하지 않는다. 확정 미접수만 최초+3회 재시도(1/5/30분), 결과 조회 5회 소진은 검토다. 취소·만료·새 lease 뒤 늦은 완료는 차단하지만 이미 제출된 메시지의 도착 자체를 회수한다고 보장하지 않는다.
+- 보관 정리는 명시적으로 확정한 양수 기간이 필요하다. 미만료/금융 처리 중/금융 검토/살아 있는 발송 lease는 보존한다. 만료 ACTIVE는 24시간 유예 후 대상이며 개인정보만 지우고 원장·receipt를 유지한다. 자동 환급이 아니다. synthetic 1일은 테스트 fixture이지 실제 정책이 아니다.
+- v1 읽기와 선택 v2 keyring 쓰기/재암호화, 양쪽 암호문 원자적 전환, 오류 행 최대 5회 뒤 검토 분리를 구현했다. 안정적 HMAC/v1 root는 여전히 필요하다. 실제 키 교체·키 폐기·백업 복원이나 키 유출 대응을 완료한 것은 아니다.
+- 분리 PostgreSQL 17.11/55432의 `saju_gift_a_full_20261013`에서 `check bootJar exportGiftOpenApi` 성공. XML 총 627건, 통과 615, 선택 제외 12, 실패/오류 0. 신규 delivery PostgreSQL suite 43건(기존 lifecycle 상속 12 + 추가 31), cipher 단위 4건 모두 통과했다. read-only SQL로 migration 42개 모두 success=true, 최종 131700/131800을 확인했다.
+- 검사: 단일 전송 경쟁·응답 유실 조회·lease 만료·늦은 완료·한도/자정·재발급/취소·감사 저장 실패 rollback·소유권/CSRF·목록 cursor/마스킹·정리/replay·live lease 보호·v1→v2 및 부분 저장 실패·손상 행 제한 재시도·기존 outbox 보존 migration. fake provider는 외부 호출 중 DB 트랜잭션이 없음을 확인한다. 첫 전체 실행의 예외 wrapper 기대값 오류를 고쳐 전체 재실행했다.
+- 테스트 tmpfs 컨테이너 중단/재시작으로 기존 임시 DB가 사라져 새 분리 검증 DB를 사용했다. 개발 DB/다른 프로젝트 DB는 변경하지 않았다. DB lease/예외 주입은 실제 OS 강제 종료·재기동 시험을 대신하지 않는다.
+- 적용: 6-1 세션/CSRF/소유권, 6-2 짧은 잠금/중복/원장 보존, 6-4 worker lease·조회·소진, 6-5 구 token 폐기/만료, 6-6 추가 migration/비활성/버전 배포, 6-8 감사, 6-9 최소화/삭제/암호화. 상세 전달 문서는 `backend/docs/GIFT_DELIVERY_HANDOFF_20261013.md`다.
+- 남음: 실제 알림톡 대행사 API·발신 프로필·승인 템플릿·adapter·서명 webhook, B 소유 CSRF 예외 합의와 최초 제공/취소 원자적 경계·수신/생성/재열람/계정 연결·자산 권한·settlement, PD 보관기간/금칙어/대체 공유, 관리자 검토 재처리·운영 알림. 실제 알림톡·PG·FE 브라우저·운영 배포·부하·백업 복원은 미검증이다. push/PR/배포는 하지 않았다.
+
+### 2026-10-13: 브랜치 정리와 선물 견적·구매·취소 복구
+
+- main `bb3169c`에서 현재 checkout을 `codex/gift-fulfillment`로 이어갔다. 병합 완료 A 원격 브랜치 7개와 관련 로컬 브랜치를 정리했다. 초기 skeleton 원격 2개도 git cherry에서 main과 동일 패치임을 확인해 archive 태그로 보존한 뒤 삭제했다. 이전 미병합 선물 초안 `0f574ad`는 `archive/gift-draft-20261013` 로컬 태그로 보존하고 브랜치는 삭제했다. 다른 팀 브랜치는 삭제하지 않았다. 로컬 main은 원격으로 fast-forward했다.
+- 기존 견적/암호화 초안/명시적 차감 의도와 원장 재개를 최신 main에 통합했다. 수능 1명·등껍질 10/15개이며 상품/기능은 기본 비활성이다. 신규 purchase POST·금융 상태 GET·cancel POST를 추가하고 메타데이터 GET도 실제 금융 상태/charged를 반환한다. 원화 선물 confirm은 없다.
+- 취소는 실제 차감 후 7일 이내·최초 제공 전만 허용한다. work 잠금 아래 token 폐기/outbox 차단/취소 의도를 함께 커밋하고 잠금을 푼 뒤 독립 지갑 반환을 실행한다. 반환 receipt를 확인한 뒤 CANCELED이며 응답 유실은 같은 원 거래로 재개한다. 유료/보너스 원 지급분·원 만료일을 유지한다. 중복/동시 반환은 지갑 원 거래와 영속 명령키로 방지하며 외부 호출 없는 이 단계에는 provider lease가 없다.
+- 구매/취소 키의 다른 주문·다른 명령 재사용은 409다. 구매/반환 각각 5회 소진은 검토 상태이고 링크를 되살리지 않는다. 명시적인 의도가 없는 초안은 worker가 차감하지 않는다. ACTIVE는 권한/token/outbox 저장이지 실제 발송/수신 콘텐츠 완료가 아니다.
+- 별도 PostgreSQL 17.11/55432 DB `saju_gift_final_20261013`에서 전체 580건 중 568 통과, 선택 제외 12, 실패/오류 0. check/bootJar/전용 gift 계약 export 성공, migration 40개 모두 success=true다. 기존 선물 grant와 암호화 outbox/token을 유지하는 새 취소 migration upgrade를 포함했다. 최종 200/202 JSON 응답 선언 보완 후 선물/견적 51건 모두 통과와 bootJar/export를 다시 확인했다. 소스 커밋은 `f0a9f28`, `e7f4f84`다.
+- 선물 lifecycle PostgreSQL 12건: 구매 replay·상태 조회, 키 의미 충돌, 유료/보너스 반환·기한 유지, 최초 제공/7일 초과 거절, 예약 저장 실패 rollback, 지갑 반환 후 완료 저장 실패 재개, 동시 취소, 5회 소진, token 변조/만료/폐기·임의 부적 차단, 실제 opaque 세션/CSRF/소유권, migration upgrade. 최초 실행의 합성 회원 필수값 누락과 테스트 helper 컴파일 오류는 fixture를 고친 뒤 재검증했다.
+- 미게시 gift migration만 main 뒤 131300/1400/1500/1600으로 추가했다. 구 선물 초안 테스트 DB는 새 번호와 섞지 않는다. 기본 H2 계약 기동도 별도로 확인했으나 금융 검증 근거는 PostgreSQL이다. 사용자 DB·실제 `.env`·키·상품/운영 권한·FE 코드·공유 OpenAPI는 변경하지 않았다.
+- 적용: 6-1 세션/CSRF/소유권, 6-2 원장/지급분/잠금/동시성, 6-4 영속 의도/제한 재개, 6-5 token 폐기·권한 차단, 6-6 migration/기본 비활성/local-test 제한, 6-9 수신 정보 암호화/마스킹. backend 전용 OpenAPI와 전달 문서는 `backend/docs/GIFT_IMPLEMENTATION_20261013.md`다. 환불 FE 전달 문서도 `backend/docs/FE_REFUND_HANDOFF_20261013.md`에 보존했다.
+- 남음: B 최초 제공·취소의 원자적 경계와 수신/생성/재열람/계정 연결, 부적 자산 권한, 알림톡 provider·outbox worker·결과 불명/lease/fencing·webhook·재발급 제한, 보관기간/삭제/키 회전/금칙어, 선물 목록·관리자 검토 재처리. 아직 반환 가능성이 있는 선물 차감은 충전 현금 환불에서 미정산 구매로 보수적으로 차단한다. local/test 밖 활성화는 거절한다. 실제 발송·B/FE E2E·OS 종료·부하·복원·배포는 수행하지 않았다.
+
 ### 2026-10-13: 고객센터 관리자 잔여 유료분 환불 구현·최신 main 통합 검증
 
 - 사용자 확정 방식: 충전 건별 유효한 잔여 유료분 전체를 실제 결제액 기준 비례 환불, 수수료 없음·원 미만 올림, 남은 보너스 회수·사용 보너스 무공제. 고객센터 실제 접수/등록 시각을 저장하고 관리자 quote→execute→get으로 처리한다. 일반 사용자 환불 POST는 제거하고 소유자 GET은 유지한다. 아래 이전 부분 환불 미제공/미구현 문장은 당시 기록이다.
@@ -31,6 +96,14 @@
 - 남음: 문의 채널/환불 신청 경로/처리 기한/정책 시행일/PG 계약 담당자 지정, 법령상 예외 검토, 실제 PG·팀 통합 검증. 아래 이전 기록의 부분 환불 미정/후속 표시는 당시 상태이며 최신 부분 환불 미제공 결정을 우선한다. 기존 테스트 통과를 실제 PG 승인이나 최종 정책 법률 적합성으로 표시하지 않는다.
 
 ### 2026-10-13: FE 10/12 요청서 기준 BE-B 계약·스테이징 설정 점검
+
+- 2026-10-13 부적 보관함의 인증·소유권 경계를 추가했다. `GET /api/v1/talismans`, `GET /api/v1/talismans/{id}`, `POST /api/v1/talismans/{id}/download-url`은 ownership join으로 본인 자원만 조회하며 타인/없는 ID를 같은 404로 처리한다. 목록은 최대 50건의 bounded cursor이고 private object key·owner ID를 응답하지 않는다. 다운로드는 READY 원본에만 10분 URL을 요청하고, 실제 `TalismanAssetAccess`가 없는 환경은 503으로 닫힌다. DB 읽기 transaction이 끝난 뒤 signer를 호출해 외부 호출 동안 transaction/lock을 유지하지 않는다. 적용: 6-1 서버 소유권·인증/CSRF, 6-4 PENDING/FAILED 상태, 6-5 private asset·단기 URL, 6-9 object key 비노출, 6-10 bounded pagination. H2 2건과 PostgreSQL 17.11 전용 DB 2건에서 2페이지 cursor, 타인 404, PENDING 거절, READY URL을 확인했고 bootJar·OpenAPI export·FE TypeScript 검사를 통과했다. 실제 private R2 signer, URL 만료/재사용, 브라우저 보관함, 부하 검증은 아직 미구현/미실행이다.
+
+- 2026-10-13 확정 정책에 맞춰 `GET/POST /api/v1/me/consents`와 `member_consents`를 추가했다. 서버가 현재 이용약관/개인정보처리방침 version(기본 `2026-10-14`), 만 14세 확인, 필수 동의 2종, 선택 마케팅 동의, 동의 시각을 저장하며 같은 사용자·같은 version 재전송은 한 행만 유지한다. 필수 동의 누락은 `REQUIRED_CONSENT_MISSING`으로 거절한다. 인물 생성 gate도 추가했지만 FE 선배포 호환을 위해 `MEMBER_CONSENT_REQUIRED_FOR_PERSON_CREATION=false`가 기본이며, FE가 동의 API를 연결한 환경부터 true로 전환한다. 적용: 6-1 서버 동의 경계/CSRF/활성 회원, 6-6 additive migration과 단계적 rollout, 6-9 최소 동의 기록·version. H2에서 동의/인물/회원 관련 11건과 bootJar·OpenAPI export, PostgreSQL 17.11 전용 DB에서 동의 중복·gate 2건, FE 생성 타입과 TypeScript 검사를 통과했다. 실제 브라우저 HOME-02 연결, staging gate 활성화, 정책 재동의/마케팅 동의 변경·철회 흐름은 아직 미검증/미구현이다.
+
+- 2026-10-13 PD의 환불정책·이용약관·개인정보처리방침 확정본을 수령해 `docs/POLICY_FINALIZATION_20261013.md`와 결정 문서에 반영했다. 적용 범위: 6-1 만 14세/약관 동의 서버 기록 필요, 6-2 환불 원장·같은 충전분 보너스 회수, 6-5 선물 연락처 최대 90일 보관·파기, 6-8 환불 처리 상태/이메일 문의, 6-9 최소 수집·외부 전송·retention, 6-6 실제 hosting/R2와 정책 문구 일치. 정책 확정은 구현·PG·법무·공급자 콘솔 검증 완료를 뜻하지 않는다. 특히 선물 파기 worker, PostHog/Sentry retention·마스킹, Railway/R2/알림톡 위탁·국외 이전 표와 실제 구성의 대조가 남아 있다.
+
+- 2026-10-13 BE-B 부적 비동기 처리의 첫 경계를 구현했다. 운세 결과와 같은 짧은 DB 트랜잭션에서 `PENDING` 부적과 `talisman_render_jobs`의 단일 작업을 남기고, worker가 lease token/fence로 점유한 뒤에만 `READY` asset key 또는 제한 재시도 뒤 `FAILED`를 저장하도록 했다. 렌더링·object storage는 port로만 추가했고, 승인 에셋과 실제 private R2 adapter가 아직 없으므로 `TALISMAN_RENDER_ENABLED`는 기본 false이며 worker는 기동하지 않는다. 적용: 6-4 durable job/lease/stale 완료 차단, 6-5 private object key 경계, 6-6 additive Flyway migration, 6-9 birth input·signed URL·raw token 비저장. H2 talisman 13건과 PostgreSQL 17.11 전용 `sajuppugi_test`에서 새 lease/재시도/완료 2건을 통과했다. 전체 H2 `clean check bootJar`는 기존 관리자 `FOR NO KEY UPDATE` 및 결제 대사 `ON CONFLICT`의 H2 비호환으로 514건 중 32건이 실패해 전체 성공으로 기록하지 않는다. 실제 renderer/R2, worker kill/restart, staging 및 파일 복원 시험은 아직 미실행이다.
 
 - 적용 점검: 6-1 OAuth callback/세션/CSRF와 내부 returnTo, 6-6 고정 staging origin과 환경 분리, 6-9 OAuth·Liner 비밀값의 저장소 비노출.
 - 현재 코드 기준 `GET /session`은 flat payload(`authenticated`, `userId`, `nickname`, `hasPrimaryPerson`, `expiresAt`, `csrfToken`)를 공통 envelope의 `data`에 반환한다. `POST /auth/logout`은 body 없는 204이며, 구매 상태 조회는 `GET /reading-purchases/by-quote/{quoteId}`만 제공한다. API_SPEC의 오래된 예시와 상태 조회 초안을 이 계약으로 정정하고 고정 OpenAPI 파일을 다시 export했다.

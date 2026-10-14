@@ -6,6 +6,7 @@ import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.reading.domain.RelationType;
 import com.sajuppugi.member.domain.Member;
 import com.sajuppugi.member.port.MemberRepository;
+import com.sajuppugi.member.application.MemberConsentService;
 import com.sajuppugi.person.domain.Person;
 import com.sajuppugi.person.port.PersonRepository;
 import java.time.Clock;
@@ -23,11 +24,14 @@ public class PersonService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private final PersonRepository repository;
     private final MemberRepository members;
+    private final MemberConsentService consents;
     private final Clock clock;
 
-    public PersonService(PersonRepository repository, MemberRepository members, Clock clock) {
+    public PersonService(PersonRepository repository, MemberRepository members,
+                         MemberConsentService consents, Clock clock) {
         this.repository = repository;
         this.members = members;
+        this.consents = consents;
         this.clock = clock;
     }
 
@@ -48,6 +52,7 @@ public class PersonService {
         validate(profileType, displayName, birthInput, relationType, thirdPartyConfirmed);
         ownerUserId = required(ownerUserId);
         requireActiveMember(ownerUserId);
+        consents.requireCurrentForPersonCreation(ownerUserId);
         Instant now = clock.instant();
         repository.lockOwner(ownerUserId, now);
         if (profileType == Person.ProfileType.SELF && repository.activeSelfExists(ownerUserId)) {

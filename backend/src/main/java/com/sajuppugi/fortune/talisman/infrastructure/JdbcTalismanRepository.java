@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.ConnectionCallback;
@@ -33,12 +34,42 @@ public class JdbcTalismanRepository implements TalismanRepository {
     }
 
     @Override
+    public Optional<Talisman> findById(UUID talismanId) {
+        return jdbc.query("SELECT * FROM talismans WHERE id = ?", (rs, row) -> talisman(rs), talismanId)
+                .stream().findFirst();
+    }
+
+    @Override
     public Optional<Talisman> findOwned(UUID ownerUserId, UUID talismanId) {
         return jdbc.query("""
                 SELECT t.* FROM talismans t
                 JOIN talisman_ownerships o ON o.talisman_id = t.id
                 WHERE o.owner_user_id = ? AND t.id = ?
                 """, (rs, row) -> talisman(rs), ownerUserId, talismanId).stream().findFirst();
+    }
+
+    @Override
+    public List<Talisman> findOwnedPage(UUID ownerUserId, Instant beforeAcquiredAt,
+            UUID beforeTalismanId, int limit) {
+        if (beforeAcquiredAt == null) {
+            return jdbc.query("""
+                    SELECT t.* FROM talismans t
+                    JOIN talisman_ownerships o ON o.talisman_id = t.id
+                    WHERE o.owner_user_id = ?
+                    ORDER BY t.created_at DESC, t.id DESC
+                    LIMIT ?
+                    """, (rs, row) -> talisman(rs), ownerUserId, limit);
+        }
+        return jdbc.query("""
+                SELECT t.* FROM talismans t
+                JOIN talisman_ownerships o ON o.talisman_id = t.id
+                WHERE o.owner_user_id = ?
+                  AND (t.created_at < ? OR (t.created_at = ? AND t.id < ?))
+                ORDER BY t.created_at DESC, t.id DESC
+                LIMIT ?
+                """, (rs, row) -> talisman(rs), ownerUserId, Timestamp.from(beforeAcquiredAt),
+                Timestamp.from(beforeAcquiredAt),
+                beforeTalismanId, limit);
     }
 
     @Override

@@ -74,6 +74,18 @@ tasks.register('exportAdminOpenApi', Test) {
     outputs.upToDateWhen { false }
 }
 
+tasks.register('exportGiftOpenApi', Test) {
+    description = 'Export backend-owned gift APIs without modifying the shared FE contract.'
+    group = 'documentation'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.sajuppugi.GiftOpenApiIntegrationTest' }
+    systemProperty 'gift.openapi.output', file('docs/openapi/gift-operations-v1.json').absolutePath
+    defaultCharacterEncoding = 'UTF-8'
+    outputs.upToDateWhen { false }
+}
+
 tasks.register('walletDemo', Test) {
     description = 'Retain a synthetic debit/refund example in the isolated local PostgreSQL test database.'
     group = 'verification'

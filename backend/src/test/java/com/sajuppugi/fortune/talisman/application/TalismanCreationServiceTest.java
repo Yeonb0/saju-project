@@ -17,6 +17,7 @@ import com.sajuppugi.fortune.talisman.domain.Talisman.Status;
 import com.sajuppugi.fortune.talisman.domain.TalismanCompositionPolicy;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateTalisman;
 import com.sajuppugi.fortune.talisman.port.TalismanRepository;
+import com.sajuppugi.fortune.talisman.port.TalismanRenderJobRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -31,7 +32,8 @@ import org.junit.jupiter.api.Test;
 class TalismanCreationServiceTest {
     private static final Instant NOW = Instant.parse("2026-10-08T03:00:00Z");
     private final TalismanRepository repository = org.mockito.Mockito.mock(TalismanRepository.class);
-    private final TalismanCreationService service = new TalismanCreationService(repository,
+    private final TalismanRenderJobRepository jobs = org.mockito.Mockito.mock(TalismanRenderJobRepository.class);
+    private final TalismanCreationService service = new TalismanCreationService(repository, jobs,
             new TalismanCompositionPolicy(new Random(9)), Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -50,6 +52,7 @@ class TalismanCreationServiceTest {
                         && talisman.fortuneType() == FortuneType.SUNEUNG
                         && talisman.element() == Element.WATER
                         && talisman.createdAt().equals(NOW)));
+        verify(jobs).enqueue(fulfillment.talismanId(), NOW);
     }
 
     @Test
@@ -62,6 +65,7 @@ class TalismanCreationServiceTest {
 
         assertThat(service.create(command).talismanId()).isEqualTo(ready.id());
         verify(repository, never()).createPending(any());
+        verify(jobs, never()).enqueue(any(), any());
     }
 
     @Test

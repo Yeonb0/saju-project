@@ -90,7 +90,7 @@ export const ROUTES = {
   // FUNCTIONAL_SPEC 2장 v0.3 — /gift/checkout 삭제, 선물 차감 확인은 위저드 안 팝업 (GIFT-03 다음)
   "/gift/new": { screens: ["GIFT-01", "GIFT-02", "GIFT-03"] },
   "/gift/done/[orderId]": { screens: ["GIFT-04", "GIFT-05"] },
-  "/g/[token]": {
+  "/g": {
     screens: [
       "RECV-01",
       "RECV-02",
