@@ -751,6 +751,9 @@
             "format" : "date-time",
             "type" : "string"
           },
+          "deliveryMode" : {
+            "type" : "string"
+          },
           "deliveryState" : {
             "type" : "string"
           },
@@ -763,6 +766,17 @@
           },
           "giftId" : {
             "format" : "uuid",
+            "type" : "string"
+          },
+          "linkIssuedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "linkRetrievable" : {
+            "type" : "boolean"
+          },
+          "linkRevealUntil" : {
+            "format" : "date-time",
             "type" : "string"
           },
           "orderId" : {
@@ -802,6 +816,10 @@
           "submittedAt" : {
             "format" : "date-time",
             "type" : "string"
+          },
+          "tokenVersion" : {
+            "format" : "int64",
+            "type" : "integer"
           },
           "walletTransactionId" : {
             "format" : "uuid",

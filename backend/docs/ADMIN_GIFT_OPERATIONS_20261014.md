@@ -1,5 +1,22 @@
 # 선물 관리자 조회·유지보수 재개
 
+## 최신 main 직접 링크 호환 보완
+
+PR #35·#36·#38을 포함한 main `84f87f0`과 통합했다. 이는 Q-54의 제품 정책 확정을 대신하지 않는다. 기존 알림톡 주문과 현재 main의 직접 링크 주문을 함께 운영 조회할 수 있도록 보완했다.
+
+- `deliveryMode`는 기존 전화번호/발송 outbox가 있는 주문이면 `ALIMTALK_LEGACY`, 그 밖은 `DIRECT_LINK`다. 신규 주문에는 발송 작업이 없고 `deliveryState=null`, `deliveries=[]`가 정상이다.
+- `tokenVersion`, `linkIssuedAt`, `linkRevealUntil`, `linkRetrievable`만 추가했다. `linkRetrievable`은 현재 구매자가 링크 원문을 조회할 수 있는지를 뜻하며 발송/수신/콘텐츠 생성 성공을 뜻하지 않는다. 관리자에게 원문 URL·token·암호문·hash를 제공하지 않는다.
+- 전화번호가 없는 신규 주문은 전화번호 정리 후보·실패 검토·PHONE_CLEANUP 재개에서 제외한다. 과거 알림톡 주문의 기존 30일 정리와 제한 재개는 유지한다.
+- 새 `token_ciphertext`도 기존 draft/outbox와 같은 트랜잭션에서 키 전환한다. token hash/version/만료/원장을 바꾸지 않는다. 암호문 인증 실패면 전체 전환을 rollback하고 기존 5회 실패/제한 관리자 재개를 적용한다.
+- 취소 의도 저장·목적 종료 개인정보 파기 시 token 암호문도 NULL 처리한다. 24시간 원문 공개기간 종료는 암호문만 정리하고 유효한 bearer hash 권한을 폐기하지 않는다. 재발급은 취소/최초 제공과 같은 work→token 잠금 순서를 사용한다.
+- 재발급 기간·횟수·간격·수신 접수 이후 재발급 정책은 새로 정하지 않았다. Q-54 합의가 별도로 필요하다. 실제 외부 adapter와 공개 수신/생성 E2E는 이번 범위가 아니다.
+
+### 이미 PR #35 migration을 적용한 DB
+
+공유된 `V202610140100`을 수정하거나 번호를 바꾸지 않았다. `V202610141000`만 먼저 적용한 DB에서는 기본 Flyway 검증이 실패한다. 배포 전 적용 이력을 확인하고 별도의 migration 단계에서 `outOfOrder=true`로 누락된 관리자 migration을 한 번 적용한 뒤 기본 설정으로 복귀해야 한다. 애플리케이션 기본 out-of-order 설정은 켜지 않았다.
+
+`AdminGiftMigrationUpgradeTest`는 #33 migration이 없는 main schema를 먼저 만든 뒤 기본 검증 거절, 명시적 out-of-order 적용 1건, 이후 기본 검증 성공과 직접 링크 column 보존을 확인한다. 운영 DB에 이 절차를 실행한 것은 아니다.
+
 ## 범위
 
 선물 주문·발송·접수 지연·개인정보 정리·암호문 전환 검토 상태를 개인정보 없이 조회한다. 실패 5회로 자동 대상에서 제외된 유지보수만 제한적으로 다시 연다. 관리자 화면은 만들지 않았으며 권한 있는 세션으로 Postman 등에서 사용할 수 있다.

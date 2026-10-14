@@ -1,5 +1,13 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: PR #33 최신 main 호환·직접 링크 유지보수
+
+- `codex/gift-admin-operations`에서 main `84f87f0`(#35·#36·#38 포함)을 통합했다. 문서 충돌은 양쪽 운영 기록을 보존했다. 신규 직접 링크 주문과 과거 알림톡 주문을 구분하고, 전화번호 없는 주문의 전화번호 정리 후보/실패 검토/재개를 제외했다. 관리자에 링크 version/발급/공개기한/조회 가능 여부만 제공하며 원문 URL/token/hash/암호문은 비노출이다.
+- 기존 키 전환에 `token_ciphertext`를 추가하고 draft/outbox/token과 감사의 원자성을 유지했다. 손상된 token은 전체 rollback과 기존 제한 재시도/관리자 재개를 따른다. 취소/목적 종료 시 token 암호문도 삭제하며, 공개기간 종료는 유효한 bearer hash를 유지한다. 재발급과 취소는 work→token 잠금으로 직렬화한다. 링크 포함 DTO의 문자열 출력은 가렸다. 재발급 기간/횟수 등 Q-54 제품 정책은 바꾸지 않았다.
+- 공유 migration 번호를 바꾸지 않았다. #35만 먼저 적용된 DB는 기본 검증에서 #33의 늦게 도착한 앞 번호를 거절하므로 이력 확인 후 별도 migration 단계에서 한 번 out-of-order 적용하고 기본 설정으로 복귀해야 한다. 애플리케이션 기본값은 변경하지 않았다. 별도 schema에서 main→#33 upgrade와 기본 검증 복귀를 확인했다. 운영 DB에는 실행하지 않았다.
+- 별도 PostgreSQL 17 tmpfs 컨테이너의 `localhost:55433/saju_pr33_compat`에서 `check bootJar exportAdminOpenApi` 성공. test XML 646건: 통과 634, 선택 제외 12, 실패/오류 0. 관리자 전용 OpenAPI를 갱신했다. FE/공유 계약의 새 변경이나 실제 .env/개발 DB 수정은 없다.
+- 적용: 6-1 운영자 권한/CSRF, 6-2 원장 불변/원자성/잠금, 6-4 제한 재개, 6-5 링크 비노출/취소 경쟁, 6-6 main 통합/기존 schema upgrade, 6-8 관리자 감사, 6-9 개인정보 파기/암호문 전환. 실제 PG/Alimtalk/Liner/R2, FE/B 수신 완주, 운영 배포, OS 강제 종료, 부하/백업 복원은 미검증이다.
+
 ### 2026-10-14: 선물 관리자 조회·소진된 유지보수 제한 재개
 
 - 기준 main `87cb89f`(B PR #29 병합)에서 `codex/gift-admin-operations`를 분리했다. 소스 `40336dc`. FE·B 인증/회원/인물/운세 코드·공유 OpenAPI·실제 .env·개발 DB는 변경하지 않았다. 기존 권한/worker 기본 비활성도 유지했다.
