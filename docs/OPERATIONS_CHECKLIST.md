@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: A 견적번호 고객센터 운영 조회
+
+- PR #33 호환 보완 `4ef8f40`에서 `codex/admin-quote-support`를 분리했다. `GET /api/v1/admin/purchase-quotes/{quoteId}`로 만료된 견적 포함 상품/가격 snapshot, A의 확정 차감/반환 transaction·수량·시각과 연결된 선물 주문을 조회한다. `NO_DEBIT_RECEIPT`/`DEBIT_COMMITTED`/`RETURN_COMMITTED`는 A 원장 사실이며 B 생성/제공이나 PG 현금 환불 상태를 뜻하지 않는다.
+- DB 운영자 grant·ACTIVE 회원 권한을 확인한 뒤 조회와 감사를 같은 REPEATABLE_READ 트랜잭션으로 묶는다. 감사 실패는 응답을 차단한다. 개인정보·context/request/key hash·token/URL/결과 본문은 비노출이다. 원장·잔액·생성 상태를 변경하지 않는다. B 테이블을 직접 읽지 않았다. DB migration/운영 flags/FE 공유 계약을 바꾸지 않았다.
+- 별도 PostgreSQL 17 `localhost:55433/saju_pr33_compat`에서 신규 고객센터 suite와 관리자 OpenAPI test, bootJar, exportAdminOpenApi 성공. 최종 고객센터 suite 재실행 16건(신규 5 + 상속 lifecycle 11), 전부 통과·실패/오류/선택 제외 0. 검사: 만료 견적/당시 가격, 확정 차감/반환과 반복 조회 금융 불변, 권한·철회·없는/잘못된 UUID, 감사 실패 차단, 일반 운세 견적의 연결 참조/선물 없음. 앞선 #33 통합 전체 646건 검증 이후 이 후속 범위의 필요한 검사를 수행했다.
+- 적용: 6-1 운영자 권한, 6-2 동일 snapshot/원장 불변, 6-8 정확한 문의번호/감사, 6-9 응답 최소화. purchaseId→B 생성/결과 조회는 B public port 합의가 필요하다. 실제 CS 접수·브라우저·외부 API·운영 배포는 미검증이다. 설명: `backend/docs/ADMIN_PURCHASE_QUOTE_SUPPORT.md`.
+
 ### 2026-10-14: PR #33 최신 main 호환·직접 링크 유지보수
 
 - `codex/gift-admin-operations`에서 main `84f87f0`(#35·#36·#38 포함)을 통합했다. 문서 충돌은 양쪽 운영 기록을 보존했다. 신규 직접 링크 주문과 과거 알림톡 주문을 구분하고, 전화번호 없는 주문의 전화번호 정리 후보/실패 검토/재개를 제외했다. 관리자에 링크 version/발급/공개기한/조회 가능 여부만 제공하며 원문 URL/token/hash/암호문은 비노출이다.
