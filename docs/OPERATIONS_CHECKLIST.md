@@ -1,5 +1,13 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-14: PG 심사 우선 환경 분리·저장소 점검
+
+- #41 `b89f2dc`에서 `codex/pg-payment-readiness`를 분리했다. 토스 adapter가 test_gsk만 허용하고 production을 일괄 차단하던 제약을 환경별 키 검증으로 정리했다. local/test/staging은 test_gsk/test_sk만, production/prod는 공식 HTTPS 주소·live_gsk/live_sk·명시적 TOSS_LIVE_ENABLED=true가 모두 필요하다. production에 local/test/staging 혼합을 거절한다. 기본 adapter disabled/live-enabled false는 유지한다.
+- 기존 승인·조회·환불의 멱등성/timeout/결과 불명/receipt 지급을 유지한다. 잘못된 환경/키/호스트/timeout은 비밀값 없이 기동 실패다. 실제 .env/서버 키/개발 DB/운영 flags를 읽거나 수정하지 않았다. 실제 외부 PG를 호출하거나 결제·배포·심사 신청을 하지 않았다.
+- `backend/scripts/Test-PgReadiness.ps1`은 공개 사업자 source·빈 정책 component·공유 OpenAPI를 읽어 build/pg-readiness.json을 만든다. 실행 결과 source blocker 4개(전화번호·통신판매업 표기·호스팅 제공자·정책 본문), 수동 확인 6개다. -Strict의 exit 2도 확인했다. SOURCE_PRESENT는 렌더링/E2E/PG 승인 증거가 아니다.
+- 별도 PostgreSQL 17 localhost:55433/saju_pr33_compat와 synthetic loopback provider로 payment/config/confirmation/refund 선별 120건 통과. 최종 `check bootJar` 전체 685건 중 673 통과·12 선택 제외·실패/오류 0. 직접 공유·관리자·고객센터·금융 regression을 포함한다. 실제 key/외부 API/브라우저/운영 배포·OS 종료/부하/복원은 미검증이다.
+- 적용: 6-1 계정 권한/보호된 결제 경로 기존 regression, 6-2 원장/지급 불변, 6-3 provider mode/timeout/결과 불명·환불, 6-6 환경 분리/기동 검증, 6-8 심사 인계/운영 조회, 6-9 비밀값 비노출. 인계: `backend/docs/PG_REVIEW_READINESS_20261014.md`. PG 충전 분류/한도·정책 v3·사업자 값·고정 staging/실제 테스트 결제는 담당자 확인이 필요하다.
+
 ### 2026-10-14: A 직접 공유 재발급 마무리
 
 - #39 `4002187`에서 `codex/gift-direct-link-hardening`를 분리했다. 사용자 확정인 실제 차감부터 30일 미만·주문별 KST 하루 3회·1분 간격을 구현했다. 서버 Link 응답에 canReissue/remainingReissues/nextReissueAt를 추가했다. 동일 요청 replay는 횟수를 재사용하지 않고, 후속 재발급 이후 이전 key replay는 이전 version/shareUrl=null을 반환한다.
