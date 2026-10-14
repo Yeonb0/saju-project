@@ -29,6 +29,7 @@ class AdminOpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/admin/audit-events'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/gift-orders'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/gift-orders/{orderId}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/purchase-quotes/{quoteId}'].get.operationId").value("adminGetPurchaseQuote"))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/gift-orders/{orderId}/maintenance-reopens'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/refund-cases'].post.responses['201']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/refund-cases/{caseId}/quote'].get").exists())
