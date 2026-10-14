@@ -235,19 +235,24 @@ public class TossPaymentProvider implements PaymentProviderPort {
         try {
             URI url = URI.create(properties.baseUrl());
             boolean official = "https://api.tosspayments.com".equals(properties.baseUrl());
+            boolean production = environment.acceptsProfiles(Profiles.of("production", "prod"));
+            boolean staging = environment.acceptsProfiles(Profiles.of("staging"));
+            boolean localProfile = environment.acceptsProfiles(Profiles.of("local", "test"));
+            boolean liveEnabled = environment.getProperty("app.toss.live-enabled", Boolean.class, false);
             boolean localTest = environment.acceptsProfiles(Profiles.of("test"))
                     && !environment.acceptsProfiles(Profiles.of("staging", "production", "prod"))
                     && "http".equals(url.getScheme()) && "127.0.0.1".equals(url.getHost())
                     && url.getPort() > 0 && url.getUserInfo() == null && url.getQuery() == null
                     && url.getFragment() == null && url.getPath().isEmpty();
-            if (environment.acceptsProfiles(Profiles.of("production", "prod"))
-                    || (!official && !localTest) || properties.secretKey() == null
-                    || !properties.secretKey().matches("test_gsk_[A-Za-z0-9_]+")
+            boolean validKey = properties.secretKey() != null && properties.secretKey().matches(
+                    production ? "live_(?:gsk|sk)_[A-Za-z0-9_]+" : "test_(?:gsk|sk)_[A-Za-z0-9_]+");
+            if ((production && (!liveEnabled || !official || localProfile || staging))
+                    || (!production && liveEnabled) || (!official && !localTest) || !validKey
                     || !validTimeout(properties.connectTimeout()) || !validTimeout(properties.readTimeout())) {
                 throw new IllegalStateException();
             }
         } catch (RuntimeException exception) {
-            throw new IllegalStateException("Toss test API configuration is invalid");
+            throw new IllegalStateException("Toss API environment, credentials or timeouts are invalid");
         }
     }
 
