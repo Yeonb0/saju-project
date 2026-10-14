@@ -13,6 +13,7 @@ import { Button } from "@/components/Button";
 import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
 import { loginHref } from "@/lib/auth/returnTo";
+import { BUSINESS_INFO } from "@/lib/business";
 import { getFortunePort, getPaymentLauncher, getTopUpPort } from "@/lib/ports";
 import type { FortunePort } from "@/lib/ports/fortune";
 import {
@@ -21,11 +22,22 @@ import {
 } from "@/lib/ports/paymentLauncher";
 import type { TopUpPort } from "@/lib/ports/topUp";
 import { loadPurchaseSelection } from "@/lib/purchase/restore";
+import { supportMailtoHref } from "@/lib/support/contact";
 import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
 
 type Intent = { productCode: string; key: string };
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
+
+// 안내 상자 문장 (FUNCTIONAL_SPEC 7장 PAY-01 v0.4). 바꿀 때는 이 배열 한 곳.
+// 첫 줄: Q-56 — 정책 v3 에서 '승인 확인 후 지급' 으로 바뀔 수 있다 (BE-A 요청)
+const TOP_UP_NOTICE_LINES = [
+  "등껍질은 결제 승인 즉시 지급돼요. 유효기간은 유료 5년, 보너스 1년이에요.",
+  "유효기간이 먼저 끝나는 등껍질부터 사용돼요.",
+  "충전 후 7일 이내, 그 충전의 등껍질을 하나도 쓰지 않았다면 고객센터로 신청해 전액 환불받을 수 있어요.",
+  "남은 유료 등껍질 환불도 고객센터 이메일로 신청해 주세요.",
+  "미성년자는 법정대리인 동의를 받아 결제해 주세요. 동의 없이 결제하면 취소될 수 있어요.",
+] as const;
 
 export function WalletScreen({
   port,
@@ -52,6 +64,8 @@ export function WalletScreen({
   });
 
   const [selected, setSelected] = useState<string | null>(null);
+  // 필수 동의 (Q-25) — 컴포넌트 상태로만 둔다. 저장소에 두지 않는다
+  const [agreed, setAgreed] = useState(false);
 
   // 잔액 부족 팝업에서 왔으면 저장된 구매 선택의 견적 ID 를 읽는다 (PURCHASE-RESTORE).
   // /wallet 은 정적 프리렌더라 렌더 중에 sessionStorage 를 읽지 않는다 — 하이드레이션 불일치.
@@ -110,7 +124,9 @@ export function WalletScreen({
   if (order.error instanceof ApiContractError) throw order.error;
 
   function onPay() {
-    if (selected === null || order.isPending || submitting.current) return;
+    // 동의 없이는 아무것도 보내지 않는다 (버튼 비활성과 이중 방어)
+    if (!agreed || selected === null || order.isPending || submitting.current)
+      return;
     if (intent.current?.productCode !== selected) {
       intent.current = { productCode: selected, key: createIdempotencyKey() };
     }
@@ -126,6 +142,11 @@ export function WalletScreen({
     });
   }
 
+  // 판매 중인 상품이 없다 (목록이 비거나 전부 비활성) = PAY-06. 아직 못 받았으면 해당 없음
+  const noProducts =
+    products.data !== undefined && !products.data.some((p) => p.active);
+  const contactHref = supportMailtoHref();
+
   const canceled = order.error instanceof PaymentCanceledError;
   const errorKind =
     order.error && !canceled ? classifyApiError(order.error) : null;
@@ -139,19 +160,26 @@ export function WalletScreen({
       // 결제 수단 칸 없음 — 결제하기 → 바로 결제창 (PD 수정안 301:128, Q-25 부분). 결제창 결제수단(method)은 TODO(Q-25 · BE-A 토스 계약). 와이어 CTA 는 327×60 — 공용 Button cta(327×69)는 디자인 시스템 적용 때 맞춘다
       cta={
         <div className="flex justify-center pb-[32px]">
-          <Button
-            variant="cta"
-            onClick={onPay}
-            disabled={
-              selected === null ||
-              order.isPending ||
-              order.isSuccess ||
-              errorKind === "review_required"
-            }
-          >
-            {/* TODO(PD 문구) */}
-            결제하기
-          </Button>
+          {noProducts ? (
+            <Link href="/" className="underline">
+              홈으로
+            </Link>
+          ) : (
+            <Button
+              variant="cta"
+              onClick={onPay}
+              disabled={
+                !agreed ||
+                selected === null ||
+                order.isPending ||
+                order.isSuccess ||
+                errorKind === "review_required"
+              }
+            >
+              {/* TODO(PD 문구) */}
+              결제하기
+            </Button>
+          )}
         </div>
       }
     >
@@ -176,12 +204,12 @@ export function WalletScreen({
         </p>
       )}
 
-      {products.data && !products.data.some((p) => p.active) ? (
-        // BE-A 충전 상품은 PG 준비 전 비활성이라 목록이 비거나 전부 비활성일 수 있다 (FE_COMPATIBILITY.md)
-        <p className="mt-[12px] ml-[34px]">
-          {/* TODO(PD 문구) */}
-          판매 중인 충전 상품이 없습니다
-        </p>
+      {noProducts ? (
+        // PAY-06. BE-A 충전 상품은 PG 준비 전 비활성이라 목록이 비거나 전부 비활성일 수 있다 (FE_COMPATIBILITY.md)
+        <div className="mt-[12px] ml-[34px]">
+          <p>지금은 충전할 수 있는 상품이 없어요</p>
+          <p>잠시 후 다시 확인해 주세요.</p>
+        </div>
       ) : products.data ? (
         <fieldset className="mt-[12px] ml-[34px] flex w-[335px] flex-col gap-[8px]">
           {/* TODO(PD 문구) */}
@@ -219,24 +247,44 @@ export function WalletScreen({
         </fieldset>
       ) : null}
 
-      {/* TODO(Q-21 · PD 문구): 충전 안내 · 유효기간 · 환불 요약 · 환불정책 링크 — 원고 확정 전이라 비운다 (와이어 301:159 문구는 자리표시) */}
-      <div
-        data-slot="top-up-notice"
-        className="mt-[24px] ml-[34px] h-[170px] w-[335px] rounded-[8px] bg-[#f2f2f2]"
-      />
+      {noProducts ? null : (
+        <>
+          {/* 안내 상자 (FUNCTIONAL_SPEC 7장 PAY-01). 내용이 길면 늘어나도록 min-h */}
+          <div
+            data-slot="top-up-notice"
+            className="mt-[24px] ml-[34px] min-h-[188px] w-[335px] rounded-[8px] bg-[#f2f2f2] pt-[14px] pr-[12px] pb-[14px] pl-[12px] text-[13px] font-medium leading-[normal]"
+          >
+            <ul>
+              {TOP_UP_NOTICE_LINES.map((line) => (
+                <li key={line} className="before:content-['·_']">
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <p className="before:content-['·_']">
+              <Link href="/refund">환불정책 보기 &gt;</Link>
+            </p>
+          </div>
 
-      {/* TODO(Q-25 · Q-21): 결제 동의 체크 — 문구 · 필수 동작은 팀 확정 전이라 자리만 둔다. 결제하기를 막지 않는다 */}
-      <div
-        data-slot="top-up-agreement"
-        className="mt-[26px] ml-[37px] flex gap-[7px]"
-      >
-        <span
-          aria-hidden
-          data-slot="agreement-check"
-          className="block h-[24px] w-[24px]"
-        />
-        <span className="block min-h-[34px] w-[290px]" />
-      </div>
+          {/* 필수 동의 (Q-25) — 토스 결제창 안의 동의(결제 서비스 약관)와 다르다: 디지털 콘텐츠 청약철회 제한 · 환불정책 고지 */}
+          <div
+            data-slot="top-up-agreement"
+            className="mt-[26px] ml-[37px] flex gap-[7px]"
+          >
+            <label className="flex gap-[7px]">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(event) => setAgreed(event.target.checked)}
+                className="h-[24px] w-[24px] shrink-0"
+              />
+              <span className="block min-h-[34px] w-[290px] text-[14px] font-medium leading-[normal]">
+                주문 내용과 환불정책을 확인했으며 결제에 동의합니다. (필수)
+              </span>
+            </label>
+          </div>
+        </>
+      )}
 
       {errorKind === "login_required" || errorKind === "csrf_failed" ? (
         // 로그인 후 이 화면으로 복귀 (PG-2, safeReturnTo)
@@ -245,11 +293,13 @@ export function WalletScreen({
           <Link href={loginHref("/wallet")}>다시 로그인해 주세요</Link>
         </p>
       ) : errorKind === "review_required" ? (
-        // 다시 시도 없이 문의 안내 (Q-41 5, COMMON). 문의 채널은 미정 — 링크를 넣지 않는다 (Q-38 g). TODO(PD 문구)
-        <p role="alert">
-          확인이 필요한 결제가 있어 지금은 충전할 수 없습니다. 고객센터로 문의해
-          주세요
-        </p>
+        // 다시 시도 없이 문의 안내 (Q-41 5) — COMMON-04. 주문이 만들어지기 전 거절이라 번호 없음 (Q-38 g · Q-47)
+        <div>
+          <p role="alert">확인이 필요한 구매예요</p>
+          <p>고객센터로 문의해 주시면 빠르게 도와드릴게요.</p>
+          {BUSINESS_INFO.email === null ? null : <p>{BUSINESS_INFO.email}</p>}
+          {contactHref === null ? null : <a href={contactHref}>문의하기</a>}
+        </div>
       ) : errorKind ? (
         // TODO(PD 문구): 오류 종류별 안내
         <p role="alert">결제를 시작하지 못했습니다</p>
