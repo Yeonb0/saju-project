@@ -91,6 +91,8 @@ app:
     webhooks-enabled: ${TOSS_WEBHOOKS_ENABLED:false}
     operations-enabled: ${TOSS_OPERATIONS_ENABLED:false}
     adapter: ${TOSS_ADAPTER:disabled}
+    # Only an explicit production opt-in accepts live keys. Staging/local remain test-only.
+    live-enabled: ${TOSS_LIVE_ENABLED:false}
     base-url: https://api.tosspayments.com
     secret-key: ${TOSS_SECRET_KEY:}
     connect-timeout: ${TOSS_CONNECT_TIMEOUT:3s}

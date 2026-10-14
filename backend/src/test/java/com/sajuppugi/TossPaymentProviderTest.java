@@ -311,13 +311,13 @@ class TossPaymentProviderTest {
 
     @Test
     void configurationRejectsLiveKeysClientKeysUnsafeHostsAndTimeoutsWithoutLeakingValues() {
-        for (String key : java.util.List.of("", "live_gsk_synthetic", "test_ck_synthetic", "test_sk_synthetic", "secret:bad")) {
+        for (String key : java.util.List.of("", "live_gsk_synthetic", "test_ck_synthetic", "secret:bad")) {
             assertThatThrownBy(() -> create(baseUrl(), key, Duration.ofSeconds(2), testEnvironment()))
-                    .hasMessage("Toss test API configuration is invalid");
+                    .hasMessage("Toss API environment, credentials or timeouts are invalid");
         }
         for (String url : java.util.List.of("https://example.com", "http://api.tosspayments.com", baseUrl() + "?private=key")) {
             assertThatThrownBy(() -> create(url, "test_gsk_synthetic", Duration.ofSeconds(2), testEnvironment()))
-                    .hasMessage("Toss test API configuration is invalid");
+                    .hasMessage("Toss API environment, credentials or timeouts are invalid");
         }
         assertThatThrownBy(() -> create(baseUrl(), "test_gsk_synthetic", Duration.ZERO, testEnvironment()))
                 .isInstanceOf(IllegalStateException.class);
@@ -332,11 +332,11 @@ class TossPaymentProviderTest {
         var production = new MockEnvironment();
         production.setActiveProfiles("production", "test");
         assertThatThrownBy(() -> create("https://api.tosspayments.com", "test_gsk_synthetic", Duration.ofSeconds(2), production))
-                .hasMessage("Toss test API configuration is invalid");
+                .hasMessage("Toss API environment, credentials or timeouts are invalid");
         var staging = new MockEnvironment();
         staging.setActiveProfiles("staging", "test");
         assertThatThrownBy(() -> create(baseUrl(), "test_gsk_synthetic", Duration.ofSeconds(2), staging))
-                .hasMessage("Toss test API configuration is invalid");
+                .hasMessage("Toss API environment, credentials or timeouts are invalid");
     }
 
     @Test

@@ -126,6 +126,17 @@ jq . build/liner-live-response.json
 
 ## 환경 설정
 
+### PG 심사용 테스트와 운영 결제 분리 (2026-10-14)
+
+- 기본 `TOSS_ADAPTER=disabled`, `TOSS_LIVE_ENABLED=false`를 유지한다.
+- 심사용 staging은 `TOSS_ADAPTER=api`와 해당 클라이언트 키에 대응하는 `test_gsk_` 또는 `test_sk_` 서버 시크릿을 안전하게 설정한다. staging/local/test에서는 라이브 키와 live-enabled=true를 거절한다.
+- production/prod의 API adapter는 공식 주소 `https://api.tosspayments.com`, `live_gsk_` 또는 `live_sk_`, 명시적 `TOSS_LIVE_ENABLED=true`가 모두 있어야 생성한다. production에 local/test/staging 프로필을 섞으면 거절한다. 이 설정은 PG 승인 여부를 확인하거나 자동 배포하는 기능이 아니다.
+- 연결/읽기 timeout은 0초 초과·60초 이하로 검증하고 설정 오류에 key/URL을 출력하지 않는다. 테스트 전용 loopback provider는 test 단독 환경에서만 허용한다.
+- 실제 키를 읽거나 결제를 실행하기 전 안전한 서버 설정을 확인한다. 실제 .env·개발 DB·운영 flags는 이번 구현에서 수정하지 않았다.
+- 저장소 점검: 루트에서 `./backend/scripts/Test-PgReadiness.ps1`. `-Strict`는 누락/수동 확인이 있으면 exit 2다. 정책/사업자 source와 공개 계약만 읽고 .env·시크릿·원격 사이트/결제 API를 읽거나 호출하지 않는다. 결과는 `backend/build/pg-readiness.json`이다.
+
+심사 요청 전 실제 HTTPS 사이트·카카오 로그인/세션·테스트 결제창/승인·주문 조회·환불·사업자/정책 노출을 확인해야 한다. source 점검이나 health=UP가 심사 승인/실결제 준비 완료를 뜻하지 않는다. 상세는 `docs/PG_REVIEW_READINESS_20261014.md`를 따른다.
+
 | 변수 | 용도 |
 |---|---|
 | `SPRING_PROFILES_ACTIVE` | `local`, `staging`, `production` |
