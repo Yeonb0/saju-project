@@ -172,6 +172,10 @@ describe("SuneungInfoScreen (CSAT-01)", () => {
     const { purchase } = setup();
     await user.click(await proceed());
     await user.click(await screen.findByRole("button", { name: "사용하기" }));
+    // 완료 블록의 「결과 보러 가기」 를 눌러야 결과 화면으로 간다
+    await user.click(
+      await screen.findByRole("button", { name: "결과 보러 가기" }),
+    );
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
     const result = await purchase.mock.results[0].value;
     expect(push).toHaveBeenCalledWith(`/suneung/r/${result.readingId}`);

@@ -224,6 +224,10 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     await pick(user, "지금 관계");
     await user.click((await ctaButtons())[0]);
     await user.click(await screen.findByRole("button", { name: "사용하기" }));
+    // 완료 블록의 「결과 보러 가기」 를 눌러야 결과 화면으로 간다
+    await user.click(
+      await screen.findByRole("button", { name: "결과 보러 가기" }),
+    );
     await waitFor(() => expect(router.push).toHaveBeenCalledTimes(1));
     const result = await purchase.mock.results[0].value;
     expect(router.push).toHaveBeenCalledWith(`/fortune/r/${result.readingId}`);

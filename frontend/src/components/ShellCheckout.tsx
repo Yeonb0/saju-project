@@ -10,13 +10,15 @@ import * as Sentry from "@sentry/nextjs";
 // 결정 PURCHASE-STATUS-UI (2026-10-12, 사용자 — 처리 중 자동 반복 조회 없음, 결과 확인은 상태 조회), F-06, COMMON 4.8,
 // PURCHASE-KEY-STORE (2026-10-10 결정, 2026-10-12 구현 — 상태 조회가 OpenAPI 에 들어옴): 구매를 보내기 직전 견적 ID 와 구매 키만 저장해 두고,
 // 돌아오면 그 키로 상태 조회부터 한다 (frontend/CLAUDE.md 브라우저 저장소: 키 · 견적 ID 만, 생년정보 · 가격 · 잔액 금지).
+// 완료(FULFILLED + readingId, Q-38)는 바로 결과로 넘기지 않고 팝업 안에서 「준비가 끝났어요!」 + 「결과 보러 가기」 를 보인다 —
+// FUNCTIONAL_SPEC 8장 v0.4 "구매 상태 화면" 완료 줄. 결과 화면 이동(onPurchased)은 버튼을 누를 때 한 번만 부른다.
 // 앞 화면(CSAT-01 · FORT-02 · 03 · MATCH-03 · FORT-07)이 띄운다. 디자인 요소 없음 (PG-FIRST).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
-import { GenerationScene } from "@/components/GenerationScene";
+import { GenerationDone, GenerationScene } from "@/components/GenerationScene";
 import { Modal } from "@/components/Modal";
 import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
@@ -316,15 +318,22 @@ export function ShellCheckout({
     },
   });
 
-  // 서버 상태가 완료가 되면 한 번만 결과를 넘긴다
+  // 서버 상태가 완료가 되면 한 번만 복원값을 지운다 — 구매는 끝났다. 결과로 가는 것은 「결과 보러 가기」 를 누를 때다
   const fulfilledReadingId =
     outcome?.kind === "fulfilled" ? outcome.readingId : null;
+  const cleared = useRef(false);
   useEffect(() => {
+    if (fulfilledReadingId === null || cleared.current) return;
+    cleared.current = true;
+    clearPurchaseSelection();
+  }, [fulfilledReadingId]);
+
+  // 「결과 보러 가기」 — 두 번 눌러도 onPurchased 는 한 번
+  function onViewResult() {
     if (fulfilledReadingId === null || delivered.current) return;
     delivered.current = true;
-    clearPurchaseSelection();
     onPurchased({ readingId: fulfilledReadingId });
-  }, [fulfilledReadingId, onPurchased]);
+  }
 
   // 재개 (PURCHASE-KEY-STORE): 저장해 둔 견적 ID · 구매 키로 처음 한 번 상태를 조회한다. 같은 키로 이어 가므로 새 키를 만들지 않는다 (I-05)
   const startLookup = lookup.mutate;
@@ -458,15 +467,23 @@ export function ShellCheckout({
     <Modal
       open={open}
       onOpenChange={(next) => {
-        // 구매 명령이 나간 동안에는 닫지 않는다 — 결과를 놓치지 않게
-        if (!next && (busy || outcomePending)) return;
+        // 구매 명령이 나간 동안에는 닫지 않는다 — 결과를 놓치지 않게. 완료 블록이 보이는 동안도 닫지 않는다
+        // (완료 줄의 버튼은 「결과 보러 가기」 하나뿐, FUNCTIONAL_SPEC 8장)
+        if (!next && (busy || outcomePending || fulfilledReadingId !== null)) {
+          return;
+        }
         onOpenChange(next);
       }}
-      layout={purchase.isPending ? "screen" : "popup"}
+      layout={
+        purchase.isPending || fulfilledReadingId !== null ? "screen" : "popup"
+      }
       // TODO(PD 문구): 제목 — 잔액 부족이면 다른 제목
       title={insufficient ? "등껍질 부족" : "등껍질 사용 확인"}
     >
-      {purchase.isPending ? (
+      {fulfilledReadingId !== null ? (
+        // 완료 — 구매 응답이든 재개 조회든 같은 블록 (FUNCTIONAL_SPEC 8장 구매 상태 화면)
+        <GenerationDone onView={onViewResult} />
+      ) : purchase.isPending ? (
         // 생성은 구매 요청 안에서 끝난다 (F-06) — 기다리는 동안 대기 장면
         <GenerationScene failure={null} />
       ) : failure ? (

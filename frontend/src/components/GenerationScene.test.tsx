@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BUSINESS_INFO } from "@/lib/business";
-import { GenerationScene } from "./GenerationScene";
+import { GenerationDone, GenerationScene } from "./GenerationScene";
 
 afterEach(cleanup);
 
@@ -72,5 +73,22 @@ describe("GenerationScene", () => {
     expect(screen.getByText(BUSINESS_INFO.email ?? "")).toBeVisible();
     expect(screen.queryByText("결과를 만들지 못했어요")).toBeNull();
     expect(screen.queryByText(REFUND_TEXT)).toBeNull();
+  });
+});
+
+describe("GenerationDone (구매 완료 — FUNCTIONAL_SPEC 8장 구매 상태 화면)", () => {
+  it("f. 완료 블록에 data-slot, 문구, 결과 보러 가기 버튼이 있고 클릭하면 onView 가 불린다", async () => {
+    const onView = vi.fn();
+    const { container } = render(<GenerationDone onView={onView} />);
+    expect(
+      container.querySelector('[data-slot="generation-done"]'),
+    ).not.toBeNull();
+    expect(screen.getByText("준비가 끝났어요!")).toBeVisible();
+    // 대기 · 실패 문구는 없다
+    expect(screen.queryByText("구매를 처리하고 있어요")).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "결과 보러 가기" }),
+    );
+    expect(onView).toHaveBeenCalledTimes(1);
   });
 });

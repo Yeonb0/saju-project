@@ -105,6 +105,11 @@ function setup(
 }
 
 const useButton = () => screen.findByRole("button", { name: "사용하기" });
+// 완료 블록의 「결과 보러 가기」 — 누를 때 onPurchased 가 불린다 (FUNCTIONAL_SPEC 8장 구매 상태 화면)
+const viewResult = async () =>
+  userEvent.click(
+    await screen.findByRole("button", { name: "결과 보러 가기" }),
+  );
 
 // 픽스처일 뿐이며 실제 서버 응답과 무관하다
 const purchaseState = (
@@ -161,6 +166,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     const { purchase, onPurchased } = setup({ balance: 100 });
     const button = await useButton();
     await user.dblClick(button);
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(purchase).toHaveBeenCalledTimes(1);
     expect(onPurchased).toHaveBeenCalledWith({
@@ -215,6 +221,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     await screen.findByRole("alert");
     expect(createQuote).toHaveBeenCalledTimes(2);
     await user.click(await useButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(purchase).toHaveBeenCalledTimes(2);
     expect(purchase.mock.calls[1][1]).not.toBe(purchase.mock.calls[0][1]);
@@ -265,6 +272,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     });
     expect(screen.getByRole("button", { name: "사용하기" })).toBeDisabled();
     await user.click(recheck);
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(purchase.mock.calls[1][1]).toBe(purchase.mock.calls[0][1]);
     expect(purchase.mock.calls[1][0]).toEqual(purchase.mock.calls[0][0]);
@@ -402,6 +410,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
 
     // 두 번째 응답은 가짜 포트의 실제 구현 (FULFILLED + readingId)
     await user.click(screen.getByRole("button", { name: "다시 확인하기" }));
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(purchaseSpy.mock.calls[1][1]).toBe(purchaseSpy.mock.calls[0][1]);
     expect(onPurchased.mock.calls[0][0].readingId).toEqual(expect.any(String));
@@ -454,6 +463,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     const { client, onPurchased } = setup();
     expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(false);
     await user.click(await useButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
   });
@@ -501,6 +511,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     );
     expect(screen.getByRole("dialog")).toHaveAttribute("data-layout", "screen");
     release();
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
   });
 
@@ -716,6 +727,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     const lookup = vi.spyOn(port, "getPurchaseStatus");
     const { purchase, onPurchased } = setup({ port });
     await user.click(await useButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(onPurchased).toHaveBeenCalledWith({ readingId: expect.any(String) });
     expect(purchase).toHaveBeenCalledTimes(1);
@@ -739,6 +751,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     expect(lookup).not.toHaveBeenCalled();
 
     await user.click(await checkButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(onPurchased).toHaveBeenCalledWith({ readingId: expect.any(String) });
     expect(lookup).toHaveBeenCalledTimes(1);
@@ -763,6 +776,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     expect(onPurchased).not.toHaveBeenCalled();
 
     await user.click(await checkButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(lookup).toHaveBeenCalledTimes(2);
     expect(purchase).toHaveBeenCalledTimes(2);
@@ -785,6 +799,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     );
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(onPurchased).toHaveBeenCalledWith({ readingId: "FIXTURE-READING" });
     expect(lookup).toHaveBeenCalledTimes(1);
@@ -1061,6 +1076,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     const { client, onPurchased } = setup({ port });
     await user.click(await useButton());
     await user.click(await checkButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
   });
@@ -1105,6 +1121,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     );
     const { client, onPurchased } = setup({ port });
     await user.click(await useButton());
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
   });
@@ -1132,6 +1149,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     );
     const { rerender } = render(view(first));
     await user.click(await useButton());
+    await viewResult();
     await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
     rerender(view(second));
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -1221,6 +1239,7 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
       resumeQuoteId: quoteId,
       resumePurchaseKey: KEY,
     });
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(onPurchased).toHaveBeenCalledWith({ readingId: expect.any(String) });
     expect(createQuote).not.toHaveBeenCalled();
@@ -1243,6 +1262,7 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
     expect(lookup).toHaveBeenCalledTimes(1);
     expect(lookup).toHaveBeenCalledWith(quote.quoteId);
     expect(getQuote).toHaveBeenCalledWith(quote.quoteId);
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(purchase).toHaveBeenCalledTimes(1);
     expect(purchase.mock.calls[0][1]).toBe(KEY);
@@ -1274,6 +1294,7 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
     expect(onPurchased).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "다시 확인하기" }));
+    await viewResult();
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(lookup).toHaveBeenCalledTimes(2);
     expect(purchase).not.toHaveBeenCalled();
@@ -1330,5 +1351,116 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
     setup({ port, resumeQuoteId: quote.quoteId });
     await useButton();
     expect(lookup).not.toHaveBeenCalled();
+  });
+});
+
+describe("ShellCheckout — 완료 블록 (FUNCTIONAL_SPEC 8장 구매 상태 화면 · Q-38)", () => {
+  const DONE = "준비가 끝났어요!";
+  const VIEW = "결과 보러 가기";
+  // 픽스처일 뿐이다
+  const KEY = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  it("a. 구매 응답 201 FULFILLED + readingId 면 완료 블록이 보이고, 이 시점에 onPurchased 0번 · 복원값은 이미 지워졌다", async () => {
+    const user = userEvent.setup();
+    savePurchaseSelection({
+      returnPath: "/suneung",
+      quoteId: "FIXTURE-QUOTE",
+      selection: SELECTION,
+    });
+    const { onPurchased } = setup();
+    await user.click(await useButton());
+    expect(await screen.findByText(DONE)).toBeVisible();
+    expect(screen.getByRole("button", { name: VIEW })).toBeEnabled();
+    expect(onPurchased).not.toHaveBeenCalled();
+    expect(loadPurchaseSelection()).toBeNull();
+    expect(sessionStorage.getItem("purchaseSelection")).toBeNull();
+    // 자동 이동은 없다 — 시간이 지나도 그대로
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("b. 결과 보러 가기 클릭 → onPurchased 1번 { readingId }, 같은 틱에 두 번 눌러도 1번", async () => {
+    const user = userEvent.setup();
+    const { onPurchased } = setup();
+    await user.click(await useButton());
+    const button = await screen.findByRole("button", { name: VIEW });
+    // 렌더 사이 없이 두 번 — 실제 더블 탭
+    button.click();
+    button.click();
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(onPurchased).toHaveBeenCalledWith({
+      readingId: expect.any(String),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onPurchased).toHaveBeenCalledTimes(1);
+  });
+
+  it("c. 완료 블록이 보이는 동안 Esc 를 눌러도 팝업이 닫히지 않고 onOpenChange(false) 도 불리지 않는다", async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = setup();
+    await user.click(await useButton());
+    await screen.findByText(DONE);
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: VIEW })).toBeVisible();
+  });
+
+  it("d. 재개 조회(FULFILLED + readingId)도 같은 완료 블록 — 클릭 전 onPurchased 0번, 클릭 후 1번", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    const quote = await port.createQuote(SELECTION);
+    await port.purchase({ quoteId: quote.quoteId, selection: SELECTION }, KEY);
+    const { onPurchased } = setup({
+      port,
+      resumeQuoteId: quote.quoteId,
+      resumePurchaseKey: KEY,
+    });
+    expect(await screen.findByText(DONE)).toBeVisible();
+    expect(onPurchased).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: VIEW }));
+    await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
+    expect(onPurchased).toHaveBeenCalledWith({
+      readingId: expect.any(String),
+    });
+  });
+
+  it.each([
+    [
+      "202 GENERATING (readingId null)",
+      {
+        status: "GENERATING" as const,
+        compensationStatus: "NOT_REQUIRED" as const,
+        nextAction: "WAIT" as const,
+        readingId: null,
+      },
+    ],
+    [
+      "FULFILLED 인데 readingId null",
+      {
+        status: "FULFILLED" as const,
+        compensationStatus: "NOT_REQUIRED" as const,
+        nextAction: "VIEW_READING" as const,
+        readingId: null,
+      },
+    ],
+  ])("e. %s 면 완료 블록이 없다 (Q-38 — 결과를 아직 모름)", async (_name, over) => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    // 픽스처일 뿐이며 실제 구매 응답과 무관하다
+    vi.spyOn(port, "purchase").mockResolvedValueOnce({
+      purchaseId: "FIXTURE",
+      charged: { currency: "TURTLE_SHELL", amount: 0 },
+      balance: null,
+      ...over,
+    });
+    const { onPurchased } = setup({ port });
+    await user.click(await useButton());
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
+    expect(screen.queryByText(DONE)).toBeNull();
+    expect(screen.queryByRole("button", { name: VIEW })).toBeNull();
+    expect(onPurchased).not.toHaveBeenCalled();
   });
 });
