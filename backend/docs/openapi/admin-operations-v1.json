@@ -418,6 +418,17 @@
         },
         "type" : "object"
       },
+      "ApiResponseQuoteSupport" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/QuoteSupport"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseReopened" : {
         "properties" : {
           "data" : {
@@ -690,6 +701,75 @@
           }
         },
         "required" : [ "hasNext", "items", "nextCursor" ],
+        "type" : "object"
+      },
+      "QuoteSupport" : {
+        "properties" : {
+          "boundReferenceId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "buyerId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "debitTransactionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "debitedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "debitedShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "financialState" : {
+            "type" : "string"
+          },
+          "giftOrderId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "priceCurrency" : {
+            "type" : "string"
+          },
+          "productCode" : {
+            "type" : "string"
+          },
+          "quoteId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "quotedAmount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "returnTransactionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "returnedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "returnedShells" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
         "type" : "object"
       },
       "Reopened" : {
@@ -1059,6 +1139,34 @@
           }
         },
         "tags" : [ "admin-financial-controller" ]
+      }
+    },
+    "/api/v1/admin/purchase-quotes/{quoteId}" : {
+      "get" : {
+        "description" : "Exact quote support lookup with DB operator grant and mandatory audit. Durable debit/return facts only; not fulfillment or cash refund state.",
+        "operationId" : "adminGetPurchaseQuote",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "quoteId",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseQuoteSupport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "admin-purchase-support-controller" ]
       }
     },
     "/api/v1/admin/recovery-commands/{commandId}" : {
