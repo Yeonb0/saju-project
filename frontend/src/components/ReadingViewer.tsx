@@ -4,21 +4,18 @@
 // 결과 뷰어 하나로 수능(CSAT-03 ~ 06) · 일반 5종(FORT-06 · 07) · 선물 수신(RECV-03 ~ 06 · RECV-T-03)을 그린다 (VIEWER).
 // 근거: RESULT-GUIDE-MODEL (결과 포트가 서버 suneungGuide 구조), Q-37 답 (API_SPEC 8장 "수능운 결과 구조"), Q-05 (모르는 섹션은 건너뜀),
 // F-08 (결과 하단 고지 — 문구는 PD), S-06 (서버 결과만 표시). 서버 문장은 텍스트로만 렌더한다. 디자인 요소 없음 (PG-FIRST).
-// 제목 · 교시 이름 · 분류 이름은 임시다 (src/lib/reading/labels.ts, TODO(PD 문구)).
+// 제목 · 교시 이름 · 분류 이름은 PD 확정 (FUNCTIONAL_SPEC 8장 v0.4, Q-40 · Q-45) (src/lib/reading/labels.ts).
 import * as Sentry from "@sentry/nextjs";
 import { type ReactNode, useEffect, useState } from "react";
-import {
-  PREPARATION_CATEGORIES,
-  type Reading,
-  type SuneungGuide,
-} from "@/lib/ports/reading";
+import type { Reading, SuneungGuide } from "@/lib/ports/reading";
 import { loadChecked, saveChecked } from "@/lib/reading/checklist";
 import {
   EXAM_PERIOD_LABELS,
   labelOf,
-  PREPARATION_CATEGORY_LABELS,
+  PREPARATION_GROUPS,
   SECTION_TITLES,
   SUNEUNG_GUIDE_TITLES,
+  suneungSummaryTitle,
 } from "@/lib/reading/labels";
 
 type Checklist = SuneungGuide["preparationChecklist"];
@@ -70,7 +67,11 @@ export function ReadingViewer({
           </section>
         ) : null}
         {body.kind === "SUNEUNG_GUIDE" ? (
-          <GuideCards readingId={reading.id} guide={body.guide} />
+          <GuideCards
+            readingId={reading.id}
+            personDisplayName={reading.personDisplayName}
+            guide={body.guide}
+          />
         ) : (
           body.sections.map((section) =>
             section.type === "UNKNOWN" ? null : (
@@ -150,16 +151,18 @@ function TextList({ items }: { items: readonly string[] }) {
 
 function GuideCards({
   readingId,
+  personDisplayName,
   guide,
 }: {
   readingId: string;
+  personDisplayName: string;
   guide: SuneungGuide;
 }) {
   const t = SUNEUNG_GUIDE_TITLES;
-  // TODO(PD 순서): 카드 순서는 API_SPEC 8장 필드 순서 그대로다. 목록이 비면 그 카드는 그리지 않는다
+  // 카드 순서 = FUNCTIONAL_SPEC 8장 수능 카드 표 (서버 필드 순서와 같다). 목록이 비면 그 카드는 그리지 않는다
   return (
     <>
-      <Card id="g-summary" title={t.summary}>
+      <Card id="g-summary" title={suneungSummaryTitle(personDisplayName)}>
         <Paragraph>{guide.summary}</Paragraph>
       </Card>
       <Card id="g-examDayGuide" title={t.examDayGuide}>
@@ -258,15 +261,17 @@ function ChecklistBody({
     );
   }
 
-  // 분류 순서대로 묶고, 항목 없는 분류는 건너뛴다. 모르는 분류는 맨 끝에 제목 없는 묶음으로
+  // PD 묶음 순서대로 묶고(묶음 안은 서버 순서), 항목 없는 묶음은 건너뛴다. 모르는 분류는 맨 끝에 제목 없는 묶음으로
   const groups = [
-    ...PREPARATION_CATEGORIES.map((category) => ({
-      category,
-      title: PREPARATION_CATEGORY_LABELS[category],
-      items: items.filter((item) => item.category === category),
+    ...PREPARATION_GROUPS.map((group) => ({
+      id: group.id,
+      title: group.title,
+      items: items.filter((item) =>
+        (group.categories as readonly string[]).includes(item.category),
+      ),
     })),
     {
-      category: "UNKNOWN",
+      id: "UNKNOWN",
       title: null,
       items: items.filter((item) => item.category === "UNKNOWN"),
     },
@@ -275,7 +280,7 @@ function ChecklistBody({
   return (
     <div className="mt-[45px] flex flex-col gap-y-[24px]">
       {groups.map((group) => (
-        <div key={group.category}>
+        <div key={group.id}>
           {group.title === null ? null : (
             <h3 className={BODY_CLASS}>{group.title}</h3>
           )}

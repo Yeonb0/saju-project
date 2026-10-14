@@ -55,19 +55,19 @@ const h2s = () =>
   screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
 
 describe("ReadingViewer — 수능 가이드 (RESULT-GUIDE-MODEL)", () => {
-  it("카드 제목이 API_SPEC 필드 순서와 같고, 카드마다 폭 376px", () => {
+  it("카드 제목이 FUNCTIONAL_SPEC 8장 순서와 같고, 카드마다 폭 376px", () => {
     const { container } = render(
       <ReadingViewer reading={guideReading()} reportUnknown={vi.fn()} />,
     );
     expect(h2s()).toEqual([
-      "요약",
-      "시험 당일",
-      "교시별 안내",
-      "집중 팁",
-      "추천 음식",
-      "준비물",
-      "마음 관리",
-      "부족한 오행",
+      "FIXTURE님의 수능 운세",
+      "시험 날 하루 흐름",
+      "교시별 응원",
+      "집중 꿀팁",
+      "수능 도시락",
+      "준비물 체크리스트",
+      "마음 다스리기",
+      "부족한 기운 & 수능 부적",
     ]);
     const cards = container.querySelectorAll('[data-slot="result-card"]');
     expect(cards).toHaveLength(8);
@@ -87,12 +87,29 @@ describe("ReadingViewer — 수능 가이드 (RESULT-GUIDE-MODEL)", () => {
         reportUnknown={vi.fn()}
       />,
     );
-    expect(h2s()).toEqual(["요약", "시험 당일", "부족한 오행"]);
+    expect(h2s()).toEqual([
+      "FIXTURE님의 수능 운세",
+      "시험 날 하루 흐름",
+      "부족한 기운 & 수능 부적",
+    ]);
+  });
+
+  it("요약 카드 제목은 personDisplayName 을 쓴다", () => {
+    // 픽스처일 뿐이며 실제 이름과 무관하다
+    render(
+      <ReadingViewer
+        reading={{ ...guideReading(), personDisplayName: "FIXTURE_OTHER" }}
+        reportUnknown={vi.fn()}
+      />,
+    );
+    expect(h2s()[0]).toBe("FIXTURE_OTHER님의 수능 운세");
   });
 
   it("아는 교시 코드는 이름과 안내, 모르는 코드는 안내만 보이고 코드 글자는 없다", () => {
     render(<ReadingViewer reading={guideReading()} reportUnknown={vi.fn()} />);
-    expect(screen.getByRole("heading", { name: "국어" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "1교시 국어" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("FIXTURE 국어 안내")).toBeInTheDocument();
     expect(screen.getByText("FIXTURE 모르는 교시 안내")).toBeInTheDocument();
     expect(screen.queryByText(/FIXTURE_PERIOD/)).toBeNull();
@@ -121,10 +138,10 @@ describe("ReadingViewer — 수능 가이드 (RESULT-GUIDE-MODEL)", () => {
     const h3s = screen
       .getAllByRole("heading", { level: 3 })
       .map((h) => h.textContent);
-    // h3 는 교시 이름(국어) · 음식 이름 · 분류 이름이 섞여 있다 — 분류 이름의 상대 순서만 본다
-    expect(h3s.indexOf("서류")).toBeGreaterThanOrEqual(0);
-    expect(h3s.indexOf("서류")).toBeLessThan(h3s.indexOf("필기구"));
-    expect(h3s).not.toContain("기타");
+    // h3 는 교시 이름 · 음식 이름 · 묶음 이름이 섞여 있다 — 묶음 이름의 상대 순서만 본다
+    expect(h3s.indexOf("꼭 챙기기")).toBeGreaterThanOrEqual(0);
+    expect(h3s.indexOf("꼭 챙기기")).toBeLessThan(h3s.indexOf("시험장 소지품"));
+    expect(h3s).not.toContain("그 밖에 챙길 것");
     const labels = screen
       .getAllByRole("checkbox")
       .map((c) => c.parentElement?.textContent);
@@ -133,6 +150,40 @@ describe("ReadingViewer — 수능 가이드 (RESULT-GUIDE-MODEL)", () => {
       "FIXTURE 준비물 b",
       "FIXTURE 준비물 c",
     ]);
+  });
+
+  it("시계 · 필기구는 한 묶음(시험장 소지품)에 서버 순서대로 들어가고, 항목 없는 묶음은 없다", () => {
+    // 픽스처일 뿐이며 실제 준비물과 무관하다. 서버 순서는 일부러 TIMEPIECE 가 먼저
+    render(
+      <ReadingViewer
+        reading={guideReading({
+          preparationChecklist: [
+            { id: "fixture-t", label: "FIXTURE 시계", category: "TIMEPIECE" },
+            {
+              id: "fixture-w",
+              label: "FIXTURE 필기",
+              category: "WRITING_TOOL",
+            },
+            { id: "fixture-d", label: "FIXTURE 서류", category: "DOCUMENT" },
+          ],
+        })}
+        reportUnknown={vi.fn()}
+      />,
+    );
+    const h3s = screen
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
+    expect(h3s.filter((text) => text === "시험장 소지품")).toHaveLength(1);
+    for (const absent of ["도시락 · 간식", "옷차림", "그 밖에 챙길 것"]) {
+      expect(h3s).not.toContain(absent);
+    }
+    const kitGroup = screen.getByRole("heading", { name: "시험장 소지품" })
+      .parentElement as HTMLElement;
+    expect(
+      within(kitGroup)
+        .getAllByRole("checkbox")
+        .map((c) => c.parentElement?.textContent),
+    ).toEqual(["FIXTURE 시계", "FIXTURE 필기"]);
   });
 
   it("체크하면 PREPARATION 키에 ID 만 저장하고, 다시 그리면 복원한다", async () => {
