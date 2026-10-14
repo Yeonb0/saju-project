@@ -5,6 +5,7 @@ import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiContractError, ApiError, ApiNetworkError } from "@/lib/api/errors";
 import { loginHref } from "@/lib/auth/returnTo";
+import { BUSINESS_INFO } from "@/lib/business";
 import type {
   FortunePort,
   FortuneQuote,
@@ -118,8 +119,13 @@ const purchaseResult = (overrides: Partial<ReadingPurchaseState> = {}) => ({
   charged: { currency: "TURTLE_SHELL", amount: 0 },
   balance: null,
 });
-const REFUND_TEXT = "사용한 등껍질은 돌려드렸습니다";
-const SUPPORT_TEXT = "고객센터로 문의해 주세요";
+// 「문의하기」 링크의 메일 제목 (mailto 의 subject 를 푼다)
+const mailSubject = (link: HTMLElement) => {
+  const href = link.getAttribute("href") ?? "";
+  return decodeURIComponent(href.split("?subject=")[1] ?? "");
+};
+const REFUND_TEXT = "사용한 등껍질은 돌려드렸어요. 다시 시도해 주세요.";
+const SUPPORT_TEXT = "고객센터로 문의해 주시면 빠르게 도와드릴게요.";
 
 describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
   it("서버 견적 값(상품 · 대상 · 옵션 · 보유 · 사용 · 구매 후)을 그대로 보인다", async () => {
@@ -251,7 +257,9 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     const user = userEvent.setup();
     const { purchase, onPurchased } = setup({ scenario: "processing_409" });
     await user.click(await useButton());
-    const recheck = await screen.findByRole("button", { name: "결과 확인" });
+    const recheck = await screen.findByRole("button", {
+      name: "다시 확인하기",
+    });
     expect(screen.getByRole("button", { name: "사용하기" })).toBeDisabled();
     await user.click(recheck);
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
@@ -288,11 +296,15 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     const lookup = vi.spyOn(port, "getPurchaseStatus");
     setup({ port });
     await user.click(await useButton());
-    expect(
-      await screen.findByText(
-        "확인이 필요한 결제가 있어 지금은 사용할 수 없습니다. 고객센터로 문의해 주세요",
-      ),
-    ).toBeVisible();
+    expect(await screen.findByText("확인이 필요한 구매예요")).toBeVisible();
+    expect(screen.getByText(SUPPORT_TEXT)).toBeVisible();
+    expect(screen.getByText(BUSINESS_INFO.email ?? "")).toBeVisible();
+    // 「문의하기」 메일 제목에 이 팝업 견적의 ID (픽스처)
+    const contact = screen.getByRole("link", { name: "문의하기" });
+    const quoteId = purchase.mock.calls[0][0].quoteId;
+    expect(mailSubject(contact)).toBe(
+      `[뿌기사주 문의] 운세 견적번호 ${quoteId}`,
+    );
     expect(screen.queryByText("구매하지 못했습니다")).toBeNull();
     expect(screen.getByRole("button", { name: "사용하기" })).toBeDisabled();
     expect(purchase).toHaveBeenCalledTimes(1);
@@ -306,8 +318,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       scenario: "generation_failed",
     });
     await user.click(await useButton());
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
-    expect(screen.queryByText("사용한 등껍질은 돌려드렸습니다")).toBeNull();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
+    expect(screen.queryByText(REFUND_TEXT)).toBeNull();
     expect(onPurchased).not.toHaveBeenCalled();
 
     // 다시 시도는 새 견적 · 새 키
@@ -334,9 +346,9 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     );
     setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
     expect(screen.queryByText("구매하지 못했습니다")).toBeNull();
-    expect(screen.queryByText("사용한 등껍질은 돌려드렸습니다")).toBeNull();
+    expect(screen.queryByText(REFUND_TEXT)).toBeNull();
   });
 
   it("f. 응답이 REFUNDED 면 실패 · 환급 문장이 보이고 앞 화면에 넘기지 않는다", async () => {
@@ -354,8 +366,8 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     });
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
-    expect(screen.getByText("사용한 등껍질은 돌려드렸습니다")).toBeVisible();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
+    expect(screen.getByText(REFUND_TEXT)).toBeVisible();
     expect(onPurchased).not.toHaveBeenCalled();
   });
 
@@ -379,12 +391,14 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     });
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
     expect(onPurchased).not.toHaveBeenCalled();
     expect(loadPurchaseSelection()).not.toBeNull();
 
     // 두 번째 응답은 가짜 포트의 실제 구현 (FULFILLED + readingId)
-    await user.click(screen.getByRole("button", { name: "결과 확인" }));
+    await user.click(screen.getByRole("button", { name: "다시 확인하기" }));
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(purchaseSpy.mock.calls[1][1]).toBe(purchaseSpy.mock.calls[0][1]);
     expect(onPurchased.mock.calls[0][0].readingId).toEqual(expect.any(String));
@@ -405,7 +419,9 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     });
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
     expect(onPurchased).not.toHaveBeenCalled();
   });
 
@@ -424,7 +440,9 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     });
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
     expect(onPurchased).not.toHaveBeenCalled();
   });
 
@@ -441,7 +459,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     const user = userEvent.setup();
     const { client } = setup({ scenario: "generation_failed" });
     await user.click(await useButton());
-    await screen.findByText("결과를 만들지 못했습니다");
+    await screen.findByText("결과를 만들지 못했어요");
     expect(client.getQueryState(WALLET_QUERY_KEY)?.isInvalidated).toBe(true);
   });
 
@@ -476,7 +494,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "결과를 만들고 있습니다",
+      "구매를 처리하고 있어요",
     );
     expect(screen.getByRole("dialog")).toHaveAttribute("data-layout", "screen");
     release();
@@ -509,7 +527,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
     await screen.findByRole("status");
     expect(screen.getByRole("dialog")).toHaveAttribute("data-layout", "screen");
     fail();
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
     expect(screen.getByRole("dialog")).toHaveAttribute("data-layout", "popup");
   });
 
@@ -681,7 +699,8 @@ describe("ShellCheckout — 상품 줄 (Q-28)", () => {
 
 describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT 해제 · PURCHASE-STATUS-UI)", () => {
   const retryButton = () => screen.queryByRole("button", { name: "다시 시도" });
-  const checkButton = () => screen.findByRole("button", { name: "결과 확인" });
+  const checkButton = () =>
+    screen.findByRole("button", { name: "다시 확인하기" });
 
   it("fulfilled: 구매 1번, onPurchased 는 { readingId } 로 한 번, 복원 값 삭제, 상태 조회 없음", async () => {
     const user = userEvent.setup();
@@ -701,7 +720,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     expect(loadPurchaseSelection()).toBeNull();
   });
 
-  it("generating: 처리 중 + 결과 확인 → 누르면 상태 조회 1번 · 구매 재전송 0번 → onPurchased", async () => {
+  it("generating: 처리 중 + 다시 확인하기 → 누르면 상태 조회 1번 · 구매 재전송 0번 → onPurchased", async () => {
     const user = userEvent.setup();
     const port = createFakeFortunePort({
       scenario: "generating",
@@ -710,7 +729,9 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     const lookup = vi.spyOn(port, "getPurchaseStatus");
     const { purchase, onPurchased } = setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
     expect(onPurchased).not.toHaveBeenCalled();
     expect(lookup).not.toHaveBeenCalled();
 
@@ -721,7 +742,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     expect(purchase).toHaveBeenCalledTimes(1);
   });
 
-  it("processing_409: 자동 상태 조회 1번(null) → 처리 중 · 구매 1번. 결과 확인 → null → 같은 키로 재전송 → onPurchased, 구매 2번", async () => {
+  it("processing_409: 자동 상태 조회 1번(null) → 처리 중 · 구매 1번. 다시 확인하기 → null → 같은 키로 재전송 → onPurchased, 구매 2번", async () => {
     const user = userEvent.setup();
     const port = createFakeFortunePort({
       scenario: "processing_409",
@@ -730,7 +751,9 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     const lookup = vi.spyOn(port, "getPurchaseStatus");
     const { purchase, onPurchased } = setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
     await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
     expect(await lookup.mock.results[0].value).toBeNull();
     expect(purchase).toHaveBeenCalledTimes(1);
@@ -784,7 +807,7 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     );
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
     expect(screen.getByText(REFUND_TEXT)).toBeVisible();
     expect(retryButton()).not.toBeNull();
     expect(onPurchased).not.toHaveBeenCalled();
@@ -803,16 +826,18 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     const lookup = vi.spyOn(port, "getPurchaseStatus");
     setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
     await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("결과를 만들지 못했습니다")).toBeNull();
+    expect(screen.queryByText("결과를 만들지 못했어요")).toBeNull();
   });
 
   it("refunded: 환급 문장 + 다시 시도, 잔액 되돌림", async () => {
     const user = userEvent.setup();
     const { wallet, onPurchased } = setup({ scenario: "refunded" });
     await user.click(await useButton());
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
     expect(screen.getByText(REFUND_TEXT)).toBeVisible();
     expect(retryButton()).not.toBeNull();
     expect(wallet.balance()).toBe(100);
@@ -831,25 +856,58 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     );
     setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
     expect(screen.queryByText(REFUND_TEXT)).toBeNull();
     expect(retryButton()).not.toBeNull();
   });
 
-  it("review_required: 실패 + 문의 문장, 다시 시도 버튼 없음, 닫기 가능", async () => {
+  it("review_required: 확인이 필요한 구매 안내 + 문의하기 · 홈으로, 다시 시도 버튼 없음", async () => {
     const user = userEvent.setup();
-    const { onOpenChange, onPurchased } = setup({
-      scenario: "review_required",
-    });
+    const { onPurchased } = setup({ scenario: "review_required" });
     await user.click(await useButton());
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(await screen.findByText("확인이 필요한 구매예요")).toBeVisible();
     expect(screen.getByText(SUPPORT_TEXT)).toBeVisible();
+    expect(screen.getByText(BUSINESS_INFO.email ?? "")).toBeVisible();
+    expect(screen.queryByText("결과를 만들지 못했어요")).toBeNull();
     expect(retryButton()).toBeNull();
-    const close = screen.getByRole("button", { name: "닫기" });
-    expect(close).toBeEnabled();
-    await user.click(close);
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.getByRole("link", { name: "문의하기" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "홈으로" })).toHaveAttribute(
+      "href",
+      "/",
+    );
     expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("생성 실패 contact_support: 문의하기 메일 제목에 그 구매의 purchaseId", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
+    // 픽스처일 뿐이며 실제 구매 응답과 무관하다
+    vi.spyOn(port, "purchase").mockResolvedValueOnce(
+      purchaseResult({
+        purchaseId: "FIXTURE-PURCHASE",
+        status: "FAILED",
+        nextAction: "CONTACT_SUPPORT",
+      }),
+    );
+    setup({ port });
+    await user.click(await useButton());
+    await screen.findByText("확인이 필요한 구매예요");
+    expect(mailSubject(screen.getByRole("link", { name: "문의하기" }))).toBe(
+      "[뿌기사주 문의] 운세 구매번호 FIXTURE-PURCHASE",
+    );
+  });
+
+  it("생성 실패 retry: 홈으로 링크는 /, 다시 시도 · 문의하기 중 문의하기는 없다", async () => {
+    const user = userEvent.setup();
+    setup({ scenario: "generation_failed" });
+    await user.click(await useButton());
+    await screen.findByText("결과를 만들지 못했어요");
+    expect(screen.getByRole("link", { name: "홈으로" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeEnabled();
+    expect(screen.queryByRole("link", { name: "문의하기" })).toBeNull();
   });
 
   it("FAILED · PENDING · WAIT (보상 진행 중) 는 실패 화면이 아니라 처리 중", async () => {
@@ -864,9 +922,11 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     );
     setup({ port });
     await user.click(await useButton());
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
-    expect(screen.queryByText("결과를 만들지 못했습니다")).toBeNull();
-    expect(screen.getByRole("button", { name: "결과 확인" })).toBeEnabled();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
+    expect(screen.queryByText("결과를 만들지 못했어요")).toBeNull();
+    expect(screen.getByRole("button", { name: "다시 확인하기" })).toBeEnabled();
   });
 
   it("FAILED · 모르는 nextAction 은 문의 안내 (다시 시도 없음)", async () => {
@@ -892,12 +952,52 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     );
     const { onPurchased } = setup({ port });
     await user.click(await useButton());
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "잠시 후 다시 확인해 주세요.",
+    );
     expect(
-      await screen.findByText("확인하지 못했습니다. 다시 확인해 주세요"),
+      screen.getByText("구매 결과를 아직 확인하지 못했어요"),
     ).toBeVisible();
-    expect(screen.getByText("처리 중입니다")).toBeVisible();
-    expect(screen.getByRole("button", { name: "결과 확인" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "다시 확인하기" })).toBeEnabled();
     expect(onPurchased).not.toHaveBeenCalled();
+  });
+
+  it("상태 조회 진행 중엔 두 줄 안내만(다시 확인하기 없음), 조회가 끝나도 처리 중이면 안내 + 다시 확인하기 → 같은 조회 요청", async () => {
+    const user = userEvent.setup();
+    const port = createFakeFortunePort({
+      scenario: "processing_409",
+      wallet: createFakeWallet(100),
+    });
+    // 첫 조회(구매 오류 뒤 자동)는 우리가 풀어 줄 때까지 끝나지 않는다 — 타이밍 우연으로 통과하지 않게
+    let release: (state: ReadingPurchaseState | null) => void = () => {};
+    const lookup = vi.spyOn(port, "getPurchaseStatus").mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { purchase } = setup({ port });
+    await user.click(await useButton());
+    expect(await screen.findByText("구매를 처리하고 있어요")).toBeVisible();
+    expect(
+      screen.getByText("잠시만 기다려 주세요. 창을 닫지 말아 주세요."),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "다시 확인하기" })).toBeNull();
+    expect(screen.queryByText("구매 결과를 아직 확인하지 못했어요")).toBeNull();
+
+    release(null);
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
+    expect(screen.getByText("잠시 후 다시 확인해 주세요.")).toBeVisible();
+    expect(screen.queryByText("구매를 처리하고 있어요")).toBeNull();
+
+    // 기존 「결과 확인」과 같은 요청: 같은 견적으로 상태 조회, 기록이 없으면 같은 키로 재전송
+    await user.click(screen.getByRole("button", { name: "다시 확인하기" }));
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(2));
+    expect(lookup.mock.calls[1][0]).toBe(lookup.mock.calls[0][0]);
+    await waitFor(() => expect(purchase).toHaveBeenCalledTimes(2));
+    expect(purchase.mock.calls[1][1]).toBe(purchase.mock.calls[0][1]);
   });
 
   it("상태 조회가 계약 위반이면 오류 화면으로 던진다", async () => {
@@ -1052,14 +1152,15 @@ describe("ShellCheckout — 구매 상태 조회 (Q-38 · PURCHASE-STATUS-WAIT �
     const { onOpenChange } = setup({ port });
     await user.click(await useButton());
     // 처리 중
-    await screen.findByText("처리 중입니다");
+    await screen.findByText("구매 결과를 아직 확인하지 못했어요");
     expect(screen.getByRole("button", { name: "닫기" })).toBeDisabled();
     await user.keyboard("{Escape}");
     expect(onOpenChange).not.toHaveBeenCalled();
 
-    // 상태 조회 중
-    await user.click(screen.getByRole("button", { name: "결과 확인" }));
-    expect(screen.getByRole("button", { name: "결과 확인" })).toBeDisabled();
+    // 상태 조회 중 — COMMON-02 두 줄만 보이고 다시 확인하기 버튼은 없다
+    await user.click(screen.getByRole("button", { name: "다시 확인하기" }));
+    expect(screen.getByText("구매를 처리하고 있어요")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "다시 확인하기" })).toBeNull();
     expect(screen.getByRole("button", { name: "닫기" })).toBeDisabled();
     await user.keyboard("{Escape}");
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -1092,7 +1193,7 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
     });
     const { purchase } = setup({ port });
     await user.click(await useButton());
-    await screen.findByText("처리 중입니다");
+    await screen.findByText("구매 결과를 아직 확인하지 못했어요");
     const [input, key] = purchase.mock.calls[0];
     expect(seen).toMatchObject({
       returnPath: "/suneung",
@@ -1145,7 +1246,7 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
     expect(purchase.mock.calls[0][0].quoteId).toBe(quote.quoteId);
   });
 
-  it("재개 · 상태 GENERATING → 견적 조회 0번, 정보 줄 없이 처리 중 + 결과 확인 → 누르면 상태 조회 → 완료", async () => {
+  it("재개 · 상태 GENERATING → 견적 조회 0번, 정보 줄 없이 처리 중 + 다시 확인하기 → 누르면 상태 조회 → 완료", async () => {
     const user = userEvent.setup();
     const port = createFakeFortunePort({ wallet: createFakeWallet(100) });
     const quoteId = await boughtQuote(port);
@@ -1159,7 +1260,9 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
       resumeQuoteId: quoteId,
       resumePurchaseKey: KEY,
     });
-    expect(await screen.findByText("처리 중입니다")).toBeVisible();
+    expect(
+      await screen.findByText("구매 결과를 아직 확인하지 못했어요"),
+    ).toBeVisible();
     expect(screen.queryByText("보유")).toBeNull();
     expect(screen.queryByRole("button", { name: "사용하기" })).toBeNull();
     expect(screen.getByRole("button", { name: "닫기" })).toBeDisabled();
@@ -1167,7 +1270,7 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
     expect(getQuote).not.toHaveBeenCalled();
     expect(onPurchased).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "결과 확인" }));
+    await user.click(screen.getByRole("button", { name: "다시 확인하기" }));
     await waitFor(() => expect(onPurchased).toHaveBeenCalledTimes(1));
     expect(lookup).toHaveBeenCalledTimes(2);
     expect(purchase).not.toHaveBeenCalled();
@@ -1191,7 +1294,7 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
       resumeQuoteId: quoteId,
       resumePurchaseKey: KEY,
     });
-    expect(await screen.findByText("결과를 만들지 못했습니다")).toBeVisible();
+    expect(await screen.findByText("결과를 만들지 못했어요")).toBeVisible();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeEnabled();
     expect(loadPurchaseSelection()).toBeNull();
     expect(onPurchased).not.toHaveBeenCalled();
@@ -1208,10 +1311,10 @@ describe("ShellCheckout — 구매 키 저장 · 재개 (PURCHASE-KEY-STORE)", (
       resumeQuoteId: quoteId,
       resumePurchaseKey: KEY,
     });
-    expect(
-      await screen.findByText("확인하지 못했습니다. 다시 확인해 주세요"),
-    ).toBeVisible();
-    expect(screen.getByRole("button", { name: "결과 확인" })).toBeEnabled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "잠시 후 다시 확인해 주세요.",
+    );
+    expect(screen.getByRole("button", { name: "다시 확인하기" })).toBeEnabled();
     expect(createQuote).not.toHaveBeenCalled();
     expect(getQuote).not.toHaveBeenCalled();
   });
