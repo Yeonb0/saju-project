@@ -132,6 +132,20 @@ describe("BusinessFooter", () => {
     ]);
   });
 
+  it("문의 안내 문장이 사업자 정보 뒤 · 저작권 줄 앞에 있다 (FUNCTIONAL_SPEC 13장 · COMMON-01)", () => {
+    const { container } = render(<BusinessFooter info={INFO} />);
+    const dl = container.querySelector("dl") as Node;
+    const inquiry = screen.getByText("문의는 이메일이 가장 빨라요.");
+    const copyright = screen.getByText("© 뿌기사주");
+    expect(
+      dl.compareDocumentPosition(inquiry) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      inquiry.compareDocumentPosition(copyright) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("y. 저작권 줄이 사업자 정보 뒤에 있다", () => {
     const { container } = render(<BusinessFooter info={INFO} />);
     const dl = container.querySelector("dl");

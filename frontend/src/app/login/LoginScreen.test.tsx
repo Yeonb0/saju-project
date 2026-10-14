@@ -36,7 +36,7 @@ function setup(scenario: FakeSessionScenario, returnTo = "/wallet") {
 describe("LoginScreen (HOME-01 · PG-2)", () => {
   it("버튼을 누르면 returnTo 와 함께 로그인을 시작하고 그 주소로 보낸다", async () => {
     const { startLogin } = setup("signed_out");
-    screen.getByRole("button", { name: "카카오로 시작하기" }).click();
+    screen.getByRole("button", { name: "카카오로 계속하기" }).click();
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/wallet"));
     expect(startLogin).toHaveBeenCalledTimes(1);
     expect(startLogin).toHaveBeenCalledWith(
@@ -56,7 +56,7 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
         <LoginScreen returnTo="/wallet" port={port} />
       </QueryClientProvider>,
     );
-    screen.getByRole("button", { name: "카카오로 시작하기" }).click();
+    screen.getByRole("button", { name: "카카오로 계속하기" }).click();
     await waitFor(() => {
       const buttons = screen.getAllByRole("button");
       expect(buttons).toHaveLength(1);
@@ -78,7 +78,7 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
       "true",
     );
     expect(
-      screen.getByRole("button", { name: "카카오로 시작하기" }),
+      screen.getByRole("button", { name: "카카오로 계속하기" }),
     ).toBeInTheDocument();
   });
 
@@ -104,7 +104,7 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
 
   it("같은 틱에 두 번 눌러도 로그인은 한 번", async () => {
     const { startLogin } = setup("signed_out");
-    const button = screen.getByRole("button", { name: "카카오로 시작하기" });
+    const button = screen.getByRole("button", { name: "카카오로 계속하기" });
     button.click();
     button.click();
     await waitFor(() => expect(router.push).toHaveBeenCalled());
@@ -123,6 +123,24 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
     );
   });
 
+  it("안내 문단에 로그인 안내 문구가 있고 버튼보다 앞에 있다 (HOME-01 로그인_수정안)", () => {
+    const { container } = render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <LoginScreen
+          returnTo="/wallet"
+          port={createFakeSessionPort({ scenario: "signed_out" })}
+        />
+      </QueryClientProvider>,
+    );
+    const intro = container.querySelector('[data-slot="login-intro"]');
+    expect(intro).toHaveTextContent("사주를 보기 위해서는 로그인이 필요해요!");
+    expect(
+      (intro as Node).compareDocumentPosition(
+        screen.getByRole("button", { name: "카카오로 계속하기" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("signed_out 이면 이동하지 않는다", async () => {
     setup("signed_out");
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -130,8 +148,8 @@ describe("LoginScreen (HOME-01 · PG-2)", () => {
   });
 
   it.each([
-    ["cancelled", "카카오 로그인이 취소되었습니다."],
-    ["failed", "카카오 로그인에 실패했습니다. 다시 시도해 주세요."],
+    ["cancelled", "로그인을 취소했어요. 다시 시도해 주세요."],
+    ["failed", "로그인 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요."],
   ] as const)("카카오 콜백 %s 상태를 안전한 안내로 표시한다", (oauthStatus, message) => {
     render(
       <QueryClientProvider client={makeQueryClient()}>

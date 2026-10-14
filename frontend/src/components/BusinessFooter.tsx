@@ -72,6 +72,8 @@ export function BusinessFooter({
           </div>
         ))}
       </dl>
+      {/* FUNCTIONAL_SPEC 13장 · COMMON-01: 사업자 정보 아래, 저작권 줄 앞 */}
+      <p className="mt-[2px] text-[#737373]">문의는 이메일이 가장 빨라요.</p>
       {/* TODO(PD 문구): 저작권 표기 — 서비스명은 NAME(D-11) */}
       <p className="mt-[2px] text-[#737373]">© 뿌기사주</p>
     </footer>
