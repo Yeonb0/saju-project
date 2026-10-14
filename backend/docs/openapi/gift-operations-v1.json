@@ -1547,6 +1547,9 @@
       },
       "Link" : {
         "properties" : {
+          "canReissue" : {
+            "type" : "boolean"
+          },
           "expiresAt" : {
             "format" : "date-time",
             "type" : "string"
@@ -1555,9 +1558,17 @@
             "format" : "uuid",
             "type" : "string"
           },
+          "nextReissueAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
           "orderId" : {
             "format" : "uuid",
             "type" : "string"
+          },
+          "remainingReissues" : {
+            "format" : "int32",
+            "type" : "integer"
           },
           "reused" : {
             "type" : "boolean"
