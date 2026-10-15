@@ -356,11 +356,11 @@ Liner 응답은 백엔드가 지정한 JSON 스키마를 따라야 한다.
 
 Query: `category=TOP_UP|FORTUNE`, 선택적 `fortuneType`. `GIFT`는 후속 구현 대상이다.
 
-구현 범위(2026-10-11, A 로컬): `category=TOP_UP|FORTUNE`을 제공한다. GIFT와 category 생략은 아직 지원하지 않는다.
-로그인 없이 현재 활성/판매 기간 내 상품만 조회하고 공통 `data.items` 응답을 사용한다.
+구현 범위: `category=TOP_UP|FORTUNE`을 제공한다. GIFT와 category 생략은 아직 지원하지 않는다.
+로그인 없이 공통 `data.items` 응답을 사용한다. TOP_UP은 현재 구매 가능한 상품만 반환한다. FORTUNE은 IA의 판매 종료 화면을 위해 운영상 노출 가능한 상품을 반환하고 `availability`로 구매 가능 상태를 구분하는 것이 목표 계약이다. 현재 코드는 판매 기간 안의 상품만 반환하므로 `UPCOMING/ENDED` 구현은 후속이다.
 FORTUNE은 선택적으로 `fortuneType=OVERALL|LOVE|WEALTH|COMPATIBILITY|SINSAL|SUNEUNG`으로 필터링한다.
 category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType 조합은 400이다.
-판매 준비가 안 된 상품은 목록에서 제외된다. 기본 충전/수능 상품은 비활성이며 이번 변경으로 판매를 켜지 않는다.
+운영에서 숨긴 상품은 목록에서 제외한다. 기본 충전/수능 상품은 비활성이며 문서 변경으로 판매를 켜지 않는다.
 표시 정보가 미등록된 운세 상품도 제외한다. 이 API는 비활성 상품까지 나열하는 심사용 소개 목록이 아니다.
 
 ```json
@@ -378,6 +378,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
       "bonusAmount": null,
       "creditedAmount": null,
       "active": true,
+      "availability": "AVAILABLE",
       "saleEndsAt": null
     },
     {
@@ -392,13 +393,15 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
       "paidAmount": 100,
       "bonusAmount": 14,
       "creditedAmount": 114,
-      "active": true
+      "active": true,
+      "availability": "AVAILABLE"
     }
   ]
 }
 ```
 
-- 비활성 상품은 구매할 수 없다.
+- `availability`는 `UPCOMING`, `AVAILABLE`, `ENDED`다. `AVAILABLE`만 새 견적을 발급할 수 있고, 종료 뒤에도 수능운 IA가 `ENDED`를 표시할 수 있어야 한다. 운영상 숨긴 상품은 반환하지 않는다.
+- 현재 구현의 `active`는 서버 운영 플래그이며 FE가 판매 종료 문구를 결정하는 유일한 근거로 사용하지 않는다. 계약 전환이 끝나면 `availability`를 사용한다.
 - 예시는 각 category 응답의 항목을 함께 설명한 것이다. 실제 응답은 요청 category 하나만 포함한다.
 - `regularPrice`는 `{currency, amount}` 또는 null이다. 일반 운세+부적/수능운은 정가 20, 판매가 15개다.
 - 목록의 `option`을 견적 요청의 `productOption`으로 매핑한다. TOP_UP의 지급량은 완료 증거가 아닌 예정량이다.
@@ -500,9 +503,11 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `GET /wallet/transactions`
 
+- IA의 `충전·사용 내역`을 위한 목표 계약이며 현재 사용자 controller/OpenAPI에는 미구현이다. BE-A가 제공한다.
 - Query: `type`, `cursor`, `limit`
 - 유형: `TOP_UP`, `SPEND`, `REFUND`, `ADJUSTMENT`, `EXPIRATION`
 - 원장 행은 수정하지 않고 역분개 행을 추가한다.
+- 본인 거래만 최신순 cursor pagination으로 반환한다. 내부 lot ID, 다른 사용자 ID, 결제키, 내부 조정 메모는 반환하지 않는다.
 
 ### `POST /top-up-orders`
 
@@ -590,9 +595,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - 응답은 `{ items, nextCursor, hasNext }`이며 각 항목은 단건 조회와 같은 상태 projection 및 `createdAt`을 포함한다.
 - 결제키, 멱등키 원문·해시, 공급자 원문과 다른 사용자의 주문은 반환하지 않는다.
 
-### `POST /webhooks/toss-payments`
+### `POST /webhooks/toss`
 
-- 아래는 목표 계약이며 현재 구현된 엔드포인트가 아니다.
 - 공개 인터넷 엔드포인트지만 PG 서명·이벤트 ID를 검증한다.
 - 웹훅 원문에 민감정보를 남기지 않는다.
 - 이벤트 ID를 멱등 처리한다.
@@ -887,46 +891,45 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `POST /readings/{readingId}/shares`
 
+- 와이어프레임 목표 계약이며 현재 controller/OpenAPI에는 미구현이다.
 - 인증·소유권·CSRF·`Idempotency-Key` 필요
 - 카카오톡 공유하기에 사용할 비식별 공유 리소스와 템플릿 데이터를 생성한다.
 - 공유 리소스에는 사용자가 선택한 공개 가능 결과 output·브랜드 이미지·서비스 진입 URL을 포함할 수 있으며 인적정보는 포함하지 않는다. 전체/일부 섹션 범위는 `TBD(G-11)`이다.
 
 ### `POST /readings/{readingId}/talisman-purchases`
 
+- 와이어프레임 목표 계약이며 현재 controller/OpenAPI에는 미구현이다.
 - 인증·CSRF·`Idempotency-Key` 필요
 - `READING_ONLY` 사주 상품을 구매한 소유자만 가능
-- 15 등껍질을 서버에서 확인·차감
+- 10 등껍질을 서버에서 확인·차감한다. 동일 reading에는 하나의 추가 부적만 허용하고 중복 요청은 기존 구매/부적을 반환한다.
 
 ## 9. 부적
 
 ### `GET /talismans`
 
-- 로그인 사용자의 구매·수신 부적 목록
-- Query: `animal`, `type`, `cursor`
-- 동일 동물·종류 그룹에 `count` 제공
+- 현재 구현: 로그인 사용자의 소유 부적을 `cursor`, `size`로 조회하는 평면 목록이다. item은 id, sourceReadingId, fortuneType, element, animal, phrase, description, contentVersion, status, createdAt, readyAt을 반환한다.
+- `animal`, `type` 필터와 동일 동물 그룹 `count`는 아직 구현되지 않았다. 와이어프레임/IA에서 서버 집계가 필요하다고 확정될 때 별도 호환 필드로 추가한다.
+- 실제 이미지 준비 전에는 FE placeholder와 `PENDING/READY/FAILED` 상태를 사용한다.
 
 ### `GET /talismans/{talismanId}`
 
 ```json
 {
   "id": "uuid",
-  "type": "FOCUS",
-  "animal": "RAT",
-  "status": "READY",
-  "thumbnailUrl": "https://cdn...",
+  "sourceReadingId": "uuid",
+  "fortuneType": "LOVE",
+  "element": "FIRE",
+  "animal": "RABBIT",
+  "phrase": "...",
   "description": "...",
-  "acquiredAt": "2026-10-20T01:02:03Z",
-  "source": "PURCHASE",
-  "share": {
-    "title": "뿌기가 전하는 행운 부적",
-    "description": "부적을 확인해 보세요.",
-    "imageUrl": "https://cdn.../talisman-share.webp",
-    "webUrl": "https://service.example/share/opaque-id"
-  }
+  "contentVersion": "talisman-2026.10-v1",
+  "status": "PENDING",
+  "createdAt": "2026-10-20T01:02:03Z",
+  "readyAt": null
 }
 ```
 
-- `share`는 카카오톡 공유하기용이며 개인정보와 비공개 원본 signed URL을 포함하지 않는다.
+- thumbnail/share 정보는 현재 상세 응답에 없다. 실제 에셋과 공유 정책이 확정된 뒤 private 다운로드와 공개 share snapshot을 분리한다.
 
 ### `POST /talismans/{talismanId}/download-url`
 
@@ -939,11 +942,13 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `POST /talismans/{talismanId}/shares`
 
+- 와이어프레임 목표 계약이며 현재 controller/OpenAPI에는 미구현이다.
 - 인증·권한·CSRF·`Idempotency-Key` 필요
 - 개인정보와 비공개 원본 URL이 없는 카카오톡 공유용 리소스를 생성한다.
 
 ### `GET /shares/{shareId}`
 
+- 일반 운세·부적 공유용 목표 계약이며 현재 구현된 공개 공유는 오늘의 운세 전용 endpoint뿐이다.
 - 인증 없이 접근 가능한 공유 랜딩 데이터다.
 - 불투명 난수 ID를 사용하며 공개용 제목·설명·이미지·서비스 CTA만 반환한다.
 - 회원 ID, reading/talisman 내부 ID와 생년정보는 반환하지 않는다. 공개할 결과 범위는 `TBD(G-11)`에 따른다.
@@ -966,12 +971,13 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `POST /talismans/{talismanId}/claim`
 
+- 받은 선물 계정 연결의 목표 계약이며 현재 controller/OpenAPI에는 미구현이다.
 - 로그인한 선물 수신자가 공개 토큰으로 열람한 부적을 계정에 연결한다.
 - 같은 획득 건을 중복 연결하지 않는다.
 
 ## 10. 선물 견적·주문
 
-> 2026-10-13 구현 계약: 선물은 등껍질 결제이며 수능 1명만 지원한다. 견적·암호화 초안·`POST /gift-orders/{orderId}/purchase`·구매 상태 GET·`POST /gift-orders/{orderId}/cancel`을 local/test 기본 비활성으로 구현했다. ACTIVE는 차감/권한 저장이며 발송/콘텐츠 완료가 아니다. 현재 계약과 남은 작업은 `backend/docs/GIFT_IMPLEMENTATION_20261013.md`, backend 전용 OpenAPI는 `backend/docs/openapi/gift-operations-v1.json`을 따른다. 과거 원화 confirm은 지원하지 않는다. 11장의 공개 수신·파일 API는 설계 초안으로 미구현이며 FE 연결 근거로 사용하지 않는다.
+> 2026-10-15 IA·와이어프레임 정렬 계약: 선물은 등껍질 결제, 수능 1명이다. 1차는 전화번호 없이 구매자가 링크를 직접 전달하고, 2차에 카카오 알림톡을 기본 전달 수단으로 추가한다. 알림톡 실패 시 직접 링크로 복구한다. 견적·초안·구매·취소·링크 조회/재발급은 local/test 기본 비활성으로 구현돼 있다. ACTIVE는 차감과 권한 저장 완료이며 콘텐츠 제공 완료가 아니다. 11장의 access/profile은 구현, 결과 조회는 목표 계약이다.
 
 ### `POST /gift-quotes`
 
@@ -985,7 +991,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - 응답에는 등껍질 가격(`charged`), 제공 콘텐츠, 견적 만료 시각, 현재 잔액·부족량·충전 추천을 포함한다. 인증·CSRF가 필요하다.
 - 응답의 `includedContents`에는 옵션별 제공물(`LETTER`, `TALISMAN`, `READING`, `SUNEUNG_CHECKLIST`)을 명시한다.
 - 선물 옵션은 `TALISMAN_ONLY`와 `READING_WITH_TALISMAN`만 허용하며 `READING_ONLY`는 거부한다.
-- 수능 `TALISMAN_ONLY`에는 편지·부적·수능 체크리스트가 포함되고 전체 수능 사주 결과는 포함되지 않는다.
+- 수능 `TALISMAN_ONLY`에는 편지와 부적만 포함되고 전체 수능 사주·도시락·준비물 체크리스트는 포함되지 않는다. 현재 `GiftQuoteService`가 체크리스트를 포함하는 것은 와이어프레임과 불일치하므로 구현 수정 대상이다.
 - 1차는 수능 1명만 지원한다. 부적 단독 10개, 사주+부적 15개이며 상품은 기본 비활성이다. `GET /gift-quotes/{quoteId}`는 본인 견적 조회다.
 
 ### `POST /gift-orders`
@@ -1002,7 +1008,7 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 ```
 
 - 수신자 생년정보를 받지 않는다.
-- 1차 직접 공유 신규 주문은 `recipientPhone`을 받거나 저장하지 않는다. 알림톡은 2차다.
+- 1차 직접 공유 신규 주문은 `recipientPhone`을 받거나 저장하지 않는다. 알림톡 전환은 2차 호환 계약과 발송 동의·보관 정책 확정 뒤 진행한다.
 - 메시지는 200 code point·제어문자 검증을 수행한다. 금칙어 정책은 미구현이다. 새 CREATED 초안은 미차감이며 `charged=null`이다.
 
 ### `POST /gift-orders/{orderId}/purchase`
@@ -1030,20 +1036,12 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 - local/test 구현: 구매자의 보낸 선물 목록. size 기본 20, 1~50, cursor는 서버 응답을 그대로 사용한다.
 - items/nextCursor/hasNext 응답을 반환한다. 신규 직접 공유 주문에 알림톡 deliveryStatus는 없으며 실제 generated gift OpenAPI를 따른다. chargedShells/accessExpiresAt은 null 가능하다. 상세 계약은 `backend/docs/GIFT_DIRECT_LINK_HANDOFF_20261014.md`를 따른다.
-- 원문 토큰과 전체 휴대전화번호를 반환하지 않는다.
+- 수신자 표시 이름, option, 최초 제공 여부/시각, 취소 가능 여부를 반환한다. 원문 token과 전체 휴대전화번호는 반환하지 않는다.
 
 ### `GET /gift-orders/{orderId}`
 
 - 구매자 소유 주문·선물 상태
 - 실제 금융 상태와 charged를 반환한다. expiresAt은 원 견적 기한이며 선물 링크 만료일이 아니다.
-
-### `GET /gift-orders/{orderId}/delivery`
-
-- 1차 직접 공유에서 HTTP controller는 제거됐다. 기존 알림톡 내부 서비스·DB는 2차/과거 주문용으로 보존한다.
-
-### `POST /gift-orders/{orderId}/deliveries`
-
-- 1차 직접 공유에서 제공하지 않는다. 알림톡 발송 API는 2차 계약이다.
 
 ### `GET /gift-orders/{orderId}/link`
 
@@ -1057,67 +1055,71 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 - 동일 key replay는 횟수를 다시 쓰지 않는다. 이전 key 이후 다른 재발급이 있었다면 이전 version과 shareUrl=null을 반환한다. 다른 주문에 같은 key를 사용하면 409 IDEMPOTENCY_KEY_REUSED다.
 - 기간/상태 제한은 GIFT_LINK_REISSUE_NOT_ALLOWED, 횟수/간격 제한은 GIFT_LINK_REISSUE_LIMIT_EXCEEDED다. 원문 조회/재발급 계약은 gift OpenAPI와 `GIFT_DIRECT_LINK_HANDOFF_20261014.md`를 따른다.
 
-### `POST /webhooks/alimtalk`
+### 알림톡 전달 API (2차 목표)
 
 - 2차 알림톡 설계·미구현. 1차 직접 공유에는 없다.
 - 알림톡 대행사의 서명과 이벤트 ID를 검증하고 멱등 처리한다.
 - 발송 성공·실패·수신 불가 상태를 선물 전달 기록에 반영한다.
 - 원문 휴대전화번호와 선물 토큰을 로그에 남기지 않는다.
+- provider 호출은 DB transaction 밖에서 수행하고 durable outbox/lease/fence, 결과 불명 조회, 제한 재시도를 사용한다. 발송 실패는 선물 취소나 등껍질 반환이 아니다.
 
 ### `POST /gift-orders/{orderId}/cancel`
 
 - 구매자 인증·CSRF·Idempotency-Key가 필요하다. 실제 등껍질 차감 후 7일 이내, 최초 콘텐츠 제공 전 ACTIVE 선물만 취소한다.
-- 링크/발송 차단과 취소 의도를 먼저 저장한다. 원 거래 유료/보너스를 원 지급분·만료일로 반환하고 receipt를 확인한 뒤 CANCELED다. 현금 환불이 아니다.
+- 링크 폐기와 취소 의도를 먼저 저장한다. 원 거래 유료/보너스를 원 지급분·만료일로 반환하고 receipt를 확인한 뒤 CANCELED다. 현금 환불이 아니다.
 - CANCEL_PENDING은 미완료이며 POST 202다. 5회 실패 소진은 REVIEW_REQUIRED다. 공개 콘텐츠 제공 API는 아직 없으며 B의 최초 제공 처리는 같은 선물 잠금과 조정해야 한다.
 
 ## 11. 공개 선물 API
 
-> 이 장은 수신/생성/파일 접근의 설계이며 아직 실행 HTTP API가 없다. A 내부 `GiftFulfillmentPort`에 영속 접수·최초 제공/취소 경쟁·수신 계정 연결과 settlement를 구현했다. 실제 B 생성/제공·파일 권한 연결 전 공개하지 않는다. 임의 부적 접근은 계속 차단한다. 상세는 `backend/docs/GIFT_RECIPIENT_HANDOFF.md`를 따르며 공유 OpenAPI·FE 타입은 변경하지 않았다.
+> raw token은 URL path/query/cookie에 넣지 않는다. FE는 `/g#token=...` fragment를 메모리로 읽고 주소에서 제거한 뒤 아래 POST body로만 보낸다. `access`와 `recipient-profile`은 구현됐고 `result` 및 공개 부적 파일 접근은 목표 계약이다.
 
-경로의 `{token}`은 로그·분석·에러 보고에서 마스킹한다.
-
-### `GET /gifts/{token}`
+### `POST /public/gifts/access`
 
 ```json
 {
-  "status": "UNCLAIMED",
+  "state": "INPUT_REQUIRED",
   "recipientName": "민지",
   "senderName": "윤진",
-  "fortuneType": "SUNEUNG",
   "option": "TALISMAN_ONLY",
   "message": "긴장하지 말고 잘 보고 와!",
-  "recipientSubmissionRequired": true
+  "accessExpiresAt": "2027-01-13T00:00:00Z"
 }
 ```
 
-- 메시지는 API로 전달하되 OG 메타데이터에는 사용하지 않는다.
-- `TALISMAN_ONLY`인 수능 선물은 부적·편지·수능 체크리스트만 노출하고 전체 사주 섹션은 반환하지 않는다.
-- 만료/폐기 토큰은 각각 410을 반환하고 선물 상세를 노출하지 않는다.
+- 요청은 `{ "token": "base64url-secret" }`다. 메시지는 API로 전달하되 OG 메타데이터에는 사용하지 않는다.
+- state는 `INPUT_REQUIRED`, `PROCESSING`, `READY`다. 안내 조회만으로 최초 콘텐츠 제공을 확정하지 않는다.
+- 변조·미존재·폐기·만료·취소 token은 이유를 구분하지 않는 `404 RESOURCE_NOT_FOUND`로 응답하고 선물 상세를 노출하지 않는다. FE는 공통 `열 수 없는 링크` 화면을 표시한다.
 
-### `POST /gifts/{token}/recipient`
+### `POST /public/gifts/recipient-profile`
 
 - `Idempotency-Key` 필요
-- `PersonInput` 제출, 최초 1회만 허용
-- `409 ALREADY_SUBMITTED`에는 기존 입력값을 반환하지 않는다.
+- token과 수신자 생년정보를 JSON body로 제출하며 `Idempotency-Key`가 필요하다.
+- 최초 snapshot 한 건만 허용한다. 동일 요청은 receipt를 재사용하고 다른 입력 충돌에는 기존 입력값을 반환하지 않는다.
+- 성공은 `202 Accepted`이며 영속 fulfillment intent가 저장됐다는 뜻이지 결과 생성 완료가 아니다.
 
-### `GET /gifts/{token}/result`
+### `POST /public/gifts/result`
 
 ```json
 {
-  "giftStatus": "ACTIVE",
-  "contentKinds": ["LETTER", "TALISMAN", "SUNEUNG_CHECKLIST"],
-  "talismanId": "public-opaque-id",
-  "checklistId": "public-opaque-id",
+  "state": "READY",
+  "option": "READING_WITH_TALISMAN",
+  "contentKinds": ["LETTER", "READING", "SUNEUNG_CHECKLIST", "TALISMAN"],
+  "suneungGuide": { "summary": "...", "periods": [], "foodRecommendations": [], "preparationItems": [] },
+  "talisman": { "id": "uuid", "status": "PENDING", "element": "WOOD", "animal": "RABBIT", "phrase": "..." },
   "expiresAt": "2027-02-27T14:59:59Z"
 }
 ```
 
-- 수신자 정보 제출과 결과 생성이 완료된 뒤 단건 선물 전체를 반환한다.
-- `TALISMAN_ONLY`에는 `readingId`를 반환하지 않는다. `READING_WITH_TALISMAN`에는 `READING`과 `readingId`를 추가한다.
+- 요청은 `{ "token": "base64url-secret" }`다. `PROCESSING`이면 `202`와 bounded polling 힌트를 반환하고, `READY`이면 `200`으로 immutable 결과 snapshot을 반환한다. 최종 실패는 개인정보 없는 실패 코드와 CS 안내만 반환한다.
+- `TALISMAN_ONLY`는 편지와 부적 metadata/status만 반환하고 전체 사주 section, 도시락, 준비물 체크리스트, 내부 reading ID를 반환하지 않는다.
+- `READING_WITH_TALISMAN`은 IA의 교시별 사주·수능 도시락·준비물 체크리스트를 만들 수 있는 typed `suneungGuide`와 부적 metadata/status를 반환한다.
+- 첫 READY 응답을 저장하는 transaction에서 A의 `GiftFulfillmentPort.provide`와 content ID를 함께 확정하여 취소와 직렬화한다. 외부 Liner/R2 호출 중 DB 잠금을 잡지 않는다.
+- user/person ID, 원본 생년정보, 내부 object key, private calculation facts는 반환하지 않는다.
 
-### `POST /gifts/{token}/talismans/{talismanId}/download-url`
+### `POST /public/gifts/talismans/{talismanId}/download-url`
 
-- 유효 토큰과 공개 상태 확인 후 10분 signed URL 반환
+- 요청 body의 token과 해당 선물-content-talisman 연결을 모두 검증한 뒤 READY 원본의 10분 signed URL을 반환한다.
+- 실제 이미지 에셋·renderer·private object storage가 준비될 때까지 미구현/비활성으로 유지하며 임의 ID 접근은 404로 닫는다.
 
 ## 12. 관리자 API
 
@@ -1185,15 +1187,21 @@ lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦
 
 ### 선물 주문·선물
 
-`CREATED → PAYMENT_PENDING → PAID → ACTIVE → COMPLETED`
+`CREATED → PENDING → ACTIVE → COMPLETED`
 
 예외: `CANCELED`, `REFUNDED`, `EXPIRED`
 
-### 알림톡 전달
+### 직접 전달 링크 (1차)
 
-`PENDING → SENT | FAILED`
+`ACTIVE → REISSUED | REVOKED | EXPIRED`
 
-알림톡 전달 실패는 결제·선물 활성 상태와 별도로 기록한다. 자동 재시도 횟수와 SMS 대체 여부는 `TBD(G-10)`다.
+링크 복사·OS 공유 실패는 클라이언트 동작 실패이며 선물 금융 상태를 바꾸지 않는다. 명시적 재발급만 token version을 올리고 기존 token을 폐기한다.
+
+### 알림톡 전달 (2차)
+
+`PENDING → IN_FLIGHT → SENT | RETRY | UNKNOWN | FAILED | REVIEW_REQUIRED`
+
+발송 상태는 금융/선물 활성 상태와 분리한다. 실패 시 직접 링크를 유지하며 자동 취소·환급하지 않는다.
 
 ### 수신 상태
 
@@ -1203,10 +1211,10 @@ lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦
 
 ## 14. 보안·개인정보
 
-- 선물 토큰은 32바이트 이상 난수 Base64URL로 만들고 gift의 영구 저장값은 해시만 유지한다. 알림톡 발송용 원문 URL은 암호화된 outbox에 한시 저장 후 삭제한다.
-- 알림톡 수신 휴대전화번호는 암호화 저장하고 조회 화면·로그·Sentry·분석 데이터에서 마스킹한다.
+- 선물 토큰은 32바이트 난수 Base64URL로 만들고 gift의 영구 권한 조회값은 hash만 유지한다. 구매자 링크 복구용 원문은 제한된 공개 기간 동안만 목적별 암호문으로 보관하고 종료 후 삭제한다.
+- 1차 직접 링크 흐름은 수신자 휴대전화번호를 수집하지 않는다. 2차 알림톡은 발송 목적의 최소 전화번호를 암호화 저장하고 화면·로그·Sentry·분석 데이터에서 원문을 노출하지 않으며 확정 보관기간 뒤 파기한다.
 - 비밀번호·PG 시크릿·OAuth 시크릿·토큰 원문을 로그에 기록하지 않는다.
-- URL 경로 토큰은 액세스 로그·Sentry에서 마스킹한다.
+- raw token을 URL path/query/cookie에 넣지 않는다. `/g#token=...` fragment는 FE가 즉시 주소에서 제거하고 API JSON body로만 전달한다.
 - R2 원본은 비공개이며 signed URL은 10분 만료다.
 - 관리자 개인정보 조회와 모든 금전성 변경을 감사 로그에 남긴다.
 - PostHog에는 실제 인적정보·결과 본문·메시지를 전송하지 않는다.
@@ -1218,20 +1226,14 @@ lease 만료만으로 FAILED/환급으로 전이하지 않고, 환급 이후 늦
 - 프론트는 `openapi-typescript`로 타입을 생성하며 수동 API 타입을 만들지 않는다.
 - v1에서 필드 삭제·의미 변경·enum 재사용을 금지한다.
 - 새 enum 값은 프론트의 unknown 처리 전략과 함께 배포한다.
-- P0 `TBD`가 해결되기 전 선물 가격·제공 개시·환불 관련 스키마는 draft로 표시한다.
+- 목표 계약과 현재 구현을 구분하고, 구현된 controller에서 export한 OpenAPI와 FE 생성 타입을 같은 feature boundary에서 동기화한다.
 
 ## 16. 확정 전 TBD
 
 | 결정 | 영향 API |
 |---|---|
-| 선물 원화 가격 | `/products`, `/gift-quotes`, 주문 승인 |
-| 미사용 링크 만료 | 공개 gift 조회·410 정책 |
-| 선물 제공 개시 기준 | refund 요청·응답·취소 가능 상태 |
-| 보너스/유료 등껍질 차감 순서 | 지갑 원장·환불 가능 잔액 계산 |
-| 알림톡 대행사·템플릿·재시도·SMS 대체 | 선물 주문 승인·전달 상태·웹훅 |
-| 알림톡 전화번호 보관기간 | 선물 주문 데이터·삭제 작업·관리자 조회 |
 | 신살 결과·부적 구성 | 상품 카탈로그·Liner 스키마·결과 응답 |
 | 개인 결과 공유 범위·만료·철회 | `/shares`, 카카오 공유 템플릿, 공개 랜딩 |
+| 알림톡 2차 전환 | 대행사·템플릿·서명 webhook·재시도·전화번호 보관기간·전환 일정 |
 | 자시·역법·띠 기준 | person 검증·reading 생성·talisman 동물 |
-| 부적 동기/비동기 | 구매 응답·talisman 상태·폴링 |
 | CSRF·세션 초과 | 인증 필터·세션 API |

@@ -47,6 +47,16 @@ public class WalletPurchaseService implements WalletPurchasePort, WalletPurchase
 
     @Override
     public DebitResult debit(UUID userId, UUID quoteId, IdempotencyKey key) {
+        return debitInternal(userId, quoteId, key);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, timeout = 10)
+    public DebitResult debitInCurrentTransaction(UUID userId, UUID quoteId, IdempotencyKey key) {
+        return debitInternal(userId, quoteId, key);
+    }
+
+    private DebitResult debitInternal(UUID userId, UUID quoteId, IdempotencyKey key) {
         validate(userId, quoteId, key);
         var before = wallets.lock(userId);
         String hash = hash("DEBIT:" + quoteId);

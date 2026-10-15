@@ -19,11 +19,14 @@ public class JdbcGiftPrivacy {
     private final JdbcTemplate jdbc;
     private final JdbcGiftPurchaseWork work;
     private final JdbcGiftDeliveryWork deliveries;
+    private final JdbcGiftRecipientProfiles recipientProfiles;
     private final Clock clock;
     private final boolean enabled;
-    public JdbcGiftPrivacy(JdbcTemplate jdbc, JdbcGiftPurchaseWork work, JdbcGiftDeliveryWork deliveries, Clock clock,
+    public JdbcGiftPrivacy(JdbcTemplate jdbc, JdbcGiftPurchaseWork work, JdbcGiftDeliveryWork deliveries,
+            JdbcGiftRecipientProfiles recipientProfiles, Clock clock,
             @Value("${app.gift.retention-enabled:false}") boolean enabled) {
-        this.jdbc = jdbc; this.work = work; this.deliveries = deliveries; this.clock = clock; this.enabled = enabled;
+        this.jdbc = jdbc; this.work = work; this.deliveries = deliveries; this.recipientProfiles = recipientProfiles;
+        this.clock = clock; this.enabled = enabled;
     }
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
     public List<UUID> candidates() {
@@ -69,10 +72,18 @@ public class JdbcGiftPrivacy {
                     Integer.class, order, Timestamp.from(now));
             if (inFlight != null && inFlight > 0) return false;
         } else if (!List.of("CANCELED", "REFUNDED", "FAILED").contains(grant.status())) return false;
+        if (grant != null && grant.giftId() != null) {
+            Integer fulfillmentInFlight = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM gift_fulfillment_jobs
+                    WHERE gift_id = ? AND state = 'GENERATING' AND lease_until > ?
+                    """, Integer.class, grant.giftId(), Timestamp.from(now));
+            if (fulfillmentInFlight != null && fulfillmentInFlight > 0) return false;
+        }
         jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE,token_ciphertext = NULL WHERE order_id = ?", order);
         jdbc.update("UPDATE gift_delivery_jobs SET state = 'CANCELED',lease_token = NULL,lease_until = NULL WHERE order_id = ? AND state NOT IN ('SENT','FAILED','CANCELED')", order);
         jdbc.update("UPDATE gift_delivery_outbox SET private_payload = '',status = 'CANCELED' WHERE order_id = ?", order);
         jdbc.update("UPDATE gift_order_drafts SET private_payload = '',recipient_phone_masked = 'REDACTED',private_payload_purged_at = ? WHERE id = ?", Timestamp.from(now), order);
+        if (grant != null && grant.giftId() != null) recipientProfiles.purgeForGift(grant.giftId(), now);
         if (grant != null) deliveries.audit(order, null, null, "PRIVATE_PAYLOAD_PURGED", now);
         return true;
     }

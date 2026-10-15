@@ -1,5 +1,154 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: BE-B 최신 main 통합·PostgreSQL 전체 회귀
+
+- `origin/main` `b0499a6`을 `feat/be-b-gift-recipient-access`에 병합했다. main의 직접 링크 token 암호문 키 회전·목적 종료 삭제와 BE-B의 recipient profile 키 회전·fulfillment lease 보호를 모두 유지했다. API/기능 명세 충돌은 최신 1차 직접 링크·24시간 원문 공개·30일 재발급 정책을 기준으로 BE-B 공개 수신/결과 구현 상태를 합쳤다.
+- 병합 뒤 상속 PostgreSQL suite에서 `Clock.withZone()` 미설정과 암호문 버전을 `v1`로만 단정한 fixture를 발견해 각각 서울 zone 동작과 `v1`/`v2:key-id` 암호문 계약을 검증하도록 고쳤다. addon 회귀가 남긴 합성 지갑·reading·render job이 후속 전체 suite의 전역 개수와 claim을 오염시키지 않도록 생성한 ID 범위만 정리한다.
+- 새 PostgreSQL 17 DB `saju_be_b_main_merge_full3_20261015`에서 `clean check bootJar --rerun-tasks`를 실행해 724건 중 712건 통과·12건 선택 제외·실패/오류 0과 bootJar 생성을 확인했다. 같은 PostgreSQL에서 공유/gift/admin OpenAPI export가 성공했다. FE OpenAPI 타입 재생성·TypeScript·Biome, Vitest 1,039건, production build도 통과했다.
+- H2 기반 OpenAPI export는 이미 적용된 `V202610151200`의 PostgreSQL `ON CONFLICT` 문법을 처리하지 못해 실패했으며, 적용 migration은 수정하지 않았다. PostgreSQL export 결과를 증거로 사용한다. 적용: 6-2 지갑/claim 회귀 격리, 6-4 lease·정리 통합, 6-6 최신 main·54개 migration·계약 산출물, 6-9 token/profile 암호문 파기. 실제 staging ingress/R2/외부 provider/복원은 수행하지 않았다.
+
+### 2026-10-15: 부적 addon 구매 claim·차감·PENDING 부적 PostgreSQL 회귀
+
+- `reading_id` unique claim 뒤 같은 짧은 transaction에서 quote bind, 등껍질 원장 차감, `PENDING` 부적과 단일 render job, addon purchase 상태를 함께 확정했다. 같은 reading의 동시 요청은 PostgreSQL `ON CONFLICT DO NOTHING`으로 기존 claim을 재사용하므로 두 번째 요청이 quote를 다시 bind하거나 추가 차감하지 않는다.
+- 새 PostgreSQL 17 DB `saju_talisman_addon_purchase_20261015`에서 `TalismanAddonPurchasePostgresTest` 1건을 `--rerun-tasks`로 통과했다. 동시 두 요청, 커밋 뒤 응답 유실을 가정한 재시도, 20→15 등껍질 잔액, PURCHASE 원장 1건, addon purchase/PENDING 부적/render job 각 1건을 함께 대사했다.
+- 적용: 6-1 reading 소유권, 6-2 unique claim·wallet lock·원장/잔액 대사, 6-4 durable PENDING render intent, 6-6 기존 migration 변경 없이 검증. 실제 JVM `kill -9` 뒤 재기동, 별도 프로세스 두 개 부하, renderer/R2 및 staging/복원 검증은 아직 미실행이다.
+
+### 2026-10-15: 부적 addon 동시 claim deadlock·lease recovery 보완
+
+- 같은 reading/quote 두 요청이 `reading_id`와 `quote_id` unique index를 서로 다른 순서로 기다리며 PostgreSQL deadlock이 날 수 있음을 실제 회귀에서 발견했다. 대상 reading을 먼저 `FOR UPDATE`로 직렬화하고, 잠금 대기 중 다른 요청이 확정한 addon claim은 재사용하도록 수정했다.
+- 같은 PostgreSQL 17 DB에서 동시 구매/응답 유실 재시도와 render job lease 만료 후 재claim, 이전 lease의 늦은 완료 무효화를 `TalismanAddonPurchasePostgresTest` 2건으로 확인했다. renderer/R2 adapter가 없어 실제 JVM kill 뒤 파일 업로드 재개 및 독립 process 두 개의 renderer 호출은 아직 검증하지 않았다.
+- 적용: 6-2 lock ordering·중복 차감 방지, 6-4 expired lease/fence, 6-6 PostgreSQL 전용 검증.
+
+### 2026-10-15: addon 원자 차감과 기존 선물 purchase 전파 분리
+
+- addon의 claim/차감/PENDING 부적 원자성을 위해 지갑 차감 전체를 caller transaction에 참여시키면, 기존 선물 구매가 wallet receipt의 독립 commit을 전제로 다음 resume에서 `PENDING`에 머무르는 회귀를 확인했다. 기본 `debit`은 기존 `REQUIRES_NEW`로 복원하고, addon만 `debitInCurrentTransaction` 내부 port로 현재 짧은 transaction 참여를 명시했다.
+- 빈 PostgreSQL 17 DB `saju_be_b_full_20261015`에서 `GiftRecipientPostgresTest` 41건과 `TalismanAddonPurchasePostgresTest` 2건을 `--rerun-tasks`로 통과했다. gift receipt/worker/snapshot/파기 회귀와 addon 중복 차감·lease fence를 함께 확인했다.
+- 적용: 6-2 transaction boundary·ledger consistency, 6-4 worker recovery. 실제 R2 upload/DB 저장 사이 JVM kill, staging browser/OAuth, 백업 복원은 외부 adapter/environment가 없어 미검증이다.
+
+### 2026-10-15: 공개 선물 bearer 요청 PostgreSQL rate-limit
+
+- 공개 `access`/`recipient-profile`/`result` POST는 token과 remote address의 SHA-256 digest만 분 단위 PostgreSQL bucket으로 세어, 같은 bearer/source 조합의 분당 30회를 허용하고 이후 요청은 `429 TOO_MANY_REQUESTS`로 거절한다. raw token/IP는 table·로그·오류에 저장하지 않는다.
+- 새 빈 PostgreSQL 17 DB `saju_be_b_rate_20261015`에서 `TalismanAddonPurchasePostgresTest` 3건을 실행했다. rate-limit 30개 동시 요청, 31번째 거절, digest table에 token prefix 미존재를 확인했다.
+- 후속으로 additive migration `V202610151301`의 `window_started` index와 기본 활성 cleanup scheduler를 추가했다. scheduler는 1시간마다 2시간보다 오래된 digest bucket을 최대 1,000건씩만 PostgreSQL `ctid` batch로 지운다. 대량 삭제가 장시간 잠금으로 번지지 않게 하며, 정리 대상·로그에는 raw token/IP를 쓰지 않는다.
+- PostgreSQL 17 새 DB `saju_be_b_rate_retention_20261015`에서 `TalismanAddonPurchasePostgresTest`를 `--rerun-tasks`로 재실행했다. 30개 동시 허용/31번째 거절, raw token 미저장, 두 개의 만료 bucket 중 한 개만 삭제하고 현재 window를 남기는 bounded retention 회귀를 확인했다.
+- 적용: 6-4 다중 인스턴스 공유 request bounding·bounded cleanup, 6-6 additive migration, 6-9 bearer/IP 원문 최소화·pseudonymous digest 보존 제한, 6-10 무한 테이블 증가 방지. proxy real client IP header 신뢰 정책과 staging ingress의 실제 요청량/cleanup 지표는 여전히 미검증이다.
+
+### 2026-10-15: staging ingress client IP·rate-limit cleanup 관측 읽기 전용 점검
+
+- GitHub environment에는 `Preview`와 `Production`만 있고 staging environment/deployment 기록은 없었다. 저장소에는 Railway/Vercel의 배포 선언, 고정 staging URL, ingress 설정이 없고, 로컬 Vercel CLI도 인증된 deployment/project를 제공하지 않았다. 따라서 실제 staging 요청의 remote address·`Forwarded`/`X-Forwarded-For` header를 관측하지 못했다.
+- 공개 선물 controller는 현재 `HttpServletRequest.getRemoteAddr()`를 그대로 bucket digest에 넣는다. Spring forwarded-header strategy나 trusted-proxy allowlist는 없다. frontend rewrite가 backend Railway 주소를 향하는 구성이라면 proxy IP 전체가 한 source로 제한될 수 있으며, 반대로 임의 forwarded header를 곧바로 신뢰하도록 바꾸는 것은 spoofing 위험이 있어 실제 ingress의 header strip/overwrite 보증 전에는 적용하지 않는다.
+- management endpoint는 health만 외부 노출하고, cleanup worker는 삭제 건수를 버리므로 cleanup 성공/삭제량/잔여 bucket/실패를 확인할 metric·alert가 없다. 실제 staging ingress가 준비되면 (1) ingress가 client IP header를 덮어쓰는지, (2) backend가 해당 ingress에서만 header를 해석하는지, (3) cleanup batch count·duration·failure와 table row age를 제한된 운영 관측으로 확인해야 한다. 이번은 설정·메타데이터 read-only 점검이며 배포·환경값·traffic은 변경하지 않았다.
+- 적용/미확인: 6-4 cleanup 실행 증거 미구축, 6-6 staging 배포 대상 부재, 6-9 client IP 신뢰 경계 미확정, 6-10 cleanup 지표/용량 미측정.
+
+### 2026-10-15: 부적 addon catalog quote 상품
+
+- 일반 운세 다섯 유형에 `*_TALISMAN_ADDON` catalog 상품을 additive migration으로 추가했다. 현재 `READING_WITH_TALISMAN(15) - READING_ONLY(10)` 차액인 5 등껍질을 quote snapshot 가격으로 기록하며, client 입력 가격은 사용하지 않는다. 이후 정책 변경은 기존 quote를 수정하지 않고 새 catalog version/상품으로 처리한다.
+- PostgreSQL 17 새 DB `saju_talisman_addon_catalog_20261015`에서 migration 포함 `GiftRecipientPostgresTest` 41건을 통과했다. quote/purchase HTTP 및 wallet debit은 다음 단계다. 적용: 6-2 quote 가격 불변성, 6-6 additive catalog migration.
+
+### 2026-10-15: 부적 addon purchase 영속·차액 계산 기반
+
+- `talisman_addon_purchases` additive table을 추가했다. reading당 unique 한 purchase만 허용하고 owner, quote, wallet transaction, talisman, 상태를 각각 unique/FK로 묶어 동시 구매가 별도 차감을 만들지 않을 기반을 마련했다.
+- 서버 가격 계산기는 동일 fortune type의 현재 `READING_ONLY`와 `READING_WITH_TALISMAN` catalog 가격 차이만 등껍질 addon 금액으로 허용한다. 현재 catalog는 15−10으로 5 등껍질이지만 HTTP client가 금액을 정하거나 5를 코드에 고정하지 않는다.
+- PostgreSQL 17 새 DB `saju_talisman_addon_20261015`에서 migration 포함 `GiftRecipientPostgresTest` 41건 및 compile을 통과했다. 지갑 차감·멱등 purchase HTTP·동시성 검증·실제 PENDING talisman 생성은 다음 단계다. 적용: 6-2 unique/FK/차액 기준, 6-6 additive migration.
+
+### 2026-10-15: 구매자 `보낸 선물` projection 보강
+
+- 기존 owner-only `GET /api/v1/gift-orders` 목록에 복호화 가능한 수신자 표시명, option, 수신 처리 상태(`INPUT_REQUIRED`/`PROCESSING`/`READY`), 최초 제공 시각, 7일 미제공 취소 가능 여부를 추가했다. private payload가 파기됐거나 복호화할 수 없으면 표시명은 null이며, 메시지·raw token·생년정보는 반환하지 않는다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 목록 projection과 기존 선물 흐름을 포함한 `GiftRecipientPostgresTest` 41건, H2 `GiftOrderApiTest` 8건을 각각 `--rerun-tasks`로 통과했다. 적용: 6-1 구매자 소유권, 6-2 취소 가능 상태의 현재 시각 기준, 6-5 link/result 상태 최소화, 6-9 메시지/token 미노출.
+
+### 2026-10-15: 수신자 계정 연결 `받은 선물` 목록 API
+
+- 인증된 수신자 전용 `GET /api/v1/received-gifts` cursor API를 추가했다. `recipient_user_id`가 현재 활성 계정이고, 제공 완료·ACTIVE·재열람 기한 내인 gift만 반환한다. 공개 token, 메시지, 생년정보, 구매자 정보는 목록에 포함하지 않는다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 계정 연결 뒤 목록 조회와 다른 계정의 빈 목록을 포함한 `GiftRecipientPostgresTest` 40건을 `--rerun-tasks`로 통과했다. 적용: 6-1 계정 소유권, 6-5 link token과 로그인 목록 경계, 6-9 최소 projection. 받은 선물의 상세 재열람은 기존 public result/linked ownership port를 별도 controller로 연결해야 한다.
+
+### 2026-10-15: 만료 lease worker 복구 검증
+
+- 첫 worker가 30초 lease를 잡은 뒤 완료하지 못한 상황을 만들고, lease 만료 후 fallback worker가 같은 job을 재claim해 snapshot/READY를 확정하는 경로를 검증했다. 이전 worker의 늦은 `complete`는 fencing version 불일치로 거절되어 결과를 바꾸지 못한다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 `GiftRecipientPostgresTest` 39건을 `--rerun-tasks`로 통과했다. 적용: 6-4 stale lease·늦은 완료 차단. OS process 강제 종료/재시작과 두 독립 worker 프로세스 부하는 여전히 미검증이다.
+
+### 2026-10-15: fulfillment worker 재시도 소진 검증
+
+- 암호화 recipient profile을 의도적으로 손상해 worker의 복호화 실패를 재현했다. 각 실패는 `RETRY`와 다음 시도 시각으로만 기록되고, 다섯 번째 실패 뒤 다음 claim에서 `REVIEW_REQUIRED`/`FULFILLMENT_RETRY_EXHAUSTED`로 수렴한다. 실패한 gift에는 result snapshot이 생성되지 않는다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 worker 정상 fallback과 재시도 소진을 포함한 `GiftRecipientPostgresTest` 38건을 `--rerun-tasks`로 통과했다. 적용: 6-4 bounded retry·운영 검토 전환. 실제 process kill/restart, 동시 worker 두 개의 end-to-end와 external provider timeout은 남아 있다.
+
+### 2026-10-15: fallback fulfillment worker PostgreSQL E2E 보강
+
+- worker integration test를 추가해 암호화 recipient profile 제출 → worker claim/fallback facts 결과 → immutable snapshot → job `READY` → 공개 result `READY`를 한 흐름으로 검증했다. 결과 JSON에 수신자 이름·생년일이 없는지도 확인했다.
+- 이 검증에서 worker profile 조회가 purchase work가 아닌 fulfillment job의 `product_code`를 읽어야 하는 SQL 오류를 발견·수정했다. 새 PostgreSQL 17 DB `saju_gift_worker_20261015`에서 `GiftRecipientPostgresTest` 37건을 `--rerun-tasks`로 통과했다.
+- 아직 미검증: worker 두 개 동시 실행, lease 만료 뒤 늦은 worker 저장 거절, 강제 종료 뒤 재시작, 5회 실패→REVIEW_REQUIRED, Liner timeout/5xx. 적용: 6-4 worker recovery 검증의 정상 fallback 경로, 6-5 공개 결과 최소화, 6-9 개인정보 projection 금지.
+
+### 2026-10-15: BE-B 선물 fallback fulfillment worker 연결
+
+- 기본 비활성 `app.gift.fulfillment-worker-enabled` worker를 추가했다. due job을 짧은 claim transaction으로 lease한 뒤, 별도 짧은 read transaction에서 암호화 profile을 가져오고 transaction 밖에서 복호화·사주 facts 계산·deterministic fallback 결과를 생성한다. 외부 Liner 호출·실제 부적 이미지/R2 생성은 하지 않는다.
+- 결과 저장 callback에서는 현재 lease token/fence를 다시 확인하고 같은 gift receipt snapshot을 저장한 뒤 기존 `provide` transaction으로 최초 제공을 확정한다. 실패는 1분 뒤 `RETRY`로 제한 재시도하며, claim 최대 5회 소진은 기존 `REVIEW_REQUIRED`로 수렴한다. profile raw birth input은 결과 JSON에 넣지 않는다.
+- PostgreSQL 17 `saju_gift_result_api_20261015`에서 기존 `GiftRecipientPostgresTest` 36건 및 컴파일을 재실행했다. worker feature flag를 켠 process-kill/lease-expiry/fallback E2E와 실제 운영 scheduler, 외부 provider timeout은 아직 미검증이며 판매/worker 활성화도 수행하지 않았다. 적용: 6-2 짧은 transaction, 6-4 durable lease/fence/retry, 6-5 gift 결과 접근, 6-9 facts-only projection.
+
+### 2026-10-15: 선물 결과 snapshot receipt 소유 경계 보강
+
+- immutable snapshot 저장 전 `receipt_id`가 같은 `gift_id`의 purchase work에 속하는지 확인하도록 보강했다. 조회도 receipt→work join으로 다시 확인한다. 따라서 잘못된 worker 입력이나 내부 호출이 다른 선물의 receipt/content를 snapshot에 연결할 수 없고, 해당 transaction은 rollback된다.
+- PostgreSQL 17 `saju_gift_result_api_20261015`에서 `GiftRecipientPostgresTest` 36건을 재실행했다. 다른 gift receipt 연결 거절, 기존 snapshot 충돌 차단, 공개 결과 polling, profile 파기·claim fence 회귀를 확인했다. 적용: 6-1 gift/token 권한 경계, 6-2 atomic rollback, 6-5 private asset/result 소유권. worker의 외부/fallback 생성과 process-kill 재개는 다음 단계다.
+
+### 2026-10-15: BE-B 공개 선물 결과 polling API
+
+- `POST /api/v1/public/gifts/result`를 추가했다. body의 raw token만 받아 결과 snapshot이 없으면 `202 PROCESSING`, 있으면 `200 READY`와 typed JSON projection을 반환한다. token은 path/query/log DTO에 넣지 않으며 gift ID·receipt ID·worker lease 같은 내부 식별자는 응답하지 않는다.
+- READY 응답 전에는 기존 `GiftFulfillmentPort.provide`를 호출해 최초 제공과 취소를 같은 gift work 잠금/짧은 transaction에서 직렬화한다. 첫 READY 뒤에는 같은 snapshot과 재열람 만료 시각을 반환한다. 실제 결과를 만드는 worker는 아직 연결하지 않았으므로 정상 운영에서는 PROCESSING만 반환할 수 있다.
+- 공개 access/profile와 같은 `permitAll` 및 CSRF 예외를 해당 정확한 POST 경로에만 추가했다. PostgreSQL 17 전용 DB `saju_gift_result_api_20261015`에서 `GiftRecipientPostgresTest` 35건을 `--rerun-tasks`로 실행해 PROCESSING→READY, 최초 제공 기록, public token 접근을 확인했다. 적용: 6-1 bearer 권한과 CSRF 경계, 6-2 제공/취소 직렬화, 6-5 만료/공개 결과 최소화, 6-9 token·결과 로그 최소화. rate limit/Origin 정책, 실제 worker 생성·재시작은 미완료다.
+
+### 2026-10-15: BE-B 선물 결과 immutable snapshot 저장 기반
+
+- 새 additive migration `V202610151000__b_gift_result_snapshots.sql`로 gift/receipt/content 기준의 결과 snapshot 한 건을 저장한다. 결과 projection에는 결과 JSON·콘텐츠/생성 버전·해시만 남기며, raw token·수신자 생년정보·user/person ID·private object key는 저장하지 않는다.
+- 같은 gift에 동일 snapshot을 재저장하는 것은 허용하지만, 다른 content/hash로 결과를 교체하려 하면 transaction을 실패시킨다. receipt/work 삭제 시 snapshot도 cascade로 삭제되어 테스트/목적 종료 뒤 고아 projection이 남지 않는다. 실제 worker는 다음 단계에서 `GiftFulfillmentPort.provide` callback 안에서만 이 저장소를 호출한다.
+- 새 PostgreSQL 17 전용 DB `saju_gift_snapshot_v2_20261015`에서 `GiftRecipientPostgresTest` 34건을 `--rerun-tasks`로 실행했다. snapshot의 중복·충돌 차단과 기존 수신 profile·lease/fence·파기 회귀를 함께 확인했다. 적용: 6-2 중복 결과 차단, 6-4 worker 재시작/중복 실행 준비, 6-5 gift-결과 연결, 6-6 additive migration, 6-9 projection 최소화. 실제 생성 worker·공개 결과 HTTP·staging/운영 검증은 아직 미완료다.
+
+### 2026-10-15: BE-B 선물 `부적만` 견적 계약 정정
+
+- 와이어프레임의 `GIFT-03`와 비교해 `TALISMAN_ONLY` 견적이 편지·부적 외 수능 체크리스트까지 약속하던 불일치를 수정했다. 이제 견적 응답은 `LETTER`, `TALISMAN` 두 항목만 반환하며, `READING_WITH_TALISMAN`의 편지·부적·풀이·체크리스트 구성과 등껍질 가격(각 10/15)은 바꾸지 않았다.
+- `GiftQuoteApiTest`에서 목록 길이뿐 아니라 두 항목과 순서를 검증했고, 로컬 H2의 해당 8개 테스트를 `--rerun-tasks`로 통과했다. 전체 `clean check bootJar exportGiftOpenApi`는 이번 변경과 무관한 기존 H2 전용 결제 회귀(`AdminPaymentRecoveryTest` 21건, `CashRefundOperationsTest` 9건, `QuoteFundingPersistenceTest`, `WalletReadPersistenceTest`) 실패로 완료되지 않았다. 이는 PostgreSQL 잠금/SQL 경로를 H2로 검증한 한계이므로 성공으로 판정하지 않는다.
+- 적용: 6-2 가격·지갑·주문 상태를 변경하지 않는 견적 계약 수정, 6-6 API 응답 호환성(기존의 잘못된 세 번째 항목을 제거하므로 FE가 화면 계약을 함께 반영해야 함). 실제 부적 이미지·R2·알림톡은 이번 범위에 포함하지 않았다.
+
+### 2026-10-15: IA 기준 API 계약 정렬 및 BE-B 구현 계획
+
+- 최신 IA와 현재 controller, 공유/gift OpenAPI, 기능·API 문서를 대조했다. 로그인 운세·수능 구조화 결과·부적 보관함·직접 링크 구매는 대응되지만, 공개 선물 결과 projection(`RECV-04~07`, `RECV-T-04`), 수능 판매 종료 상태, 사용자 충전·사용 내역이 각각 미구현임을 확인했다.
+- 직접 링크 결정에 맞춰 기능/API 문서의 수신자 전화번호·알림톡 발송/웹훅 계약을 현재 출시 범위에서 제거했다. `GIFT-05`는 링크 조회·복사·공유 실패로 정의했고, 공개 raw token은 `/g#token=...` 전달 뒤 JSON body API에서만 사용하도록 정렬했다. 변조·미존재·폐기·만료·취소는 정보 열거를 막기 위해 같은 404로 처리한다.
+- `backend/docs/IA_API_ALIGNMENT_IMPLEMENTATION_PLAN_20261015.md`에 immutable 결과 snapshot, durable worker, 최초 제공/취소 직렬화, 공개 결과 API, 보안·복구 검증 순서를 기록했다. 실제 부적 이미지 생성·저장/R2는 승인 에셋 전까지 제외한다. 적용: 6-1 공개 token/소유권, 6-2 PostgreSQL 중복·경쟁, 6-4 worker lease/fence/retry, 6-5 gift 만료·private asset, 6-6 additive migration/계약 호환, 6-9 개인정보 최소화.
+- 이번 단계는 문서와 계획 정렬이며 코드·OpenAPI 산출물·테스트 결과를 변경하거나 구현 완료로 판정하지 않았다. BE-B P0는 공개 선물 결과/worker, BE-A 후속은 catalog availability와 사용자 wallet transactions, FE/PD 후속은 body-token polling과 상태 문구다.
+
+### 2026-10-15: 데모데이 와이어프레임 89쪽 API 재대조
+
+- PDF 전 페이지를 text 추출과 렌더링으로 확인했다. 직접 링크는 최종 대체안이 아니라 1차 퀵오픈 방식이고, 전화번호·알림톡 발송 상태·재발송·실패 시 직접 링크 fallback은 2차 목표임을 문서에 보정했다. 알림톡 실패는 금융/선물 실패나 자동 취소가 아니다.
+- 추가 차이: `TALISMAN_ONLY` 화면은 편지+부적만 요구하지만 현재 quote는 체크리스트를 포함한다. 결과 후 부적 추가 구매, 보낸 선물의 수신자/열람 projection, 받은 선물 연결/목록, 일반 결과·부적 공유는 controller가 없다. wallet transaction query 기반은 있으나 사용자 HTTP가 없고, catalog는 종료 상품을 누락한다.
+- `backend/docs/DEMODAY_WIREFRAME_API_REVIEW_20261015.md`에 화면별 상태와 단계적 구현 순서를 기록했다. 실제 부적 이미지/R2, 여러 명 선물, 알림톡 provider는 1차 구현에서 제외한다. 적용: 6-1 공개 token·소유권, 6-2 추가 구매 중복 차감, 6-4 result/delivery worker, 6-5 gift/talisman 접근, 6-6 단계적 호환 배포, 6-9 전화번호·공유정보 최소화.
+- 이번 재대조는 문서 작업이다. 사용자 확인 전 commit·소스 구현·OpenAPI 산출물 갱신·테스트 실행을 하지 않는다.
+
+### 2026-10-15: BE-B 선물 수신 프로필 목적 종료 파기 보완
+
+- `gift_recipient_profiles`의 암호화된 수신자 생년정보가 선물 초안 정리 뒤에도 남는 경로를 보완했다. A의 기존 목적 종료 판정과 같은 짧은 PostgreSQL transaction에서 profile 암호문을 NULL로 전환하고, `purged_at`/정책 버전을 남긴다. FK 때문에 job 행은 삭제하지 않고, 실행 전 상태는 `PURGED`로 전환해 후속 worker가 해당 profile을 다시 처리하지 못하게 한다.
+- 아직 유효한 `GENERATING` fulfillment lease가 있으면 파기를 보류한다. lease 만료 뒤에만 파기하므로, 늦은 worker가 개인정보가 지워진 작업을 완료하는 경계를 줄인다. 외부 Liner/R2 호출·지갑 잠금은 이 transaction 안에 없다.
+- key rotation의 기존 재암호화 transaction에 recipient profile도 연결했다. active key가 바뀌면 같은 profile context/AAD로 복호화·재암호화하고 key ID를 바꾼다. purge된 NULL profile은 재암호화 후보가 아니므로 목적 종료 데이터를 되살리지 않는다.
+- 실제 결과 worker를 활성화하지 않은 채 `gift_fulfillment_jobs`의 PostgreSQL claim/fence 저장소를 추가했다. 한 job은 한 lease만 얻고, 만료 뒤 새 claim은 fence를 올리며 이전 worker의 늦은 완료는 조건 갱신으로 거절된다. 최대 시도에 도달한 due/stale job은 무한 재시도 대신 `REVIEW_REQUIRED`로 수렴한다. provider 호출은 이 저장소 밖에서만 허용된다.
+- 적용: 6-4 durable job·lease·늦은 완료·bounded retry, 6-6 기존 migration을 수정하지 않는 데이터 정리 호환, 6-9 목적 종료 뒤 암호문 최소화/key rotation. 새 PostgreSQL 17 컨테이너(`localhost:55433`)에서 `GiftRecipientPostgresTest` 18건을 실행해 수신 profile 저장, 취소 뒤 암호문 파기·PENDING job `PURGED`, 활성 lease 보류·만료 뒤 파기, profile key rotation, 동시 claim 1건·stale 완료 거절·retry 소진 검토 전환과 기존 원자성/동시성 회귀를 확인했다.
+- 미확인/후속: 실제 fulfillment worker의 profile 복호화·facts 계산·Liner/R2 결과 생성, staging/운영 worker 중단·재시작, 백업 사본·외부 공급자 사본 파기, 실제 브라우저 E2E는 이번 로컬 검증 범위가 아니다. 기본 운영 worker/판매 활성화는 변경하지 않았다.
+
+### 2026-10-14: PR #37 backend CI Clock fixture 보완
+
+- PR #37 backend CI의 단일 실패를 같은 PostgreSQL 조건에서 재현했다. `GiftRecipientPostgresTest`가 상위 lifecycle의 신규 recipient API 테스트를 상속하면서 `Clock`을 Mockito mock으로 교체했지만 `instant()`만 설정하고 `withZone()`/`getZone()`은 설정하지 않아, `BirthInputNormalizer`의 서울 기준 날짜 검증이 정상 입력도 `INVALID_REQUEST`로 처리한 테스트 fixture 문제였다.
+- mock Clock에 `Asia/Seoul` zone과 `withZone` 동작을 명시했다. 실패했던 상속 테스트 단건을 재실행해 통과했고, 빈 migration 검증 DB `sajup_gift_recipient_20261014`에서 CI와 같은 `clean check bootJar` 전체를 실행해 성공했다. 제품 입력 검증·저장 코드는 변경하지 않았다. 적용: 날짜/시간 fixture 회귀, 6-6 CI 배포 산출물 검증. 원격 push와 PR 변경은 수행하지 않았다.
+
+### 2026-10-14: BE-B 암호화 recipient profile·fulfillment intent
+
+- 공개 `POST /api/v1/public/gifts/recipient-profile`을 추가했다. 기존 `BirthInputNormalizer`와 이름 검증을 재사용하고, 일반 `people`이 아닌 신규 `gift_recipient_profiles`에 정규화 snapshot을 AES-GCM 암호화 저장한다. 응답과 충돌 오류에는 이름·생년정보·snapshot hash를 반환하지 않는다.
+- 신규 additive migration `V202610141100__b_gift_recipient_profiles.sql`은 gift당 profile 한 건과 fulfillment job 한 건을 unique/FK로 강제한다. 제출은 A `GiftFulfillmentPort.accept` callback 안에서 profile과 `PENDING` intent를 저장하므로 A receipt, 암호문, intent가 함께 commit/rollback된다. Liner/R2 호출은 없다.
+- 같은 `Idempotency-Key`와 동일 입력은 기존 receipt를 재사용하고, 다른 키 또는 다른 snapshot 제출은 기존 정보 비노출 409로 거절한다. profile/job에는 원문 token을 저장하지 않는다. 적용: 6-2 PostgreSQL transaction·중복 방지, 6-4 durable intent 기반, 6-5 token 재검증, 6-6 신규 migration, 6-9 목적 분리 암호화·응답 최소화.
+- 로컬 H2에서 컴파일·Gift OpenAPI·주문 회귀 검사를 통과했다. PostgreSQL 17 테스트 DB에서 정상 저장/replay/다른 요청 충돌, 암호문 비노출, 미래 생년월일 거절 시 무저장, fulfillment intent 저장 실패 시 A receipt·profile·job 전체 rollback을 포함한 `GiftLifecyclePostgresTest` 전체를 통과했다. backend gift OpenAPI export도 성공했다.
+- 남음: worker claim/lease/fencing, profile 복호화 후 facts 계산, option별 Liner/fallback, immutable result snapshot, 공개 endpoint rate limit/Origin, 운영자 profile 초기화, key rotation과 파기 worker. 실제 개인정보나 실제 외부 provider는 사용하지 않았다.
+
+### 2026-10-14: BE-B 선물 공개 안내 접근 1단계
+
+- 브랜치 `feat/be-b-gift-recipient-access`에서 공개 `POST /api/v1/public/gifts/access`를 추가했다. raw token은 URL path/query가 아니라 JSON body로만 받고 DTO 문자열에서 마스킹한다. 비로그인 접근과 이 경로의 CSRF 예외를 명시적으로 열되 다른 gift 주문 API의 세션·CSRF 경계는 유지했다.
+- `GiftAccessPort.describe`가 ACTIVE·비폐기·현재 token을 확인한 뒤 암호화된 주문 payload를 복호화하여 받는/보내는 사람 표시 이름, 메시지, 서버 상품 snapshot의 option, 수신 상태만 반환한다. 내부 order/gift/user ID, token/hash, R2 key는 반환하지 않는다. 안내 조회는 `first_provided_at`을 변경하지 않는다.
+- 적용: 6-1 공개 bearer 권한과 로그인 소유권 분리, 6-5 token 변조/미존재 동일 404·최소 공개정보, 6-9 token URL 비노출·DTO 마스킹. 로컬 H2에서 Gift OpenAPI와 주문 회귀 검사를 통과했고, PostgreSQL 17 테스트 DB에서 정상 공개 안내, 무인증/무-CSRF 접근, 변조/미존재 token 동일 응답, PROCESSING 상태 전환, 최초 제공 시각 비변경을 포함한 `GiftLifecyclePostgresTest` 전체를 통과했다. backend 전용 gift OpenAPI export도 성공했다.
+- 아직 미구현/미검증: recipient profile 저장·입력 API, 공개 endpoint rate limit/Origin 정책, staging proxy/access log·Sentry·PostHog 검색, 만료·취소 전용 안전 오류, 실제 브라우저 fragment 제거. 다음 task는 암호화 recipient profile과 단일 제출/fulfillment intent의 동일 트랜잭션 저장이다.
+
 ### 2026-10-14: A 직접 공유 재발급 마무리
 
 - #39 `4002187`에서 `codex/gift-direct-link-hardening`를 분리했다. 사용자 확정인 실제 차감부터 30일 미만·주문별 KST 하루 3회·1분 간격을 구현했다. 서버 Link 응답에 canReissue/remainingReissues/nextReissueAt를 추가했다. 동일 요청 replay는 횟수를 재사용하지 않고, 후속 재발급 이후 이전 key replay는 이전 version/shareUrl=null을 반환한다.

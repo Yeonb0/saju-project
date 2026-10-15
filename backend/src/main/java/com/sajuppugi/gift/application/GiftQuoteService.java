@@ -60,7 +60,7 @@ public class GiftQuoteService {
         TALISMAN_ONLY, READING_WITH_TALISMAN;
         public String productCode() { return "GIFT_SUNEUNG_" + name(); }
         public List<Content> includedContents() {
-            return this == TALISMAN_ONLY ? List.of(Content.LETTER, Content.TALISMAN, Content.SUNEUNG_CHECKLIST)
+            return this == TALISMAN_ONLY ? List.of(Content.LETTER, Content.TALISMAN)
                     : List.of(Content.LETTER, Content.TALISMAN, Content.READING, Content.SUNEUNG_CHECKLIST);
         }
     }

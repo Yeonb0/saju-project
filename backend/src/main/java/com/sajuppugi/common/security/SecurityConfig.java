@@ -32,6 +32,8 @@ public class SecurityConfig {
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/webhooks/toss").permitAll();
+            authorize.requestMatchers(HttpMethod.POST, "/api/v1/public/gifts/access",
+                    "/api/v1/public/gifts/recipient-profile", "/api/v1/public/gifts/result").permitAll();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/daily-fortune-shares/*").permitAll();
             authorize.requestMatchers(HttpMethod.DELETE, "/api/v1/daily-fortune-shares/*").authenticated();
             authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->
@@ -46,6 +48,7 @@ public class SecurityConfig {
                     "/api/v1/reading-purchases", "/api/v1/reading-purchases/**",
                     "/api/v1/readings/**", "/api/v1/people", "/api/v1/people/**",
                     "/api/v1/talismans", "/api/v1/talismans/**",
+                    "/api/v1/received-gifts", "/api/v1/received-gifts/**",
                     "/api/v1/daily-fortunes/today", "/api/v1/daily-fortunes/today/share",
                     "/api/v1/me", "/api/v1/me/**").authenticated();
             if (environment.acceptsProfiles(Profiles.of("local"))) {

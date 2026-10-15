@@ -1,5 +1,7 @@
 # BE-B 남은 구현 실행 계획
 
+> 2026-10-15 갱신: 이 문서의 선물 수신 B-3 방향은 역사적 배경으로 유지한다. 최신 IA, 직접 링크 공개 API, 실제 남은 구현 순서는 [`IA_API_ALIGNMENT_IMPLEMENTATION_PLAN_20261015.md`](IA_API_ALIGNMENT_IMPLEMENTATION_PLAN_20261015.md)를 우선한다. 카카오 알림톡·수신자 전화번호는 현재 BE-B 출시 범위가 아니다.
+
 작성일: 2026-10-13  
 대상 브랜치: `feat/saju-calculation` (`0890241`)  
 관련 문서: [`BACKEND_ROLE_SPLIT.md`](BACKEND_ROLE_SPLIT.md), [`BE_B_FE_UNBLOCKING_IMPLEMENTATION_PLAN_2026-10-11.md`](BE_B_FE_UNBLOCKING_IMPLEMENTATION_PLAN_2026-10-11.md), [`PENDING_DECISIONS.md`](../../docs/PENDING_DECISIONS.md), [`OPERATIONS_CHECKLIST.md`](../../docs/OPERATIONS_CHECKLIST.md)

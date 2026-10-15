@@ -27,6 +27,7 @@ class GiftDirectLinkPostgresTest extends GiftLifecyclePostgresTest {
         linkNow = now.plusSeconds(1).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         org.mockito.Mockito.when(linkClock.instant()).thenAnswer(call -> linkNow);
         org.mockito.Mockito.when(linkClock.getZone()).thenReturn(ZoneId.of("Asia/Seoul"));
+        org.mockito.Mockito.when(linkClock.withZone(org.mockito.ArgumentMatchers.any())).thenReturn(linkClock);
     }
     private GiftLinkService.Link reissue(UUID id, String key) { return links.reissue(owner, id, new IdempotencyKey(key)); }
 

@@ -1,5 +1,7 @@
 # 선물 구매·취소 구현과 다음 연결 범위
 
+> 역사 기록: 아래 내용 중 전화번호·알림톡 delivery 설계는 2026-10-14 직접 링크 결정으로 대체됐다. 현재 계약은 `docs/API_SPEC.md` 10~11장과 [`IA_API_ALIGNMENT_IMPLEMENTATION_PLAN_20261015.md`](IA_API_ALIGNMENT_IMPLEMENTATION_PLAN_20261015.md)를 우선한다. 기존 migration/table 설명은 호환성 판단을 위해 삭제하지 않는다.
+
 후속 발송·목록·개인정보 정리·키 버전 구현 계약은 [GIFT_DELIVERY_HANDOFF_20261013.md](GIFT_DELIVERY_HANDOFF_20261013.md)를 함께 따른다. 실제 알림톡 adapter와 B 수신 콘텐츠는 여전히 미연결이다.
 
 기준: main `bb3169c`에서 이어가는 `codex/gift-fulfillment`. FE 코드와 공유 OpenAPI는 변경하지 않는다. 이전 선물 브랜치의 견적·암호화 주문·차감 복구를 보존해 통합했다. 실제 판매/발송/배포 기능을 켠 작업이 아니다.

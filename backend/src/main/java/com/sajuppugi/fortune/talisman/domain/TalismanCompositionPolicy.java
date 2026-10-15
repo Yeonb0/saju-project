@@ -42,7 +42,13 @@ public final class TalismanCompositionPolicy {
     public Composition compose(FortuneType fortuneType, CalculationFacts facts) {
         Objects.requireNonNull(fortuneType, "fortuneType");
         Objects.requireNonNull(facts, "facts");
-        Element element = selectElement(facts.fiveElements());
+        return compose(fortuneType, facts.fiveElements());
+    }
+
+    /** Compose from the immutable subset retained in a completed reading result. */
+    public Composition compose(FortuneType fortuneType, CalculationFacts.FiveElements fiveElements) {
+        Objects.requireNonNull(fortuneType, "fortuneType");
+        Element element = selectElement(fiveElements);
         Animal[] animals = Animal.values();
         Animal animal = animals[random.nextInt(animals.length)];
         List<String> phrases = ELEMENT_PHRASES.get(element);

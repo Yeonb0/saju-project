@@ -1,0 +1,1 @@
+CREATE INDEX public_gift_rate_limits_window_idx ON public_gift_rate_limits(window_started);
