@@ -152,6 +152,9 @@ class LinerApiProviderTest {
         LinerResponse response = provider.generate(request);
 
         assertThat(response.suneungGuide()).isNotNull();
+        assertThat(capturedBody.get().at(
+                "/text/format/schema/properties/sections/items/properties/title/type").asText())
+                .isEqualTo("string");
         assertThat(capturedBody.get().at("/text/format/schema/properties/suneungGuide/type").asText())
                 .isEqualTo("object");
         assertThat(capturedBody.get().at(

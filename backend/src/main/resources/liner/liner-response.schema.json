@@ -12,9 +12,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["key", "content", "sourceFactKeys"],
+        "required": ["key", "title", "content", "sourceFactKeys"],
         "properties": {
           "key": { "type": "string" },
+          "title": { "type": "string", "minLength": 2, "maxLength": 50 },
           "content": { "type": "string", "minLength": 1, "maxLength": 2000 },
           "sourceFactKeys": {
             "type": "array",

@@ -106,6 +106,7 @@ public class LinerApiProvider implements LinerProvider {
     private JsonNode tailoredSchema(LinerRequest request) {
         ObjectNode schema = (request.fortuneType() == FortuneType.SUNEUNG
                 ? suneungResponseSchema : responseSchema).deepCopy();
+        schema.remove("title");
         removeUnsupportedSchemaKeywords(schema);
         ArrayNode allowed = mapper.createArrayNode();
         request.allowedSections().forEach(section -> allowed.add(section.name()));
@@ -117,7 +118,7 @@ public class LinerApiProvider implements LinerProvider {
     private void removeUnsupportedSchemaKeywords(JsonNode node) {
         if (node.isObject()) {
             ObjectNode object = (ObjectNode) node;
-            object.remove(List.of("$schema", "$id", "title", "minItems", "minLength", "maxLength", "uniqueItems"));
+            object.remove(List.of("$schema", "$id", "minItems", "minLength", "maxLength", "uniqueItems"));
             object.elements().forEachRemaining(this::removeUnsupportedSchemaKeywords);
         } else if (node.isArray()) {
             node.elements().forEachRemaining(this::removeUnsupportedSchemaKeywords);

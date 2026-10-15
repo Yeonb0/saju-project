@@ -29,8 +29,8 @@
 | 선물 결제 | 등껍질 결제. 원화 결제는 등껍질 충전에만 쓴다 (P-07) |
 | 선물 상품 옵션 | `부적` / `부적+사주`; 수능 `부적` 선물에도 편지와 수능 체크리스트 포함 |
 | 선물 전달 | 수신자 카카오 알림톡으로 선물 링크 발송 |
-| 백엔드 | Spring Boot 3 + PostgreSQL, Railway |
-| 프론트엔드 | Next.js App Router + TypeScript, Vercel |
+| 백엔드 | Spring Boot 3 + PostgreSQL, AWS 배포 결정. Amplify Hosting은 JVM 컨테이너 런타임이 아니므로 App Runner/ECS/Elastic Beanstalk 중 실행처 확정 필요 |
+| 프론트엔드 | Next.js App Router + TypeScript, AWS Amplify Hosting |
 | 결과 생성 | 규칙 기반 만세력 계산 + 구조화 JSON 기반 Liner 해석 문장 생성 |
 | 재현성 | 같은 인물·상품·기준일·계산/생성 버전이면 최초 성공 스냅샷 재사용 |
 
@@ -189,7 +189,7 @@
   3. 살 다스리는 법: 생활 팁
   4. 부족한 기운 + 살 막이 부적 (T-01A)
 - 다룰 살: 아래 17종을 모두 계산하고 사용자에게 있는 살만 보여 준다.
-  - 12신살: 겁살 · 재살 · 천살 · 지살 · 년살(도화살) · 월살 · 망신살 · 장성살 · 반안살 · 역마살 · 육해살 · 화개살
+- 2026-10-15 회의 변경: 천을귀인 · 문창귀인 · 양인살 · 도화살 · 역마살 · 화개살 · 공망살 · 원진살 · 귀문관살 · 백호살 · 괴강살 · 망신살 · 홍염살의 원국 13종과 10년 대운·세운 활성 시기를 사용한다.
   - 특수살: 홍염살 · 백호살 · 양인살 · 괴강살 · 귀문관살
 - 살별 설명 · 좋은 면 · 다스리는 법 문구는 PD가 작성한다 (17종).
 - 2026-10-15까지 내용이 준비되지 않으면 1차 출시 판매 목록에서 신살만 뺀다.
@@ -592,10 +592,10 @@
 
 ## 10. 기술·API
 
-### I-01. 배포 `확정`
+### I-01. 배포 `부분 확정`
 
-- Railway: Spring Boot·PostgreSQL
-- Vercel: Next.js
+- AWS: Spring Boot·PostgreSQL. Amplify Hosting은 JVM 실행 환경이 아니므로 App Runner/ECS/Elastic Beanstalk 중 백엔드 실행처는 추가 확정 필요
+- AWS Amplify Hosting: Next.js
 - local/staging/production 서비스·DB·환경변수 분리
 
 ### I-02. 세션 `부분 확정`

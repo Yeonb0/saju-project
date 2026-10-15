@@ -33,7 +33,8 @@ import org.springframework.stereotype.Service;
 public class SuneungReadingService {
     private static final List<SectionKey> SECTIONS = List.of(
             SectionKey.SUMMARY, SectionKey.EXAM_DAY, SectionKey.EXAM_PERIODS, SectionKey.FOCUS,
-            SectionKey.MEAL, SectionKey.PREPARATION, SectionKey.ANXIETY_MANAGEMENT, SectionKey.MISSING_ELEMENT);
+            SectionKey.MEAL, SectionKey.PREPARATION, SectionKey.ANXIETY_MANAGEMENT,
+            SectionKey.STRENGTHS, SectionKey.DAILY_PRACTICE, SectionKey.MISSING_ELEMENT);
 
     private final CatalogUseCase catalog;
     private final ObjectProvider<ReadingSubjectPort> subjectProvider;

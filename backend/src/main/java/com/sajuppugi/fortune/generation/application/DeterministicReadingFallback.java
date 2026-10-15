@@ -41,6 +41,13 @@ public class DeterministicReadingFallback {
             return java.util.stream.Stream.concat(CORE_FACTS.stream(), java.util.stream.Stream.of("luck.annual[0].year"))
                     .toList();
         }
+        if (key == SectionKey.SPECIAL_STARS || key == SectionKey.BALANCING_SPECIAL_STARS
+                || key == SectionKey.SINSAL_POPULAR || key == SectionKey.SINSAL_MOVEMENT
+                || key == SectionKey.SINSAL_INTUITION || key == SectionKey.SINSAL_INTENSITY
+                || key == SectionKey.SINSAL_TIMING) {
+            return java.util.stream.Stream.concat(CORE_FACTS.stream(),
+                    java.util.stream.Stream.of("specialStars.ruleVersion")).toList();
+        }
         if (hasCounterpart) {
             return java.util.stream.Stream.concat(CORE_FACTS.stream(),
                     CORE_FACTS.stream().map(path -> "counterpart." + path)).toList();
@@ -122,6 +129,16 @@ public class DeterministicReadingFallback {
                     .formatted(p.dayMaster, distribution);
             case BALANCING_SPECIAL_STARS -> "신살의 이름보다 현실에서 조절할 행동을 정하는 편이 중요합니다. 강한 %s은 해야 할 일을 끝내는 데 쓰고, 상대적으로 적은 %s은 하루 한 번 멈춤·기록·휴식 중 한 가지를 실천하며 균형을 확인하세요."
                     .formatted(p.strong, p.weak);
+            case STRENGTHS -> "%s 일간과 %s 중심의 분포에서 꾸준히 활용할 수 있는 강점은 시작한 일을 실제 행동으로 옮기는 힘입니다. 강점이 과해져 주변 의견을 놓치지 않도록 완료 전 한 번 검토하고, 잘된 조건을 기록해 다음 일정에도 반복해 보세요."
+                    .formatted(p.dayMaster, p.strong);
+            case TIMING -> "대운과 세운은 사건을 확정하는 시계가 아니라 어떤 기운을 더 의식할지 살피는 참고 자료입니다. 중요한 결정은 운세 날짜 하나보다 실제 마감, 자원, 관계자의 합의를 우선하고, 준비와 검토 시간을 나누어 배치하세요.";
+            case DAILY_PRACTICE -> "해석을 생활에 적용할 때는 오늘 끝낼 행동 하나와 확인 시각 하나만 정해 보세요. %s의 강점은 실행에 사용하고, 상대적으로 적은 %s은 기록·질문·휴식 같은 작은 습관으로 보완하면 과도한 의미 부여를 줄일 수 있습니다."
+                    .formatted(p.strong, p.weak);
+            case SINSAL_POPULAR -> "도화살과 홍염살은 인기나 관계의 결과를 보장하는 표지가 아닙니다. 표현이 눈에 띄는 상황, 사람을 만날 때의 태도, 경계를 정하는 방식을 돌아보는 참고로 사용하고 호감은 실제 대화와 상호 존중으로 확인하세요.";
+            case SINSAL_MOVEMENT -> "역마살과 망신살은 이동이나 공개 활동에서 에너지가 드러나는 방식을 살피는 표지입니다. 변화가 필요할 때는 목적·비용·회복 시간을 먼저 적고, 말이나 결과물이 널리 보이는 상황에서는 게시 전 한 번 더 확인하세요.";
+            case SINSAL_INTUITION -> "화개살·귀문관살처럼 몰입과 감수성에 연결해 읽는 신살은 직관을 사실로 확정하라는 뜻이 아닙니다. 혼자 정리하는 시간과 타인에게 확인하는 시간을 나누고, 생각이 길어질 때는 관찰한 사실을 문장으로 기록해 보세요.";
+            case SINSAL_INTENSITY -> "양인살·백호살·괴강살·원진살은 강한 추진력이나 긴장 패턴을 낙인찍는 표현으로 사용하지 않습니다. 반응이 빨라지는 상황에서는 결론 전 멈춤 신호를 두고, 갈등에서는 상대의 의도보다 실제 말과 행동을 확인하세요.";
+            case SINSAL_TIMING -> "신살 자체는 원국에서 고정되지만 대운과 세운의 지지가 같은 표지를 다시 건드리는 시기는 달라질 수 있습니다. 10년 대운과 개별 연도를 구분해 참고하되, 그 시기에 사건이 반드시 생긴다고 해석하지 말고 준비와 점검의 계기로만 활용하세요.";
         };
     }
 

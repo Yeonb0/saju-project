@@ -1,5 +1,14 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 유료 운세 10개 섹션·신살 13종·생성 대기 preview 백엔드
+
+- 결정론적 만세력 facts에 `sinsal-v1` 규칙의 원국 13종을 모두 포함하고, 출현 위치·개수·반복 신살과 10년 대운/개별 세운 활성 후보를 계산한다. Liner는 이 facts를 설명할 뿐 신살을 자체 계산하지 않는다. 학파별 규칙 차이가 있으므로 출시 전 명리 담당자가 `sinsal-v1` 표를 검수해야 한다.
+- 무료 운세는 바꾸지 않고 일반 유료 운세 5종과 수능운의 생성 section을 10개로 맞췄다. 각 section은 `title`, `content`, `sourceFactKeys`를 가지며 Liner prompt의 본문 목표를 약 700자로 올렸다. 기존 일반운 응답 필드는 유지하고 순서가 있는 `sections`를 additive로 제공한다.
+- 소유자 전용 구매 상태 조회의 처리 중 상태에만 `generationPreview`를 추가했다. 암호화된 구매 generation context의 facts로 약 300자 구어체를 결정론적으로 만들며, 구매 시각의 서울 날짜 일진 지지를 `mouse`~`pig` 키로 반환한다. 이름·원문 생년정보는 응답에 포함하지 않는다.
+- 10개×약 700자 응답을 수용하도록 기본 Liner 출력 상한을 8,000 token으로 높였다. 실제 평균 token·비용·p95 생성 시간과 동시 생성 한도는 staging에서 측정하지 않았으므로 출시 전 6-10 용량 점검이 필요하다.
+- 적용: 6-1 구매자/quote 소유권, 6-3 Liner schema·재시도·fallback, 6-4 암호화 generation context 재사용, 6-6 additive 응답과 생성/content version 갱신, 6-9 facts-only 외부 전송, 6-10 출력량·비용·지연 미측정. 부적 조합은 PD 목록 미수령으로 변경하지 않았고 오늘의 운세도 변경하지 않았다.
+- 배포 결정은 프론트 AWS Amplify Hosting으로 갱신했다. AWS 공식 Amplify Hosting compute는 Node.js 서버 계약이어서 현재 Spring Boot/JVM 백엔드는 직접 실행할 수 없다. 백엔드의 AWS App Runner/ECS/Elastic Beanstalk 중 대상, PostgreSQL 제공처, ingress/cookie/rollback은 미확정이며 실제 배포는 수행하지 않았다.
+
 ### 2026-10-15: BE-B 최신 main 통합·PostgreSQL 전체 회귀
 
 - `origin/main` `b0499a6`을 `feat/be-b-gift-recipient-access`에 병합했다. main의 직접 링크 token 암호문 키 회전·목적 종료 삭제와 BE-B의 recipient profile 키 회전·fulfillment lease 보호를 모두 유지했다. API/기능 명세 충돌은 최신 1차 직접 링크·24시간 원문 공개·30일 재발급 정책을 기준으로 BE-B 공개 수신/결과 구현 상태를 합쳤다.

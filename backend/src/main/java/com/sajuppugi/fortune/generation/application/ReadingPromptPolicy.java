@@ -38,6 +38,8 @@ public final class ReadingPromptPolicy {
                 작성 품질 규칙:
                 - 첫 문장에서 입력 facts의 핵심 차이를 분명히 설명합니다.
                 - 섹션마다 서로 다른 역할을 수행하며 같은 조언을 바꿔 쓰지 않습니다.
+                - 각 섹션에 내용을 구체적으로 요약하는 한국어 소제목을 붙이고, 본문은 공백 포함 약 700자로 작성합니다.
+                - 유료 일반 운세는 allowedSections 열 개를 생략 없이 같은 순서로 모두 작성합니다.
                 - 행동 제안은 오늘 사용자가 실행할 수 있는 동사와 확인 기준을 포함합니다.
                 - 상대방의 속마음, 미래 사건, 합격, 수익, 질병을 추측하거나 확정하지 않습니다.
                 - 명리 용어를 나열하지 말고 해당 facts가 생활에서 어떤 점검 질문으로 이어지는지 설명합니다.
@@ -57,7 +59,7 @@ public final class ReadingPromptPolicy {
             case LOVE -> "관계 상태를 단정하지 않고 감정 확인, 대화, 경계 존중을 중심으로 씁니다.";
             case WEALTH -> "현실의 수입·고정비·계약 조건을 우선하며 절제된 재정 습관을 제안합니다.";
             case COMPATIBILITY -> "두 사람을 우열로 비교하지 않고 공통점·차이·대화 방법을 양쪽 facts에 근거해 씁니다.";
-            case SINSAL -> "신살을 사건 예언이나 낙인으로 쓰지 않고 장점과 생활 속 다스림의 관점으로 설명합니다.";
+            case SINSAL -> "원국 specialStars.natal의 13종 계산 결과와 abundant를 우선 설명합니다. enum 표기는 HEAVENLY_NOBLE=천을귀인, LITERARY_NOBLE=문창귀인, YANG_BLADE=양인살, PEACH_BLOSSOM=도화살, TRAVEL_HORSE=역마살, CANOPY=화개살, VOID=공망살, YUANJIN=원진살, SPIRIT_GATE=귀문관살, WHITE_TIGER=백호살, GANG_STRENGTH=괴강살, DISGRACE=망신살, RED_CHARM=홍염살입니다. 도화·홍염·역마·망신은 관계·이동·표현의 생활 관점으로 흥미롭게 풀고, 부정적 신살은 없애거나 공포를 조장하지 말고 과할 때의 조절 행동을 제안합니다. specialStars.activations의 대운은 10년 구간, 세운은 해당 연도로 구분합니다.";
             case SUNEUNG -> "시험 당일 준비·집중·긴장 관리에 도움이 되는 현실적 루틴을 제안합니다. examPeriods는 BEFORE_ENTRY, KOREAN, MATH, LUNCH, ENGLISH, ELECTIVES, FINAL_CHECK 순서로 모두 작성하고 각 단계에 서로 다른 행동을 제시합니다.";
         };
     }
