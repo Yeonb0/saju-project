@@ -18,6 +18,12 @@
 - 빈 PostgreSQL 17 DB `saju_be_b_full_20261015`에서 `GiftRecipientPostgresTest` 41건과 `TalismanAddonPurchasePostgresTest` 2건을 `--rerun-tasks`로 통과했다. gift receipt/worker/snapshot/파기 회귀와 addon 중복 차감·lease fence를 함께 확인했다.
 - 적용: 6-2 transaction boundary·ledger consistency, 6-4 worker recovery. 실제 R2 upload/DB 저장 사이 JVM kill, staging browser/OAuth, 백업 복원은 외부 adapter/environment가 없어 미검증이다.
 
+### 2026-10-15: 공개 선물 bearer 요청 PostgreSQL rate-limit
+
+- 공개 `access`/`recipient-profile`/`result` POST는 token과 remote address의 SHA-256 digest만 분 단위 PostgreSQL bucket으로 세어, 같은 bearer/source 조합의 분당 30회를 허용하고 이후 요청은 `429 TOO_MANY_REQUESTS`로 거절한다. raw token/IP는 table·로그·오류에 저장하지 않는다.
+- 새 빈 PostgreSQL 17 DB `saju_be_b_rate_20261015`에서 `TalismanAddonPurchasePostgresTest` 3건을 실행했다. rate-limit 30개 동시 요청, 31번째 거절, digest table에 token prefix 미존재를 확인했다.
+- 적용: 6-4 다중 인스턴스 공유 상태의 request bounding, 6-9 bearer/IP 원문 최소화, 6-6 additive migration. proxy real client IP header 신뢰 정책과 retention cleanup batch는 staging ingress 정책이 확정되면 별도 보강한다.
+
 ### 2026-10-15: 부적 addon catalog quote 상품
 
 - 일반 운세 다섯 유형에 `*_TALISMAN_ADDON` catalog 상품을 additive migration으로 추가했다. 현재 `READING_WITH_TALISMAN(15) - READING_ONLY(10)` 차액인 5 등껍질을 quote snapshot 가격으로 기록하며, client 입력 가격은 사용하지 않는다. 이후 정책 변경은 기존 quote를 수정하지 않고 새 catalog version/상품으로 처리한다.

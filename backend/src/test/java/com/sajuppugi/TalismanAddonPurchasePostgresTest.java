@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.fortune.talisman.application.TalismanAddonPurchaseService;
 import com.sajuppugi.fortune.talisman.application.TalismanAddonQuoteService;
+import com.sajuppugi.gift.application.PublicGiftRateLimiter;
+import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.fortune.talisman.domain.Talisman;
 import com.sajuppugi.fortune.talisman.domain.Talisman.Animal;
 import com.sajuppugi.fortune.talisman.domain.Talisman.AssetKeys;
@@ -33,6 +35,7 @@ class TalismanAddonPurchasePostgresTest {
     @Autowired TalismanAddonPurchaseService purchases;
     @Autowired TalismanRepository talismans;
     @Autowired TalismanRenderJobRepository jobs;
+    @Autowired PublicGiftRateLimiter publicLimits;
 
     @Test void concurrentClaimAndLostResponseRetryDebitOnceAndLeaveOnePendingTalisman() throws Exception {
         UUID user = UUID.randomUUID(), reading = UUID.randomUUID(), result = UUID.randomUUID(), purchase = UUID.randomUUID();
@@ -74,5 +77,20 @@ class TalismanAddonPurchasePostgresTest {
         jobs.complete(killed, new AssetKeys("stale", "stale", "stale"), now.plusSeconds(1));
         assertThat(talismans.findById(talisman.id()).orElseThrow().status()).isEqualTo(Talisman.Status.PENDING);
         assertThat(resumed.fence()).isGreaterThan(killed.fence());
+    }
+
+    @Test void publicBearerLimitIsSharedAcrossConcurrentRequestsAndDoesNotStoreRawToken() throws Exception {
+        String token = "a".repeat(43); String address = "198.51.100.42";
+        ExecutorService pool = Executors.newFixedThreadPool(6);
+        try {
+            var futures = new java.util.ArrayList<Future<?>>();
+            for (int i = 0; i < 30; i++) futures.add(pool.submit(() -> publicLimits.check(token, address)));
+            for (var future : futures) future.get(10, TimeUnit.SECONDS);
+        } finally { pool.shutdownNow(); }
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> publicLimits.check(token, address))
+                .isInstanceOf(ApiException.class)
+                .extracting(value -> ((ApiException) value).errorCode()).isEqualTo(com.sajuppugi.common.api.ErrorCode.TOO_MANY_REQUESTS);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM public_gift_rate_limits WHERE subject_hash LIKE ?", Integer.class,
+                "%" + token.substring(0, 5) + "%")).isZero();
     }
 }
