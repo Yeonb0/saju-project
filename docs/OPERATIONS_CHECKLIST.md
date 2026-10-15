@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 오늘의 운세 v3·부적 조합 catalog 반영 (로컬 PostgreSQL 17)
+
+- 오늘의 운세는 기존 점수/소유권 검사를 유지한 채 PD catalog의 수호 동물·미션·초성·노래를 additive `luckyExtras`로 제공한다. 각 항목은 `userId + KST 날짜 + content version` 해시로 고정되어 새로고침·재시도에서 바뀌지 않으며, 원문 생년정보는 저장·외부 전송하지 않는다. 기존 색/아이템/장소 필드는 호환을 위해 유지한다.
+- 새 부적은 `talisman_compositions`에 border/paper/animal/item/phrase/seal key와 문구 snapshot을 함께 저장한다. 부적·소유권·조합·render intent는 기존 짧은 transaction 안에 있으며 renderer 재시도는 저장 조합을 재선택하지 않는다. 기존 부적은 composition 행 없이 legacy로 계속 조회된다. 실제 디자인 자산·R2 renderer는 여전히 비활성/미검증이다.
+- 빈 PostgreSQL 17 컨테이너(`localhost:55434`)에서 `DailyFortuneApiTest` 3건, `TalismanCompositionPolicyTest`, `TalismanPersistenceTest`, `TalismanCreationServiceTest`, `TalismanApiTest`를 실행해 통과했다. H2는 기존 applied PostgreSQL `ON CONFLICT` migration에서 새 변경 이전에 실패하므로 근거로 사용하지 않았다.
+- 적용: 6-1 daily person/talisman 소유권, 6-4 render intent와 재시도 조합 불변, 6-6 additive migration/legacy read 호환, 6-9 user ID 외 추가 개인정보 저장 없음. 실제 renderer/R2, 두 JVM worker, staging 성능·복원은 미검증이다.
+
 ### 2026-10-16: 직접결제 FE 전달본을 PR #49 API 계약에 맞춰 갱신 (문서 변경)
 
 - 작업공간 외부의 `~/Desktop/DIRECT_PAYMENT_FRONTEND_HANDOFF.md`를 현재 backend controller/service와 대조해 갱신했다. 일반 direct batch 경로와 별도 `/api/v1/direct-gift-batches` 경로, 운세 fulfillment의 필수 `Idempotency-Key`, 부적 추가 요청, 직접결제 선물 수신/재발급/공개 결과 polling을 반영했다.
