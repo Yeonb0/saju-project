@@ -10,6 +10,7 @@ import com.sajuppugi.gift.infrastructure.JdbcGiftSettlement;
 import com.sajuppugi.gift.infrastructure.JdbcGiftRecipientProfiles;
 import com.sajuppugi.gift.infrastructure.GiftPayloadCipher;
 import com.sajuppugi.gift.infrastructure.JdbcGiftFulfillmentJobs;
+import com.sajuppugi.gift.infrastructure.JdbcGiftResultSnapshots;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -36,6 +37,7 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
     @Autowired JdbcGiftFulfillment recipients;
     @Autowired JdbcGiftSettlement settlement;
     @Autowired JdbcGiftFulfillmentJobs fulfillmentJobs;
+    @Autowired JdbcGiftResultSnapshots resultSnapshots;
     @Autowired @Qualifier("recipientPrivacy") JdbcGiftPrivacy privacy;
     @Autowired GiftPayloadCipher cipher;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
@@ -248,6 +250,25 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE id = ?", String.class, job)).isEqualTo("REVIEW_REQUIRED");
         assertThat(jdbc.queryForObject("SELECT last_failure_code FROM gift_fulfillment_jobs WHERE id = ?", String.class, job))
                 .isEqualTo("FULFILLMENT_RETRY_EXHAUSTED");
+    }
+    @Test void immutableResultSnapshotRejectsConflictingWorkerOutput() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        var submission = recipientService.submit(raw, "result-snapshot", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        UUID contentId = UUID.randomUUID();
+        var snapshot = new JdbcGiftResultSnapshots.Snapshot(UUID.randomUUID(), giftId, submission.receiptId(), contentId,
+                "GIFT_SUNEUNG_TALISMAN_ONLY", "gift-v1", "fallback-v1", "{\"talisman\":{\"status\":\"PENDING\"}}",
+                "b".repeat(64), time);
+        new TransactionTemplate(transactions).executeWithoutResult(status -> resultSnapshots.insert(snapshot));
+        assertThat(resultSnapshots.find(giftId)).contains(snapshot);
+        var conflict = new JdbcGiftResultSnapshots.Snapshot(UUID.randomUUID(), giftId, submission.receiptId(), UUID.randomUUID(),
+                "GIFT_SUNEUNG_TALISMAN_ONLY", "gift-v1", "fallback-v1", "{\"talisman\":{\"status\":\"PENDING\"}}",
+                "c".repeat(64), time);
+        assertThatThrownBy(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> resultSnapshots.insert(conflict)))
+                .isInstanceOf(RuntimeException.class).hasMessageContaining("Gift result snapshot conflict");
+        assertThat(resultSnapshots.find(giftId)).contains(snapshot);
     }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());

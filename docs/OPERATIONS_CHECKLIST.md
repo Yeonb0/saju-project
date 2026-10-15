@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: BE-B 선물 결과 immutable snapshot 저장 기반
+
+- 새 additive migration `V202610151000__b_gift_result_snapshots.sql`로 gift/receipt/content 기준의 결과 snapshot 한 건을 저장한다. 결과 projection에는 결과 JSON·콘텐츠/생성 버전·해시만 남기며, raw token·수신자 생년정보·user/person ID·private object key는 저장하지 않는다.
+- 같은 gift에 동일 snapshot을 재저장하는 것은 허용하지만, 다른 content/hash로 결과를 교체하려 하면 transaction을 실패시킨다. receipt/work 삭제 시 snapshot도 cascade로 삭제되어 테스트/목적 종료 뒤 고아 projection이 남지 않는다. 실제 worker는 다음 단계에서 `GiftFulfillmentPort.provide` callback 안에서만 이 저장소를 호출한다.
+- 새 PostgreSQL 17 전용 DB `saju_gift_snapshot_v2_20261015`에서 `GiftRecipientPostgresTest` 34건을 `--rerun-tasks`로 실행했다. snapshot의 중복·충돌 차단과 기존 수신 profile·lease/fence·파기 회귀를 함께 확인했다. 적용: 6-2 중복 결과 차단, 6-4 worker 재시작/중복 실행 준비, 6-5 gift-결과 연결, 6-6 additive migration, 6-9 projection 최소화. 실제 생성 worker·공개 결과 HTTP·staging/운영 검증은 아직 미완료다.
+
 ### 2026-10-15: BE-B 선물 `부적만` 견적 계약 정정
 
 - 와이어프레임의 `GIFT-03`와 비교해 `TALISMAN_ONLY` 견적이 편지·부적 외 수능 체크리스트까지 약속하던 불일치를 수정했다. 이제 견적 응답은 `LETTER`, `TALISMAN` 두 항목만 반환하며, `READING_WITH_TALISMAN`의 편지·부적·풀이·체크리스트 구성과 등껍질 가격(각 10/15)은 바꾸지 않았다.
