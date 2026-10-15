@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.gift.infrastructure.JdbcGiftResultSnapshots;
 import java.time.Instant;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /** Public bearer-token projection. It never accepts a gift ID or exposes internal worker identifiers. */
 @Service
+@ConditionalOnProperty(name = "app.gift.purchases-enabled", havingValue = "true")
 public class PublicGiftResultService {
     private final GiftAccessPort access;
     private final GiftFulfillmentPort fulfillment;

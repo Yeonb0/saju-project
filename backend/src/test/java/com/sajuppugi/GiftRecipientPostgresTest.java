@@ -377,6 +377,15 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         mvc.perform(get("/api/v1/received-gifts").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(UUID.randomUUID().toString())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
     }
+    @Test void buyerListExposesMinimalSentGiftProjection() throws Exception {
+        var order = active();
+        mvc.perform(get("/api/v1/gift-orders").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(owner.toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items[0].orderId").value(order.orderId().toString()))
+                .andExpect(jsonPath("$.data.items[0].recipientName").value("recipient"))
+                .andExpect(jsonPath("$.data.items[0].option").value("TALISMAN_ONLY"))
+                .andExpect(jsonPath("$.data.items[0].fulfillmentState").value("INPUT_REQUIRED"))
+                .andExpect(jsonPath("$.data.items[0].cancelEligible").value(true));
+    }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());
         recipients.provide(receipt.receiptId(), UUID.randomUUID(), () -> {}); recipients.link(raw, owner);

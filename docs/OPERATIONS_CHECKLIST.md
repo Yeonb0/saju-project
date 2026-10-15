@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 구매자 `보낸 선물` projection 보강
+
+- 기존 owner-only `GET /api/v1/gift-orders` 목록에 복호화 가능한 수신자 표시명, option, 수신 처리 상태(`INPUT_REQUIRED`/`PROCESSING`/`READY`), 최초 제공 시각, 7일 미제공 취소 가능 여부를 추가했다. private payload가 파기됐거나 복호화할 수 없으면 표시명은 null이며, 메시지·raw token·생년정보는 반환하지 않는다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 목록 projection과 기존 선물 흐름을 포함한 `GiftRecipientPostgresTest` 41건, H2 `GiftOrderApiTest` 8건을 각각 `--rerun-tasks`로 통과했다. 적용: 6-1 구매자 소유권, 6-2 취소 가능 상태의 현재 시각 기준, 6-5 link/result 상태 최소화, 6-9 메시지/token 미노출.
+
 ### 2026-10-15: 수신자 계정 연결 `받은 선물` 목록 API
 
 - 인증된 수신자 전용 `GET /api/v1/received-gifts` cursor API를 추가했다. `recipient_user_id`가 현재 활성 계정이고, 제공 완료·ACTIVE·재열람 기한 내인 gift만 반환한다. 공개 token, 메시지, 생년정보, 구매자 정보는 목록에 포함하지 않는다.
