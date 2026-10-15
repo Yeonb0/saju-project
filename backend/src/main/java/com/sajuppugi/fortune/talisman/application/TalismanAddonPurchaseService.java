@@ -55,9 +55,10 @@ public class TalismanAddonPurchaseService {
                 .orElseThrow(() -> new ApiException(ErrorCode.PRODUCT_NOT_AVAILABLE));
         Product bundled = new TalismanAddonPricing().paired(catalog.availableProducts(Product.Category.READING), readingOnly);
         Instant now = clock.instant();
-        Claim claimed = purchases.insert(new Claim(UUID.randomUUID(), readingId, ownerUserId, readingOnly.code(),
+        UUID claimId = UUID.randomUUID();
+        Claim claimed = purchases.insert(new Claim(claimId, readingId, ownerUserId, readingOnly.code(),
                 bundled.code(), quote.productSnapshot().price().amount(), quoteId, null, "QUOTED", null, now, now));
-        if (!claimed.quoteId().equals(quoteId)) return view(claimed, true);
+        if (!claimed.id().equals(claimId)) return view(claimed, true);
         if (!catalogRepository.bindQuoteToPurchase(quoteId, claimed.id())) {
             throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
         }

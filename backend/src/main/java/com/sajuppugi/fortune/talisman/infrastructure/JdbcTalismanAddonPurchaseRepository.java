@@ -10,7 +10,6 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -30,18 +29,15 @@ public class JdbcTalismanAddonPurchaseRepository implements TalismanAddonPurchas
     }
 
     @Override public Claim insert(Claim claim) {
-        try {
-            jdbc.update("""
+        int inserted = jdbc.update("""
                     INSERT INTO talisman_addon_purchases (id, reading_id, owner_user_id, reading_only_product_code,
                     bundled_product_code, quoted_amount, quote_id, wallet_transaction_id, state, talisman_id, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (reading_id) DO NOTHING
                     """, claim.id(), claim.readingId(), claim.ownerUserId(), claim.readingOnlyProductCode(),
                     claim.bundledProductCode(), claim.quotedAmount(), claim.quoteId(), claim.walletTransactionId(),
                     claim.state(), claim.talismanId(), Timestamp.from(claim.createdAt()), Timestamp.from(claim.updatedAt()));
-            return claim;
-        } catch (DuplicateKeyException conflict) {
-            return findByReadingId(claim.readingId()).orElseThrow(() -> conflict);
-        }
+        return inserted == 1 ? claim : findByReadingId(claim.readingId()).orElseThrow();
     }
 
     @Override public void markPendingTalisman(UUID purchaseId, UUID talismanId, Instant updatedAt) {
