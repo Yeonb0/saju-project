@@ -5,6 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.sajuppugi.common.idempotency.IdempotencyKey;
 import com.sajuppugi.fortune.talisman.application.TalismanAddonPurchaseService;
 import com.sajuppugi.fortune.talisman.application.TalismanAddonQuoteService;
+import com.sajuppugi.fortune.talisman.domain.Talisman;
+import com.sajuppugi.fortune.talisman.domain.Talisman.Animal;
+import com.sajuppugi.fortune.talisman.domain.Talisman.AssetKeys;
+import com.sajuppugi.fortune.talisman.port.TalismanRenderJobRepository;
+import com.sajuppugi.fortune.talisman.port.TalismanRepository;
+import com.sajuppugi.fortune.calculation.domain.CalculationFacts.Element;
+import com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
@@ -24,6 +31,8 @@ class TalismanAddonPurchasePostgresTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired TalismanAddonQuoteService quotes;
     @Autowired TalismanAddonPurchaseService purchases;
+    @Autowired TalismanRepository talismans;
+    @Autowired TalismanRenderJobRepository jobs;
 
     @Test void concurrentClaimAndLostResponseRetryDebitOnceAndLeaveOnePendingTalisman() throws Exception {
         UUID user = UUID.randomUUID(), reading = UUID.randomUUID(), result = UUID.randomUUID(), purchase = UUID.randomUUID();
@@ -52,5 +61,18 @@ class TalismanAddonPurchasePostgresTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM talisman_addon_purchases WHERE reading_id=? AND state='PENDING_TALISMAN'",Integer.class,reading)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM talismans WHERE source_reading_id=? AND status='PENDING'",Integer.class,reading)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM talisman_render_jobs WHERE talisman_id=?",Integer.class,retry.talismanId())).isEqualTo(1);
+    }
+
+    @Test void expiredLeaseIsReclaimedAndKilledWorkersLateCompletionIsFenced() {
+        Instant now = Instant.EPOCH;
+        Talisman talisman = talismans.createPending(new Talisman(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                FortuneType.OVERALL, Element.WOOD, Animal.RAT, "p", "d", "v", Talisman.Status.PENDING,
+                null, null, now, null));
+        jobs.enqueue(talisman.id(), now);
+        var killed = jobs.claimReady(now, 3, 1, java.time.Duration.ofMillis(1)).getFirst();
+        var resumed = jobs.claimReady(now.plusSeconds(1), 3, 1, java.time.Duration.ofMinutes(1)).getFirst();
+        jobs.complete(killed, new AssetKeys("stale", "stale", "stale"), now.plusSeconds(1));
+        assertThat(talismans.findById(talisman.id()).orElseThrow().status()).isEqualTo(Talisman.Status.PENDING);
+        assertThat(resumed.fence()).isGreaterThan(killed.fence());
     }
 }

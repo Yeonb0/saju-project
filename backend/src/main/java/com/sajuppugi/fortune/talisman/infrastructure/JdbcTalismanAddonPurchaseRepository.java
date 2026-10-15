@@ -66,6 +66,7 @@ public class JdbcTalismanAddonPurchaseRepository implements TalismanAddonPurchas
                 FROM readings r JOIN reading_results rr ON rr.id = r.reading_result_id
                 WHERE r.id = ? AND r.owner_user_id = ? AND r.product_option = 'READING_ONLY'
                   AND r.talisman_id IS NULL AND rr.status = 'SUCCEEDED'
+                FOR UPDATE OF r
                 """, (rs, row) -> storedReading(rs), readingId, ownerUserId).stream().findFirst();
     }
 

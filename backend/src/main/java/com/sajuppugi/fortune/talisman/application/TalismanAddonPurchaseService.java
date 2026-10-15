@@ -45,8 +45,12 @@ public class TalismanAddonPurchaseService {
         Claim existing = purchases.findByReadingId(readingId).orElse(null);
         if (existing != null) return view(existing, true);
 
-        var reading = purchases.findOwnedEligibleReading(ownerUserId, readingId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        var reading = purchases.findOwnedEligibleReading(ownerUserId, readingId).orElse(null);
+        if (reading == null) {
+            Claim raced = purchases.findByReadingId(readingId).filter(value -> value.ownerUserId().equals(ownerUserId))
+                    .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+            return view(raced, true);
+        }
         PurchaseQuote quote = catalog.getPayableQuote(ownerUserId, quoteId);
         validate(quote, reading, readingId);
         Product readingOnly = catalog.availableProducts(Product.Category.READING).stream()
