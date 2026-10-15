@@ -14,6 +14,7 @@ import com.sajuppugi.gift.infrastructure.JdbcGiftRecipientProfiles;
 import com.sajuppugi.gift.infrastructure.GiftPayloadCipher;
 import com.sajuppugi.gift.infrastructure.JdbcGiftFulfillmentJobs;
 import com.sajuppugi.gift.infrastructure.JdbcGiftResultSnapshots;
+import com.sajuppugi.gift.infrastructure.GiftFulfillmentWorker;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -34,7 +35,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(properties = {"app.wallet.purchases-enabled=true", "app.gift.orders-enabled=true",
-        "app.gift.purchases-enabled=true", "app.gift.payload-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="})
+        "app.gift.purchases-enabled=true", "app.gift.fulfillment-worker-enabled=true",
+        "app.gift.payload-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="})
 @Import(GiftRecipientPostgresTest.PrivacyConfig.class)
 @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "TEST_DATABASE_URL", matches = "jdbc:postgresql:.*")
 class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
@@ -42,6 +44,7 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
     @Autowired JdbcGiftSettlement settlement;
     @Autowired JdbcGiftFulfillmentJobs fulfillmentJobs;
     @Autowired JdbcGiftResultSnapshots resultSnapshots;
+    @Autowired GiftFulfillmentWorker fulfillmentWorker;
     @Autowired @Qualifier("recipientPrivacy") JdbcGiftPrivacy privacy;
     @Autowired GiftPayloadCipher cipher;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
@@ -311,6 +314,21 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         assertThat(jdbc.queryForObject("SELECT state FROM gift_recipient_receipts WHERE id = ?", String.class, submission.receiptId()))
                 .isEqualTo("PROVIDED");
         assertThat(jdbc.queryForObject("SELECT first_provided_at IS NOT NULL FROM gift_purchase_work WHERE gift_id = ?", Boolean.class, giftId)).isTrue();
+    }
+    @Test void fallbackWorkerCreatesOneReadySnapshotWithoutRecipientBirthData() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "worker-fallback", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        fulfillmentWorker.run();
+        var snapshot = resultSnapshots.find(giftId).orElseThrow();
+        assertThat(snapshot.resultJson()).contains("\"talisman\"").doesNotContain("2007-03-14", "recipient");
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE gift_id = ?", String.class, giftId)).isEqualTo("READY");
+        mvc.perform(post("/api/v1/public/gifts/result").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + raw + "\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.state").value("READY"))
+                .andExpect(jsonPath("$.data.result.talisman.status").value("PENDING"));
     }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());

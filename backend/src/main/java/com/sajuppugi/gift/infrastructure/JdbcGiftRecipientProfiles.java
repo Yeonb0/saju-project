@@ -45,7 +45,7 @@ public class JdbcGiftRecipientProfiles {
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
     public Optional<WorkerProfile> loadForWorker(UUID profileId, UUID giftId) {
         return jdbc.query("""
-                SELECT p.id,p.gift_id,p.profile_ciphertext,w.product_code,r.id
+                SELECT p.id,p.gift_id,p.profile_ciphertext,j.product_code,r.id
                 FROM gift_recipient_profiles p
                 JOIN gift_fulfillment_jobs j ON j.profile_id = p.id AND j.gift_id = p.gift_id
                 JOIN gift_purchase_work w ON w.gift_id = p.gift_id AND w.status = 'ACTIVE'

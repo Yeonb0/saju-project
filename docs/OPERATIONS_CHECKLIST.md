@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: fallback fulfillment worker PostgreSQL E2E 보강
+
+- worker integration test를 추가해 암호화 recipient profile 제출 → worker claim/fallback facts 결과 → immutable snapshot → job `READY` → 공개 result `READY`를 한 흐름으로 검증했다. 결과 JSON에 수신자 이름·생년일이 없는지도 확인했다.
+- 이 검증에서 worker profile 조회가 purchase work가 아닌 fulfillment job의 `product_code`를 읽어야 하는 SQL 오류를 발견·수정했다. 새 PostgreSQL 17 DB `saju_gift_worker_20261015`에서 `GiftRecipientPostgresTest` 37건을 `--rerun-tasks`로 통과했다.
+- 아직 미검증: worker 두 개 동시 실행, lease 만료 뒤 늦은 worker 저장 거절, 강제 종료 뒤 재시작, 5회 실패→REVIEW_REQUIRED, Liner timeout/5xx. 적용: 6-4 worker recovery 검증의 정상 fallback 경로, 6-5 공개 결과 최소화, 6-9 개인정보 projection 금지.
+
 ### 2026-10-15: BE-B 선물 fallback fulfillment worker 연결
 
 - 기본 비활성 `app.gift.fulfillment-worker-enabled` worker를 추가했다. due job을 짧은 claim transaction으로 lease한 뒤, 별도 짧은 read transaction에서 암호화 profile을 가져오고 transaction 밖에서 복호화·사주 facts 계산·deterministic fallback 결과를 생성한다. 외부 Liner 호출·실제 부적 이미지/R2 생성은 하지 않는다.
