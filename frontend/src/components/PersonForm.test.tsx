@@ -36,6 +36,25 @@ describe("PersonForm (본인)", () => {
     expect(screen.getByText("달력")).toHaveClass("sr-only");
   });
 
+  it("submitLabel 을 안 주면 버튼 「저장하기」, 주면 그 글자", () => {
+    const { unmount } = render(<PersonForm onSubmit={vi.fn()} today={TODAY} />);
+    expect(
+      screen.getByRole("button", { name: "저장하기" }),
+    ).toBeInTheDocument();
+    unmount();
+    render(
+      <PersonForm
+        onSubmit={vi.fn()}
+        today={TODAY}
+        submitLabel="저장하고 시작하기"
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "저장하고 시작하기" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "저장하기" })).toBeNull();
+  });
+
   it("저장하기 버튼은 form 안에 있고 type=submit (LAYOUT-FIGMA)", () => {
     const { container } = render(
       <PersonForm onSubmit={vi.fn()} today={TODAY} />,
@@ -65,15 +84,17 @@ describe("PersonForm (본인)", () => {
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
-    expect(screen.queryByRole("checkbox", { name: "윤달" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "윤달이에요" })).toBeNull();
   });
 
   it("음력을 고르면 윤달이 나타나고, 양력으로 바꾸면 사라진다", async () => {
     const { user } = setup();
     await user.click(field.lunar());
-    expect(screen.getByRole("checkbox", { name: "윤달" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "윤달이에요" }),
+    ).toBeInTheDocument();
     await user.click(field.solar());
-    expect(screen.queryByRole("checkbox", { name: "윤달" })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "윤달이에요" })).toBeNull();
   });
 
   it("시간 모름을 체크하면 시간 입력이 비활성", async () => {
@@ -132,7 +153,7 @@ describe("PersonForm (본인)", () => {
     await user.type(field.name(), "픽스처");
     await user.type(field.birthDate(), "1990-02-30");
     await user.click(field.lunar());
-    await user.click(screen.getByRole("checkbox", { name: "윤달" }));
+    await user.click(screen.getByRole("checkbox", { name: "윤달이에요" }));
     await user.type(field.time(), "07:30");
     await user.selectOptions(field.gender(), "선택하지 않음");
     await user.click(field.submit());

@@ -57,7 +57,7 @@ async function fillAndSave(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("radio", { name: "양력" }));
   await user.click(screen.getByRole("checkbox", { name: "시간 모름" }));
   await user.selectOptions(screen.getByLabelText("성별"), "여성");
-  await user.click(screen.getByRole("button", { name: "저장하기" }));
+  await user.click(screen.getByRole("button", { name: "저장하고 시작하기" }));
 }
 
 const failWith = (error: unknown) => (port: PersonPort) => ({
