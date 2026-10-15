@@ -26,6 +26,13 @@
 - PostgreSQL 17 새 DB `saju_be_b_rate_retention_20261015`에서 `TalismanAddonPurchasePostgresTest`를 `--rerun-tasks`로 재실행했다. 30개 동시 허용/31번째 거절, raw token 미저장, 두 개의 만료 bucket 중 한 개만 삭제하고 현재 window를 남기는 bounded retention 회귀를 확인했다.
 - 적용: 6-4 다중 인스턴스 공유 request bounding·bounded cleanup, 6-6 additive migration, 6-9 bearer/IP 원문 최소화·pseudonymous digest 보존 제한, 6-10 무한 테이블 증가 방지. proxy real client IP header 신뢰 정책과 staging ingress의 실제 요청량/cleanup 지표는 여전히 미검증이다.
 
+### 2026-10-15: staging ingress client IP·rate-limit cleanup 관측 읽기 전용 점검
+
+- GitHub environment에는 `Preview`와 `Production`만 있고 staging environment/deployment 기록은 없었다. 저장소에는 Railway/Vercel의 배포 선언, 고정 staging URL, ingress 설정이 없고, 로컬 Vercel CLI도 인증된 deployment/project를 제공하지 않았다. 따라서 실제 staging 요청의 remote address·`Forwarded`/`X-Forwarded-For` header를 관측하지 못했다.
+- 공개 선물 controller는 현재 `HttpServletRequest.getRemoteAddr()`를 그대로 bucket digest에 넣는다. Spring forwarded-header strategy나 trusted-proxy allowlist는 없다. frontend rewrite가 backend Railway 주소를 향하는 구성이라면 proxy IP 전체가 한 source로 제한될 수 있으며, 반대로 임의 forwarded header를 곧바로 신뢰하도록 바꾸는 것은 spoofing 위험이 있어 실제 ingress의 header strip/overwrite 보증 전에는 적용하지 않는다.
+- management endpoint는 health만 외부 노출하고, cleanup worker는 삭제 건수를 버리므로 cleanup 성공/삭제량/잔여 bucket/실패를 확인할 metric·alert가 없다. 실제 staging ingress가 준비되면 (1) ingress가 client IP header를 덮어쓰는지, (2) backend가 해당 ingress에서만 header를 해석하는지, (3) cleanup batch count·duration·failure와 table row age를 제한된 운영 관측으로 확인해야 한다. 이번은 설정·메타데이터 read-only 점검이며 배포·환경값·traffic은 변경하지 않았다.
+- 적용/미확인: 6-4 cleanup 실행 증거 미구축, 6-6 staging 배포 대상 부재, 6-9 client IP 신뢰 경계 미확정, 6-10 cleanup 지표/용량 미측정.
+
 ### 2026-10-15: 부적 addon catalog quote 상품
 
 - 일반 운세 다섯 유형에 `*_TALISMAN_ADDON` catalog 상품을 additive migration으로 추가했다. 현재 `READING_WITH_TALISMAN(15) - READING_ONLY(10)` 차액인 5 등껍질을 quote snapshot 가격으로 기록하며, client 입력 가격은 사용하지 않는다. 이후 정책 변경은 기존 quote를 수정하지 않고 새 catalog version/상품으로 처리한다.
