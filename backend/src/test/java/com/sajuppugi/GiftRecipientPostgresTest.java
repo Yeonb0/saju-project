@@ -7,6 +7,9 @@ import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.gift.infrastructure.JdbcGiftFulfillment;
 import com.sajuppugi.gift.infrastructure.JdbcGiftPrivacy;
 import com.sajuppugi.gift.infrastructure.JdbcGiftSettlement;
+import com.sajuppugi.gift.infrastructure.JdbcGiftRecipientProfiles;
+import com.sajuppugi.gift.infrastructure.GiftPayloadCipher;
+import com.sajuppugi.gift.infrastructure.JdbcGiftFulfillmentJobs;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -23,6 +26,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(properties = {"app.wallet.purchases-enabled=true", "app.gift.orders-enabled=true",
         "app.gift.purchases-enabled=true", "app.gift.payload-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="})
@@ -31,7 +35,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
     @Autowired JdbcGiftFulfillment recipients;
     @Autowired JdbcGiftSettlement settlement;
+    @Autowired JdbcGiftFulfillmentJobs fulfillmentJobs;
     @Autowired @Qualifier("recipientPrivacy") JdbcGiftPrivacy privacy;
+    @Autowired GiftPayloadCipher cipher;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @MockitoBean Clock clock;
     Instant time;
     final String snapshotHash = "a".repeat(64);
@@ -152,6 +159,96 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         var order = active(); advance(90L * 86400);
         assertThat(privacy.purge(order.orderId())).isTrue(); assertThat(returns()).isZero();
     }
+    @Test void purposeEndPurgesRecipientCiphertextAndPreventsPendingFulfillment() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "recipient-for-purge", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        assertThat(jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE gift_id = ?", String.class, giftId))
+                .isNotBlank();
+        cancellations.cancel(owner, order.orderId(), "cancel-profile-purpose");
+        assertThat(privacy.purge(order.orderId())).isTrue();
+        assertThat(jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE gift_id = ?", String.class, giftId)).isNull();
+        assertThat(jdbc.queryForObject("SELECT purged_at IS NOT NULL FROM gift_recipient_profiles WHERE gift_id = ?", Boolean.class, giftId)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT purge_policy_version FROM gift_recipient_profiles WHERE gift_id = ?", String.class, giftId))
+                .isEqualTo("gift-purpose-ended-v1");
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE gift_id = ?", String.class, giftId)).isEqualTo("PURGED");
+    }
+    @Test void purposeEndWaitsForAnUnexpiredFulfillmentLease() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "recipient-lease", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        jdbc.update("UPDATE gift_fulfillment_jobs SET state = 'GENERATING', lease_token = ?, lease_until = ? WHERE gift_id = ?",
+                UUID.randomUUID(), Timestamp.from(time.plusSeconds(60)), giftId);
+        cancellations.cancel(owner, order.orderId(), "cancel-active-lease");
+        assertThat(privacy.purge(order.orderId())).isFalse();
+        assertThat(jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE gift_id = ?", String.class, giftId))
+                .isNotBlank();
+        advance(61);
+        assertThat(privacy.purge(order.orderId())).isTrue();
+        assertThat(jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE gift_id = ?", String.class, giftId)).isNull();
+    }
+    @Test void recipientProfileSupportsVersionedKeyRotationWithoutRestoringPurgedData() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "recipient-key-rotation", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        UUID profile = jdbc.queryForObject("SELECT id FROM gift_recipient_profiles WHERE gift_id = ?", UUID.class, giftId);
+        String context = "gift-recipient-profile|" + giftId + "|" + profile;
+        String before = jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE id = ?", String.class, profile);
+        var environment = new org.springframework.mock.env.MockEnvironment(); environment.setActiveProfiles("test");
+        var rotatedCipher = new GiftPayloadCipher(true, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", environment,
+                "next", "{\"next\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}", mapper);
+        var profiles = new JdbcGiftRecipientProfiles(jdbc, rotatedCipher);
+        Boolean changed = new TransactionTemplate(transactions).execute(status -> profiles.reencryptForOrder(order.orderId()));
+        assertThat(changed).isTrue();
+        String after = jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE id = ?", String.class, profile);
+        assertThat(after).startsWith("v2:next:"); assertThat(rotatedCipher.decrypt(after, context)).isEqualTo(cipher.decrypt(before, context));
+        assertThat(jdbc.queryForObject("SELECT encryption_key_id FROM gift_recipient_profiles WHERE id = ?", String.class, profile)).isEqualTo("next");
+        cancellations.cancel(owner, order.orderId(), "purge-after-rotation"); assertThat(privacy.purge(order.orderId())).isTrue();
+        assertThat(jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE id = ?", String.class, profile)).isNull();
+    }
+    @Test void fulfillmentClaimUsesFenceToRejectLateWorkerCompletion() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "recipient-claim", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        UUID job = jdbc.queryForObject("SELECT id FROM gift_fulfillment_jobs WHERE gift_id = ?", UUID.class, giftId);
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            Callable<java.util.Optional<JdbcGiftFulfillmentJobs.Lease>> claim = () ->
+                    fulfillmentJobs.claim(job, time, Duration.ofSeconds(30), 5);
+            var first = pool.submit(claim); var second = pool.submit(claim);
+            var a = first.get(10, TimeUnit.SECONDS); var b = second.get(10, TimeUnit.SECONDS);
+            assertThat(java.util.stream.Stream.of(a, b).filter(java.util.Optional::isPresent)).hasSize(1);
+            var original = a.or(() -> b).orElseThrow();
+            assertThat(original.attempt()).isEqualTo(1); assertThat(original.fence()).isEqualTo(1);
+            advance(31);
+            var replacement = fulfillmentJobs.claim(job, time, Duration.ofSeconds(30), 5).orElseThrow();
+            assertThat(replacement.fence()).isEqualTo(2);
+            assertThat(fulfillmentJobs.complete(original, JdbcGiftFulfillmentJobs.State.READY, time)).isFalse();
+            assertThat(fulfillmentJobs.complete(replacement, JdbcGiftFulfillmentJobs.State.WAITING_TALISMAN, time)).isTrue();
+            assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE id = ?", String.class, job)).isEqualTo("WAITING_TALISMAN");
+        } finally { pool.shutdownNow(); }
+    }
+    @Test void exhaustedFulfillmentClaimMovesToReviewInsteadOfRetryingForever() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "recipient-exhausted", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        UUID job = jdbc.queryForObject("SELECT id FROM gift_fulfillment_jobs WHERE gift_id = ?", UUID.class, giftId);
+        jdbc.update("UPDATE gift_fulfillment_jobs SET attempt_count = 5, state = 'RETRY', next_attempt_at = ? WHERE id = ?", Timestamp.from(time), job);
+        assertThat(fulfillmentJobs.claim(job, time, Duration.ofSeconds(30), 5)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE id = ?", String.class, job)).isEqualTo("REVIEW_REQUIRED");
+        assertThat(jdbc.queryForObject("SELECT last_failure_code FROM gift_fulfillment_jobs WHERE id = ?", String.class, job))
+                .isEqualTo("FULFILLMENT_RETRY_EXHAUSTED");
+    }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());
         recipients.provide(receipt.receiptId(), UUID.randomUUID(), () -> {}); recipients.link(raw, owner);
@@ -178,8 +275,9 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
     @TestConfiguration(proxyBeanMethods = false)
     static class PrivacyConfig {
         @Bean("recipientPrivacy") JdbcGiftPrivacy privacy(org.springframework.jdbc.core.JdbcTemplate jdbc,
-                com.sajuppugi.gift.infrastructure.JdbcGiftPurchaseWork work, com.sajuppugi.gift.infrastructure.JdbcGiftDeliveryWork audit, Clock clock) {
-            return new JdbcGiftPrivacy(jdbc, work, audit, clock, true);
+                com.sajuppugi.gift.infrastructure.JdbcGiftPurchaseWork work, com.sajuppugi.gift.infrastructure.JdbcGiftDeliveryWork audit,
+                com.sajuppugi.gift.infrastructure.JdbcGiftRecipientProfiles profiles, Clock clock) {
+            return new JdbcGiftPrivacy(jdbc, work, audit, profiles, clock, true);
         }
     }
 }

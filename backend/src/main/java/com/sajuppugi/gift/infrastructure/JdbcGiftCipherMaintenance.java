@@ -16,10 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class JdbcGiftCipherMaintenance {
     private final JdbcTemplate jdbc;
     private final JdbcGiftPurchaseWork work;
+    private final JdbcGiftRecipientProfiles recipientProfiles;
     private final GiftPayloadCipher cipher;
     private final Clock clock;
-    public JdbcGiftCipherMaintenance(JdbcTemplate jdbc, JdbcGiftPurchaseWork work, GiftPayloadCipher cipher, Clock clock) {
-        this.jdbc = jdbc; this.work = work; this.cipher = cipher; this.clock = clock;
+    public JdbcGiftCipherMaintenance(JdbcTemplate jdbc, JdbcGiftPurchaseWork work,
+            JdbcGiftRecipientProfiles recipientProfiles, GiftPayloadCipher cipher, Clock clock) {
+        this.jdbc = jdbc; this.work = work; this.recipientProfiles = recipientProfiles; this.cipher = cipher; this.clock = clock;
     }
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
     public List<UUID> candidates() {
@@ -27,13 +29,16 @@ public class JdbcGiftCipherMaintenance {
         String prefix = cipher.activePrefix();
         return jdbc.query("""
                 SELECT d.id FROM gift_order_drafts d LEFT JOIN gift_delivery_outbox o ON o.order_id = d.id
+                LEFT JOIN gift_purchase_work w ON w.order_id = d.id
+                LEFT JOIN gift_recipient_profiles p ON p.gift_id = w.gift_id
                 LEFT JOIN gift_payload_reencryption_work r ON r.order_id = d.id
                 WHERE ((d.private_payload <> '' AND LEFT(d.private_payload,?) <> ?)
-                OR (o.private_payload <> '' AND LEFT(o.private_payload,?) <> ?))
+                OR (o.private_payload <> '' AND LEFT(o.private_payload,?) <> ?)
+                OR (p.profile_ciphertext IS NOT NULL AND p.profile_ciphertext <> '' AND LEFT(p.profile_ciphertext,?) <> ?))
                 AND (r.order_id IS NULL OR r.active_key_id <> ? OR (r.state = 'RETRY' AND r.next_attempt_at <= ?))
                 ORDER BY d.created_at,d.id LIMIT 20
                 """, (rs, row) -> rs.getObject(1, UUID.class), prefix.length(), prefix, prefix.length(), prefix,
-                cipher.activeKeyId(), Timestamp.from(clock.instant()));
+                prefix.length(), prefix, cipher.activeKeyId(), Timestamp.from(clock.instant()));
     }
     public boolean reencrypt(UUID order) {
         if (!cipher.versionedActive()) return false;
@@ -57,6 +62,7 @@ public class JdbcGiftCipherMaintenance {
                         cipher.encrypt(cipher.decrypt(box.payload(), context), context), box.id()); changed = true;
             }
         }
+        changed = recipientProfiles.reencryptForOrder(order) || changed;
         if (changed && grant != null) jdbc.update("INSERT INTO gift_delivery_events(id,order_id,action,created_at) VALUES (?,?,'PAYLOAD_REENCRYPTED',CURRENT_TIMESTAMP)", UUID.randomUUID(), order);
         jdbc.update("DELETE FROM gift_payload_reencryption_work WHERE order_id = ?", order);
         return changed;

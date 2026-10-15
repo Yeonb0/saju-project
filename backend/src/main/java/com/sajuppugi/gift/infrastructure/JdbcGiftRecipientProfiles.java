@@ -12,8 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(propagation = Propagation.MANDATORY)
 public class JdbcGiftRecipientProfiles {
     private final JdbcTemplate jdbc;
+    private final GiftPayloadCipher cipher;
 
-    public JdbcGiftRecipientProfiles(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public JdbcGiftRecipientProfiles(JdbcTemplate jdbc, GiftPayloadCipher cipher) {
+        this.jdbc = jdbc; this.cipher = cipher;
+    }
 
     public void insert(UUID profileId, UUID giftId, String ciphertext, String keyId, String snapshotHash,
                        String productCode, Instant now) {
@@ -37,4 +40,41 @@ public class JdbcGiftRecipientProfiles {
                 WHERE w.gift_id = ?
                 """, (rs, row) -> rs.getString(1), giftId).stream().findFirst().orElseThrow();
     }
+
+    /**
+     * The surrounding privacy transaction has established that the gift's purpose has ended. Retain only
+     * non-personal operational state and make the encrypted recipient snapshot unavailable to any worker.
+     */
+    public void purgeForGift(UUID giftId, Instant now) {
+        jdbc.update("""
+                UPDATE gift_fulfillment_jobs
+                SET state = 'PURGED', lease_token = NULL, lease_until = NULL, updated_at = ?
+                WHERE gift_id = ? AND state NOT IN ('READY','FAILED','CANCELED','PURGED')
+                """, Timestamp.from(now), giftId);
+        jdbc.update("""
+                UPDATE gift_recipient_profiles
+                SET profile_ciphertext = NULL, purged_at = ?, purge_policy_version = 'gift-purpose-ended-v1'
+                WHERE gift_id = ? AND profile_ciphertext IS NOT NULL
+                """, Timestamp.from(now), giftId);
+    }
+
+    /** Called by the existing key-rotation transaction; never revives a purged profile. */
+    public boolean reencryptForOrder(UUID orderId) {
+        if (!cipher.versionedActive()) return false;
+        var rows = jdbc.query("""
+                SELECT p.id,p.gift_id,p.profile_ciphertext FROM gift_recipient_profiles p
+                JOIN gift_purchase_work w ON w.gift_id = p.gift_id
+                WHERE w.order_id = ? AND p.profile_ciphertext IS NOT NULL AND p.profile_ciphertext <> ''
+                FOR UPDATE
+                """, (rs, row) -> new Profile(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class), rs.getString(3)), orderId);
+        if (rows.isEmpty()) return false;
+        var profile = rows.getFirst();
+        if (profile.ciphertext().startsWith(cipher.activePrefix())) return false;
+        String context = "gift-recipient-profile|" + profile.giftId() + "|" + profile.id();
+        jdbc.update("UPDATE gift_recipient_profiles SET profile_ciphertext = ?, encryption_key_id = ? WHERE id = ?",
+                cipher.encrypt(cipher.decrypt(profile.ciphertext(), context), context), cipher.activeKeyId(), profile.id());
+        return true;
+    }
+
+    private record Profile(UUID id, UUID giftId, String ciphertext) {}
 }
