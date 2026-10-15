@@ -59,6 +59,11 @@ public class JdbcTalismanAddonPurchaseRepository implements TalismanAddonPurchas
                 """, walletTransactionId, Timestamp.from(updatedAt), purchaseId);
         if (count != 1) throw new IllegalStateException("Addon purchase changed before debit was linked");
     }
+    @Override public void markDirectPaid(UUID purchaseId, Instant updatedAt) {
+        int count = jdbc.update("UPDATE talisman_addon_purchases SET state='DEBITED', updated_at=? WHERE id=? AND state='QUOTED' AND wallet_transaction_id IS NULL",
+                Timestamp.from(updatedAt), purchaseId);
+        if (count != 1) throw new IllegalStateException("Addon purchase changed before direct payment was linked");
+    }
 
     @Override public Optional<StoredReading> findOwnedEligibleReading(UUID ownerUserId, UUID readingId) {
         return jdbc.query("""

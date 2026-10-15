@@ -54,14 +54,19 @@ class GiftLifecyclePostgresTest {
     @MockitoSpyBean WalletPurchaseService wallet;
     UUID owner;
     boolean wasActive;
+    String giftPriceCurrency;
+    int giftPriceAmount;
     Instant now;
 
     @BeforeEach void setup() {
         owner = UUID.randomUUID(); now = Instant.now();
         jdbc.update("INSERT INTO users(id,kakao_subject,nickname,status,created_at,updated_at) VALUES (?,?,'gift-test','ACTIVE',?,?)",
                 owner, "synthetic-gift-" + owner, Timestamp.from(now), Timestamp.from(now));
-        wasActive = jdbc.queryForObject("SELECT active FROM products WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'", Boolean.class);
-        jdbc.update("UPDATE products SET active = TRUE WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'");
+        var giftProduct = jdbc.queryForObject("SELECT active,price_currency,price_amount FROM products WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'",
+                (rs, row) -> new ProductPrice(rs.getBoolean(1), rs.getString(2), rs.getInt(3)));
+        wasActive = giftProduct.active(); giftPriceCurrency = giftProduct.currency(); giftPriceAmount = giftProduct.amount();
+        // Historical wallet-funded gifts remain testable even though new catalog sales are KRW direct payment.
+        jdbc.update("UPDATE products SET active = TRUE,price_currency='TURTLE_SHELL',price_amount=10 WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'");
         jdbc.update("INSERT INTO wallets(user_id,paid_balance,bonus_balance,updated_at) VALUES (?,17,3,?)", owner, Timestamp.from(now));
         UUID transaction = UUID.randomUUID();
         jdbc.update("INSERT INTO wallet_transactions(id,wallet_user_id,type,total_amount,reference_id,created_at) VALUES (?,?,'TOP_UP',20,?,?)",
@@ -95,7 +100,7 @@ class GiftLifecyclePostgresTest {
         jdbc.update("DELETE FROM purchase_quotes WHERE requester_user_id = ?", owner);
         jdbc.update("DELETE FROM user_sessions WHERE user_id = ?", owner);
         jdbc.update("DELETE FROM users WHERE id = ?", owner);
-        jdbc.update("UPDATE products SET active = ? WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'", wasActive);
+        jdbc.update("UPDATE products SET active = ?,price_currency=?,price_amount=? WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'", wasActive, giftPriceCurrency, giftPriceAmount);
     }
     GiftOrderService.Order draft() {
         var quote = quotes.issue(owner, Product.FortuneType.SUNEUNG, GiftQuoteService.Option.TALISMAN_ONLY).funding().quote();
@@ -115,6 +120,7 @@ class GiftLifecyclePostgresTest {
         return cipher.decrypt(payload, "gift-link|" + order + "|" + version);
     }
     void due(UUID order) { jdbc.update("UPDATE gift_cancellations SET next_attempt_at = ? WHERE order_id = ?", Timestamp.from(Instant.now().minusSeconds(1)), order); }
+    private record ProductPrice(boolean active, String currency, int amount) {}
 
     @Test void purchaseHttpReplaysAndOrderGetReportsRealFinancialState() throws Exception {
         var order = draft();

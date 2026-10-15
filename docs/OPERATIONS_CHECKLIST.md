@@ -1,5 +1,40 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 직접결제 선물 recipient를 기존 fulfillment 파이프라인에 연결 (PostgreSQL 실행 검증 대기)
+
+- `POST /direct-payment-batches/{batchId}/gift-fulfillment`은 `PAID` batch의 단일 `GIFT_BATCH` 소비 claim과 buyer/batch 행 잠금 뒤, recipient마다 기존 `gift_order_drafts → gift_purchase_work(ACTIVE) → gift_purchase_tokens`를 한 짧은 transaction에서 만든다. 직접결제 work에는 `direct_payment_batch_id`를 명시해 지갑 transaction/등껍질 차감으로 위장하지 않는다. 각 recipient의 `gift_id`와 `order_id`를 직접결제 recipient 행에 대사 가능하게 저장한다.
+- 따라서 `/g#token=…`은 기존 공개 선물 수신 API로 진입하며, 제출된 수신자 profile은 기존 암호화 context, `gift_fulfillment_jobs` lease/fence, immutable `gift_result_snapshots`를 그대로 사용한다. worker/provider 호출은 이 링크 발급 transaction 밖에서 계속 실행된다. 링크 재발급도 canonical token과 recipient token hash를 함께 회전한다.
+- additive migration `V202610151404`은 직접결제 선물의 quote 없는 draft와 zero shell audit 값을 명시적으로 허용하고, 기존 wallet-funded ACTIVE work의 제약은 유지하면서 direct batch settlement를 별도 허용한다. batch의 quote nullable 처리는 기존 `V202610151403`이 담당한다. 기존 applied migration은 수정하지 않았다. `claimGiftBatch`가 의도된 null quote를 잘못 거절하던 문제도 gift consumer에 한정해 고쳤다.
+- shared applied migration은 수정하지 않고, 그보다 먼저 실행되는 additive `V202610151399`에서 catalog check를 KRW 일반 판매와 기존 등껍질 판매 모두 허용하도록 호환시켰다. PostgreSQL 17 Docker의 빈 `sajuppugi_test` DB에서 `V202610151399 → V202610151400 → V202610151404`가 모두 적용됐고, `GiftRecipientPostgresTest` 42건이 통과했다. fixture는 historical wallet-funded 선물을 검증할 때만 product를 등껍질 가격으로 되돌리고 종료 시 원 catalog 값으로 복원한다.
+- 직접결제 recipient 회귀는 같은 batch의 동시 fulfill 2건에서 단일 consumption/work와 링크 원문 1개만 생성되는지, 재전송, wallet transaction 미생성, 암호화 recipient profile/job 생성, 기존 reissue의 1분 간격·idempotency 정책 적용, lease 만료 뒤 worker snapshot 완료와 stale lease 완료 거절을 함께 확인한다. 직접결제 재발급 API도 `Idempotency-Key`를 필수로 하여 기존 선물 링크 정책을 재사용한다. 별도 JVM process 두 개의 fulfill, HTTP 응답 유실과 실제 renderer/R2 복구는 아직 미검증이다.
+- PR #49 CI에서 gift purchase가 꺼진 일반 Spring context까지 `DirectGiftFulfillmentService`가 조건부 `GiftLinkService`를 요구해 335개 test가 context 시작 전에 연쇄 실패한 것을 확인했다. 직접결제 선물 service와 세 controller를 같은 `app.gift.purchases-enabled` 조건에 묶었다. PostgreSQL `AdminFinancialQueriesTest` 및 `GiftRecipientPostgresTest` 42건을 재실행해 각각 일반 context와 gift-enabled 경로의 기동을 확인했다.
+- 이어 CI에서 남은 legacy wallet 회귀 38건은 production KRW catalog 전환 뒤 등껍질 가격을 전제한 test fixture 충돌이었다. `test` profile `data.sql`에서만 historical reading/gift/addon의 등껍질 가격을 복원하며, production Flyway catalog에는 영향을 주지 않는다. PostgreSQL에서 `GiftQuoteApiTest`, `QuoteWalletApiTest`, `TopUpProductApiTest`, `TalismanAddonPurchasePostgresTest`를 함께 통과시켰다.
+- 적용: 6-1 buyer 소유권과 bearer token 경계, 6-2 batch/recipient 행 잠금·단일 소비·wallet 미차감, 6-4 기존 profile/job lease/snapshot recovery, 6-5 token 재발급 일관성, 6-6 additive migration과 clean PostgreSQL 검증, 6-8 batch/order/gift 대사 식별자, 6-9 profile 암호화·raw token 미저장. `compileJava`, `compileTestJava`, whitespace 검사는 통과했다.
+
+### 2026-10-15: 직접결제 batch·승인 intent 1차 구현 (PostgreSQL 실행 검증 대기)
+
+- 신규 판매 catalog는 KRW 일반 사주 1,800원, 일반 사주+부적 2,500원, 부적 추가 1,000원, 수능 사주+부적 3,000원, 수능 선물 부적/사주+부적 1,000/3,000원으로 전환했고, TOP_UP 상품은 비활성화한다. 기존 지갑·충전·환불 이력은 migration에서 삭제하거나 수정하지 않는다.
+- 인증된 구매자는 소유한 quote로만 `direct-payment-batches`를 만들 수 있다. 서버가 quote snapshot의 KRW 가격과 수량으로 총액을 확정하며, client 가격은 입력받지 않는다. quote lock과 `(buyer,key_hash)`, `quote_id` unique 경계로 재전송이 별도 checkout을 만들지 않도록 했다. 50,000원 이상은 PG를 열기 전에 거절한다.
+- 승인에서는 payment key 원문 대신 SHA-256 digest, 주문·금액을 내구적으로 bind한다. 실행 lease/재시도 상태를 별도 table에 남기고 PG `confirm`/`lookup`은 DB transaction 밖에서 호출한다. 승인 성공은 `PAID`, 명시적 거절/취소는 `FAILED`/`CANCELED`, timeout·형식 불명은 재조회 후 제한 횟수에서 `REVIEW_REQUIRED`로 수렴한다. raw payment key를 응답·로그용 `toString`에 남기지 않는다.
+- 적용: 6-1 quote/batch 소유권, 6-3 승인 결과 불명과 외부 호출 경계, 6-4 lease 기반 재조회 의도, 6-6 additive migration, 6-8 주문 ID 추적 및 key 원문 비저장, 6-9 payment key 최소 보관. `compileJava`와 diff whitespace는 통과했다. 기존 `TopUpConfirmationPersistenceTest`는 H2가 기존 PostgreSQL 전용 migration을 처리하지 못해 application context 전에 13건 모두 실패했으며, 직접결제 실패로 해석하지 않는다. 로컬 Docker daemon이 없어 PostgreSQL migration·동시성·timeout/response-loss·PG lookup은 아직 실행하지 못했다. `PAID`를 운세/부적/선물 fulfillment의 단일 소비 claim으로 연결하는 후속 구현도 아직 남았다.
+
+### 2026-10-15: 직접결제 운세 소비 claim 기반 (API 연결 전)
+
+- `PAID` 직접결제 batch는 buyer·quote 일치 확인과 batch row lock 뒤 `direct_payment_consumptions`에 `READING` consumer 한 건만 기록한다. 동일 batch의 재전송은 같은 reading purchase라면 재사용하고, 다른 consumer를 붙이려는 요청은 거절한다.
+- 운세 생성 orchestration에는 직접결제 분기를 추가해, 위 소비 claim 뒤에만 지갑 차감 없이 `CREATED → DEBITED → generation lease`로 진행할 수 있게 했다. 기존 지갑 차감 경로는 유지한다.
+- `compileJava`만 재확인했다. public reading API에 payment batch를 요구하고 일반/수능 운세에 모두 연결하는 작업, PostgreSQL 동시성·응답 유실 시험, 생성 실패의 PG 취소/문의 상태는 아직 남았다.
+
+### 2026-10-15: 일반 사주 직접결제 fulfillment API
+
+- 신규 `POST /api/v1/direct-payment-batches/{batchId}/reading-fulfillment`은 기존 지갑 구매 API를 바꾸지 않고 추가했다. `PAID`인 본인 batch와 동일 quote만 소비 claim할 수 있으며, claim 뒤 직접결제 generation 분기에서만 지갑 차감 없이 생성한다. `PAYMENT_PENDING` 등 미확정/종료 batch는 생성 권한이 아니다.
+- 프론트 전환 계약은 작업공간 밖 `~/Desktop/DIRECT_PAYMENT_FRONTEND_HANDOFF.md`에 전달용으로 작성했다. 프론트 파일 자체는 수정하지 않았다.
+- 적용: 6-1 buyer/quote/batch 소유권, 6-2 batch lock과 소비 unique, 6-3 PAID 전 결과 비공개, 6-4 기존 generation lease 재사용. `compileJava`만 통과했으며 PostgreSQL의 동시 fulfillment, 승인 뒤 응답 유실, 생성 실패 뒤 현금 취소/문의 대사는 미검증/미구현이다.
+
+### 2026-10-15: 부적 추가 직접결제 fulfillment API
+
+- `POST /api/v1/direct-payment-batches/{batchId}/talisman-fulfillment`를 추가했다. 본인 소유의 일반 운세 결과 중 부적이 없는 `READING_ONLY`만 대상이며, quote context·fortune type·PAID batch를 확인한 뒤 addon purchase와 `TALISMAN_ADDON` 소비 claim을 만들고 PENDING render intent를 만든다. 이 흐름은 wallet ledger를 차감하지 않는다.
+- 적용: 6-1 reading/batch 소유권, 6-2 reading unique addon claim과 batch lock, 6-4 PENDING talisman/render intent. `compileJava`만 통과했다. PostgreSQL 동시 batch 승인/같은 reading addon/renderer 실패 및 PG 취소·문의 분리는 아직 검증·구현이 남았다.
+
 ### 2026-10-15: PR #48 유료 운세 생성 계약 CI 보완 (GitHub 재검증 대기)
 
 - 유료 운세 10개 섹션의 5개×2 병렬 생성과 한줄 고민 추가 뒤 남아 있던 API test mock 인자 수, category 응답의 additive `sections` 10개, 부적 content version, Liner 호출 횟수(성공 2회·최대 3회 재시도 시 6회)를 현재 계약에 맞췄다. 분할 batch의 프롬프트도 전체 10개가 아니라 이번 요청의 `allowedSections`를 모두 작성하라고 명시해 5개 batch에서의 누락/불필요 재시도 가능성을 줄였다.

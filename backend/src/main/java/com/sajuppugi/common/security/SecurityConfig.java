@@ -33,7 +33,8 @@ public class SecurityConfig {
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/products").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/webhooks/toss").permitAll();
             authorize.requestMatchers(HttpMethod.POST, "/api/v1/public/gifts/access",
-                    "/api/v1/public/gifts/recipient-profile", "/api/v1/public/gifts/result").permitAll();
+                    "/api/v1/public/gifts/recipient-profile", "/api/v1/public/gifts/result",
+                    "/api/v1/public/direct-gifts/access").permitAll();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/daily-fortune-shares/*").permitAll();
             authorize.requestMatchers(HttpMethod.DELETE, "/api/v1/daily-fortune-shares/*").authenticated();
             authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->
@@ -42,6 +43,8 @@ public class SecurityConfig {
             authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
             authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
             authorize.requestMatchers("/api/v1/top-up-orders", "/api/v1/top-up-orders/**").authenticated();
+            authorize.requestMatchers("/api/v1/direct-gift-batches", "/api/v1/direct-gift-batches/**",
+                    "/api/v1/direct-payment-batches", "/api/v1/direct-payment-batches/**").authenticated();
             authorize.requestMatchers("/api/v1/gift-quotes", "/api/v1/gift-quotes/**",
                     "/api/v1/gift-orders", "/api/v1/gift-orders/**").authenticated();
             authorize.requestMatchers("/api/v1/quotes/fortune", "/api/v1/quotes/fortune/**",

@@ -11,6 +11,7 @@ public interface TalismanAddonPurchaseRepository {
     Optional<Claim> findByReadingId(UUID readingId);
     Claim insert(Claim claim);
     void markDebited(UUID purchaseId, UUID walletTransactionId, Instant updatedAt);
+    void markDirectPaid(UUID purchaseId, Instant updatedAt);
     void markPendingTalisman(UUID purchaseId, UUID talismanId, Instant updatedAt);
     Optional<StoredReading> findOwnedEligibleReading(UUID ownerUserId, UUID readingId);
 

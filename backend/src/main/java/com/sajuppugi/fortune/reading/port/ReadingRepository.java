@@ -15,6 +15,8 @@ public interface ReadingRepository {
     boolean tryClaimDebit(UUID purchaseId, UUID claimToken, Instant claimedAt, Instant staleBefore);
     void releaseDebitClaim(UUID purchaseId, UUID claimToken);
     void markDebited(UUID purchaseId, UUID claimToken, UUID walletTransactionId);
+    /** Marks a purchase funded by an already-settled direct-payment consumption. */
+    boolean markDirectPaid(UUID purchaseId);
     void saveGenerationContext(UUID purchaseId, GenerationResumeContext context);
     default Optional<GenerationResumeContext> findGenerationContext(UUID buyerUserId, UUID quoteId) {
         return Optional.empty();

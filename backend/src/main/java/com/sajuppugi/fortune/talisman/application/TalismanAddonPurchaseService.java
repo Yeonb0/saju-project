@@ -13,6 +13,7 @@ import com.sajuppugi.fortune.talisman.port.TalismanAddonPurchaseRepository.Claim
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateFromStoredFacts;
 import com.sajuppugi.wallet.application.WalletPurchasePort;
+import com.sajuppugi.payment.application.DirectPaymentConsumptionService;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -29,12 +30,14 @@ public class TalismanAddonPurchaseService {
     private final ObjectProvider<WalletPurchasePort> wallets;
     private final TalismanFulfillmentPort talismans;
     private final Clock clock;
+    private final DirectPaymentConsumptionService directPayments;
 
     public TalismanAddonPurchaseService(TalismanAddonPurchaseRepository purchases, CatalogUseCase catalog,
             CatalogRepository catalogRepository, ObjectProvider<WalletPurchasePort> wallets,
-            TalismanFulfillmentPort talismans, Clock clock) {
+            TalismanFulfillmentPort talismans, Clock clock, DirectPaymentConsumptionService directPayments) {
         this.purchases = purchases; this.catalog = catalog; this.catalogRepository = catalogRepository;
         this.wallets = wallets; this.talismans = talismans; this.clock = clock;
+        this.directPayments = directPayments;
     }
 
     @Transactional(timeout = 10)
@@ -86,6 +89,28 @@ public class TalismanAddonPurchaseService {
         Claim claim = purchases.findByReadingId(readingId).filter(value -> value.ownerUserId().equals(ownerUserId))
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         return view(claim, true);
+    }
+
+    /** Direct-payment equivalent; it never touches a wallet ledger. */
+    @Transactional(timeout = 10)
+    public View purchaseDirect(UUID owner, UUID batchId, UUID readingId, UUID quoteId) {
+        Claim existing = purchases.findByReadingId(readingId).orElse(null);
+        if (existing != null) { directPayments.claimTalismanAddon(owner, batchId, quoteId, existing.id()); return view(existing, true); }
+        var reading = purchases.findOwnedEligibleReading(owner, readingId).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        PurchaseQuote quote = catalog.getPayableQuote(owner, quoteId);
+        Product product = quote.productSnapshot();
+        if (product.category() != Product.Category.TALISMAN_ADDON || product.price().currency() != Price.Currency.KRW
+                || product.fortuneType() == null || !product.fortuneType().name().equals(reading.fortuneType().name())
+                || !TalismanAddonQuoteService.context(readingId).equals(quote.contextHash())) throw new ApiException(ErrorCode.INVALID_REQUEST);
+        UUID id = UUID.randomUUID(); Instant now = clock.instant();
+        Claim claimed = purchases.insert(new Claim(id, readingId, owner, "", "", product.price().amount(), quoteId, null, "QUOTED", null, now, now));
+        if (!claimed.id().equals(id)) { directPayments.claimTalismanAddon(owner, batchId, quoteId, claimed.id()); return view(claimed, true); }
+        if (!catalogRepository.bindQuoteToPurchase(quoteId, id)) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        directPayments.claimTalismanAddon(owner, batchId, quoteId, id);
+        purchases.markDirectPaid(id, now);
+        var talisman = talismans.createFromStoredFacts(new CreateFromStoredFacts(owner, readingId, reading.fortuneType(), reading.fiveElements(), reading.contentVersion()));
+        purchases.markPendingTalisman(id, talisman.talismanId(), clock.instant());
+        return new View(id, readingId, quoteId, null, talisman.talismanId(), talisman.status().name(), product.price().amount(), false);
     }
 
     private void validate(PurchaseQuote quote, TalismanAddonPurchaseRepository.StoredReading reading, UUID readingId) {

@@ -4,6 +4,7 @@ import com.sajuppugi.catalog.port.CatalogRepository;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
+import com.sajuppugi.payment.application.DirectPaymentConsumptionService;
 import java.time.Clock;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -14,11 +15,14 @@ public class SuneungPurchaseClaimService {
     private final ReadingRepository readings;
     private final CatalogRepository catalog;
     private final Clock clock;
+    private final DirectPaymentConsumptionService payments;
 
-    public SuneungPurchaseClaimService(ReadingRepository readings, CatalogRepository catalog, Clock clock) {
+    public SuneungPurchaseClaimService(ReadingRepository readings, CatalogRepository catalog, Clock clock,
+                                       DirectPaymentConsumptionService payments) {
         this.readings = readings;
         this.catalog = catalog;
         this.clock = clock;
+        this.payments = payments;
     }
 
     @Transactional
@@ -41,6 +45,15 @@ public class SuneungPurchaseClaimService {
                 counterpartPersonId, relationType, questionKey, null, Status.CREATED, null,
                 ReadingPurchase.CompensationStatus.NOT_REQUIRED, null, clock.instant(), null);
         readings.createPurchase(purchase);
+        return purchase;
+    }
+
+    /** A settled batch is consumed before a reading can enter the generation state. */
+    @Transactional
+    public ReadingPurchase claimDirectPaid(UUID userId, UUID batchId, UUID quoteId, UUID productId, UUID personId,
+                                           UUID counterpartPersonId, String relationType, String questionKey) {
+        ReadingPurchase purchase = claim(userId, quoteId, productId, personId, counterpartPersonId, relationType, questionKey);
+        payments.claimReading(userId, batchId, quoteId, purchase.id());
         return purchase;
     }
 }
