@@ -17,7 +17,7 @@
 
 - 같은 reading/quote 두 요청이 `reading_id`와 `quote_id` unique index를 서로 다른 순서로 기다리며 PostgreSQL deadlock이 날 수 있음을 실제 회귀에서 발견했다. 대상 reading을 먼저 `FOR UPDATE`로 직렬화하고, 잠금 대기 중 다른 요청이 확정한 addon claim은 재사용하도록 수정했다.
 - 같은 PostgreSQL 17 DB에서 동시 구매/응답 유실 재시도와 render job lease 만료 후 재claim, 이전 lease의 늦은 완료 무효화를 `TalismanAddonPurchasePostgresTest` 2건으로 확인했다. renderer/R2 adapter가 없어 실제 JVM kill 뒤 파일 업로드 재개 및 독립 process 두 개의 renderer 호출은 아직 검증하지 않았다.
-- 적용: 6-2 lock ordering·중복 차감 방지, 6-4 expired lease/fence, 6-6 PostgreSQL 전용 검증. 
+- 적용: 6-2 lock ordering·중복 차감 방지, 6-4 expired lease/fence, 6-6 PostgreSQL 전용 검증.
 
 ### 2026-10-15: addon 원자 차감과 기존 선물 purchase 전파 분리
 
