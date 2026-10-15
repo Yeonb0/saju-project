@@ -1,4 +1,7 @@
 spring:
+  sql:
+    init:
+      mode: always
   datasource:
     url: ${TEST_DATABASE_URL:jdbc:h2:mem:sajuppugi;MODE=PostgreSQL;DB_CLOSE_DELAY=-1}
     username: ${TEST_DATABASE_USERNAME:sa}
