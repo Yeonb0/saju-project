@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 부적 addon catalog quote 상품
+
+- 일반 운세 다섯 유형에 `*_TALISMAN_ADDON` catalog 상품을 additive migration으로 추가했다. 현재 `READING_WITH_TALISMAN(15) - READING_ONLY(10)` 차액인 5 등껍질을 quote snapshot 가격으로 기록하며, client 입력 가격은 사용하지 않는다. 이후 정책 변경은 기존 quote를 수정하지 않고 새 catalog version/상품으로 처리한다.
+- PostgreSQL 17 새 DB `saju_talisman_addon_catalog_20261015`에서 migration 포함 `GiftRecipientPostgresTest` 41건을 통과했다. quote/purchase HTTP 및 wallet debit은 다음 단계다. 적용: 6-2 quote 가격 불변성, 6-6 additive catalog migration.
+
 ### 2026-10-15: 부적 addon purchase 영속·차액 계산 기반
 
 - `talisman_addon_purchases` additive table을 추가했다. reading당 unique 한 purchase만 허용하고 owner, quote, wallet transaction, talisman, 상태를 각각 unique/FK로 묶어 동시 구매가 별도 차감을 만들지 않을 기반을 마련했다.
