@@ -22,7 +22,9 @@
 
 - 공개 `access`/`recipient-profile`/`result` POST는 token과 remote address의 SHA-256 digest만 분 단위 PostgreSQL bucket으로 세어, 같은 bearer/source 조합의 분당 30회를 허용하고 이후 요청은 `429 TOO_MANY_REQUESTS`로 거절한다. raw token/IP는 table·로그·오류에 저장하지 않는다.
 - 새 빈 PostgreSQL 17 DB `saju_be_b_rate_20261015`에서 `TalismanAddonPurchasePostgresTest` 3건을 실행했다. rate-limit 30개 동시 요청, 31번째 거절, digest table에 token prefix 미존재를 확인했다.
-- 적용: 6-4 다중 인스턴스 공유 상태의 request bounding, 6-9 bearer/IP 원문 최소화, 6-6 additive migration. proxy real client IP header 신뢰 정책과 retention cleanup batch는 staging ingress 정책이 확정되면 별도 보강한다.
+- 후속으로 additive migration `V202610151301`의 `window_started` index와 기본 활성 cleanup scheduler를 추가했다. scheduler는 1시간마다 2시간보다 오래된 digest bucket을 최대 1,000건씩만 PostgreSQL `ctid` batch로 지운다. 대량 삭제가 장시간 잠금으로 번지지 않게 하며, 정리 대상·로그에는 raw token/IP를 쓰지 않는다.
+- PostgreSQL 17 새 DB `saju_be_b_rate_retention_20261015`에서 `TalismanAddonPurchasePostgresTest`를 `--rerun-tasks`로 재실행했다. 30개 동시 허용/31번째 거절, raw token 미저장, 두 개의 만료 bucket 중 한 개만 삭제하고 현재 window를 남기는 bounded retention 회귀를 확인했다.
+- 적용: 6-4 다중 인스턴스 공유 request bounding·bounded cleanup, 6-6 additive migration, 6-9 bearer/IP 원문 최소화·pseudonymous digest 보존 제한, 6-10 무한 테이블 증가 방지. proxy real client IP header 신뢰 정책과 staging ingress의 실제 요청량/cleanup 지표는 여전히 미검증이다.
 
 ### 2026-10-15: 부적 addon catalog quote 상품
 

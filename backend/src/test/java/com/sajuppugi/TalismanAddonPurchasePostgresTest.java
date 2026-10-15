@@ -93,4 +93,19 @@ class TalismanAddonPurchasePostgresTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM public_gift_rate_limits WHERE subject_hash LIKE ?", Integer.class,
                 "%" + token.substring(0, 5) + "%")).isZero();
     }
+
+    @Test void publicRateLimitRetentionPurgeIsBoundedAndDoesNotRemoveCurrentWindow() {
+        String oldestDigest = UUID.randomUUID().toString().replace("-", "") + "b".repeat(32);
+        String newerDigest = UUID.randomUUID().toString().replace("-", "") + "d".repeat(32);
+        jdbc.update("INSERT INTO public_gift_rate_limits(subject_hash,window_started,request_count) VALUES (?, ?, 1)",
+                oldestDigest, Timestamp.from(Instant.now().minusSeconds(4 * 3600)));
+        jdbc.update("INSERT INTO public_gift_rate_limits(subject_hash,window_started,request_count) VALUES (?, ?, 1)",
+                newerDigest, Timestamp.from(Instant.now().minusSeconds(3 * 3600)));
+        publicLimits.check("c".repeat(43), "203.0.113.9");
+        assertThat(publicLimits.purgeOlderThan(Instant.now().minusSeconds(2 * 3600), 1)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM public_gift_rate_limits WHERE subject_hash IN (?, ?)", Integer.class,
+                oldestDigest, newerDigest)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM public_gift_rate_limits WHERE window_started >= ?", Integer.class,
+                Timestamp.from(Instant.now().minusSeconds(2 * 3600)))).isGreaterThanOrEqualTo(1);
+    }
 }

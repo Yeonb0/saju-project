@@ -62,6 +62,8 @@ app:
     phone-cleanup-enabled: ${GIFT_PHONE_CLEANUP_ENABLED:false}
     fulfillment-review-enabled: ${GIFT_FULFILLMENT_REVIEW_ENABLED:false}
     retention-enabled: ${GIFT_RETENTION_ENABLED:false}
+    public-rate-limit-cleanup-enabled: ${GIFT_PUBLIC_RATE_LIMIT_CLEANUP_ENABLED:true}
+    public-rate-limit-cleanup-delay: ${GIFT_PUBLIC_RATE_LIMIT_CLEANUP_DELAY:1h}
     payload-key: ${GIFT_PAYLOAD_KEY:}
     payload-active-key-id: ${GIFT_PAYLOAD_ACTIVE_KEY_ID:}
     payload-keyring: ${GIFT_PAYLOAD_KEYRING:{}}
