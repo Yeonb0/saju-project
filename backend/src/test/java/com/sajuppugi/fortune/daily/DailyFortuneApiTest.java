@@ -53,7 +53,7 @@ class DailyFortuneApiTest {
                 .andExpect(jsonPath("$.data.date").value("2026-10-11"))
                 .andExpect(jsonPath("$.data.personId").value(person.id().toString()))
                 .andExpect(jsonPath("$.data.calculationVersion").isString())
-                .andExpect(jsonPath("$.data.contentVersion").value("daily-2026.10-v3"))
+                .andExpect(jsonPath("$.data.contentVersion").value("daily-2026.10-v4"))
                 .andExpect(jsonPath("$.data.content.oneLineFortune").isNotEmpty())
                 .andExpect(jsonPath("$.data.content.luckyColor").isNotEmpty())
                 .andExpect(jsonPath("$.data.content.luckyItem").isNotEmpty())
