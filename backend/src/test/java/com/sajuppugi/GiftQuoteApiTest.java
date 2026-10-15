@@ -46,7 +46,7 @@ class GiftQuoteApiTest {
         jdbc.update("UPDATE products SET active = FALSE WHERE category = 'TOP_UP'");
     }
 
-    @ParameterizedTest @CsvSource({"TALISMAN_ONLY,10,3", "READING_WITH_TALISMAN,15,4"})
+    @ParameterizedTest @CsvSource({"TALISMAN_ONLY,10,2", "READING_WITH_TALISMAN,15,4"})
     void quotesUseServerPricesAndOptionContentsWithoutMoneyWrites(String option, int price, int contents) throws Exception {
         mvc.perform(request(option)).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.charged.currency").value("TURTLE_SHELL"))
@@ -59,6 +59,14 @@ class GiftQuoteApiTest {
                 .andExpect(jsonPath("$.data.balanceAfter").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.data.recommendedTopUp").value(org.hamcrest.Matchers.nullValue()));
         assertThat(count("purchase_quotes", "requester_user_id")).isEqualTo(1);
+        assertNoMoneyWrites();
+    }
+
+    @Test void talismanOnlyQuoteDoesNotPromiseTheExamChecklist() throws Exception {
+        mvc.perform(request("TALISMAN_ONLY")).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.includedContents.length()").value(2))
+                .andExpect(jsonPath("$.data.includedContents[0]").value("LETTER"))
+                .andExpect(jsonPath("$.data.includedContents[1]").value("TALISMAN"));
         assertNoMoneyWrites();
     }
 

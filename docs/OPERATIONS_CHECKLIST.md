@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: BE-B 선물 `부적만` 견적 계약 정정
+
+- 와이어프레임의 `GIFT-03`와 비교해 `TALISMAN_ONLY` 견적이 편지·부적 외 수능 체크리스트까지 약속하던 불일치를 수정했다. 이제 견적 응답은 `LETTER`, `TALISMAN` 두 항목만 반환하며, `READING_WITH_TALISMAN`의 편지·부적·풀이·체크리스트 구성과 등껍질 가격(각 10/15)은 바꾸지 않았다.
+- `GiftQuoteApiTest`에서 목록 길이뿐 아니라 두 항목과 순서를 검증했고, 로컬 H2의 해당 8개 테스트를 `--rerun-tasks`로 통과했다. 전체 `clean check bootJar exportGiftOpenApi`는 이번 변경과 무관한 기존 H2 전용 결제 회귀(`AdminPaymentRecoveryTest` 21건, `CashRefundOperationsTest` 9건, `QuoteFundingPersistenceTest`, `WalletReadPersistenceTest`) 실패로 완료되지 않았다. 이는 PostgreSQL 잠금/SQL 경로를 H2로 검증한 한계이므로 성공으로 판정하지 않는다.
+- 적용: 6-2 가격·지갑·주문 상태를 변경하지 않는 견적 계약 수정, 6-6 API 응답 호환성(기존의 잘못된 세 번째 항목을 제거하므로 FE가 화면 계약을 함께 반영해야 함). 실제 부적 이미지·R2·알림톡은 이번 범위에 포함하지 않았다.
+
 ### 2026-10-15: IA 기준 API 계약 정렬 및 BE-B 구현 계획
 
 - 최신 IA와 현재 controller, 공유/gift OpenAPI, 기능·API 문서를 대조했다. 로그인 운세·수능 구조화 결과·부적 보관함·직접 링크 구매는 대응되지만, 공개 선물 결과 projection(`RECV-04~07`, `RECV-T-04`), 수능 판매 종료 상태, 사용자 충전·사용 내역이 각각 미구현임을 확인했다.
