@@ -75,6 +75,14 @@ public class TalismanAddonPurchaseService {
                 talisman.status().name(), quote.productSnapshot().price().amount(), false);
     }
 
+    @Transactional(readOnly = true)
+    public View get(UUID ownerUserId, UUID readingId) {
+        if (ownerUserId == null || readingId == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
+        Claim claim = purchases.findByReadingId(readingId).filter(value -> value.ownerUserId().equals(ownerUserId))
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        return view(claim, true);
+    }
+
     private void validate(PurchaseQuote quote, TalismanAddonPurchaseRepository.StoredReading reading, UUID readingId) {
         Product product = quote.productSnapshot();
         if (product.category() != Product.Category.TALISMAN_ADDON || product.price().currency() != Price.Currency.TURTLE_SHELL

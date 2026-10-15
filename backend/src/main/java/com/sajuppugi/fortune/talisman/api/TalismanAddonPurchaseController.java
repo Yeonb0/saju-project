@@ -26,5 +26,11 @@ public class TalismanAddonPurchaseController {
                 new IdempotencyKey(idempotencyKey))); }
         catch (IllegalArgumentException invalid) { throw new ApiException(ErrorCode.INVALID_REQUEST); }
     }
+    @GetMapping
+    @Operation(operationId = "getTalismanAddonPurchase")
+    public ApiResponse<TalismanAddonPurchaseService.View> get(Authentication auth, @PathVariable UUID readingId) {
+        try { return ApiResponse.of(purchases.get(UUID.fromString(auth.getName()), readingId)); }
+        catch (IllegalArgumentException invalid) { throw new ApiException(ErrorCode.AUTHENTICATION_REQUIRED); }
+    }
     public record Request(@NotNull UUID quoteId) {}
 }
