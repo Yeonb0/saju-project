@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: fulfillment worker 재시도 소진 검증
+
+- 암호화 recipient profile을 의도적으로 손상해 worker의 복호화 실패를 재현했다. 각 실패는 `RETRY`와 다음 시도 시각으로만 기록되고, 다섯 번째 실패 뒤 다음 claim에서 `REVIEW_REQUIRED`/`FULFILLMENT_RETRY_EXHAUSTED`로 수렴한다. 실패한 gift에는 result snapshot이 생성되지 않는다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 worker 정상 fallback과 재시도 소진을 포함한 `GiftRecipientPostgresTest` 38건을 `--rerun-tasks`로 통과했다. 적용: 6-4 bounded retry·운영 검토 전환. 실제 process kill/restart, 동시 worker 두 개의 end-to-end와 external provider timeout은 남아 있다.
+
 ### 2026-10-15: fallback fulfillment worker PostgreSQL E2E 보강
 
 - worker integration test를 추가해 암호화 recipient profile 제출 → worker claim/fallback facts 결과 → immutable snapshot → job `READY` → 공개 result `READY`를 한 흐름으로 검증했다. 결과 JSON에 수신자 이름·생년일이 없는지도 확인했다.

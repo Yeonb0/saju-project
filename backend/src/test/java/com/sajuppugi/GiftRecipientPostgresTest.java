@@ -330,6 +330,26 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.state").value("READY"))
                 .andExpect(jsonPath("$.data.result.talisman.status").value("PENDING"));
     }
+    @Test void failedWorkerRetriesAreBoundedAndEventuallyRequireReview() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "worker-retry", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        jdbc.update("UPDATE gift_recipient_profiles SET profile_ciphertext = 'malformed' WHERE gift_id = ?", giftId);
+        for (int attempt = 0; attempt < 5; attempt++) {
+            fulfillmentWorker.run();
+            assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE gift_id = ?", String.class, giftId))
+                    .isEqualTo("RETRY");
+            advance(61);
+        }
+        fulfillmentWorker.run();
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE gift_id = ?", String.class, giftId))
+                .isEqualTo("REVIEW_REQUIRED");
+        assertThat(jdbc.queryForObject("SELECT last_failure_code FROM gift_fulfillment_jobs WHERE gift_id = ?", String.class, giftId))
+                .isEqualTo("FULFILLMENT_RETRY_EXHAUSTED");
+        assertThat(resultSnapshots.find(giftId)).isEmpty();
+    }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());
         recipients.provide(receipt.receiptId(), UUID.randomUUID(), () -> {}); recipients.link(raw, owner);
