@@ -21,6 +21,8 @@ import { FormField } from "./FormField";
 type PersonFormProps = {
   onSubmit: (value: PersonFormOutput) => void | Promise<void>;
   submitting?: boolean;
+  // submit 버튼 글자 — 화면마다 다르다 (HOME-02 「저장하고 시작하기」)
+  submitLabel?: string;
   // 테스트에서 주입한다. 기본값은 스키마의 KST 오늘.
   today?: Dayjs;
 };
@@ -32,7 +34,13 @@ const CHOICE_CLASS =
   "flex h-[22px] items-center gap-[13px] text-[20px] font-semibold";
 const CHOICE_INPUT_CLASS = "h-[22px] w-[21px]";
 
-export function PersonForm({ onSubmit, submitting, today }: PersonFormProps) {
+export function PersonForm({
+  onSubmit,
+  submitting,
+  // TODO(PD 문구): MY-02 저장 버튼
+  submitLabel = "저장하기",
+  today,
+}: PersonFormProps) {
   const resolver = zodResolver(createPersonSchema({ kind: "self", today }));
 
   const {
@@ -101,8 +109,8 @@ export function PersonForm({ onSubmit, submitting, today }: PersonFormProps) {
         )}
       </FormField>
 
-      {/* 달력 한 줄: 양력 · 음력 · (음력이면) 윤달 — 선택지 사이 33px */}
-      <div className="mt-[13px] flex items-start gap-x-[33px]">
+      {/* 달력 줄: 양력 · 음력 (선택지 사이 33px), 음력이면 그 아래 줄에 윤달 — HOME-02 정보 입력_수정안 347:144 */}
+      <div className="mt-[13px] flex flex-col items-start gap-y-[13px]">
         {/* TODO(PD 문구) */}
         <fieldset className="flex flex-wrap items-start gap-x-[33px]">
           <legend className="sr-only">달력</legend>
@@ -139,7 +147,7 @@ export function PersonForm({ onSubmit, submitting, today }: PersonFormProps) {
               className={CHOICE_INPUT_CLASS}
               {...register("isLeapMonth")}
             />
-            윤달
+            윤달이에요
           </label>
         ) : null}
       </div>
@@ -198,7 +206,7 @@ export function PersonForm({ onSubmit, submitting, today }: PersonFormProps) {
       <div className="mt-[246px] mb-[44px] flex justify-center">
         {/* TODO(PD 문구) */}
         <Button type="submit" variant="cta" disabled={submitting}>
-          저장하기
+          {submitLabel}
         </Button>
       </div>
     </form>
