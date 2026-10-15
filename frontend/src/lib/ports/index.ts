@@ -151,6 +151,8 @@ function selectFakeFortunePort(
 ): FakeFortunePort {
   return createFakeFortunePort({
     scenario: resolveFortuneScenario(scenarioRaw),
+    // 직접결제 견적은 원화다 (DIRECT-PAY) — 가짜 직접결제가 KRW 견적만 주문으로 받는다
+    priceCurrency: "KRW",
     wallet,
     onFulfilled: readings ? (product) => readings.create(product) : undefined,
   });
@@ -254,13 +256,14 @@ export function selectDirectPaymentPort(
   });
 }
 
-// 탭 하나에 하나. 조작판 연결은 다음 단계 — 지금은 환경 변수만 본다
+// 탭 하나에 하나. 시나리오: 조작판 저장값 → 환경 변수 → 기본값 (MOCK-PANEL)
 let directPaymentPort: DirectPaymentPort | null = null;
 
 export function getDirectPaymentPort(): DirectPaymentPort {
   directPaymentPort ??= selectDirectPaymentPort(
     API_MODE,
-    process.env.NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO,
+    readMockOverrides().directPayment ??
+      process.env.NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO,
     API_MODE === "mock" ? getFakeFortune() : undefined,
   );
   return directPaymentPort;

@@ -5,7 +5,7 @@
 // 근거: Q-26 답 (v0.3: 궁합은 본인 + 상대, 상대가 저장돼 있지 않으면 새로 입력 MY-02 후 복귀),
 // FIGMA-FINAL (와이어 MATCH-01 은 두 칸 모두 빈 칸이지만 팀 문서를 따라 첫 칸은 본인 고정),
 // A-02 · A-03 (로그인 가드는 page.tsx 의 RequireSession), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다), LAYOUT-FIGMA. 디자인 요소 없음 (PG-FIRST).
-// 이 화면에는 상품 조회 · 견적 · ShellCheckout · 가격 · 오행분석이 없다 (CHECKOUT-POPUP — 차감은 질문 화면 MATCH-03).
+// 이 화면에는 상품 조회 · 견적 · 결제하기 팝업(DirectCheckout) · 가격 · 오행분석이 없다 (결제는 질문 화면 MATCH-03, DIRECT-PAY).
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

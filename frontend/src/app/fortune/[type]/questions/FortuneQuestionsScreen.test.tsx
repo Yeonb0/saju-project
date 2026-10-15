@@ -10,7 +10,9 @@ import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
+import type { DirectPaymentPort } from "@/lib/ports/directPayment";
 import type { FortunePort, FortuneProduct } from "@/lib/ports/fortune";
+import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
 import type { PersonPort, PersonSummary } from "@/lib/ports/person";
 import {
   loadPurchaseSelection,
@@ -18,9 +20,9 @@ import {
 } from "@/lib/purchase/restore";
 import { makeQueryClient } from "@/lib/queryClient";
 import { createFakeAccount } from "@/mocks/account";
-import { createFakeFortunePort } from "@/mocks/fortune";
+import { createFakeDirectPaymentPort } from "@/mocks/directPayment";
+import { createFakeFortunePort, type FakeFortunePort } from "@/mocks/fortune";
 import { createFakePersonPort } from "@/mocks/person";
-import { createFakeTopUpPort } from "@/mocks/topUp";
 import { createFakeWallet } from "@/mocks/wallet";
 import { FortuneQuestionsScreen } from "./FortuneQuestionsScreen";
 
@@ -61,8 +63,11 @@ function ports() {
   account.addOther({ ...OTHER });
   return {
     personPort: createFakePersonPort(account),
-    fortunePort: createFakeFortunePort({ wallet: createFakeWallet(100) }),
-    topUpPort: createFakeTopUpPort(),
+    // 직접결제 견적은 원화다 (DIRECT-PAY)
+    fortunePort: createFakeFortunePort({
+      wallet: createFakeWallet(100),
+      priceCurrency: "KRW",
+    }),
   };
 }
 
@@ -71,7 +76,8 @@ type Injected = {
   personId?: string;
   counterpartId?: string | null;
   personPort?: PersonPort;
-  fortunePort?: FortunePort;
+  fortunePort?: FakeFortunePort;
+  directPort?: DirectPaymentPort;
 };
 
 function setup(overrides: Injected = {}) {
@@ -79,7 +85,12 @@ function setup(overrides: Injected = {}) {
   const fortunePort = overrides.fortunePort ?? base.fortunePort;
   const createQuote = vi.spyOn(fortunePort, "createQuote");
   const getQuote = vi.spyOn(fortunePort, "getQuote");
-  const purchase = vi.spyOn(fortunePort, "purchase");
+  const directPort =
+    overrides.directPort ??
+    createFakeDirectPaymentPort({ fortune: fortunePort });
+  const createOrder = vi.spyOn(directPort, "createOrder");
+  const getOrder = vi.spyOn(directPort, "getOrder");
+  const launcher: PaymentLauncher = { requestPayment: vi.fn(async () => {}) };
   const view = render(
     <QueryClientProvider client={makeQueryClient()}>
       <FortuneQuestionsScreen
@@ -88,11 +99,21 @@ function setup(overrides: Injected = {}) {
         counterpartId={overrides.counterpartId ?? null}
         personPort={overrides.personPort ?? base.personPort}
         fortunePort={fortunePort}
-        topUpPort={base.topUpPort}
+        directPort={directPort}
+        launcher={launcher}
       />
     </QueryClientProvider>,
   );
-  return { ...view, fortunePort, createQuote, getQuote, purchase };
+  return {
+    ...view,
+    fortunePort,
+    createQuote,
+    getQuote,
+    directPort,
+    createOrder,
+    getOrder,
+    launcher,
+  };
 }
 
 class Boundary extends Component<
@@ -130,7 +151,6 @@ async function expectThrown(overrides: Injected = {}) {
               ? overrides.fortunePort
               : base.fortunePort
           }
-          topUpPort={base.topUpPort}
         />
       </Boundary>
     </QueryClientProvider>,
@@ -219,19 +239,25 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     expect(screen.queryByText("알고 싶은 부분")).toBeNull();
   });
 
-  it("d. 잔액이 충분하면 구매 성공 뒤 결과 화면으로 한 번 이동한다", async () => {
+  it("d. 동의하고 결제하기를 누르면 주문을 만들고 결제창을 열며, 결과 화면으로는 이동하지 않는다 (DIRECT-PAY)", async () => {
     const user = userEvent.setup();
-    const { purchase } = setup();
+    const { createOrder, launcher } = setup();
     await pick(user, "지금 관계");
     await user.click((await ctaButtons())[0]);
-    await user.click(await screen.findByRole("button", { name: "사용하기" }));
-    // 완료 블록의 「결과 보러 가기」 를 눌러야 결과 화면으로 간다
+    const dialog = await screen.findByRole("dialog");
     await user.click(
-      await screen.findByRole("button", { name: "결과 보러 가기" }),
+      await within(dialog).findByRole("checkbox", {
+        name: /결제에 동의합니다/,
+      }),
     );
-    await waitFor(() => expect(router.push).toHaveBeenCalledTimes(1));
-    const result = await purchase.mock.results[0].value;
-    expect(router.push).toHaveBeenCalledWith(`/fortune/r/${result.readingId}`);
+    await user.click(
+      await within(dialog).findByRole("button", { name: /원 결제하기$/ }),
+    );
+    await waitFor(() =>
+      expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
+    );
+    expect(createOrder).toHaveBeenCalledTimes(1);
+    expect(router.push).not.toHaveBeenCalled();
   });
 
   it("e. READING_ONLY 만 active 면 사주만 버튼 하나만 있다", async () => {
@@ -330,7 +356,12 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     setup({ personId: "no-such-person" });
     await waitFor(() => expect(router.replace).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(loadPurchaseSelection()).toEqual({ ...saved, purchaseKey: null });
+    expect(loadPurchaseSelection()).toEqual({
+      ...saved,
+      orderKey: null,
+      orderId: null,
+      fulfillmentKey: null,
+    });
   });
 
   it("k. 복원: 같은 returnPath · personId · 활성 code 면 팝업이 저절로 열리고 저장한 견적을 재확인한다", async () => {
@@ -360,13 +391,14 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     });
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText(OTHER.name)).toBeInTheDocument();
-    await within(dialog).findByRole("button", { name: "사용하기" });
+    await within(dialog).findByRole("button", { name: /원 결제하기$/ });
     expect(getQuote).toHaveBeenCalledWith(quote.quoteId);
     expect(createQuote).not.toHaveBeenCalled();
   });
 
-  it("k2. 복원: 구매 키가 든 저장값이면 팝업이 열리고 그 견적 ID 로 상태 조회를 1번 한다 (PURCHASE-KEY-STORE)", async () => {
+  it("k2. 복원: 주문 키 · 주문 ID 가 든 저장값이면 팝업이 열리고 그 주문 ID 로 주문 조회를 1번 한다 (DIRECT-PAY)", async () => {
     const { fortunePort, personPort } = ports();
+    const pre = createFakeDirectPaymentPort({ fortune: fortunePort });
     const quote = await fortunePort.createQuote({
       fortuneType: "LOVE" as const,
       productCode: TALISMAN,
@@ -374,6 +406,10 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
       counterpartPersonId: null,
       ...LOVE_Q,
     });
+    const order = await pre.createOrder(
+      { quoteId: quote.quoteId },
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    );
     savePurchaseSelection({
       returnPath: `/fortune/love/questions?personId=${OTHER.personId}`,
       quoteId: quote.quoteId,
@@ -385,18 +421,19 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
         ...LOVE_Q,
       },
       // 픽스처일 뿐이다
-      purchaseKey: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      orderKey: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      orderId: order.orderId,
     });
-    const getPurchaseStatus = vi.spyOn(fortunePort, "getPurchaseStatus");
-    const { purchase } = setup({
+    const { getOrder, createOrder } = setup({
       fortunePort,
       personPort,
+      directPort: pre,
       personId: OTHER.personId,
     });
     await screen.findByRole("dialog");
-    await waitFor(() => expect(getPurchaseStatus).toHaveBeenCalledTimes(1));
-    expect(getPurchaseStatus).toHaveBeenCalledWith(quote.quoteId);
-    expect(purchase).not.toHaveBeenCalled();
+    await waitFor(() => expect(getOrder).toHaveBeenCalledTimes(1));
+    expect(getOrder).toHaveBeenCalledWith(order.orderId);
+    expect(createOrder).not.toHaveBeenCalled();
   });
 
   it("l. 복원: 다른 화면(/suneung)의 저장값은 팝업을 열지 않고 그대로 남는다", async () => {
@@ -415,7 +452,12 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
     setup();
     await ctaButtons();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(loadPurchaseSelection()).toEqual({ ...saved, purchaseKey: null });
+    expect(loadPurchaseSelection()).toEqual({
+      ...saved,
+      orderKey: null,
+      orderId: null,
+      fulfillmentKey: null,
+    });
   });
 
   it("m. 복원: 같은 returnPath 인데 productCode 가 없는 code 면 팝업이 열리지 않고 저장값이 지워진다", async () => {
@@ -599,7 +641,7 @@ describe("FortuneQuestionsScreen (FORT-02 · 03)", () => {
         personPort,
       });
       const dialog = await screen.findByRole("dialog");
-      await within(dialog).findByRole("button", { name: "사용하기" });
+      await within(dialog).findByRole("button", { name: /원 결제하기$/ });
       expect(getQuote).toHaveBeenCalledWith(quote.quoteId);
       expect(createQuote).not.toHaveBeenCalled();
     });
@@ -831,7 +873,7 @@ describe("FortuneQuestionsScreen — 선택지 칩 (Q-26 · FUNCTIONAL_SPEC 8장
     await pick(user, "지금 관계");
     await user.click(buttons[0]);
     await within(await screen.findByRole("dialog")).findByRole("button", {
-      name: "사용하기",
+      name: /원 결제하기$/,
     });
     expect(createQuote).toHaveBeenCalledTimes(1);
     expect(createQuote.mock.calls[0][0].questionKey).toBe(

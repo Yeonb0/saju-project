@@ -54,7 +54,10 @@ describe("포트 선택 (MOCK-PORT)", () => {
     };
 
     // 픽스처일 뿐이며 실제 상품 코드와 무관하다
-    const OPTIONS = { retryProductCode: "FIXTURE_TOP_UP_X" };
+    const OPTIONS = {
+      kind: "top_up" as const,
+      retryProductCode: "FIXTURE_TOP_UP_X",
+    };
 
     // 토스 결제창은 키가 없으면 SDK 를 부르기 전에 던진다 — 가짜 결제창과 구별하는 데 쓴다
     async function opensToss(
@@ -119,9 +122,8 @@ describe("포트 선택 (MOCK-PORT)", () => {
         orderId: "33333333-3333-4333-8333-333333333333",
         orderName: "FIXTURE",
         amount: { currency: "KRW", amount: 1111 },
-        status: "PAYMENT_PENDING",
       },
-      { retryProductCode: "FIXTURE_TOP_UP_X" },
+      { kind: "top_up", retryProductCode: "FIXTURE_TOP_UP_X" },
     );
     const url = new URL(navigate.mock.calls[0][0], "http://localhost");
     expect(url.pathname).toBe("/pay/success");
@@ -302,6 +304,61 @@ describe("MOCK-PANEL 저장값 우선순위", () => {
       relationType: null,
     });
     expect(quote.walletBalance).toBe(100);
+  });
+});
+
+describe("MOCK-PANEL 직접결제 저장값 우선순위 (DIRECT-PAY)", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.unstubAllEnvs();
+    vi.doUnmock("@/lib/ports/mode");
+    vi.resetModules();
+  });
+
+  async function loadMockPorts() {
+    vi.resetModules();
+    vi.doMock("@/lib/ports/mode", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("./mode")>()),
+      API_MODE: "mock",
+    }));
+    return import("./index");
+  }
+
+  // 견적(KRW) → 주문 → 승인까지 해 보고 승인 결과 status 를 돌려준다
+  async function confirmStatus(
+    ports: Awaited<ReturnType<typeof loadMockPorts>>,
+  ) {
+    const quote = await ports.getFortunePort().createQuote({
+      // 픽스처일 뿐이며 실제 상품 · 사용자와 무관하다
+      fortuneType: "SUNEUNG" as const,
+      productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
+      personId: "66666666-6666-4666-8666-666666666666",
+      counterpartPersonId: null,
+      productOption: null,
+      questionKey: null,
+      relationType: null,
+    });
+    expect(quote.charged.currency).toBe("KRW");
+    const direct = ports.getDirectPaymentPort();
+    const order = await direct.createOrder({ quoteId: quote.quoteId }, "k-1");
+    const confirmed = await direct.confirm({
+      paymentKey: "pk-1",
+      orderId: order.orderId,
+      amount: String(order.amount.amount),
+    });
+    return confirmed.status;
+  }
+
+  it("저장값이 환경 변수보다 먼저이고, 저장값이 없으면 환경 변수를 쓴다. 가짜 운세의 견적은 KRW 다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO", "rejected");
+    localStorage.setItem(
+      "mockOverrides",
+      JSON.stringify({ v: 1, directPayment: "stuck_pending" }),
+    );
+    expect(await confirmStatus(await loadMockPorts())).toBe("PAYMENT_PENDING");
+
+    localStorage.clear();
+    expect(await confirmStatus(await loadMockPorts())).toBe("FAILED");
   });
 });
 

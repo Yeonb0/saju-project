@@ -5,9 +5,11 @@
 // 개인정보: customerEmail · customerName · customerMobilePhone 을 보내지 않는다. windowTarget 도 지정하지 않는다.
 // SDK 는 브라우저에서만 쓴다 — 모듈 맨 위에서 import 하지 않고 requestPayment 안에서 동적 import 한다 (정적 렌더 · 빌드 보호). 테스트는 loadSdk 로 주입한다.
 // 결제 요청은 리다이렉트라 성공하면 이 Promise 는 끝나지 않는다 — 구매자는 /pay/success · /pay/fail 로 돌아온다.
+import { safeReturnTo } from "@/lib/auth/returnTo";
 import {
   PaymentCanceledError,
   type PaymentLauncher,
+  type PaymentReturnRoute,
 } from "@/lib/ports/paymentLauncher";
 
 // 이 파일이 쓰는 SDK 부분만 적은 모양 — 진짜 모듈이 이 모양을 만족해야 typecheck 가 통과한다
@@ -45,6 +47,21 @@ const loadRealSdk = async (): Promise<TossSdkModule> => {
   return sdk;
 };
 
+// 복귀 주소 (TOPUP-RETRY-URL · DIRECT-PAY). 충전은 실패 복귀에만 상품 코드를 붙이고 successUrl 은 바꾸지 않는다.
+// 직접결제는 flow=direct 를 붙이고, 실패 복귀에 돌아갈 앞 화면 경로를 safeReturnTo 로 거른 뒤 인코딩해 붙인다
+function returnUrls(origin: string, route: PaymentReturnRoute) {
+  if (route.kind === "top_up") {
+    return {
+      successUrl: `${origin}/pay/success`,
+      failUrl: `${origin}/pay/fail?product=${encodeURIComponent(route.retryProductCode)}`,
+    };
+  }
+  return {
+    successUrl: `${origin}/pay/success?flow=direct`,
+    failUrl: `${origin}/pay/fail?flow=direct&return=${encodeURIComponent(safeReturnTo(route.returnPath))}`,
+  };
+}
+
 export function createTossPaymentLauncher(deps: {
   clientKey: string | undefined;
   origin: () => string;
@@ -52,7 +69,7 @@ export function createTossPaymentLauncher(deps: {
 }): PaymentLauncher {
   const loadSdk = deps.loadSdk ?? loadRealSdk;
   return {
-    async requestPayment(order, options) {
+    async requestPayment(order, route) {
       const { clientKey } = deps;
       // 키 값은 메시지에 넣지 않는다
       if (clientKey === undefined || !CLIENT_KEY_PATTERN.test(clientKey)) {
@@ -83,9 +100,7 @@ export function createTossPaymentLauncher(deps: {
             await widgets.requestPayment({
               orderId: order.orderId,
               orderName: order.orderName,
-              successUrl: `${origin}/pay/success`,
-              // 실패 복귀에만 상품 코드를 붙인다 (TOPUP-RETRY-URL). successUrl 은 바꾸지 않는다
-              failUrl: `${origin}/pay/fail?product=${encodeURIComponent(options.retryProductCode)}`,
+              ...returnUrls(origin, route),
             });
           } catch (error) {
             // 정리 실패보다 결제 요청 실패 원인이 더 중요하다 — 원래 오류로 끝낸다

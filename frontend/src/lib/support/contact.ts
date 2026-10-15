@@ -3,7 +3,7 @@
 import { BUSINESS_INFO } from "@/lib/business";
 
 export type SupportRef = Readonly<{
-  kind: "topUpOrder" | "purchase" | "quote";
+  kind: "topUpOrder" | "purchase" | "quote" | "paymentOrder";
   id: string;
 }>;
 
@@ -18,6 +18,9 @@ function subjectOf(ref?: SupportRef): string {
       return `${SUBJECT_PREFIX} 운세 구매번호 ${ref.id}`;
     case "quote":
       return `${SUBJECT_PREFIX} 운세 견적번호 ${ref.id}`;
+    // TODO(Q-47 · PD 문구: 결제 주문번호 제목) — 직접결제 주문 (DIRECT-PAY)
+    case "paymentOrder":
+      return `${SUBJECT_PREFIX} 결제 주문번호 ${ref.id}`;
   }
 }
 
