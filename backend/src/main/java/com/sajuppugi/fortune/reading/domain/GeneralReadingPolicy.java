@@ -15,7 +15,7 @@ import java.util.Set;
  * Keys are deliberately stable API identifiers rather than display copy.
  */
 public final class GeneralReadingPolicy {
-    public static final String GENERATION_VERSION = "liner-general-reading-v2";
+    public static final String GENERATION_VERSION = "liner-general-reading-v3";
     private static final Map<FortuneType, Definition> DEFINITIONS = definitions();
 
     private GeneralReadingPolicy() {}
@@ -42,30 +42,38 @@ public final class GeneralReadingPolicy {
         values.put(FortuneType.OVERALL, new Definition(
                 List.of(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW, SectionKey.RELATIONSHIPS,
                         SectionKey.STUDY_AND_WORK, SectionKey.WEALTH_FLOW, SectionKey.CONDITION,
-                        SectionKey.LUCKY_POINT, SectionKey.MISSING_ELEMENT),
+                        SectionKey.LUCKY_POINT, SectionKey.MISSING_ELEMENT, SectionKey.STRENGTHS,
+                        SectionKey.TIMING),
                 Set.of("OVERALL_FLOW", "RELATIONSHIPS", "STUDY_AND_WORK", "WEALTH", "CONDITION"),
-                "overall-2026.10.08"));
+                "overall-2026.10.15"));
         values.put(FortuneType.LOVE, new Definition(
                 List.of(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW, SectionKey.GOOD_PERIOD,
-                        SectionKey.CAUTION, SectionKey.ACTION_TIP, SectionKey.MISSING_ELEMENT),
+                        SectionKey.CAUTION, SectionKey.ACTION_TIP, SectionKey.RELATIONSHIPS,
+                        SectionKey.DAILY_PRACTICE, SectionKey.STRENGTHS, SectionKey.TIMING,
+                        SectionKey.MISSING_ELEMENT),
                 Set.of("CURRENT_RELATIONSHIP", "NEW_RELATIONSHIP", "RECONCILIATION", "MARRIAGE"),
-                "love-2026.10.08"));
+                "love-2026.10.15"));
         values.put(FortuneType.WEALTH, new Definition(
                 List.of(SectionKey.SUMMARY, SectionKey.WEALTH_FLOW, SectionKey.INCOME,
                         SectionKey.SPENDING_CAUTION, SectionKey.GOOD_PERIOD, SectionKey.ACTION_TIP,
+                        SectionKey.CAUTION, SectionKey.TIMING, SectionKey.DAILY_PRACTICE,
                         SectionKey.MISSING_ELEMENT),
                 Set.of("OVERALL_WEALTH", "INCOME", "SPENDING", "INVESTMENT", "CAREER_FINANCE"),
-                "wealth-2026.10.08"));
+                "wealth-2026.10.15"));
         values.put(FortuneType.COMPATIBILITY, new Definition(
                 List.of(SectionKey.SUMMARY, SectionKey.MATCH_STRENGTH, SectionKey.MATCH_CONFLICT,
-                        SectionKey.COMMUNICATION, SectionKey.RELATIONSHIP_TIP, SectionKey.MISSING_ELEMENT),
+                        SectionKey.COMMUNICATION, SectionKey.RELATIONSHIP_TIP, SectionKey.CURRENT_FLOW,
+                        SectionKey.CAUTION, SectionKey.TIMING, SectionKey.DAILY_PRACTICE,
+                        SectionKey.MISSING_ELEMENT),
                 Set.of("OVERALL_MATCH", "COMMUNICATION", "CONFLICT", "LONG_TERM_POTENTIAL"),
-                "compatibility-2026.10.08"));
+                "compatibility-2026.10.15"));
         values.put(FortuneType.SINSAL, new Definition(
-                List.of(SectionKey.SUMMARY, SectionKey.SPECIAL_STARS,
-                        SectionKey.BALANCING_SPECIAL_STARS, SectionKey.MISSING_ELEMENT),
+                List.of(SectionKey.SUMMARY, SectionKey.SPECIAL_STARS, SectionKey.SINSAL_POPULAR,
+                        SectionKey.SINSAL_MOVEMENT, SectionKey.SINSAL_INTUITION, SectionKey.SINSAL_INTENSITY,
+                        SectionKey.SINSAL_TIMING, SectionKey.BALANCING_SPECIAL_STARS,
+                        SectionKey.MISSING_ELEMENT, SectionKey.ACTION_TIP),
                 Set.of("OVERALL_SINSAL", "RELATIONSHIPS", "WORK_AND_STUDY", "WEALTH"),
-                "sinsal-2026.10.08"));
+                "sinsal-2026.10.15"));
         return Map.copyOf(values);
     }
 

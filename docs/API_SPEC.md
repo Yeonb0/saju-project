@@ -701,13 +701,14 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 | fortuneType | 허용 questionKey | 생성 section 순서 |
 |---|---|---|
-| `OVERALL` | `OVERALL_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH`, `CONDITION` | `SUMMARY`, `CURRENT_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH_FLOW`, `CONDITION`, `LUCKY_POINT`, `MISSING_ELEMENT` |
-| `LOVE` | `CURRENT_RELATIONSHIP`, `NEW_RELATIONSHIP`, `RECONCILIATION`, `MARRIAGE` | `SUMMARY`, `CURRENT_FLOW`, `GOOD_PERIOD`, `CAUTION`, `ACTION_TIP`, `MISSING_ELEMENT` |
-| `WEALTH` | `OVERALL_WEALTH`, `INCOME`, `SPENDING`, `INVESTMENT`, `CAREER_FINANCE` | `SUMMARY`, `WEALTH_FLOW`, `INCOME`, `SPENDING_CAUTION`, `GOOD_PERIOD`, `ACTION_TIP`, `MISSING_ELEMENT` |
-| `COMPATIBILITY` | `OVERALL_MATCH`, `COMMUNICATION`, `CONFLICT`, `LONG_TERM_POTENTIAL` | `SUMMARY`, `MATCH_STRENGTH`, `MATCH_CONFLICT`, `COMMUNICATION`, `RELATIONSHIP_TIP`, `MISSING_ELEMENT` |
-| `SINSAL` | `OVERALL_SINSAL`, `RELATIONSHIPS`, `WORK_AND_STUDY`, `WEALTH` | `SUMMARY`, `SPECIAL_STARS`, `BALANCING_SPECIAL_STARS`, `MISSING_ELEMENT` |
+| `OVERALL` | `OVERALL_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH`, `CONDITION` | `SUMMARY`, `CURRENT_FLOW`, `RELATIONSHIPS`, `STUDY_AND_WORK`, `WEALTH_FLOW`, `CONDITION`, `LUCKY_POINT`, `MISSING_ELEMENT`, `STRENGTHS`, `TIMING` |
+| `LOVE` | `CURRENT_RELATIONSHIP`, `NEW_RELATIONSHIP`, `RECONCILIATION`, `MARRIAGE` | `SUMMARY`, `CURRENT_FLOW`, `GOOD_PERIOD`, `CAUTION`, `ACTION_TIP`, `RELATIONSHIPS`, `DAILY_PRACTICE`, `STRENGTHS`, `TIMING`, `MISSING_ELEMENT` |
+| `WEALTH` | `OVERALL_WEALTH`, `INCOME`, `SPENDING`, `INVESTMENT`, `CAREER_FINANCE` | `SUMMARY`, `WEALTH_FLOW`, `INCOME`, `SPENDING_CAUTION`, `GOOD_PERIOD`, `ACTION_TIP`, `CAUTION`, `TIMING`, `DAILY_PRACTICE`, `MISSING_ELEMENT` |
+| `COMPATIBILITY` | `OVERALL_MATCH`, `COMMUNICATION`, `CONFLICT`, `LONG_TERM_POTENTIAL` | `SUMMARY`, `MATCH_STRENGTH`, `MATCH_CONFLICT`, `COMMUNICATION`, `RELATIONSHIP_TIP`, `CURRENT_FLOW`, `CAUTION`, `TIMING`, `DAILY_PRACTICE`, `MISSING_ELEMENT` |
+| `SINSAL` | `OVERALL_SINSAL`, `RELATIONSHIPS`, `WORK_AND_STUDY`, `WEALTH` | `SUMMARY`, `SPECIAL_STARS`, `SINSAL_POPULAR`, `SINSAL_MOVEMENT`, `SINSAL_INTUITION`, `SINSAL_INTENSITY`, `SINSAL_TIMING`, `BALANCING_SPECIAL_STARS`, `MISSING_ELEMENT`, `ACTION_TIP` |
 
-각 상세 API는 내부 section 배열을 그대로 노출하지 않고 다음과 같은 고정 필드로 변환한다.
+각 상세 API는 기존 고정 필드를 호환용으로 유지하면서, 소제목을 포함한 열 개의 순서 있는
+`sections` 배열도 반환한다. 각 항목은 `title`, `content`, `sourceFactKeys`를 가진다.
 
 | category | 맞춤 결과 필드 (`meta`, `summary` 제외) |
 |---|---|
@@ -757,6 +758,11 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `GET /reading-purchases/by-quote/{quoteId}`
 
+`CREATED`, `DEBITED`, `GENERATING` 상태에서는 소유자가 결과 생성 대기 화면에 사용할 수 있도록
+`generationPreview`를 선택적으로 반환한다. 필드는 `animalKey`(`mouse`~`pig`), `branch`,
+`animalName`, `message`이며, 구매 대상의 원문 생년정보·이름은 포함하지 않는다. 완료·실패·환급
+상태에서는 `generationPreview`가 `null`이다. 오늘의 운세 API와는 별도인 유료 구매 상태 계약이다.
+
 - 인증 필요, 구매자 본인만 조회할 수 있다.
 - `(buyerUserId, quoteId)` 조합은 최대 한 구매를 갖는다.
 - 아직 구매 row가 생성되지 않았거나 다른 사용자의 견적이면 `404 PURCHASE_NOT_FOUND`다.
@@ -772,7 +778,8 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "nextAction": "WAIT",
   "failureCode": "READING_GENERATION_FAILED",
   "createdAt": "2026-10-11T03:00:00Z",
-  "fulfilledAt": null
+  "fulfilledAt": null,
+  "generationPreview": null
 }
 ```
 

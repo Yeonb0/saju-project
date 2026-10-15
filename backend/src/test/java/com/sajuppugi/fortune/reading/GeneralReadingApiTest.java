@@ -89,10 +89,10 @@ class GeneralReadingApiTest {
 
     @Test
     void purchasesAllFiveGeneralFortunesWithTheirExactSections() throws Exception {
-        assertPurchase("OVERALL", "OVERALL_FLOW", 8);
-        assertPurchase("LOVE", "CURRENT_RELATIONSHIP", 6);
-        assertPurchase("WEALTH", "OVERALL_WEALTH", 7);
-        assertPurchase("SINSAL", "OVERALL_SINSAL", 4);
+        assertPurchase("OVERALL", "OVERALL_FLOW", 10);
+        assertPurchase("LOVE", "CURRENT_RELATIONSHIP", 10);
+        assertPurchase("WEALTH", "OVERALL_WEALTH", 10);
+        assertPurchase("SINSAL", "OVERALL_SINSAL", 10);
 
         String compatibility = body("COMPATIBILITY", "OVERALL_MATCH", true);
         UUID quoteId = issueQuote(compatibility, "COMPATIBILITY_READING_ONLY");
@@ -183,7 +183,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"));
         verify(talismans).create(argThat(command -> command.ownerUserId().equals(userId)
                 && command.fortuneType().name().equals("LOVE")
-                && command.contentVersion().equals("love-2026.10.08")));
+                && command.contentVersion().equals("love-2026.10.15")));
     }
 
     @Test
@@ -250,7 +250,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.charged.currency").value("TURTLE_SHELL"))
                 .andExpect(jsonPath("$.data.charged.amount").value(10))
                 .andExpect(jsonPath("$.data.calculationVersion").value("manse-2026.10-v1"))
-                .andExpect(jsonPath("$.data.generationVersion").value("liner-general-reading-v2"))
+                .andExpect(jsonPath("$.data.generationVersion").value("liner-general-reading-v3"))
                 .andExpect(jsonPath("$.data.reading.fortuneType").value(type))
                 .andExpect(jsonPath("$.data.reading.questionKey").value(questionKey))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(sections))

@@ -35,6 +35,10 @@ public class FakeLinerProvider implements LinerProvider {
             case GOOD_PERIOD -> List.of("luck.annual[0].year");
             case MATCH_STRENGTH, MATCH_CONFLICT, COMMUNICATION, RELATIONSHIP_TIP ->
                     List.of("dayMaster.hanja", "counterpart.dayMaster.hanja");
+            case TIMING -> List.of("luck.annual[0].year");
+            case SPECIAL_STARS, BALANCING_SPECIAL_STARS, SINSAL_POPULAR, SINSAL_MOVEMENT,
+                    SINSAL_INTUITION, SINSAL_INTENSITY -> List.of("specialStars.ruleVersion");
+            case SINSAL_TIMING -> List.of("specialStars.ruleVersion");
             default -> List.of("dayMaster.hanja");
         };
     }

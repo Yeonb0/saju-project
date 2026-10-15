@@ -93,6 +93,14 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
+    public Optional<GenerationResumeContext> findGenerationContext(UUID buyerUserId, UUID quoteId) {
+        return jdbc.query("""
+                SELECT generation_context FROM reading_purchases
+                WHERE buyer_user_id = ? AND quote_id = ? AND generation_context IS NOT NULL
+                """, (rs, row) -> context(rs.getString(1)), buyerUserId, quoteId).stream().findFirst();
+    }
+
+    @Override
     public List<UUID> findReadyGenerationRecoveries(Instant now, int maxAttempts, int limit) {
         return jdbc.query("""
                 SELECT id FROM reading_purchases

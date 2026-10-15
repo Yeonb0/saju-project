@@ -16,6 +16,7 @@ import com.sajuppugi.fortune.calculation.domain.BirthInput.Gender;
 import com.sajuppugi.fortune.calculation.domain.CalculationFacts;
 import com.sajuppugi.fortune.calculation.domain.CalculationPolicy;
 import com.sajuppugi.fortune.calculation.domain.RelationCalculator;
+import com.sajuppugi.fortune.calculation.domain.SpecialStarCalculator;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -55,6 +56,7 @@ public class DeterministicSajuEngine implements SajuCalculationUseCase {
         EightChar eightChar = wallLunar.getEightChar();
         eightChar.setSect(policy.dayBoundary() == CalculationPolicy.DayBoundary.MIDNIGHT ? 2 : 1);
 
+        Luck luck = luck(input, eightChar, month, input.birthTimeUnknown());
         return new CalculationFacts(
                 new Meta("deterministic-java", ENGINE_VERSION, policy.version(), policy.zoneId().getId(), policy.dayBoundary(), !input.birthTimeUnknown()),
                 dates,
@@ -64,7 +66,8 @@ public class DeterministicSajuEngine implements SajuCalculationUseCase {
                 tenGods(pillars, dayMaster),
                 stages(eightChar, input.birthTimeUnknown()),
                 RelationCalculator.calculate(pillars),
-                luck(input, eightChar, month, input.birthTimeUnknown()));
+                luck,
+                SpecialStarCalculator.calculate(pillars, dayMaster, luck));
     }
 
     private CalendarDates convert(BirthInput input) {

@@ -1,22 +1,18 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
-### 2026-10-16: FE·B 직접결제 인수인계와 배포 차단 보완
-
-- 최신 main `51c76bf`(FE #52·#55)를 배포 브랜치에 충돌 없이 통합. FE·B의 Q-64~66 전달은 API/실결제 완료 사실이 아니라 후속 계약·구현 항목으로 기록.
-- prelaunch 전용 HTTP filter로 직접결제 batch 생성·승인·일반/수능 fulfillment·구 충전·구매·선물·webhook 쓰기를 controller 이전에 503으로 차단. future direct-payment 하위 경로도 포함. PG 키 비활성만으로 주문 상태 변경을 막을 수 없는 위험 보완. 기존 staging/production에 filter 자동 적용하지 않음.
-- P-07·상단 결제 방향과 P-08의 PG 미선정 상태 갱신. 기존 금융/개인정보 데이터·migration·업무 API 계약 변경 없음. API 구현 없는 OpenAPI 추가·직접결제 #49 머지·FE 버튼/문구 수정은 수행하지 않음.
-- CI에 배포 ZIP 생성 추가. 신규 차단 검사와 최종 회귀 결과는 PR 검증 결과 기준. 실제 AWS 배포·카카오/PG/R2 실연결은 여전히 별도 검증.
-
 ### 2026-10-16: AWS PG 비활성 첫 배포 준비
 
-- 기준 main `2aadee5`, 브랜치 `codex/aws-prelaunch-deployment`. 사용자 요청에 따라 PG 연결보다 서버 배포 준비를 먼저 진행. FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 구성이며 실제 AWS 자원 생성·배포는 미실행.
-- `staging,prelaunch` 전용 기동 검사 추가. local/test/production 혼합, PG adapter·금융/선물/관리자/미준비 worker 활성화, fake Liner, 누락 설정, 잘못된 FE HTTPS origin·카카오 proxy callback을 거절. 값 원문 없이 설정 이름만 오류에 사용. 기존 업무 API·원장·migration 변경 없음.
-- `beanstalkPrelaunchBundle`은 app.jar·Procfile·검토된 .ebextensions만 ZIP으로 묶음. PORT=5000, readiness 경로, graceful shutdown 및 연결 풀 설정 추가. .env·실제 키·소스 미포함 확인.
-- 적용 점검: 6-1 고정 FE origin/콜백·권한 유지, 6-3 PG 비활성, 6-4 미준비 작업 차단, 6-6 실행 패키지/기동, 6-7 복원 절차 안내, 6-8 health·관측, 6-9 비밀값·암호화 키 보존.
-- 배포 설정 27건·기존 Toss 설정 3건 총 30건 통과, 실패/오류/선택 제외 0. bootJar·배포 ZIP 생성 성공, git diff --check 통과. 전체 회귀 재실행 아님.
-- 별도 일회용 PostgreSQL 17 컨테이너(127.0.0.1:55436/saju_prelaunch_check), synthetic OAuth/Liner 키·새 테스트 암호화 키로 실제 실행 JAR 기동. 54 migrations 적용, readiness=200/UP·liveness=200·세션 GET=200·API docs=401 확인. 실제 PG·Liner·카카오 외부 호출 없음. 임시 JVM·컨테이너 종료, 기존 개발/운영 DB 미사용.
-- 미검증: AWS 리전/계정/HTTPS/보안 그룹/Secrets Manager, 실제 FE proxy·카카오 로그인·인물 저장 E2E, 운영 용량·강제 종료 복구·백업 복원. guard 테스트와 health 결과는 실제 결제·로그인·판매 준비 완료의 근거가 아님.
-- 환경 변수·업로드·검증·제한은 `backend/docs/AWS_PRELAUNCH_DEPLOYMENT.md`. 최신 FE 직접결제와 BE API 호환·PG 선정/전환은 별도 작업. 실제 배포 업체·리전 확정 후 개인정보처리방침 수정 필요.
+- FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
+- 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
+
+### 2026-10-15: 유료 운세 10개 섹션·신살 13종·생성 대기 preview 백엔드
+
+- 결정론적 만세력 facts에 `sinsal-v1` 규칙의 원국 13종을 모두 포함하고, 출현 위치·개수·반복 신살과 10년 대운/개별 세운 활성 후보를 계산한다. Liner는 이 facts를 설명할 뿐 신살을 자체 계산하지 않는다. 학파별 규칙 차이가 있으므로 출시 전 명리 담당자가 `sinsal-v1` 표를 검수해야 한다.
+- 무료 운세는 바꾸지 않고 일반 유료 운세 5종과 수능운의 생성 section을 10개로 맞췄다. 각 section은 `title`, `content`, `sourceFactKeys`를 가지며 Liner prompt의 본문 목표를 약 700자로 올렸다. 기존 일반운 응답 필드는 유지하고 순서가 있는 `sections`를 additive로 제공한다.
+- 소유자 전용 구매 상태 조회의 처리 중 상태에만 `generationPreview`를 추가했다. 암호화된 구매 generation context의 facts로 약 300자 구어체를 결정론적으로 만들며, 구매 시각의 서울 날짜 일진 지지를 `mouse`~`pig` 키로 반환한다. 이름·원문 생년정보는 응답에 포함하지 않는다.
+- 10개×약 700자 응답을 수용하도록 기본 Liner 출력 상한을 8,000 token으로 높였다. 실제 평균 token·비용·p95 생성 시간과 동시 생성 한도는 staging에서 측정하지 않았으므로 출시 전 6-10 용량 점검이 필요하다.
+- 적용: 6-1 구매자/quote 소유권, 6-3 Liner schema·재시도·fallback, 6-4 암호화 generation context 재사용, 6-6 additive 응답과 생성/content version 갱신, 6-9 facts-only 외부 전송, 6-10 출력량·비용·지연 미측정. 부적 조합은 PD 목록 미수령으로 변경하지 않았고 오늘의 운세도 변경하지 않았다.
+- 배포 결정은 프론트 AWS Amplify Hosting으로 갱신했다. AWS 공식 Amplify Hosting compute는 Node.js 서버 계약이어서 현재 Spring Boot/JVM 백엔드는 직접 실행할 수 없다. 백엔드의 AWS App Runner/ECS/Elastic Beanstalk 중 대상, PostgreSQL 제공처, ingress/cookie/rollback은 미확정이며 실제 배포는 수행하지 않았다.
 
 ### 2026-10-15: BE-B 최신 main 통합·PostgreSQL 전체 회귀
 

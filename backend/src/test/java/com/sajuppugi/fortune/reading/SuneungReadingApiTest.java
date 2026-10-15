@@ -118,7 +118,7 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.subjectDisplayName").value("민지"))
                 .andExpect(jsonPath("$.data.reading.event.type").value("CSAT"))
                 .andExpect(jsonPath("$.data.reading.event.date").value("2026-11-19"))
-                .andExpect(jsonPath("$.data.reading.sections.length()").value(8))
+                .andExpect(jsonPath("$.data.reading.sections.length()").value(10))
                 .andExpect(jsonPath("$.data.reading.suneungGuide.examPeriods.length()").value(7))
                 .andExpect(jsonPath("$.data.reading.suneungGuide.examPeriods[0].period").value("BEFORE_ENTRY"))
                 .andExpect(jsonPath("$.data.reading.suneungGuide.examPeriods[6].period").value("FINAL_CHECK"))
@@ -141,7 +141,7 @@ class SuneungReadingApiTest {
         mvc.perform(get("/api/v1/readings/{id}", readingId).with(user(userId.toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(readingId))
-                .andExpect(jsonPath("$.data.sections.length()").value(8));
+                .andExpect(jsonPath("$.data.sections.length()").value(10));
         mvc.perform(get("/api/v1/readings/{id}", readingId).with(user(otherUserId.toString())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("READING_NOT_FOUND"));
@@ -242,7 +242,7 @@ class SuneungReadingApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.status").value("FULFILLED"))
                 .andExpect(jsonPath("$.data.reading.generationMode").value("FALLBACK"))
-                .andExpect(jsonPath("$.data.reading.sections.length()").value(8))
+                .andExpect(jsonPath("$.data.reading.sections.length()").value(10))
                 .andExpect(jsonPath("$.data.reading.sections[0].content").value(
                         org.hamcrest.Matchers.containsString("합격 여부를 단정하는 예측이 아니라")))
                 .andExpect(jsonPath("$.data.reading.sections[1].content").value(
