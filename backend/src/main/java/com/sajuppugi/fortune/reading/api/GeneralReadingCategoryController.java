@@ -21,6 +21,7 @@ import com.sajuppugi.fortune.reading.domain.RelationType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
@@ -94,7 +95,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.OVERALL, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::overall);
     }
 
@@ -103,7 +104,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.LOVE, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::love);
     }
 
@@ -112,7 +113,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.WEALTH, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::wealth);
     }
 
@@ -121,7 +122,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody CompatibilityPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.COMPATIBILITY, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(),
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(),
                 request.counterpartPersonId(), request.relationType());
         return purchaseResponse(result, this::compatibility);
     }
@@ -131,7 +132,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.SINSAL, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::sinsal);
     }
 
@@ -211,10 +212,10 @@ public class GeneralReadingCategoryController {
     }
 
     private PurchaseResult purchase(Authentication authentication, String key, FortuneType type, UUID quoteId,
-                                    UUID personId, ProductOption option, String questionKey,
+                                    UUID personId, ProductOption option, String questionKey, String personalizedConcern,
                                     UUID counterpartPersonId, RelationType relationType) {
         return readings.purchase(userId(authentication), quoteId, type, option, personId,
-                counterpartPersonId, relationType, questionKey, new IdempotencyKey(key));
+                counterpartPersonId, relationType, questionKey, personalizedConcern, new IdempotencyKey(key));
     }
 
     private <T> ResponseEntity<ApiResponse<CategoryPurchaseResponse<T>>> purchaseResponse(
@@ -336,13 +337,15 @@ public class GeneralReadingCategoryController {
                                              @NotNull ProductOption productOption, @NotBlank String questionKey) {}
 
     public record StandardPurchaseRequest(@NotNull UUID quoteId, @NotNull UUID personId,
-                                          @NotNull ProductOption productOption, @NotBlank String questionKey) {}
+                                          @NotNull ProductOption productOption, @NotBlank String questionKey,
+                                          @Size(max = 100) String personalizedConcern) {}
 
     public record CompatibilityPurchaseRequest(@NotNull UUID quoteId, @NotNull UUID personId,
                                                 @NotNull UUID counterpartPersonId,
                                                 @NotNull RelationType relationType,
                                                 @NotNull ProductOption productOption,
-                                                @NotBlank String questionKey) {}
+                                                @NotBlank String questionKey,
+                                                @Size(max = 100) String personalizedConcern) {}
 
     @Schema(requiredProperties = {"quoteId", "productCode", "productOption", "questionKey", "charged",
             "expiresAt", "walletBalance", "balanceAfter", "shortage", "recommendedTopUp", "productName", "regularPrice"})

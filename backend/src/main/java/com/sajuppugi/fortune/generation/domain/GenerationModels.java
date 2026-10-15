@@ -36,7 +36,8 @@ public final class GenerationModels {
             List<SectionKey> allowedSections,
             List<String> missingFields,
             String generationVersion,
-            String contentVersion) {
+            String contentVersion,
+            String personalizedConcern) {
         public GenerationCommand {
             Objects.requireNonNull(requesterUserId, "requesterUserId");
             Objects.requireNonNull(fortuneType, "fortuneType");
@@ -53,7 +54,25 @@ public final class GenerationModels {
                                  List<SectionKey> allowedSections, List<String> missingFields,
                                  String generationVersion, String contentVersion) {
             this(requesterUserId, fortuneType, referenceDate, interestKey, calculationFacts, null, null,
-                    allowedSections, missingFields, generationVersion, contentVersion);
+                    allowedSections, missingFields, generationVersion, contentVersion, null);
+        }
+
+        public GenerationCommand(UUID requesterUserId, FortuneType fortuneType, LocalDate referenceDate,
+                                 String interestKey, CalculationFacts calculationFacts,
+                                 List<SectionKey> allowedSections, List<String> missingFields,
+                                 String generationVersion, String contentVersion, String personalizedConcern) {
+            this(requesterUserId, fortuneType, referenceDate, interestKey, calculationFacts, null, null,
+                    allowedSections, missingFields, generationVersion, contentVersion, personalizedConcern);
+        }
+
+        public GenerationCommand(UUID requesterUserId, FortuneType fortuneType, LocalDate referenceDate,
+                                 String interestKey, CalculationFacts calculationFacts,
+                                 CalculationFacts counterpartCalculationFacts, String relationKey,
+                                 List<SectionKey> allowedSections, List<String> missingFields,
+                                 String generationVersion, String contentVersion) {
+            this(requesterUserId, fortuneType, referenceDate, interestKey, calculationFacts,
+                    counterpartCalculationFacts, relationKey, allowedSections, missingFields,
+                    generationVersion, contentVersion, null);
         }
     }
 
@@ -65,6 +84,7 @@ public final class GenerationModels {
             LocalDate referenceDate,
             String interestKey,
             String relationKey,
+            String personalizedConcern,
             JsonNode facts,
             List<String> missingFields,
             List<SectionKey> allowedSections,
@@ -79,19 +99,28 @@ public final class GenerationModels {
                             FortuneType fortuneType, LocalDate referenceDate, String interestKey, String relationKey,
                             JsonNode facts, List<String> missingFields, List<SectionKey> allowedSections) {
             this(generationKey, calculationVersion, generationVersion, fortuneType, referenceDate,
-                    interestKey, relationKey, facts, missingFields, allowedSections, List.of());
+                    interestKey, relationKey, null, facts, missingFields, allowedSections, List.of());
+        }
+
+        public LinerRequest(String generationKey, String calculationVersion, String generationVersion,
+                            FortuneType fortuneType, LocalDate referenceDate, String interestKey, String relationKey,
+                            String personalizedConcern, JsonNode facts, List<String> missingFields,
+                            List<SectionKey> allowedSections) {
+            this(generationKey, calculationVersion, generationVersion, fortuneType, referenceDate,
+                    interestKey, relationKey, personalizedConcern, facts, missingFields, allowedSections, List.of());
         }
 
         public LinerRequest(String generationKey, String calculationVersion, String generationVersion,
                             FortuneType fortuneType, LocalDate referenceDate, String interestKey,
                             JsonNode facts, List<String> missingFields, List<SectionKey> allowedSections) {
             this(generationKey, calculationVersion, generationVersion, fortuneType, referenceDate,
-                    interestKey, null, facts, missingFields, allowedSections, List.of());
+                    interestKey, null, null, facts, missingFields, allowedSections, List.of());
         }
 
         public LinerRequest withValidationFeedback(List<String> feedback) {
             return new LinerRequest(generationKey, calculationVersion, generationVersion, fortuneType,
-                    referenceDate, interestKey, relationKey, facts, missingFields, allowedSections, feedback);
+                    referenceDate, interestKey, relationKey, personalizedConcern, facts, missingFields,
+                    allowedSections, feedback);
         }
     }
 

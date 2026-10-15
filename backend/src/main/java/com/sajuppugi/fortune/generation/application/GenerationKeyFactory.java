@@ -30,6 +30,7 @@ public class GenerationKeyFactory {
         seed.put("referenceDate", command.referenceDate());
         seed.put("interestKey", command.interestKey());
         seed.put("relationKey", command.relationKey());
+        seed.put("personalizedConcern", command.personalizedConcern());
         seed.put("calculationVersion", command.calculationFacts().meta().calculationVersion());
         seed.put("generationVersion", command.generationVersion());
         try {

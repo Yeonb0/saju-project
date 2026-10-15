@@ -64,6 +64,12 @@ public class SuneungReadingService {
     }
 
     public PurchaseResult purchase(UUID userId, UUID quoteId, UUID personId, IdempotencyKey key) {
+        return purchase(userId, quoteId, personId, null, key);
+    }
+
+    public PurchaseResult purchase(UUID userId, UUID quoteId, UUID personId, String personalizedConcern,
+                                   IdempotencyKey key) {
+        String concern = PersonalizedConcern.normalize(personalizedConcern);
         ReadingPurchase existing = readings.findPurchaseByQuote(userId, quoteId).orElse(null);
         if (existing != null) {
             PurchaseQuote snapshot = validateQuoteSnapshot(catalog.getQuoteSnapshot(userId, quoteId), personId);
@@ -100,7 +106,7 @@ public class SuneungReadingService {
         GenerationCommand command = new GenerationCommand(userId, FortuneType.SUNEUNG,
                 SuneungEventPolicy.EXAM_DATE, "EXAM_FOCUS", facts, SECTIONS,
                 subject.birthInput().birthTimeUnknown() ? List.of("pillars.hour", "tenGods.hour", "twelveStages.hour") : List.of(),
-                SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION);
+                SuneungEventPolicy.GENERATION_VERSION, SuneungEventPolicy.CONTENT_VERSION, concern);
         GenerationResumeContext resumeContext = new GenerationResumeContext(command,
                 ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(), null, null, null,
                 "EXAM_FOCUS", true);
