@@ -2,7 +2,8 @@
 // 카드사 심사는 사업자등록증과 글자까지 같은 값을 요구한다. 값은 사용자가 준 것만 넣고, 지어내거나 기본값을 넣지 않는다.
 // 상호 · 대표자 · 사업자등록번호 · 주소 = 사업자등록증 그대로 (R-08 해결 · R-07, 2026-10-10)
 // 전자우편주소 = PD 확정값 (2026-10-13 PD 답변 · 정책 확정본, R-07). 「문의하기」 메일 링크는 src/lib/support/contact.ts 가 이 값으로 만든다 (기능 명세서 v0.4 13장 · Q-47)
-// TODO(R-07): 유선번호 · 통신판매업 신고번호(또는 신고 면제 표시 — 문구 확정 전) · 호스팅서비스 제공자 상호(Q-44) 는 미정
+// 유선번호 = 고객센터 전화번호 (2026-10-15 사용자 전달, R-07)
+// TODO(R-07): 통신판매업 신고번호(또는 신고 면제 표시 — 문구 확정 전) · 호스팅서비스 제공자 상호(Q-44) 는 미정
 // 전자우편주소 · 호스팅 제공자: 전자상거래법 제10조 · 시행령 사이버몰 표시사항 (토스 심사 6개 항목 외 법정 항목)
 export type BusinessField =
   | "companyName"
@@ -21,7 +22,7 @@ export const BUSINESS_INFO: BusinessInfo = {
   representative: "김윤진",
   registrationNumber: "792-74-00624",
   address: "서울특별시 강남구 논현로38길 30, 3층 a105호(도곡동)",
-  phone: null,
+  phone: "010-7429-0716",
   email: "ppugisaju@gmail.com",
   mailOrderNumber: null,
   hostingProvider: null,

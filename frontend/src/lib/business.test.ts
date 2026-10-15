@@ -27,8 +27,8 @@ describe("BUSINESS_INFO (사업자등록증 그대로)", () => {
     );
   });
 
-  it("유선번호는 미정", () => {
-    expect(BUSINESS_INFO.phone).toBeNull();
+  it("유선번호", () => {
+    expect(BUSINESS_INFO.phone).toBe("010-7429-0716");
   });
 
   it("전자우편주소", () => {
@@ -45,7 +45,7 @@ describe("BUSINESS_INFO (사업자등록증 그대로)", () => {
 });
 
 describe("BusinessFooter 기본값", () => {
-  it("info 없이 렌더하면 BUSINESS_INFO 값이 보이고 미정은 3개다", () => {
+  it("info 없이 렌더하면 BUSINESS_INFO 값이 보이고 미정은 2개다", () => {
     render(createElement(BusinessFooter));
     expect(screen.getByText("마다")).toBeTruthy();
     expect(screen.getByText("김윤진")).toBeTruthy();
@@ -54,6 +54,7 @@ describe("BusinessFooter 기본값", () => {
       screen.getByText("서울특별시 강남구 논현로38길 30, 3층 a105호(도곡동)"),
     ).toBeTruthy();
     expect(screen.getByText("ppugisaju@gmail.com")).toBeTruthy();
-    expect(screen.getAllByText("(미정)")).toHaveLength(3);
+    expect(screen.getByText("010-7429-0716")).toBeTruthy();
+    expect(screen.getAllByText("(미정)")).toHaveLength(2);
   });
 });
