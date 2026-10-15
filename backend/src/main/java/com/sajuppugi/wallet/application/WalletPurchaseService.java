@@ -30,13 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** Internal port only. Enable after purchase recovery and subject integration are ready. */
 @Service
 @ConditionalOnProperty(name = "app.wallet.purchases-enabled", havingValue = "true")
-/*
- * Join a caller's short business transaction when there is one.  In particular,
- * an addon purchase must never commit a debit without its durable purchase and
- * PENDING talisman intent.  Standalone wallet calls still open their own
- * transaction through Spring's default REQUIRED propagation.
- */
-@Transactional(timeout = 10)
+@Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 10)
 public class WalletPurchaseService implements WalletPurchasePort, WalletPurchaseRecoveryPort {
     private final WalletRepository wallets;
     private final WalletPurchaseRepository purchases;
@@ -53,6 +47,16 @@ public class WalletPurchaseService implements WalletPurchasePort, WalletPurchase
 
     @Override
     public DebitResult debit(UUID userId, UUID quoteId, IdempotencyKey key) {
+        return debitInternal(userId, quoteId, key);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, timeout = 10)
+    public DebitResult debitInCurrentTransaction(UUID userId, UUID quoteId, IdempotencyKey key) {
+        return debitInternal(userId, quoteId, key);
+    }
+
+    private DebitResult debitInternal(UUID userId, UUID quoteId, IdempotencyKey key) {
         validate(userId, quoteId, key);
         var before = wallets.lock(userId);
         String hash = hash("DEBIT:" + quoteId);

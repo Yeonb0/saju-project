@@ -12,6 +12,12 @@
 - 같은 PostgreSQL 17 DB에서 동시 구매/응답 유실 재시도와 render job lease 만료 후 재claim, 이전 lease의 늦은 완료 무효화를 `TalismanAddonPurchasePostgresTest` 2건으로 확인했다. renderer/R2 adapter가 없어 실제 JVM kill 뒤 파일 업로드 재개 및 독립 process 두 개의 renderer 호출은 아직 검증하지 않았다.
 - 적용: 6-2 lock ordering·중복 차감 방지, 6-4 expired lease/fence, 6-6 PostgreSQL 전용 검증. 
 
+### 2026-10-15: addon 원자 차감과 기존 선물 purchase 전파 분리
+
+- addon의 claim/차감/PENDING 부적 원자성을 위해 지갑 차감 전체를 caller transaction에 참여시키면, 기존 선물 구매가 wallet receipt의 독립 commit을 전제로 다음 resume에서 `PENDING`에 머무르는 회귀를 확인했다. 기본 `debit`은 기존 `REQUIRES_NEW`로 복원하고, addon만 `debitInCurrentTransaction` 내부 port로 현재 짧은 transaction 참여를 명시했다.
+- 빈 PostgreSQL 17 DB `saju_be_b_full_20261015`에서 `GiftRecipientPostgresTest` 41건과 `TalismanAddonPurchasePostgresTest` 2건을 `--rerun-tasks`로 통과했다. gift receipt/worker/snapshot/파기 회귀와 addon 중복 차감·lease fence를 함께 확인했다.
+- 적용: 6-2 transaction boundary·ledger consistency, 6-4 worker recovery. 실제 R2 upload/DB 저장 사이 JVM kill, staging browser/OAuth, 백업 복원은 외부 adapter/environment가 없어 미검증이다.
+
 ### 2026-10-15: 부적 addon catalog quote 상품
 
 - 일반 운세 다섯 유형에 `*_TALISMAN_ADDON` catalog 상품을 additive migration으로 추가했다. 현재 `READING_WITH_TALISMAN(15) - READING_ONLY(10)` 차액인 5 등껍질을 quote snapshot 가격으로 기록하며, client 입력 가격은 사용하지 않는다. 이후 정책 변경은 기존 quote를 수정하지 않고 새 catalog version/상품으로 처리한다.

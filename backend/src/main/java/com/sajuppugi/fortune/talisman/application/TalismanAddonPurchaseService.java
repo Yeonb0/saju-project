@@ -68,7 +68,7 @@ public class TalismanAddonPurchaseService {
         }
         WalletPurchasePort wallet = wallets.getIfAvailable();
         if (wallet == null) throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
-        var debit = wallet.debit(ownerUserId, quoteId, new IdempotencyKey("talisman-addon:" + claimed.id()));
+        var debit = wallet.debitInCurrentTransaction(ownerUserId, quoteId, new IdempotencyKey("talisman-addon:" + claimed.id()));
         if (debit.debitedAmount() != quote.productSnapshot().price().amount()) {
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
