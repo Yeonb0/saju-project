@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: BE-B 선물 fallback fulfillment worker 연결
+
+- 기본 비활성 `app.gift.fulfillment-worker-enabled` worker를 추가했다. due job을 짧은 claim transaction으로 lease한 뒤, 별도 짧은 read transaction에서 암호화 profile을 가져오고 transaction 밖에서 복호화·사주 facts 계산·deterministic fallback 결과를 생성한다. 외부 Liner 호출·실제 부적 이미지/R2 생성은 하지 않는다.
+- 결과 저장 callback에서는 현재 lease token/fence를 다시 확인하고 같은 gift receipt snapshot을 저장한 뒤 기존 `provide` transaction으로 최초 제공을 확정한다. 실패는 1분 뒤 `RETRY`로 제한 재시도하며, claim 최대 5회 소진은 기존 `REVIEW_REQUIRED`로 수렴한다. profile raw birth input은 결과 JSON에 넣지 않는다.
+- PostgreSQL 17 `saju_gift_result_api_20261015`에서 기존 `GiftRecipientPostgresTest` 36건 및 컴파일을 재실행했다. worker feature flag를 켠 process-kill/lease-expiry/fallback E2E와 실제 운영 scheduler, 외부 provider timeout은 아직 미검증이며 판매/worker 활성화도 수행하지 않았다. 적용: 6-2 짧은 transaction, 6-4 durable lease/fence/retry, 6-5 gift 결과 접근, 6-9 facts-only projection.
+
 ### 2026-10-15: 선물 결과 snapshot receipt 소유 경계 보강
 
 - immutable snapshot 저장 전 `receipt_id`가 같은 `gift_id`의 purchase work에 속하는지 확인하도록 보강했다. 조회도 receipt→work join으로 다시 확인한다. 따라서 잘못된 worker 입력이나 내부 호출이 다른 선물의 receipt/content를 snapshot에 연결할 수 없고, 해당 transaction은 rollback된다.

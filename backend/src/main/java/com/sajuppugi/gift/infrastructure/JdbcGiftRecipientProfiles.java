@@ -2,6 +2,7 @@ package com.sajuppugi.gift.infrastructure;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -41,6 +42,19 @@ public class JdbcGiftRecipientProfiles {
                 """, (rs, row) -> rs.getString(1), giftId).stream().findFirst().orElseThrow();
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
+    public Optional<WorkerProfile> loadForWorker(UUID profileId, UUID giftId) {
+        return jdbc.query("""
+                SELECT p.id,p.gift_id,p.profile_ciphertext,w.product_code,r.id
+                FROM gift_recipient_profiles p
+                JOIN gift_fulfillment_jobs j ON j.profile_id = p.id AND j.gift_id = p.gift_id
+                JOIN gift_purchase_work w ON w.gift_id = p.gift_id AND w.status = 'ACTIVE'
+                JOIN gift_recipient_receipts r ON r.order_id = w.order_id AND r.state IN ('ACCEPTED','REVIEW_REQUIRED')
+                WHERE p.id = ? AND p.gift_id = ? AND p.profile_ciphertext IS NOT NULL
+                """, (rs, row) -> new WorkerProfile(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class),
+                rs.getString(3), rs.getString(4), rs.getObject(5, UUID.class)), profileId, giftId).stream().findFirst();
+    }
+
     /**
      * The surrounding privacy transaction has established that the gift's purpose has ended. Retain only
      * non-personal operational state and make the encrypted recipient snapshot unavailable to any worker.
@@ -77,4 +91,5 @@ public class JdbcGiftRecipientProfiles {
     }
 
     private record Profile(UUID id, UUID giftId, String ciphertext) {}
+    public record WorkerProfile(UUID profileId, UUID giftId, String ciphertext, String productCode, UUID receiptId) {}
 }

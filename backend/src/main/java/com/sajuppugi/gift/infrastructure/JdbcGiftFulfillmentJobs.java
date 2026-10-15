@@ -73,6 +73,25 @@ public class JdbcGiftFulfillmentJobs {
                 """, state.name(), Timestamp.from(now), lease.jobId(), lease.token(), lease.fence()) == 1;
     }
 
+    @Transactional(propagation = Propagation.MANDATORY, timeout = 10)
+    public void requireCurrent(Lease lease) {
+        int current = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM gift_fulfillment_jobs
+                WHERE id = ? AND gift_id = ? AND state = 'GENERATING' AND lease_token = ? AND fencing_version = ?
+                """, Integer.class, lease.jobId(), lease.giftId(), lease.token(), lease.fence());
+        if (current != 1) throw new IllegalStateException("Gift fulfillment lease is stale");
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 10)
+    public boolean retry(Lease lease, Instant now, Duration delay) {
+        if (delay == null || delay.isNegative() || delay.compareTo(Duration.ofHours(1)) > 0) throw new IllegalArgumentException("Invalid retry delay");
+        return jdbc.update("""
+                UPDATE gift_fulfillment_jobs SET state = 'RETRY', lease_token = NULL, lease_until = NULL,
+                    next_attempt_at = ?, last_failure_code = 'FULFILLMENT_GENERATION_FAILED', updated_at = ?
+                WHERE id = ? AND state = 'GENERATING' AND lease_token = ? AND fencing_version = ?
+                """, Timestamp.from(now.plus(delay)), Timestamp.from(now), lease.jobId(), lease.token(), lease.fence()) == 1;
+    }
+
     public enum State {
         WAITING_TALISMAN, READY, RETRY, FAILED, REVIEW_REQUIRED, CANCELED, PURGED;
         boolean completion() { return this == WAITING_TALISMAN || this == READY || this == FAILED || this == REVIEW_REQUIRED; }
