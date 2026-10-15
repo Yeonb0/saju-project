@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 수신자 계정 연결 `받은 선물` 목록 API
+
+- 인증된 수신자 전용 `GET /api/v1/received-gifts` cursor API를 추가했다. `recipient_user_id`가 현재 활성 계정이고, 제공 완료·ACTIVE·재열람 기한 내인 gift만 반환한다. 공개 token, 메시지, 생년정보, 구매자 정보는 목록에 포함하지 않는다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 계정 연결 뒤 목록 조회와 다른 계정의 빈 목록을 포함한 `GiftRecipientPostgresTest` 40건을 `--rerun-tasks`로 통과했다. 적용: 6-1 계정 소유권, 6-5 link token과 로그인 목록 경계, 6-9 최소 projection. 받은 선물의 상세 재열람은 기존 public result/linked ownership port를 별도 controller로 연결해야 한다.
+
 ### 2026-10-15: 만료 lease worker 복구 검증
 
 - 첫 worker가 30초 lease를 잡은 뒤 완료하지 못한 상황을 만들고, lease 만료 후 fallback worker가 같은 job을 재claim해 snapshot/READY를 확정하는 경로를 검증했다. 이전 worker의 늦은 `complete`는 fencing version 불일치로 거절되어 결과를 바꾸지 못한다.

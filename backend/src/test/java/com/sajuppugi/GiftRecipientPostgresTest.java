@@ -3,6 +3,7 @@ package com.sajuppugi;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -363,6 +364,18 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         assertThat(resultSnapshots.find(giftId)).isPresent();
         assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE id = ?", String.class, job)).isEqualTo("READY");
         assertThat(fulfillmentJobs.complete(stale, JdbcGiftFulfillmentJobs.State.READY, time)).isFalse();
+    }
+    @Test void linkedRecipientCanListOnlyProvidedActiveGifts() throws Exception {
+        var order = active(); String raw = token(order.orderId());
+        var receipt = accept(order.orderId(), UUID.randomUUID());
+        recipients.provide(receipt.receiptId(), UUID.randomUUID(), () -> {});
+        recipients.link(raw, owner);
+        mvc.perform(get("/api/v1/received-gifts").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(owner.toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].giftId").value(receipt.giftId().toString()))
+                .andExpect(jsonPath("$.data.items[0].option").value("TALISMAN_ONLY"));
+        mvc.perform(get("/api/v1/received-gifts").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(UUID.randomUUID().toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
     }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());
