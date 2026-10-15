@@ -274,6 +274,21 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
                 .isInstanceOf(RuntimeException.class).hasMessageContaining("Gift result snapshot conflict");
         assertThat(resultSnapshots.find(giftId)).contains(snapshot);
     }
+    @Test void resultSnapshotCannotBindAnotherGiftsReceipt() throws Exception {
+        var first = active(); var second = active();
+        String firstToken = token(first.orderId()), secondToken = token(second.orderId());
+        UUID firstGift = access.verify(firstToken).giftId();
+        var secondReceipt = recipientService.submit(secondToken, "other-gift-receipt", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        var mismatch = new JdbcGiftResultSnapshots.Snapshot(UUID.randomUUID(), firstGift, secondReceipt.receiptId(), UUID.randomUUID(),
+                "GIFT_SUNEUNG_TALISMAN_ONLY", "gift-v1", "fallback-v1", "{\"talisman\":{\"status\":\"PENDING\"}}",
+                "e".repeat(64), time);
+        assertThatThrownBy(() -> new TransactionTemplate(transactions).executeWithoutResult(transaction -> resultSnapshots.insert(mismatch)))
+                .isInstanceOf(RuntimeException.class).hasMessageContaining("does not belong");
+        assertThat(resultSnapshots.find(firstGift)).isEmpty();
+    }
     @Test void publicResultPollsThenProvidesTheImmutableSnapshotOnce() throws Exception {
         var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
         mvc.perform(post("/api/v1/public/gifts/result").contentType(MediaType.APPLICATION_JSON)

@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 선물 결과 snapshot receipt 소유 경계 보강
+
+- immutable snapshot 저장 전 `receipt_id`가 같은 `gift_id`의 purchase work에 속하는지 확인하도록 보강했다. 조회도 receipt→work join으로 다시 확인한다. 따라서 잘못된 worker 입력이나 내부 호출이 다른 선물의 receipt/content를 snapshot에 연결할 수 없고, 해당 transaction은 rollback된다.
+- PostgreSQL 17 `saju_gift_result_api_20261015`에서 `GiftRecipientPostgresTest` 36건을 재실행했다. 다른 gift receipt 연결 거절, 기존 snapshot 충돌 차단, 공개 결과 polling, profile 파기·claim fence 회귀를 확인했다. 적용: 6-1 gift/token 권한 경계, 6-2 atomic rollback, 6-5 private asset/result 소유권. worker의 외부/fallback 생성과 process-kill 재개는 다음 단계다.
+
 ### 2026-10-15: BE-B 공개 선물 결과 polling API
 
 - `POST /api/v1/public/gifts/result`를 추가했다. body의 raw token만 받아 결과 snapshot이 없으면 `202 PROCESSING`, 있으면 `200 READY`와 typed JSON projection을 반환한다. token은 path/query/log DTO에 넣지 않으며 gift ID·receipt ID·worker lease 같은 내부 식별자는 응답하지 않는다.
