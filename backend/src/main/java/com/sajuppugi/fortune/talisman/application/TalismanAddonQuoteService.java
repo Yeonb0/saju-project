@@ -16,8 +16,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class TalismanAddonQuoteService {
     private final ReadingRepository readings; private final CatalogUseCase catalog; private final QuoteFundingService funding;
-    public TalismanAddonQuoteService(ReadingRepository readings, CatalogUseCase catalog, QuoteFundingService funding) {
-        this.readings=readings; this.catalog=catalog; this.funding=funding;
+    private final TalismanAddonPricing pricing;
+    public TalismanAddonQuoteService(ReadingRepository readings, CatalogUseCase catalog, QuoteFundingService funding,
+                                     TalismanAddonPricing pricing) {
+        this.readings=readings; this.catalog=catalog; this.funding=funding; this.pricing=pricing;
     }
     public QuoteFundingService.FundingView issue(UUID user, UUID readingId) {
         OwnedReading reading = readings.findOwnedReading(user, readingId).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
@@ -26,6 +28,14 @@ public class TalismanAddonQuoteService {
         Product addon = catalog.availableProducts(Product.Category.TALISMAN_ADDON).stream()
                 .filter(value -> value.fortuneType() != null && value.fortuneType().name().equals(reading.fortuneType().name()))
                 .findFirst().orElseThrow(() -> new ApiException(ErrorCode.PRODUCT_NOT_AVAILABLE));
+        Product readingOnly = catalog.availableProducts(Product.Category.READING).stream().filter(value ->
+                value.fortuneType() != null && value.fortuneType().name().equals(reading.fortuneType().name())
+                        && value.productOption() == Product.ProductOption.READING_ONLY).findFirst()
+                .orElseThrow(() -> new ApiException(ErrorCode.PRODUCT_NOT_AVAILABLE));
+        Product bundled = pricing.paired(catalog.availableProducts(Product.Category.READING), readingOnly);
+        if (!addon.price().equals(pricing.difference(readingOnly, bundled))) {
+            throw new ApiException(ErrorCode.PRODUCT_NOT_AVAILABLE);
+        }
         var quote = catalog.issueQuote(new CatalogUseCase.IssueQuote(user, addon.code(), context(readingId)));
         return funding.get(user, quote.id());
     }

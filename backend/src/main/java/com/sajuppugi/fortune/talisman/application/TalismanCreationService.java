@@ -4,6 +4,7 @@ import com.sajuppugi.fortune.talisman.domain.Talisman;
 import com.sajuppugi.fortune.talisman.domain.Talisman.Status;
 import com.sajuppugi.fortune.talisman.domain.TalismanCompositionPolicy;
 import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort;
+import com.sajuppugi.fortune.talisman.port.TalismanFulfillmentPort.CreateFromStoredFacts;
 import com.sajuppugi.fortune.talisman.port.TalismanRepository;
 import com.sajuppugi.fortune.talisman.port.TalismanRenderJobRepository;
 import java.time.Clock;
@@ -45,6 +46,24 @@ public class TalismanCreationService implements TalismanFulfillmentPort {
             throw new IllegalStateException("Failed talisman cannot fulfill a reading");
         }
         // This is in the same short transaction as the reading fulfillment. The renderer itself runs later.
+        if (stored.status() == Status.PENDING) renderJobs.enqueue(stored.id(), clock.instant());
+        return new TalismanFulfillment(stored.id(), stored.status());
+    }
+
+    @Override
+    @Transactional
+    public TalismanFulfillment createFromStoredFacts(CreateFromStoredFacts command) {
+        Talisman stored = talismans.findByReadingId(command.readingId()).orElseGet(() -> {
+            var composition = compositionPolicy.compose(command.fortuneType(), command.fiveElements());
+            return talismans.createPending(new Talisman(UUID.randomUUID(), command.ownerUserId(), command.readingId(),
+                    command.fortuneType(), composition.element(), composition.animal(), composition.phrase(),
+                    composition.description(), command.contentVersion(), Status.PENDING, null, null,
+                    clock.instant(), null));
+        });
+        if (!stored.ownerUserId().equals(command.ownerUserId()) || stored.fortuneType() != command.fortuneType()
+                || !stored.contentVersion().equals(command.contentVersion()) || stored.status() == Status.FAILED) {
+            throw new IllegalStateException("Stored talisman does not match its reading context");
+        }
         if (stored.status() == Status.PENDING) renderJobs.enqueue(stored.id(), clock.instant());
         return new TalismanFulfillment(stored.id(), stored.status());
     }
