@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 부적 addon 구매 claim·차감·PENDING 부적 PostgreSQL 회귀
+
+- `reading_id` unique claim 뒤 같은 짧은 transaction에서 quote bind, 등껍질 원장 차감, `PENDING` 부적과 단일 render job, addon purchase 상태를 함께 확정했다. 같은 reading의 동시 요청은 PostgreSQL `ON CONFLICT DO NOTHING`으로 기존 claim을 재사용하므로 두 번째 요청이 quote를 다시 bind하거나 추가 차감하지 않는다.
+- 새 PostgreSQL 17 DB `saju_talisman_addon_purchase_20261015`에서 `TalismanAddonPurchasePostgresTest` 1건을 `--rerun-tasks`로 통과했다. 동시 두 요청, 커밋 뒤 응답 유실을 가정한 재시도, 20→15 등껍질 잔액, PURCHASE 원장 1건, addon purchase/PENDING 부적/render job 각 1건을 함께 대사했다.
+- 적용: 6-1 reading 소유권, 6-2 unique claim·wallet lock·원장/잔액 대사, 6-4 durable PENDING render intent, 6-6 기존 migration 변경 없이 검증. 실제 JVM `kill -9` 뒤 재기동, 별도 프로세스 두 개 부하, renderer/R2 및 staging/복원 검증은 아직 미실행이다.
+
 ### 2026-10-15: 부적 addon catalog quote 상품
 
 - 일반 운세 다섯 유형에 `*_TALISMAN_ADDON` catalog 상품을 additive migration으로 추가했다. 현재 `READING_WITH_TALISMAN(15) - READING_ONLY(10)` 차액인 5 등껍질을 quote snapshot 가격으로 기록하며, client 입력 가격은 사용하지 않는다. 이후 정책 변경은 기존 quote를 수정하지 않고 새 catalog version/상품으로 처리한다.
