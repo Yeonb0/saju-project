@@ -55,7 +55,13 @@ public final class TalismanCompositionPolicy {
         String phrase = FORTUNE_THEMES.get(fortuneType) + ", " + phrases.get(random.nextInt(phrases.size()));
         String description = elementName(element) + " 기운을 채울 수 있도록 " + COLORS.get(element)
                 + "빛을 담았어요.";
-        return new Composition(element, animal, phrase, description);
+        String elementKey = element.name().toLowerCase();
+        String animalKey = "animal_" + (animal == Animal.GOAT ? "sheep" : animal.name().toLowerCase());
+        TalismanComposition visual = new TalismanComposition("border_" + elementKey + "_" + (random.nextInt(3) + 1),
+                "paper_" + elementKey + "_" + (random.nextInt(3) + 1), animalKey,
+                "item_" + TalismanCatalog.fortuneKey(fortuneType) + "_" + (random.nextInt(3) + 1),
+                TalismanCatalog.phrase(fortuneType, random.nextInt(100)), "seal_default");
+        return new Composition(element, animal, phrase, description, visual);
     }
 
     Element selectElement(CalculationFacts.FiveElements fiveElements) {
@@ -93,5 +99,6 @@ public final class TalismanCompositionPolicy {
         };
     }
 
-    public record Composition(Element element, Animal animal, String phrase, String description) {}
+    public record Composition(Element element, Animal animal, String phrase, String description,
+                              TalismanComposition visual) {}
 }

@@ -51,6 +51,11 @@ class TalismanCreationServiceTest {
                         && talisman.sourceReadingId().equals(command.readingId())
                         && talisman.fortuneType() == FortuneType.SUNEUNG
                         && talisman.element() == Element.WATER
+                        && talisman.composition() != null
+                        && talisman.composition().borderKey().startsWith("border_water_")
+                        && talisman.composition().paperKey().startsWith("paper_water_")
+                        && talisman.composition().itemKey().startsWith("item_csat_")
+                        && talisman.composition().sealKey().equals("seal_default")
                         && talisman.createdAt().equals(NOW)));
         verify(jobs).enqueue(fulfillment.talismanId(), NOW);
     }

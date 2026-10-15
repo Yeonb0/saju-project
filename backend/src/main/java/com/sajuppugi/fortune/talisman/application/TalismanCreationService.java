@@ -57,7 +57,7 @@ public class TalismanCreationService implements TalismanFulfillmentPort {
             var composition = compositionPolicy.compose(command.fortuneType(), command.fiveElements());
             return talismans.createPending(new Talisman(UUID.randomUUID(), command.ownerUserId(), command.readingId(),
                     command.fortuneType(), composition.element(), composition.animal(), composition.phrase(),
-                    composition.description(), command.contentVersion(), Status.PENDING, null, null,
+                    composition.description(), composition.visual(), command.contentVersion(), Status.PENDING, null, null,
                     clock.instant(), null));
         });
         if (!stored.ownerUserId().equals(command.ownerUserId()) || stored.fortuneType() != command.fortuneType()
@@ -72,7 +72,7 @@ public class TalismanCreationService implements TalismanFulfillmentPort {
         var composition = compositionPolicy.compose(command.fortuneType(), command.facts());
         Talisman pending = new Talisman(UUID.randomUUID(), command.ownerUserId(), command.readingId(),
                 command.fortuneType(), composition.element(), composition.animal(), composition.phrase(),
-                composition.description(), command.contentVersion(), Status.PENDING, null, null, clock.instant(), null);
+                composition.description(), composition.visual(), command.contentVersion(), Status.PENDING, null, null, clock.instant(), null);
         return talismans.createPending(pending);
     }
 }
