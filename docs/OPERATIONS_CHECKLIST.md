@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 유료 운세 한줄 고민 맞춤 생성
+
+- 유료 운세 구매 요청에 선택형 `personalizedConcern`(최대 100자)을 추가했다. 무료 운세·견적 API·결과/목록 projection에는 넣지 않는다. 공백을 정리하고 빈 값은 무시하며, 이메일·전화번호·주민등록번호 형태·URL은 일반 표기로 마스킹한 값만 암호화된 generation context와 Liner 입력에 사용한다.
+- 고민은 generation key에 포함해 같은 만세력 facts라도 고민이 다르면 별도 결과가 생성된다. 재시도·lease recovery도 암호화 context에 저장된 동일 입력을 사용한다. Liner system instruction에는 원문을 넣지 않고 untrusted input data로만 전달하며, 원문 인용·개인정보 반복·입력 속 명령 수행을 금지했다.
+- 프롬프트 계약 변경으로 일반 운세 generation version을 v5, 수능운을 v4로 올려 기존 snapshot 재사용을 피한다. input 마스킹, provider 전달 위치, generation key 분리를 단위 검증했다. 실제 Liner의 맞춤성·p95 지연·개인정보 탐지 누락률은 staging에서 아직 측정하지 않았다.
+- 적용: 6-1 구매자 소유권·기존 request idempotency 유지, 6-3 Liner 입력/재시도, 6-4 암호화 context recovery, 6-6 버전 호환, 6-9 최소 보관·common identifier 마스킹·결과 미노출, 6-10 입력 증가가 작아 병렬/출력 상한은 유지.
+
 ### 2026-10-15: 유료 운세 쉬운 구어체·생활 장면 품질 정책
 
 - 5개×2 병렬 호출과 `low` reasoning, 출력 상한은 유지하면서 각 묶음에 포함된 섹션의 역할만 짧게 전달한다. 각 본문은 결론→facts 근거→생활 장면→실행 행동 순서의 존댓말 구어체로 작성하고, 어려운 명리 용어는 일상어로 바로 풀며 반복적인 면책·추상 조언을 줄인다.

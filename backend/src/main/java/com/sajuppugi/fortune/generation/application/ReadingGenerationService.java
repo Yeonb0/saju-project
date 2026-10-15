@@ -63,7 +63,8 @@ public class ReadingGenerationService {
                 if (cached != null) return reused(cached);
                 LinerRequest request = new LinerRequest(generationKey,
                         command.calculationFacts().meta().calculationVersion(), command.generationVersion(),
-                        command.fortuneType(), command.referenceDate(), command.interestKey(), command.relationKey(), safeFacts,
+                        command.fortuneType(), command.referenceDate(), command.interestKey(), command.relationKey(),
+                        command.personalizedConcern(), safeFacts,
                         command.missingFields(), command.allowedSections());
                 if (!snapshots.tryClaim(request, command.contentVersion(), GENERATION_LEASE)) {
                     cached = snapshots.findSucceeded(generationKey).orElse(null);
@@ -168,7 +169,8 @@ public class ReadingGenerationService {
                                       java.util.List<com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey> sections) {
         return new LinerRequest(request.generationKey(), request.calculationVersion(), request.generationVersion(),
                 request.fortuneType(), request.referenceDate(), request.interestKey(), request.relationKey(),
-                request.facts(), request.missingFields(), sections, request.validationFeedback());
+                request.personalizedConcern(), request.facts(), request.missingFields(), sections,
+                request.validationFeedback());
     }
 
     private long elapsedMillis(long started) {

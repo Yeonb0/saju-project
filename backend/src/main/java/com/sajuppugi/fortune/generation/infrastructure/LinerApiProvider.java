@@ -95,6 +95,7 @@ public class LinerApiProvider implements LinerProvider {
         input.put("referenceDate", request.referenceDate().toString());
         if (request.interestKey() != null) input.put("questionKey", request.interestKey());
         if (request.relationKey() != null) input.put("relationType", request.relationKey());
+        if (request.personalizedConcern() != null) input.put("personalizedConcern", request.personalizedConcern());
         input.set("facts", request.facts());
         input.set("missingFields", mapper.valueToTree(request.missingFields()));
         input.set("allowedSections", mapper.valueToTree(request.allowedSections()));
