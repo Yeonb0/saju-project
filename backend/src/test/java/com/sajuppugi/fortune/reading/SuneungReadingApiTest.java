@@ -196,7 +196,7 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.data.reused").value(true));
 
         verify(wallet, times(1)).debit(eq(userId), eq(quoteId), any());
-        verify(liner, times(1)).generate(any());
+        verify(liner, times(2)).generate(any());
     }
 
     @Test
@@ -250,7 +250,7 @@ class SuneungReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.sections[6].content").value(
                         org.hamcrest.Matchers.containsString("4초 들이마시고 6초 내쉬는 호흡")));
 
-        verify(liner, times(3)).generate(any());
+        verify(liner, times(6)).generate(any());
         verify(wallet, times(0)).compensate(any(), any(), any());
         assertThatStatus("FULFILLED");
     }

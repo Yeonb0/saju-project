@@ -48,8 +48,8 @@ class PurchaseRequestBindingApiTest {
     void setup() {
         var result = new PurchaseResult(UUID.randomUUID(), null, Status.GENERATING, null, null,
                 true, new Price(Price.Currency.TURTLE_SHELL, 15));
-        when(general.purchase(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(result);
-        when(suneung.purchase(any(), any(), any(), any())).thenReturn(result);
+        when(general.purchase(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(result);
+        when(suneung.purchase(any(), any(), any(), any(), any())).thenReturn(result);
     }
 
     @AfterEach
@@ -66,7 +66,7 @@ class PurchaseRequestBindingApiTest {
         mvc.perform(post(path).with(user(actor.toString())).with(csrf()).header("Idempotency-Key", "intent")
                         .contentType(MediaType.APPLICATION_JSON).content(categoryBody(UUID.randomUUID())))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
-        verify(general, times(1)).purchase(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(general, times(1)).purchase(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -75,7 +75,7 @@ class PurchaseRequestBindingApiTest {
         send(path, "intent", legacyBody(quote), 202);
         send(path, "intent", legacyBody(quote), 202);
         send(path, "intent", legacyBody(UUID.randomUUID()), 409);
-        verify(suneung, times(2)).purchase(any(), any(), any(), any());
+        verify(suneung, times(2)).purchase(any(), any(), any(), any(), any());
         assertThat(count()).isEqualTo(1);
     }
 
@@ -83,7 +83,7 @@ class PurchaseRequestBindingApiTest {
     void sameKeyCannotSwitchCategoryRoute() throws Exception {
         send("/api/v1/reading-purchases/overall", "intent", categoryBody(quote), 202);
         send("/api/v1/reading-purchases/love", "intent", categoryBody(quote), 409);
-        verify(general, times(1)).purchase(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(general, times(1)).purchase(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -131,12 +131,12 @@ class PurchaseRequestBindingApiTest {
 
     @Test
     void businessFailureKeepsIntentButDoesNotBlockIdenticalRetry() throws Exception {
-        when(suneung.purchase(any(), any(), any(), any())).thenThrow(new com.sajuppugi.common.api.ApiException(
+        when(suneung.purchase(any(), any(), any(), any(), any())).thenThrow(new com.sajuppugi.common.api.ApiException(
                 com.sajuppugi.common.api.ErrorCode.READING_FULFILLMENT_UNAVAILABLE));
         send("/api/v1/reading-purchases", "intent", legacyBody(quote), 503);
         send("/api/v1/reading-purchases", "intent", legacyBody(quote), 503);
         send("/api/v1/reading-purchases", "intent", legacyBody(UUID.randomUUID()), 409);
-        verify(suneung, times(2)).purchase(any(), any(), any(), any());
+        verify(suneung, times(2)).purchase(any(), any(), any(), any(), any());
         assertThat(count()).isEqualTo(1);
     }
 

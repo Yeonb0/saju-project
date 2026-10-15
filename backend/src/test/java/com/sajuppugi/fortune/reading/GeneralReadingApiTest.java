@@ -104,7 +104,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.counterpart.personId").value(counterpartId.toString()))
                 .andExpect(jsonPath("$.data.reading.counterpart.displayName").value("서준"))
                 .andExpect(jsonPath("$.data.reading.counterpart.relationType").value("LOVER"))
-                .andExpect(jsonPath("$.data.reading.sections.length()").value(6));
+                .andExpect(jsonPath("$.data.reading.sections.length()").value(10));
     }
 
     @Test
@@ -124,7 +124,7 @@ class GeneralReadingApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.meta.questionKey").value("CURRENT_RELATIONSHIP"))
                 .andExpect(jsonPath("$.data.goodPeriod.content").isString())
-                .andExpect(jsonPath("$.data.sections").doesNotExist());
+                .andExpect(jsonPath("$.data.sections.length()").value(10));
         mvc.perform(get("/api/v1/readings/love").with(user(userId.toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
@@ -183,7 +183,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"));
         verify(talismans).create(argThat(command -> command.ownerUserId().equals(userId)
                 && command.fortuneType().name().equals("LOVE")
-                && command.contentVersion().equals("love-2026.10.15")));
+                && command.contentVersion().equals("love-2026.10.15-v3")));
     }
 
     @Test
@@ -206,7 +206,7 @@ class GeneralReadingApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.reused").value(true));
         verify(wallet, times(1)).debit(eq(userId), eq(quoteId), any());
-        verify(liner, times(1)).generate(any());
+        verify(liner, times(2)).generate(any());
     }
 
     @Test
@@ -282,7 +282,7 @@ class GeneralReadingApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.reading.meta.questionKey").value(questionKey))
                 .andExpect(jsonPath("$.data.reading.summary.content").isString())
-                .andExpect(jsonPath("$.data.reading.sections").doesNotExist());
+                .andExpect(jsonPath("$.data.reading.sections.length()").value(10));
         for (String field : expectedFields) {
             action.andExpect(jsonPath("$.data.reading." + field + ".content").isString());
         }
