@@ -18,13 +18,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(value = "/api/v1/public/gifts", produces = "application/json")
 public class PublicGiftAccessController {
     private final GiftAccessPort access;
+    private final com.sajuppugi.gift.application.PublicGiftRateLimiter limits;
 
-    public PublicGiftAccessController(GiftAccessPort access) { this.access = access; }
+    public PublicGiftAccessController(GiftAccessPort access, com.sajuppugi.gift.application.PublicGiftRateLimiter limits) { this.access = access; this.limits = limits; }
 
     @PostMapping(value = "/access", consumes = "application/json")
     @Operation(operationId = "getPublicGiftAccess",
             description = "Returns minimal gift guidance. The bearer token is accepted only in the JSON body and must not be logged.")
-    public ApiResponse<GiftAccessPort.PublicGift> access(@Valid @RequestBody Request request) {
+    public ApiResponse<GiftAccessPort.PublicGift> access(@Valid @RequestBody Request request,
+            jakarta.servlet.http.HttpServletRequest http) {
+        limits.check(request.token(), http.getRemoteAddr());
         return ApiResponse.of(access.describe(request.token()));
     }
 

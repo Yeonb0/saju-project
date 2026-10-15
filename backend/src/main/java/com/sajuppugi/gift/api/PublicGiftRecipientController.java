@@ -24,15 +24,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(value = "/api/v1/public/gifts", produces = "application/json")
 public class PublicGiftRecipientController {
     private final GiftRecipientService recipients;
+    private final com.sajuppugi.gift.application.PublicGiftRateLimiter limits;
 
-    public PublicGiftRecipientController(GiftRecipientService recipients) { this.recipients = recipients; }
+    public PublicGiftRecipientController(GiftRecipientService recipients, com.sajuppugi.gift.application.PublicGiftRateLimiter limits) { this.recipients = recipients; this.limits = limits; }
 
     @PostMapping(value = "/recipient-profile", consumes = "application/json")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "submitPublicGiftRecipient",
             description = "Stores one encrypted recipient snapshot and a durable fulfillment intent. Replays do not return birth data.")
     public ApiResponse<GiftRecipientService.Submission> submit(
-            @RequestHeader("Idempotency-Key") String requestKey, @Valid @RequestBody Request request) {
+            @RequestHeader("Idempotency-Key") String requestKey, @Valid @RequestBody Request request,
+            jakarta.servlet.http.HttpServletRequest http) {
+        limits.check(request.token(), http.getRemoteAddr());
         return ApiResponse.of(recipients.submit(request.token(), requestKey, new GiftRecipientService.Command(
                 request.displayName(), request.birthDate(), request.birthTime(), request.birthTimeUnknown(),
                 request.calendarType(), request.leapMonth(), request.gender())));

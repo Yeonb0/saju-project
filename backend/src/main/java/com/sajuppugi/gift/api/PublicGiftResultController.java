@@ -20,13 +20,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(value = "/api/v1/public/gifts", produces = "application/json")
 public class PublicGiftResultController {
     private final PublicGiftResultService results;
+    private final com.sajuppugi.gift.application.PublicGiftRateLimiter limits;
 
-    public PublicGiftResultController(PublicGiftResultService results) { this.results = results; }
+    public PublicGiftResultController(PublicGiftResultService results, com.sajuppugi.gift.application.PublicGiftRateLimiter limits) { this.results = results; this.limits = limits; }
 
     @PostMapping(value = "/result", consumes = "application/json")
     @Operation(operationId = "getPublicGiftResult",
             description = "Uses the body-only bearer token. Returns 202 while no immutable result snapshot exists; READY records first provision.")
-    public ResponseEntity<ApiResponse<PublicGiftResultService.Result>> result(@Valid @RequestBody Request request) {
+    public ResponseEntity<ApiResponse<PublicGiftResultService.Result>> result(@Valid @RequestBody Request request,
+            jakarta.servlet.http.HttpServletRequest http) {
+        limits.check(request.token(), http.getRemoteAddr());
         var result = results.get(request.token());
         return ResponseEntity.status(result.state() == PublicGiftResultService.State.PROCESSING
                 ? HttpStatus.ACCEPTED : HttpStatus.OK).body(ApiResponse.of(result));

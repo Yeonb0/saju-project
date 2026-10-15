@@ -46,6 +46,7 @@ public enum ErrorCode {
     TALISMAN_NOT_FOUND(HttpStatus.NOT_FOUND, "부적을 찾을 수 없습니다."),
     TALISMAN_NOT_READY(HttpStatus.CONFLICT, "부적이 아직 준비되지 않았습니다."),
     TALISMAN_DOWNLOAD_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "부적 다운로드 준비 중입니다. 잠시 후 다시 시도해 주세요."),
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "요청이 많습니다. 잠시 후 다시 시도해 주세요."),
     PURCHASE_DEBIT_MISMATCH(HttpStatus.INTERNAL_SERVER_ERROR, "구매 처리 중 금액 검증에 실패했습니다."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 정보를 찾을 수 없습니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
