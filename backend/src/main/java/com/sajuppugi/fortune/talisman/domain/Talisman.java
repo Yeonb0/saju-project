@@ -15,6 +15,7 @@ public record Talisman(
         Animal animal,
         String phrase,
         String description,
+        TalismanComposition composition,
         String contentVersion,
         Status status,
         AssetKeys assets,
@@ -46,6 +47,13 @@ public record Talisman(
         if (status != Status.FAILED && failureCode != null) {
             throw new IllegalArgumentException("Only failed talisman can have failureCode");
         }
+    }
+
+    public Talisman(UUID id, UUID ownerUserId, UUID sourceReadingId, FortuneType fortuneType, Element element,
+                    Animal animal, String phrase, String description, String contentVersion, Status status,
+                    AssetKeys assets, String failureCode, Instant createdAt, Instant readyAt) {
+        this(id, ownerUserId, sourceReadingId, fortuneType, element, animal, phrase, description, null,
+                contentVersion, status, assets, failureCode, createdAt, readyAt);
     }
 
     private static void requireText(String value, String field) {
