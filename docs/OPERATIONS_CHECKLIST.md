@@ -1,5 +1,28 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: IA 기준 API 계약 정렬 및 BE-B 구현 계획
+
+- 최신 IA와 현재 controller, 공유/gift OpenAPI, 기능·API 문서를 대조했다. 로그인 운세·수능 구조화 결과·부적 보관함·직접 링크 구매는 대응되지만, 공개 선물 결과 projection(`RECV-04~07`, `RECV-T-04`), 수능 판매 종료 상태, 사용자 충전·사용 내역이 각각 미구현임을 확인했다.
+- 직접 링크 결정에 맞춰 기능/API 문서의 수신자 전화번호·알림톡 발송/웹훅 계약을 현재 출시 범위에서 제거했다. `GIFT-05`는 링크 조회·복사·공유 실패로 정의했고, 공개 raw token은 `/g#token=...` 전달 뒤 JSON body API에서만 사용하도록 정렬했다. 변조·미존재·폐기·만료·취소는 정보 열거를 막기 위해 같은 404로 처리한다.
+- `backend/docs/IA_API_ALIGNMENT_IMPLEMENTATION_PLAN_20261015.md`에 immutable 결과 snapshot, durable worker, 최초 제공/취소 직렬화, 공개 결과 API, 보안·복구 검증 순서를 기록했다. 실제 부적 이미지 생성·저장/R2는 승인 에셋 전까지 제외한다. 적용: 6-1 공개 token/소유권, 6-2 PostgreSQL 중복·경쟁, 6-4 worker lease/fence/retry, 6-5 gift 만료·private asset, 6-6 additive migration/계약 호환, 6-9 개인정보 최소화.
+- 이번 단계는 문서와 계획 정렬이며 코드·OpenAPI 산출물·테스트 결과를 변경하거나 구현 완료로 판정하지 않았다. BE-B P0는 공개 선물 결과/worker, BE-A 후속은 catalog availability와 사용자 wallet transactions, FE/PD 후속은 body-token polling과 상태 문구다.
+
+### 2026-10-15: 데모데이 와이어프레임 89쪽 API 재대조
+
+- PDF 전 페이지를 text 추출과 렌더링으로 확인했다. 직접 링크는 최종 대체안이 아니라 1차 퀵오픈 방식이고, 전화번호·알림톡 발송 상태·재발송·실패 시 직접 링크 fallback은 2차 목표임을 문서에 보정했다. 알림톡 실패는 금융/선물 실패나 자동 취소가 아니다.
+- 추가 차이: `TALISMAN_ONLY` 화면은 편지+부적만 요구하지만 현재 quote는 체크리스트를 포함한다. 결과 후 부적 추가 구매, 보낸 선물의 수신자/열람 projection, 받은 선물 연결/목록, 일반 결과·부적 공유는 controller가 없다. wallet transaction query 기반은 있으나 사용자 HTTP가 없고, catalog는 종료 상품을 누락한다.
+- `backend/docs/DEMODAY_WIREFRAME_API_REVIEW_20261015.md`에 화면별 상태와 단계적 구현 순서를 기록했다. 실제 부적 이미지/R2, 여러 명 선물, 알림톡 provider는 1차 구현에서 제외한다. 적용: 6-1 공개 token·소유권, 6-2 추가 구매 중복 차감, 6-4 result/delivery worker, 6-5 gift/talisman 접근, 6-6 단계적 호환 배포, 6-9 전화번호·공유정보 최소화.
+- 이번 재대조는 문서 작업이다. 사용자 확인 전 commit·소스 구현·OpenAPI 산출물 갱신·테스트 실행을 하지 않는다.
+
+### 2026-10-15: BE-B 선물 수신 프로필 목적 종료 파기 보완
+
+- `gift_recipient_profiles`의 암호화된 수신자 생년정보가 선물 초안 정리 뒤에도 남는 경로를 보완했다. A의 기존 목적 종료 판정과 같은 짧은 PostgreSQL transaction에서 profile 암호문을 NULL로 전환하고, `purged_at`/정책 버전을 남긴다. FK 때문에 job 행은 삭제하지 않고, 실행 전 상태는 `PURGED`로 전환해 후속 worker가 해당 profile을 다시 처리하지 못하게 한다.
+- 아직 유효한 `GENERATING` fulfillment lease가 있으면 파기를 보류한다. lease 만료 뒤에만 파기하므로, 늦은 worker가 개인정보가 지워진 작업을 완료하는 경계를 줄인다. 외부 Liner/R2 호출·지갑 잠금은 이 transaction 안에 없다.
+- key rotation의 기존 재암호화 transaction에 recipient profile도 연결했다. active key가 바뀌면 같은 profile context/AAD로 복호화·재암호화하고 key ID를 바꾼다. purge된 NULL profile은 재암호화 후보가 아니므로 목적 종료 데이터를 되살리지 않는다.
+- 실제 결과 worker를 활성화하지 않은 채 `gift_fulfillment_jobs`의 PostgreSQL claim/fence 저장소를 추가했다. 한 job은 한 lease만 얻고, 만료 뒤 새 claim은 fence를 올리며 이전 worker의 늦은 완료는 조건 갱신으로 거절된다. 최대 시도에 도달한 due/stale job은 무한 재시도 대신 `REVIEW_REQUIRED`로 수렴한다. provider 호출은 이 저장소 밖에서만 허용된다.
+- 적용: 6-4 durable job·lease·늦은 완료·bounded retry, 6-6 기존 migration을 수정하지 않는 데이터 정리 호환, 6-9 목적 종료 뒤 암호문 최소화/key rotation. 새 PostgreSQL 17 컨테이너(`localhost:55433`)에서 `GiftRecipientPostgresTest` 18건을 실행해 수신 profile 저장, 취소 뒤 암호문 파기·PENDING job `PURGED`, 활성 lease 보류·만료 뒤 파기, profile key rotation, 동시 claim 1건·stale 완료 거절·retry 소진 검토 전환과 기존 원자성/동시성 회귀를 확인했다.
+- 미확인/후속: 실제 fulfillment worker의 profile 복호화·facts 계산·Liner/R2 결과 생성, staging/운영 worker 중단·재시작, 백업 사본·외부 공급자 사본 파기, 실제 브라우저 E2E는 이번 로컬 검증 범위가 아니다. 기본 운영 worker/판매 활성화는 변경하지 않았다.
+
 ### 2026-10-14: PR #37 backend CI Clock fixture 보완
 
 - PR #37 backend CI의 단일 실패를 같은 PostgreSQL 조건에서 재현했다. `GiftRecipientPostgresTest`가 상위 lifecycle의 신규 recipient API 테스트를 상속하면서 `Clock`을 Mockito mock으로 교체했지만 `instant()`만 설정하고 `withZone()`/`getZone()`은 설정하지 않아, `BirthInputNormalizer`의 서울 기준 날짜 검증이 정상 입력도 `INVALID_REQUEST`로 처리한 테스트 fixture 문제였다.
