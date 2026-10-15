@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: PR #48 유료 운세 생성 계약 CI 보완 (GitHub 재검증 대기)
+
+- 유료 운세 10개 섹션의 5개×2 병렬 생성과 한줄 고민 추가 뒤 남아 있던 API test mock 인자 수, category 응답의 additive `sections` 10개, 부적 content version, Liner 호출 횟수(성공 2회·최대 3회 재시도 시 6회)를 현재 계약에 맞췄다. 분할 batch의 프롬프트도 전체 10개가 아니라 이번 요청의 `allowedSections`를 모두 작성하라고 명시해 5개 batch에서의 누락/불필요 재시도 가능성을 줄였다.
+- 로컬 Docker daemon이 실행 중이지 않아 PostgreSQL 17 CI 동등 suite를 시작하지 못했다. 기본 H2 profile은 기존 PostgreSQL 전용 Flyway migration 비호환으로 application context 전에 실패하므로 통과 근거로 사용하지 않는다. GitHub PostgreSQL `clean check bootJar` 재실행 결과를 확인한 뒤 이 항목을 갱신해야 한다.
+- 적용: 6-3 분할 provider 요청·최대 재시도 횟수 계약, 6-6 additive API/content version 계약과 PostgreSQL CI 확인 대기, 6-10 batch 누락에 따른 재시도·지연 완화. 실제 provider p95/비용과 multi-instance 부하는 여전히 미측정이다.
+
 ### 2026-10-15: 유료 운세 한줄 고민 맞춤 생성
 
 - 유료 운세 구매 요청에 선택형 `personalizedConcern`(최대 100자)을 추가했다. 무료 운세·견적 API·결과/목록 projection에는 넣지 않는다. 공백을 정리하고 빈 값은 무시하며, 이메일·전화번호·주민등록번호 형태·URL은 일반 표기로 마스킹한 값만 암호화된 generation context와 Liner 입력에 사용한다.
