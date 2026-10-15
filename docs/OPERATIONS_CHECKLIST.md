@@ -1,5 +1,20 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: BE-B 전체 코드리뷰 지적사항 보완 (로컬 PostgreSQL 17)
+
+- 직접결제 운세는 결제 소비 claim, 구매 `DEBITED`, 암호화 generation context 저장을 한 짧은 PostgreSQL transaction에서 확정하도록 묶었다. 외부 생성 호출은 이 transaction 밖에서 실행하며, wallet 기능이 꺼진 직접결제 환경에서도 generation recovery scheduler가 동작하도록 조건을 분리했다.
+- 직접결제 승인 `RETRY`와 만료된 `IN_FLIGHT`를 주기적으로 조회·대사하는 bounded scheduler를 추가했다. provider 호출은 DB transaction 밖에서 수행하고 개별 실패가 다음 대상을 막지 않는다. 실제 PG adapter와 운영 credential을 사용한 timeout/unknown-outcome 대사는 아직 검증하지 않았다.
+- 부적 추가 결제의 기존 claim 재사용 전 소유자·quote를 다시 확인해 다른 사용자의 reading claim이나 결제 batch가 소비되지 않게 했다. 직접 선물 batch의 멱등키는 정렬된 수신 옵션 본문과 결합해, 동일 요청은 같은 batch로 수렴하고 같은 키의 다른 본문은 거절한다.
+- 공개 직접 선물 조회에 기존 PostgreSQL rate limit과 gift access의 활성·만료·폐기 검증을 적용하고, 43자 URL-safe token 검증 및 CSRF 공개 POST 경계를 명시했다. 부적 목록은 composition을 join으로 함께 읽어 N+1 조회를 제거했으며 문구 선택은 실제 후보 수를 bound로 사용해 modulo 편향을 없앴다.
+- 빈 PostgreSQL 17 DB에서 직접결제 운세 원자성, 승인 대사, addon 소유권, 선물 batch 재전송·동시 요청, 공개 직접 선물 접근 복구를 각각 검증했다. 이어 `check bootJar --rerun-tasks`를 실행해 742건 중 실패 0건·선택 제외 12건과 실행 JAR 생성을 확인했다.
+- 적용: 6-1 서버 소유권·공개 bearer/CSRF 경계, 6-2 PostgreSQL 원자성·동시 멱등 처리, 6-3 provider 결과 불명 대사, 6-4 durable context·scheduler 복구, 6-5 gift token 활성/만료/폐기, 6-6 기존 schema 변경 없음, 6-9 raw token·결제키 추가 저장 없음, 6-10 bounded batch/N+1 제거. 실제 process `kill -9`, 독립 JVM 다중 worker, staging ingress, 실제 PG·renderer/R2, 백업 복원과 운영 부하는 미검증이다.
+
+### 2026-10-16: 오늘의 운세 한 줄 문구 100개 content version 갱신 (로컬 PostgreSQL 17)
+
+- 오행별 한 줄 문구를 각각 20개(총 100개)로 확장한 뒤, 같은 KST 날짜의 선택 후보 수가 바뀌어 기존 응답과 조용히 달라지는 것을 막기 위해 content version을 `daily-2026.10-v5`로 올렸다. 기존 공유 결과는 저장된 immutable snapshot을 계속 반환하고, 새 직접 조회와 새 공유는 v5 선택을 사용한다.
+- 빈 PostgreSQL 17 컨테이너에서 `DailyFortuneApiTest`와 `DailyFortuneServiceTest`를 실행해 API 계약, 오행별 후보 20개·중복 없음, 여러 seed에서의 선택 변화를 확인했다. 문구 수 증가는 메모리의 작은 상수 목록에 대한 O(1) index 선택뿐이므로 Liner 호출·DB 조회·외부 지연을 추가하지 않는다.
+- 적용: 6-1 기존 person 소유권 API 경계 유지, 6-6 content version을 통한 응답 계약 분리, 6-9 외부 전송·추가 개인정보 저장 없음. 실제 배포 뒤 기존 v4 공유 URL과 v5 직접 조회를 같은 날짜에 비교하는 browser/staging 검증은 미실행이다.
+
 ### 2026-10-16: 오늘의 운세 v3·부적 조합 catalog 반영 (로컬 PostgreSQL 17)
 
 - 오늘의 운세는 기존 점수/소유권 검사를 유지한 채 PD catalog의 수호 동물·미션·초성·노래를 additive `luckyExtras`로 제공한다. 각 항목은 `userId + KST 날짜 + content version` 해시로 고정되어 새로고침·재시도에서 바뀌지 않으며, 원문 생년정보는 저장·외부 전송하지 않는다. 기존 색/아이템/장소 필드는 호환을 위해 유지한다.

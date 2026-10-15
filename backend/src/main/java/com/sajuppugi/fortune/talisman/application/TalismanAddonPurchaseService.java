@@ -46,7 +46,12 @@ public class TalismanAddonPurchaseService {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
         Claim existing = purchases.findByReadingId(readingId).orElse(null);
-        if (existing != null) return view(existing, true);
+        if (existing != null) {
+            if (!existing.ownerUserId().equals(ownerUserId)) {
+                throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
+            return view(existing, true);
+        }
 
         var reading = purchases.findOwnedEligibleReading(ownerUserId, readingId).orElse(null);
         if (reading == null) {
@@ -95,7 +100,13 @@ public class TalismanAddonPurchaseService {
     @Transactional(timeout = 10)
     public View purchaseDirect(UUID owner, UUID batchId, UUID readingId, UUID quoteId) {
         Claim existing = purchases.findByReadingId(readingId).orElse(null);
-        if (existing != null) { directPayments.claimTalismanAddon(owner, batchId, quoteId, existing.id()); return view(existing, true); }
+        if (existing != null) {
+            if (!existing.ownerUserId().equals(owner) || !existing.quoteId().equals(quoteId)) {
+                throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
+            directPayments.claimTalismanAddon(owner, batchId, quoteId, existing.id());
+            return view(existing, true);
+        }
         var reading = purchases.findOwnedEligibleReading(owner, readingId).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         PurchaseQuote quote = catalog.getPayableQuote(owner, quoteId);
         Product product = quote.productSnapshot();
@@ -104,7 +115,13 @@ public class TalismanAddonPurchaseService {
                 || !TalismanAddonQuoteService.context(readingId).equals(quote.contextHash())) throw new ApiException(ErrorCode.INVALID_REQUEST);
         UUID id = UUID.randomUUID(); Instant now = clock.instant();
         Claim claimed = purchases.insert(new Claim(id, readingId, owner, "", "", product.price().amount(), quoteId, null, "QUOTED", null, now, now));
-        if (!claimed.id().equals(id)) { directPayments.claimTalismanAddon(owner, batchId, quoteId, claimed.id()); return view(claimed, true); }
+        if (!claimed.id().equals(id)) {
+            if (!claimed.ownerUserId().equals(owner) || !claimed.quoteId().equals(quoteId)) {
+                throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
+            directPayments.claimTalismanAddon(owner, batchId, quoteId, claimed.id());
+            return view(claimed, true);
+        }
         if (!catalogRepository.bindQuoteToPurchase(quoteId, id)) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
         directPayments.claimTalismanAddon(owner, batchId, quoteId, id);
         purchases.markDirectPaid(id, now);

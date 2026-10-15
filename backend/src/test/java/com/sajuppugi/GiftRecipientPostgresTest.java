@@ -79,7 +79,7 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
     com.sajuppugi.gift.application.GiftFulfillmentPort.Receipt accept(UUID order, UUID request) throws Exception {
         return recipients.accept(token(order), request, snapshotHash, () -> assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue());
     }
-    @Test void directPaymentRecipientUsesDurableGiftWorkAndRecoversExpiredLease() {
+    @Test void directPaymentRecipientUsesDurableGiftWorkAndRecoversExpiredLease() throws Exception {
         UUID batch = UUID.randomUUID(), recipient = UUID.randomUUID();
         jdbc.update("INSERT INTO direct_payment_batches(id,buyer_user_id,quote_id,product_code,product_name,unit_amount_krw,quantity,total_amount_krw,key_hash,status,created_at) VALUES (?,?,NULL,'GIFT_SUNEUNG_BATCH','수능 선물',3000,1,3000,?,'PAID',?)",
                 batch, owner, "d".repeat(64), Timestamp.from(time));
@@ -111,6 +111,13 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         assertThatThrownBy(() -> directGifts.reissue(owner, recipient, new com.sajuppugi.common.idempotency.IdempotencyKey("too-soon")))
                 .isInstanceOf(ApiException.class);
         raw = reissued.shareUrl().substring(reissued.shareUrl().indexOf("#token=") + 7);
+
+        mvc.perform(post("/api/v1/public/direct-gifts/access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(java.util.Map.of("token", raw))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recipientId").value(recipient.toString()))
+                .andExpect(jsonPath("$.data.status").value("LINK_ACTIVE"));
 
         recipientService.submit(raw, "direct-recipient", new com.sajuppugi.gift.application.GiftRecipientService.Command(
                 "recipient", "2007-03-14", null, true,

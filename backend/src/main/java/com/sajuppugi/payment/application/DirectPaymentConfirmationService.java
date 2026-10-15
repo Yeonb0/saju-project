@@ -81,6 +81,23 @@ public class DirectPaymentConfirmationService {
         required(() -> { apply(lease.get(), resolved); return null; });
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true, timeout = 5)
+    public List<UUID> dueForReconciliation(int limit) {
+        if (limit < 1 || limit > 100) throw new IllegalArgumentException("Invalid reconciliation batch size");
+        Instant now = now();
+        return jdbc.query("""
+                SELECT e.batch_id
+                FROM direct_payment_executions e
+                JOIN direct_payment_batches b ON b.id = e.batch_id
+                WHERE b.status = 'PAYMENT_PENDING'
+                  AND ((e.state IN ('READY', 'RETRY') AND e.next_attempt_at <= ?)
+                    OR (e.state = 'IN_FLIGHT' AND e.lease_until <= ?))
+                ORDER BY e.next_attempt_at, e.batch_id
+                LIMIT ?
+                """, (rs, row) -> rs.getObject(1, UUID.class),
+                java.sql.Timestamp.from(now), java.sql.Timestamp.from(now), limit);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
     protected DirectPaymentConfirmationIntent bind(UUID user, UUID batchId, String paymentKey, int amount, String requestKey) {
         if (user == null || batchId == null || invalid(paymentKey, 200) || amount <= 0 || invalid(requestKey, 512))

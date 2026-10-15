@@ -20,6 +20,7 @@ final class TalismanCatalog {
         List<TalismanComposition.Phrase> values = PHRASES.get(type);
         return values.get(index % values.size());
     }
+    static int phraseCount(FortuneType type) { return PHRASES.get(type).size(); }
     private static Map<FortuneType, List<TalismanComposition.Phrase>> phrases() {
         Map<FortuneType, List<TalismanComposition.Phrase>> values = new EnumMap<>(FortuneType.class);
         FortuneType current = null;

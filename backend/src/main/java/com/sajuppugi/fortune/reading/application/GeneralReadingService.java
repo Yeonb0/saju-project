@@ -115,19 +115,6 @@ public class GeneralReadingService {
         CalculationFacts facts = calculate(subjects.primary());
         CalculationFacts counterpartFacts = subjects.counterpart() == null ? null : calculate(subjects.counterpart());
 
-        ReadingPurchase purchase = batchId == null
-                ? claims.claim(userId, quoteId, quote.productSnapshot().id(), personId, counterpartPersonId, value(relationType), questionKey)
-                : claims.claimDirectPaid(userId, batchId, quoteId, quote.productSnapshot().id(), personId, counterpartPersonId, value(relationType), questionKey);
-        if (purchase.status() == Status.FULFILLED) {
-            OwnedReading reading = readings.findOwnedReading(userId, purchase.readingId())
-                    .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND));
-            return completed(reading, null, true, quote.productSnapshot().price());
-        }
-        if (purchase.status() != Status.CREATED) {
-            return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true,
-                    quote.productSnapshot().price());
-        }
-
         GeneralReadingPolicy.Definition policy = GeneralReadingPolicy.require(fortuneType);
         List<String> missingFields = missingFields(subjects.primary(), subjects.counterpart());
         GenerationCommand command = new GenerationCommand(userId, fortuneType,
@@ -138,6 +125,20 @@ public class GeneralReadingService {
                 subjects.primary().displayName(), counterpartPersonId,
                 subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
                 questionKey, option == ProductOption.READING_WITH_TALISMAN);
+        ReadingPurchase purchase = batchId == null
+                ? claims.claim(userId, quoteId, quote.productSnapshot().id(), personId, counterpartPersonId,
+                        value(relationType), questionKey)
+                : claims.claimDirectPaid(userId, batchId, quoteId, quote.productSnapshot().id(), personId,
+                        counterpartPersonId, value(relationType), questionKey, resumeContext);
+        if (purchase.status() == Status.FULFILLED) {
+            OwnedReading reading = readings.findOwnedReading(userId, purchase.readingId())
+                    .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND));
+            return completed(reading, null, true, quote.productSnapshot().price());
+        }
+        if (purchase.status() != Status.CREATED) {
+            return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true,
+                    quote.productSnapshot().price());
+        }
         ExecutionResult result = orchestrator.execute(new Execution(userId, quoteId, key, purchase,
                 quote.productSnapshot().price(), command, resumeContext, (generated, lease) -> {
             UUID readingId = UUID.randomUUID();
