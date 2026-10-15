@@ -62,8 +62,9 @@ export function BusinessFooter({
           <div key={row.join("-")} className="flex flex-wrap gap-x-[12px]">
             {row.map((key) => (
               // 한 줄 "이름 : 값" — 구분자는 dt 의 ::after 라 화면 글자(dt · dd)는 그대로다
+              // COMMON-01 — 항목 이름은 한 줄 (10/15 화면 점검)
               <div key={key} className="flex gap-x-[4px]">
-                <dt className="after:ml-[4px] after:content-[':']">
+                <dt className="shrink-0 whitespace-nowrap after:ml-[4px] after:content-[':']">
                   {LABEL_OF[key]}
                 </dt>
                 <dd className="min-w-0 break-words">{info[key] ?? MISSING}</dd>
