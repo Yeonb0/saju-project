@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 만료 lease worker 복구 검증
+
+- 첫 worker가 30초 lease를 잡은 뒤 완료하지 못한 상황을 만들고, lease 만료 후 fallback worker가 같은 job을 재claim해 snapshot/READY를 확정하는 경로를 검증했다. 이전 worker의 늦은 `complete`는 fencing version 불일치로 거절되어 결과를 바꾸지 못한다.
+- PostgreSQL 17 `saju_gift_worker_20261015`에서 `GiftRecipientPostgresTest` 39건을 `--rerun-tasks`로 통과했다. 적용: 6-4 stale lease·늦은 완료 차단. OS process 강제 종료/재시작과 두 독립 worker 프로세스 부하는 여전히 미검증이다.
+
 ### 2026-10-15: fulfillment worker 재시도 소진 검증
 
 - 암호화 recipient profile을 의도적으로 손상해 worker의 복호화 실패를 재현했다. 각 실패는 `RETRY`와 다음 시도 시각으로만 기록되고, 다섯 번째 실패 뒤 다음 claim에서 `REVIEW_REQUIRED`/`FULFILLMENT_RETRY_EXHAUSTED`로 수렴한다. 실패한 gift에는 result snapshot이 생성되지 않는다.

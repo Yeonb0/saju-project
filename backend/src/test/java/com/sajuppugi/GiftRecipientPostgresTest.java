@@ -350,6 +350,20 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
                 .isEqualTo("FULFILLMENT_RETRY_EXHAUSTED");
         assertThat(resultSnapshots.find(giftId)).isEmpty();
     }
+    @Test void expiredLeaseIsRecoveredByWorkerAndLateCompletionCannotReplaceTheResult() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        recipientService.submit(raw, "worker-lease-recovery", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        UUID job = jdbc.queryForObject("SELECT id FROM gift_fulfillment_jobs WHERE gift_id = ?", UUID.class, giftId);
+        var stale = fulfillmentJobs.claim(job, time, Duration.ofSeconds(30), 5).orElseThrow();
+        advance(31);
+        fulfillmentWorker.run();
+        assertThat(resultSnapshots.find(giftId)).isPresent();
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE id = ?", String.class, job)).isEqualTo("READY");
+        assertThat(fulfillmentJobs.complete(stale, JdbcGiftFulfillmentJobs.State.READY, time)).isFalse();
+    }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());
         recipients.provide(receipt.receiptId(), UUID.randomUUID(), () -> {}); recipients.link(raw, owner);
