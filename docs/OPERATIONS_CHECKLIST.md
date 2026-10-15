@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: BE-B 공개 선물 결과 polling API
+
+- `POST /api/v1/public/gifts/result`를 추가했다. body의 raw token만 받아 결과 snapshot이 없으면 `202 PROCESSING`, 있으면 `200 READY`와 typed JSON projection을 반환한다. token은 path/query/log DTO에 넣지 않으며 gift ID·receipt ID·worker lease 같은 내부 식별자는 응답하지 않는다.
+- READY 응답 전에는 기존 `GiftFulfillmentPort.provide`를 호출해 최초 제공과 취소를 같은 gift work 잠금/짧은 transaction에서 직렬화한다. 첫 READY 뒤에는 같은 snapshot과 재열람 만료 시각을 반환한다. 실제 결과를 만드는 worker는 아직 연결하지 않았으므로 정상 운영에서는 PROCESSING만 반환할 수 있다.
+- 공개 access/profile와 같은 `permitAll` 및 CSRF 예외를 해당 정확한 POST 경로에만 추가했다. PostgreSQL 17 전용 DB `saju_gift_result_api_20261015`에서 `GiftRecipientPostgresTest` 35건을 `--rerun-tasks`로 실행해 PROCESSING→READY, 최초 제공 기록, public token 접근을 확인했다. 적용: 6-1 bearer 권한과 CSRF 경계, 6-2 제공/취소 직렬화, 6-5 만료/공개 결과 최소화, 6-9 token·결과 로그 최소화. rate limit/Origin 정책, 실제 worker 생성·재시작은 미완료다.
+
 ### 2026-10-15: BE-B 선물 결과 immutable snapshot 저장 기반
 
 - 새 additive migration `V202610151000__b_gift_result_snapshots.sql`로 gift/receipt/content 기준의 결과 snapshot 한 건을 저장한다. 결과 projection에는 결과 JSON·콘텐츠/생성 버전·해시만 남기며, raw token·수신자 생년정보·user/person ID·private object key는 저장하지 않는다.

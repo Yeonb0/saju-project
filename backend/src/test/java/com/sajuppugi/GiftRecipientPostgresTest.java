@@ -2,6 +2,9 @@ package com.sajuppugi;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.gift.infrastructure.JdbcGiftFulfillment;
@@ -25,6 +28,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -269,6 +273,29 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         assertThatThrownBy(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> resultSnapshots.insert(conflict)))
                 .isInstanceOf(RuntimeException.class).hasMessageContaining("Gift result snapshot conflict");
         assertThat(resultSnapshots.find(giftId)).contains(snapshot);
+    }
+    @Test void publicResultPollsThenProvidesTheImmutableSnapshotOnce() throws Exception {
+        var order = active(); String raw = token(order.orderId()); UUID giftId = access.verify(raw).giftId();
+        mvc.perform(post("/api/v1/public/gifts/result").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + raw + "\"}"))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.state").value("PROCESSING"));
+        var submission = recipientService.submit(raw, "public-result", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        UUID contentId = UUID.randomUUID();
+        var snapshot = new JdbcGiftResultSnapshots.Snapshot(UUID.randomUUID(), giftId, submission.receiptId(), contentId,
+                "GIFT_SUNEUNG_TALISMAN_ONLY", "gift-v1", "fallback-v1", "{\"talisman\":{\"status\":\"PENDING\"}}",
+                "d".repeat(64), time);
+        new TransactionTemplate(transactions).executeWithoutResult(transaction -> resultSnapshots.insert(snapshot));
+        mvc.perform(post("/api/v1/public/gifts/result").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + raw + "\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.state").value("READY"))
+                .andExpect(jsonPath("$.data.option").value("TALISMAN_ONLY"))
+                .andExpect(jsonPath("$.data.result.talisman.status").value("PENDING"));
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_recipient_receipts WHERE id = ?", String.class, submission.receiptId()))
+                .isEqualTo("PROVIDED");
+        assertThat(jdbc.queryForObject("SELECT first_provided_at IS NOT NULL FROM gift_purchase_work WHERE gift_id = ?", Boolean.class, giftId)).isTrue();
     }
     @Test void linkedWithdrawalBeforeExpiryDoesNotWaitThirtyDaysOrContentDeadline() throws Exception {
         var order = active(); String raw = token(order.orderId()); var receipt = accept(order.orderId(), UUID.randomUUID());

@@ -19,7 +19,8 @@ public class SessionCsrfFilter extends OncePerRequestFilter {
                 || ("POST".equals(request.getMethod()) && java.util.Set.of(
                         request.getContextPath() + "/api/v1/webhooks/toss",
                         request.getContextPath() + "/api/v1/public/gifts/access",
-                        request.getContextPath() + "/api/v1/public/gifts/recipient-profile").contains(request.getRequestURI()));
+                        request.getContextPath() + "/api/v1/public/gifts/recipient-profile",
+                        request.getContextPath() + "/api/v1/public/gifts/result").contains(request.getRequestURI()));
     }
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         String raw=SessionAuthenticationFilter.cookie(req, AuthService.COOKIE); AuthRepository.Session session=auth.session(raw);
