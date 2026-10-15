@@ -99,4 +99,11 @@ public class DailyFortuneService {
 
     public record DailyContent(String oneLineFortune, String luckyColor, String luckyItem,
                                String luckyPlace, String todayAction) {}
+
+    /** Additive response contract. Values are populated with the PD catalog in daily-2026.10-v3. */
+    public record LuckyExtras(GuardianAnimal guardianAnimal, LuckyMission luckyMission,
+                              String luckyInitial, LuckySong luckySong) {}
+    public record GuardianAnimal(String key, String animal, String name, String line) {}
+    public record LuckyMission(String key, String text) {}
+    public record LuckySong(String key, String title, String artist) {}
 }

@@ -1,5 +1,21 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 직접결제 FE 전달본을 PR #49 API 계약에 맞춰 갱신 (문서 변경)
+
+- 작업공간 외부의 `~/Desktop/DIRECT_PAYMENT_FRONTEND_HANDOFF.md`를 현재 backend controller/service와 대조해 갱신했다. 일반 direct batch 경로와 별도 `/api/v1/direct-gift-batches` 경로, 운세 fulfillment의 필수 `Idempotency-Key`, 부적 추가 요청, 직접결제 선물 수신/재발급/공개 결과 polling을 반영했다.
+- 전달본에 `PAID` 확인, 로그인 구매자 소유권, 공통 응답/HTTP 상태, token fragment→JSON body 경계, 로그/analytics/storage 최소화와 202 PROCESSING/200 READY 차이를 명시했다. 현금 취소/환불 API 미구현, Toss 실결제 미검증, gift/worker flag 기본 비활성, PR 미merge·미배포 가능성도 구현 완료와 분리해 표시했다.
+- 후속 문서 요청에 따라 PG사는 아직 미정이며 Toss Payments 연동은 결정 전 보류 가능하다고 명시했다. 기존 Toss 승인 요청 예시는 확정 사업자 계약이 아니라 참고 형식으로 표시하고, 실제 PG 선택 뒤 adapter·credential·대사·환불 복구를 확정하도록 보정했다.
+- 적용: 6-1 인증·소유권·bearer token, 6-3 승인 결과 불명과 환불 미구현, 6-4 gift worker flag와 polling/recovery 기대치, 6-5 token·수신 결과 접근, 6-6 PR/배포 경계, 6-9 개인정보/token 최소화. 문서 대조 작업이며 API/코드/설정 변경이나 새 테스트 실행은 하지 않았다.
+
+### 2026-10-16: PD v4 정책·콘텐츠 데이터 문서와 현재 구현 대조 (코드 변경 없음)
+
+- 다운로드 전달본 `환불정책/이용약관/개인정보처리방침 v4 (2026-10-15)`, 오늘의 운세 데이터, 부적 조합, BE 확인 요청을 현재 branch의 migration·API·설정과 읽기 전용으로 대조했다. 일반 운세 1,800/2,500원, 부적 추가 1,000원, 수능운 3,000원, 수능 선물 1,000/3,000원, 신규 TOP_UP 비활성화와 batch 총액 5만 원 미만은 `V202610151400` 및 direct gift 제약과 일치한다. 선물의 미사용 90일과 첫 제공 뒤 90일 다시 보기 정책도 `GiftLifetimePolicy`와 일치한다.
+- 그러나 직접결제 batch에는 현금 취소/환불 API·상태·provider 취소/reconciliation이 아직 없다. legacy 등껍질 선물 취소는 등껍질 반환 경로이므로, v4의 “생성 실패 자동 취소”, “7일 내 직접결제 선물 취소”, “수신자별 부분 취소”를 출시 정책으로 게시하면 안 된다. 실제 토스 adapter/refund와 recovery는 기본 비활성이고, direct payment의 PostgreSQL timeout/응답 유실/취소 검증도 확인하지 않았다.
+- 직접 링크 재발급은 구현상 결제 승인 뒤 30일, KST 하루 3회·1분 간격이며 90일 전체가 아니다. 정책 문구는 30일로 고치거나 재발급 정책·테스트를 90일로 명시적으로 확장해야 한다. 24시간 뒤 원문 링크 재표시는 사라지지만 수신 권한 token hash와 90일 접근 기한은 별개다.
+- 오늘의 운세 전달 데이터(수호동물/미션/초성/노래)와 부적 조합 전달 데이터(border/paper/item/4글자 멘트)는 아직 backend API·저장 모델에 반영되지 않았다. 현재 오늘의 운세는 색/아이템/장소/존댓말 action이고, 부적은 element/animal/문구만 저장한다. 렌더 worker와 실제 private object-storage adapter는 기본 비활성이다.
+- 개인정보 처리방침의 Railway 리전과 R2 저장 위치는 저장소 설정만으로 확인할 수 없다. 실제 deployment dashboard/계약에서 확인 전에는 빈칸을 채우거나 단정하지 않는다. 프론트 코드에는 Sentry/PostHog 설정 지점은 있으나, 운영값·실제 전송/보관 기간은 이번 읽기 전용 검토 범위에서 확인하지 않았다.
+- 적용: 6-3 직접결제 결과 불명·취소/환불 미구현, 6-4 worker/renderer 기본 비활성, 6-5 링크 재발급과 수신 기한 구분, 6-6 정책 공개 전 배포 설정 확인, 6-9 보관/국외 이전 사실 확인, 6-10 실제 provider·render 용량 미측정. 코드·API·환경 설정은 변경하지 않았다.
+
 ### 2026-10-15: 직접결제 선물 recipient를 기존 fulfillment 파이프라인에 연결 (PostgreSQL 실행 검증 대기)
 
 - `POST /direct-payment-batches/{batchId}/gift-fulfillment`은 `PAID` batch의 단일 `GIFT_BATCH` 소비 claim과 buyer/batch 행 잠금 뒤, recipient마다 기존 `gift_order_drafts → gift_purchase_work(ACTIVE) → gift_purchase_tokens`를 한 짧은 transaction에서 만든다. 직접결제 work에는 `direct_payment_batch_id`를 명시해 지갑 transaction/등껍질 차감으로 위장하지 않는다. 각 recipient의 `gift_id`와 `order_id`를 직접결제 recipient 행에 대사 가능하게 저장한다.
