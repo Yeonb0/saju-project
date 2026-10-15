@@ -560,12 +560,12 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
 
   describe("잔액 부족 — 추천 충전 상품 (P-06)", () => {
     it("g. 추천 상품의 가격 · 받는 수를 목록 값 그대로 보이고 다른 상품 값은 보이지 않는다", async () => {
-      // 잔액 1 → 부족 12 → 가짜 서버 추천은 FIXTURE_TOP_UP_B (2,222 KRW · 받는 수 24)
+      // 잔액 1 → 부족 12 → 가짜 서버 추천은 FIXTURE_TOP_UP_B (2,222원 · 받는 수 24)
       setup({ balance: 1 });
-      expect(await screen.findByText("2,222 KRW")).toBeInTheDocument();
+      expect(await screen.findByText("2,222원")).toBeInTheDocument();
       expect(screen.getByText("24")).toBeInTheDocument();
-      expect(screen.queryByText("1,111 KRW")).toBeNull();
-      expect(screen.queryByText("3,333 KRW")).toBeNull();
+      expect(screen.queryByText("1,111원")).toBeNull();
+      expect(screen.queryByText("3,333원")).toBeNull();
       expect(screen.queryByText("36")).toBeNull();
     });
 
@@ -604,7 +604,7 @@ describe("ShellCheckout — 등껍질 차감 확인 (CHECKOUT-POPUP)", () => {
       await waitFor(() => expect(reportMismatch).toHaveBeenCalledTimes(1));
       expect(reportMismatch).toHaveBeenCalledWith("FIXTURE_TOP_UP_INACTIVE");
       expect(screen.queryByText("추천 충전")).toBeNull();
-      expect(screen.queryByText("7,777 KRW")).toBeNull();
+      expect(screen.queryByText("7,777원")).toBeNull();
     });
 
     it("k. 잔액이 충분하면 충전 상품 목록 조회를 하지 않는다", async () => {

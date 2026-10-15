@@ -540,8 +540,7 @@ export function ShellCheckout({
               <>
                 {/* TODO(PD 문구): 항목 이름 · 단위 */}
                 <Row label="추천 충전">
-                  {formatNumber(recommended.price.amount)}{" "}
-                  {recommended.price.currency}
+                  {formatNumber(recommended.price.amount)}원
                 </Row>
                 {/* TODO(PD 문구): 항목 이름 · 단위 */}
                 <Row label="받는 수">

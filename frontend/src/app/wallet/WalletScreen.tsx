@@ -167,6 +167,11 @@ export function WalletScreen({
   const noProducts =
     products.data !== undefined && !products.data.some((p) => p.active);
   const contactHref = supportMailtoHref();
+  // 결제 버튼 가격 — 고른 상품의 서버 값만 (P-03 · P-09). 목록에서 못 찾으면 null
+  const selectedPrice =
+    selected === null
+      ? null
+      : (products.data?.find((p) => p.code === selected)?.price.amount ?? null);
 
   const canceled = order.error instanceof PaymentCanceledError;
   const errorKind =
@@ -197,8 +202,10 @@ export function WalletScreen({
                 errorKind === "review_required"
               }
             >
-              {/* TODO(PD 문구) */}
-              결제하기
+              {/* TODO(PD 문구): 상품을 고르기 전 버튼 글자 */}
+              {selectedPrice === null
+                ? "결제하기"
+                : `${formatNumber(selectedPrice)}원 결제하기`}
             </Button>
           )}
         </div>
@@ -261,7 +268,7 @@ export function WalletScreen({
                 </span>
               ) : null}
               <span className="ml-auto font-bold">
-                {formatNumber(product.price.amount)} {product.price.currency}
+                {formatNumber(product.price.amount)}원
               </span>
             </label>
           ))}

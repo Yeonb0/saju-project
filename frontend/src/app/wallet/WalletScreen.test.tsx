@@ -48,6 +48,10 @@ function setup(port: TopUpPort = createFakeTopUpPort()) {
   return { createOrder, launcher };
 }
 
+const fmtWon = (n: number) => n.toLocaleString("ko-KR");
+// 고른 상품 기준 결제 버튼 이름 (PAY-01 「N원 결제하기」) — 가격은 픽스처 서버 값에서 가져온다. 인덱스는 FIXTURE_TOP_UP_PRODUCTS 순서
+const payName = (index: number) =>
+  `${fmtWon(FIXTURE_TOP_UP_PRODUCTS[index].price.amount)}원 결제하기`;
 const AGREEMENT = "주문 내용과 환불정책을 확인했으며 결제에 동의합니다. (필수)";
 // 결제하기를 누르는 테스트는 먼저 필수 동의를 체크한다 (Q-25)
 const agree = (user: ReturnType<typeof userEvent.setup>) =>
@@ -83,7 +87,7 @@ describe("WalletScreen — 다시 결제하기 상품 유지 (TOPUP-RETRY-URL, F
     renderRetry("FIXTURE_TOP_UP_C");
     await waitFor(() => expect(checkedRadios()).toEqual(["FIXTURE_TOP_UP_C"]));
     expect(screen.getByRole("checkbox", { name: AGREEMENT })).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: payName(2) })).toBeDisabled();
   });
 
   it.each([
@@ -102,7 +106,7 @@ describe("WalletScreen — 다시 결제하기 상품 유지 (TOPUP-RETRY-URL, F
     const { launcher } = renderRetry("FIXTURE_TOP_UP_C");
     await waitFor(() => expect(checkedRadios()).toEqual(["FIXTURE_TOP_UP_C"]));
     await agree(user);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(2) }));
     await waitFor(() =>
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
@@ -119,7 +123,10 @@ describe("WalletScreen (PAY-01)", () => {
     expect(radios).toHaveLength(7);
     for (const radio of radios.slice(0, 6)) expect(radio).not.toBeDisabled();
     expect(radios[6]).toBeDisabled();
-    expect(screen.getByText(/1,111 KRW/)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${fmtWon(FIXTURE_TOP_UP_PRODUCTS[0].price.amount)}원`),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/KRW/)).toBeNull();
   });
 
   it("상품을 고르기 전에는 모든 카드가 data-selected=false, 고르면 그 카드만 true (PD 메모 301:165)", async () => {
@@ -149,7 +156,7 @@ describe("WalletScreen (PAY-01)", () => {
       `${fmt(b.paidAmount)} + 보너스 ${fmt(b.bonusAmount)}`,
     );
     expect(text).toContain(fmt(b.creditedAmount));
-    expect(text).toContain(`${fmt(b.price.amount)} ${b.price.currency}`);
+    expect(text).toContain(`${fmt(b.price.amount)}원`);
   });
 
   it("l. 주문 내용 상자는 없고 안내 · 동의 자리가 하나씩 있으며 동의 체크박스는 처음에 꺼져 있다", async () => {
@@ -177,7 +184,7 @@ describe("WalletScreen (PAY-01)", () => {
     const { createOrder } = setup();
     await user.click((await screen.findAllByRole("radio"))[1]);
     await agree(user);
-    const button = screen.getByRole("button", { name: "결제하기" });
+    const button = screen.getByRole("button", { name: payName(1) });
     expect(button).toBeEnabled();
     await user.click(button);
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
@@ -205,7 +212,7 @@ describe("WalletScreen (PAY-01)", () => {
       const user = userEvent.setup();
       setup();
       await user.click((await screen.findAllByRole("radio"))[1]);
-      const button = screen.getByRole("button", { name: "결제하기" });
+      const button = screen.getByRole("button", { name: payName(1) });
       expect(button).toBeDisabled();
       await agree(user);
       expect(button).toBeEnabled();
@@ -217,7 +224,7 @@ describe("WalletScreen (PAY-01)", () => {
       const user = userEvent.setup();
       const { createOrder, launcher } = setup();
       await user.click((await screen.findAllByRole("radio"))[1]);
-      const button = screen.getByRole("button", { name: "결제하기" });
+      const button = screen.getByRole("button", { name: payName(1) });
       expect(button).toBeDisabled();
       // 비활성 버튼에 click 이벤트를 직접 보내 onPay 방어를 본다
       fireEvent.click(button);
@@ -253,12 +260,27 @@ describe("WalletScreen (PAY-01)", () => {
     expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
   });
 
+  it("a. 상품을 고르면 버튼 이름이 「{가격}원 결제하기」, 다른 상품으로 바꾸면 그 상품 가격으로 바뀐다 (PAY-01)", async () => {
+    const user = userEvent.setup();
+    setup();
+    const radios = await screen.findAllByRole("radio");
+    await user.click(radios[0]);
+    expect(
+      screen.getByRole("button", { name: payName(0) }),
+    ).toBeInTheDocument();
+    await user.click(radios[1]);
+    expect(
+      screen.getByRole("button", { name: payName(1) }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: payName(0) })).toBeNull();
+  });
+
   it("서버 주문 그대로 결제창을 연다", async () => {
     const user = userEvent.setup();
     const { createOrder, launcher } = setup();
     await user.click((await screen.findAllByRole("radio"))[1]);
     await agree(user);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(1) }));
     await waitFor(() =>
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
@@ -283,9 +305,9 @@ describe("WalletScreen (PAY-01)", () => {
     );
     await user.click((await screen.findAllByRole("radio"))[0]);
     await agree(user);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await screen.findByRole("alert");
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
     expect(createOrder.mock.calls[1][1]).toBe(createOrder.mock.calls[0][1]);
   });
@@ -303,12 +325,12 @@ describe("WalletScreen (PAY-01)", () => {
     );
     await user.click((await screen.findAllByRole("radio"))[0]);
     await agree(user);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() =>
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "결제하기" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: payName(0) })).toBeEnabled(),
     );
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -327,12 +349,12 @@ describe("WalletScreen (PAY-01)", () => {
     );
     await user.click((await screen.findAllByRole("radio"))[0]);
     await agree(user);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "결제하기" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: payName(0) })).toBeEnabled(),
     );
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
     expect(createOrder.mock.calls[1][1]).toBe(createOrder.mock.calls[0][1]);
   });
@@ -352,10 +374,10 @@ describe("WalletScreen (PAY-01)", () => {
     const radios = await screen.findAllByRole("radio");
     await user.click(radios[0]);
     await agree(user);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await screen.findByRole("alert");
     await user.click(radios[1]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(1) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
     expect(createOrder.mock.calls[1][1]).not.toBe(createOrder.mock.calls[0][1]);
   });
@@ -373,7 +395,7 @@ describe("WalletScreen (PAY-01)", () => {
     const { createOrder, launcher } = setup(port);
     await user.click((await screen.findAllByRole("radio"))[1]);
     await agree(user);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(1) }));
     const title = await screen.findByText("확인이 필요한 구매예요");
     expect(title).toBeVisible();
     // 푸터에도 같은 이메일이 있어 안내 블록 안에서만 본다
@@ -387,7 +409,7 @@ describe("WalletScreen (PAY-01)", () => {
       "[뿌기사주 문의]",
     );
     expect(screen.queryByText("결제를 시작하지 못했습니다")).toBeNull();
-    expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: payName(1) })).toBeDisabled();
     expect(createOrder).toHaveBeenCalledTimes(1);
     expect(launcher.requestPayment).not.toHaveBeenCalled();
   });
@@ -397,7 +419,7 @@ describe("WalletScreen (PAY-01)", () => {
     const { createOrder, launcher } = setup();
     await user.click((await screen.findAllByRole("radio"))[0]);
     await agree(user);
-    const button = screen.getByRole("button", { name: "결제하기" });
+    const button = screen.getByRole("button", { name: payName(0) });
     // 렌더 사이 없이 두 번 — 실제 더블 탭 경쟁
     button.click();
     button.click();

@@ -6,6 +6,9 @@
 
 export type Money = Readonly<{ currency: string; amount: number }>;
 
+// 충전 상품 가격은 원화뿐 — adapter 가 z.literal("KRW") 로 검사한다 (P-08, 기능 명세서 v0.4 7장)
+export type KrwPrice = Readonly<{ currency: "KRW"; amount: number }>;
+
 // paidBalance · bonusBalance: 현재 유료 · 보너스 잔액 — 서버 값만 (BE-A FE_REQUEST_RESPONSES 1장). 합계와 서로 맞추지 않는다 (P-09)
 export type Wallet = Readonly<{
   currency: string;
@@ -16,7 +19,7 @@ export type Wallet = Readonly<{
 
 export type TopUpProduct = Readonly<{
   code: string;
-  price: Money;
+  price: KrwPrice;
   paidAmount: number;
   bonusAmount: number;
   creditedAmount: number;
