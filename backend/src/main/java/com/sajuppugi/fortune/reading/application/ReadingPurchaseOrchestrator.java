@@ -46,7 +46,6 @@ public class ReadingPurchaseOrchestrator {
         readings.saveGenerationContext(purchase.id(), execution.resumeContext());
 
         if (execution.directPaid()) {
-            if (!readings.markDirectPaid(purchase.id())) return current(execution);
             return generate(execution, null);
         }
         WalletPurchasePort wallet = required(walletProvider.getIfAvailable());

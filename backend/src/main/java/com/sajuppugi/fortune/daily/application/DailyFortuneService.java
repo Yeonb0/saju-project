@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DailyFortuneService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final String CONTENT_VERSION = "daily-2026.10-v4";
+    private static final String CONTENT_VERSION = "daily-2026.10-v5";
     private static final String[] LUCKY_COLORS = {"코랄", "하늘색", "올리브", "보랏빛", "아이보리", "네이비", "민트", "와인색"};
     private static final String[] LUCKY_ITEMS = {"작은 메모장", "물병", "손목시계", "이어폰 케이스", "필기구", "손수건", "책갈피", "파우치"};
     private static final String[] LUCKY_PLACES = {"햇볕 드는 창가", "조용한 산책로", "익숙한 카페", "정돈된 책상", "가까운 공원", "동네 서점", "편안한 휴식 공간", "사람이 많지 않은 길"};
@@ -75,7 +75,7 @@ public class DailyFortuneService {
                 Integer.toString(counts.get(CalculationFacts.Element.WATER)), CONTENT_VERSION);
     }
 
-    private int score(String seed, String category) {
+    private static int score(String seed, String category) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest((seed + "|" + category).getBytes(StandardCharsets.UTF_8));
@@ -87,8 +87,7 @@ public class DailyFortuneService {
 
     private DailyContent content(String seed, CalculationFacts facts, Scores scores) {
         int index = score(seed, "DAILY_CONTENT") % LUCKY_COLORS.length;
-        List<String> candidates = ONE_LINE_FORTUNES.get(facts.dayMaster().element());
-        String oneLineFortune = candidates.get(select(seed, "ONE_LINE", candidates.size()));
+        String oneLineFortune = selectOneLine(seed, facts.dayMaster().element());
         if (scores.overall() >= 70) oneLineFortune = "작은 자신감을 행동으로 옮기기 좋은 하루예요. " + oneLineFortune;
         else if (scores.overall() <= 30) oneLineFortune = "속도를 조금 늦추고 기본을 챙기면 충분한 하루예요. " + oneLineFortune;
         return new DailyContent(oneLineFortune, LUCKY_COLORS[index], LUCKY_ITEMS[index],
@@ -106,7 +105,12 @@ public class DailyFortuneService {
                 new LuckySong(song.key(), song.value(), song.detail()));
     }
 
-    private int select(String seed, String category, int size) { return score(seed, category) % size; }
+    private static int select(String seed, String category, int size) { return score(seed, category) % size; }
+    static String selectOneLine(String seed, CalculationFacts.Element element) {
+        List<String> candidates = ONE_LINE_FORTUNES.get(element);
+        return candidates.get(select(seed, "ONE_LINE", candidates.size()));
+    }
+    static List<String> oneLineCandidates(CalculationFacts.Element element) { return ONE_LINE_FORTUNES.get(element); }
     private static List<String> phrases(String value) { return List.of(value.split("\\|")); }
 
     public record DailyFortune(LocalDate date, UUID personId, Scores scores, DailyContent content, LuckyExtras luckyExtras,

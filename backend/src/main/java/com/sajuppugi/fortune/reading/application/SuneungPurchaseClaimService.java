@@ -3,6 +3,7 @@ package com.sajuppugi.fortune.reading.application;
 import com.sajuppugi.catalog.port.CatalogRepository;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase;
 import com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status;
+import com.sajuppugi.fortune.reading.domain.GenerationResumeContext;
 import com.sajuppugi.fortune.reading.port.ReadingRepository;
 import com.sajuppugi.payment.application.DirectPaymentConsumptionService;
 import java.time.Clock;
@@ -51,9 +52,14 @@ public class SuneungPurchaseClaimService {
     /** A settled batch is consumed before a reading can enter the generation state. */
     @Transactional
     public ReadingPurchase claimDirectPaid(UUID userId, UUID batchId, UUID quoteId, UUID productId, UUID personId,
-                                           UUID counterpartPersonId, String relationType, String questionKey) {
+                                           UUID counterpartPersonId, String relationType, String questionKey,
+                                           GenerationResumeContext generationContext) {
         ReadingPurchase purchase = claim(userId, quoteId, productId, personId, counterpartPersonId, relationType, questionKey);
         payments.claimReading(userId, batchId, quoteId, purchase.id());
+        readings.saveGenerationContext(purchase.id(), generationContext);
+        if (purchase.status() == Status.CREATED && !readings.markDirectPaid(purchase.id())) {
+            throw new IllegalStateException("Direct-paid reading purchase changed before it was prepared");
+        }
         return purchase;
     }
 }

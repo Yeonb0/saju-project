@@ -49,7 +49,8 @@ public final class TalismanCompositionPolicy {
         TalismanComposition visual = new TalismanComposition("border_" + elementKey + "_" + (random.nextInt(3) + 1),
                 "paper_" + elementKey + "_" + (random.nextInt(3) + 1), animalKey,
                 "item_" + TalismanCatalog.fortuneKey(fortuneType) + "_" + (random.nextInt(3) + 1),
-                TalismanCatalog.phrase(fortuneType, random.nextInt(100)), "seal_default");
+                TalismanCatalog.phrase(fortuneType, random.nextInt(TalismanCatalog.phraseCount(fortuneType))),
+                "seal_default");
         return new Composition(element, animal, visual.phrase().text(), description, visual);
     }
 

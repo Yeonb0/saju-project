@@ -30,23 +30,26 @@ public class JdbcTalismanRepository implements TalismanRepository {
 
     @Override
     public Optional<Talisman> findByReadingId(UUID readingId) {
-        return jdbc.query("SELECT * FROM talismans WHERE source_reading_id = ?",
-                (rs, row) -> withComposition(talisman(rs)), readingId).stream().findFirst();
+        return jdbc.query(selectWithComposition("WHERE t.source_reading_id = ?"),
+                (rs, row) -> talismanWithComposition(rs), readingId).stream().findFirst();
     }
 
     @Override
     public Optional<Talisman> findById(UUID talismanId) {
-        return jdbc.query("SELECT * FROM talismans WHERE id = ?", (rs, row) -> withComposition(talisman(rs)), talismanId)
+        return jdbc.query(selectWithComposition("WHERE t.id = ?"), (rs, row) -> talismanWithComposition(rs), talismanId)
                 .stream().findFirst();
     }
 
     @Override
     public Optional<Talisman> findOwned(UUID ownerUserId, UUID talismanId) {
         return jdbc.query("""
-                SELECT t.* FROM talismans t
+                SELECT t.*, c.talisman_id AS composition_talisman_id, c.border_key, c.paper_key,
+                    c.animal_key, c.item_key, c.phrase_text, c.phrase_hanja, c.phrase_meaning, c.seal_key
+                FROM talismans t
                 JOIN talisman_ownerships o ON o.talisman_id = t.id
+                LEFT JOIN talisman_compositions c ON c.talisman_id = t.id
                 WHERE o.owner_user_id = ? AND t.id = ?
-                """, (rs, row) -> withComposition(talisman(rs)), ownerUserId, talismanId).stream().findFirst();
+                """, (rs, row) -> talismanWithComposition(rs), ownerUserId, talismanId).stream().findFirst();
     }
 
     @Override
@@ -54,21 +57,27 @@ public class JdbcTalismanRepository implements TalismanRepository {
             UUID beforeTalismanId, int limit) {
         if (beforeAcquiredAt == null) {
             return jdbc.query("""
-                    SELECT t.* FROM talismans t
+                    SELECT t.*, c.talisman_id AS composition_talisman_id, c.border_key, c.paper_key,
+                        c.animal_key, c.item_key, c.phrase_text, c.phrase_hanja, c.phrase_meaning, c.seal_key
+                    FROM talismans t
                     JOIN talisman_ownerships o ON o.talisman_id = t.id
+                    LEFT JOIN talisman_compositions c ON c.talisman_id = t.id
                     WHERE o.owner_user_id = ?
                     ORDER BY t.created_at DESC, t.id DESC
                     LIMIT ?
-                    """, (rs, row) -> withComposition(talisman(rs)), ownerUserId, limit);
+                    """, (rs, row) -> talismanWithComposition(rs), ownerUserId, limit);
         }
         return jdbc.query("""
-                SELECT t.* FROM talismans t
+                SELECT t.*, c.talisman_id AS composition_talisman_id, c.border_key, c.paper_key,
+                    c.animal_key, c.item_key, c.phrase_text, c.phrase_hanja, c.phrase_meaning, c.seal_key
+                FROM talismans t
                 JOIN talisman_ownerships o ON o.talisman_id = t.id
+                LEFT JOIN talisman_compositions c ON c.talisman_id = t.id
                 WHERE o.owner_user_id = ?
                   AND (t.created_at < ? OR (t.created_at = ? AND t.id < ?))
                 ORDER BY t.created_at DESC, t.id DESC
                 LIMIT ?
-                """, (rs, row) -> withComposition(talisman(rs)), ownerUserId, Timestamp.from(beforeAcquiredAt),
+                """, (rs, row) -> talismanWithComposition(rs), ownerUserId, Timestamp.from(beforeAcquiredAt),
                 Timestamp.from(beforeAcquiredAt),
                 beforeTalismanId, limit);
     }
@@ -178,13 +187,24 @@ public class JdbcTalismanRepository implements TalismanRepository {
                 assets, rs.getString("failure_code"), instant(rs, "created_at"), instant(rs, "ready_at"));
     }
 
-    private Talisman withComposition(Talisman value) {
-        var rows = jdbc.query("SELECT border_key,paper_key,animal_key,item_key,phrase_text,phrase_hanja,phrase_meaning,seal_key FROM talisman_compositions WHERE talisman_id=?",
-                (rs, row) -> new TalismanComposition(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
-                        new TalismanComposition.Phrase(rs.getString(5), rs.getString(6), rs.getString(7)), rs.getString(8)), value.id());
-        if (rows.isEmpty()) return value;
+    private String selectWithComposition(String where) {
+        return """
+                SELECT t.*, c.talisman_id AS composition_talisman_id, c.border_key, c.paper_key,
+                    c.animal_key, c.item_key, c.phrase_text, c.phrase_hanja, c.phrase_meaning, c.seal_key
+                FROM talismans t
+                LEFT JOIN talisman_compositions c ON c.talisman_id = t.id
+                """ + where;
+    }
+
+    private Talisman talismanWithComposition(ResultSet rs) throws SQLException {
+        Talisman value = talisman(rs);
+        if (rs.getObject("composition_talisman_id") == null) return value;
+        TalismanComposition composition = new TalismanComposition(rs.getString("border_key"),
+                rs.getString("paper_key"), rs.getString("animal_key"), rs.getString("item_key"),
+                new TalismanComposition.Phrase(rs.getString("phrase_text"), rs.getString("phrase_hanja"),
+                        rs.getString("phrase_meaning")), rs.getString("seal_key"));
         return new Talisman(value.id(), value.ownerUserId(), value.sourceReadingId(), value.fortuneType(), value.element(),
-                value.animal(), value.phrase(), value.description(), rows.getFirst(), value.contentVersion(), value.status(),
+                value.animal(), value.phrase(), value.description(), composition, value.contentVersion(), value.status(),
                 value.assets(), value.failureCode(), value.createdAt(), value.readyAt());
     }
 
