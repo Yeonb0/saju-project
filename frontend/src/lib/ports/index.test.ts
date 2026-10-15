@@ -5,10 +5,12 @@ import { createFakeAccount } from "@/mocks/account";
 import { createFakeReadings } from "@/mocks/reading";
 import { createFakeWallet } from "@/mocks/wallet";
 import {
+  resolveDirectPaymentScenario,
   resolveFortuneScenario,
   resolveSessionScenario,
   resolveTopUpScenario,
   selectBasicSajuPort,
+  selectDirectPaymentPort,
   selectFortunePort,
   selectPaymentLauncher,
   selectPersonPort,
@@ -300,5 +302,28 @@ describe("MOCK-PANEL 저장값 우선순위", () => {
       relationType: null,
     });
     expect(quote.walletBalance).toBe(100);
+  });
+});
+
+describe("직접결제 포트 선택 (DIRECT-PAY, MOCK-PORT)", () => {
+  it("I1. 시나리오: 비우면 paid, 모르는 값은 던진다", () => {
+    expect(resolveDirectPaymentScenario(undefined)).toBe("paid");
+    expect(resolveDirectPaymentScenario("")).toBe("paid");
+    expect(resolveDirectPaymentScenario("confirm_lost")).toBe("confirm_lost");
+    expect(() => resolveDirectPaymentScenario("nope")).toThrow(
+      "NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO",
+    );
+  });
+
+  it("I2. 진짜 모드는 선택할 때 던지지 않고 호출하면 reject 한다 — 가짜 결과를 내지 않는다", async () => {
+    const port = selectDirectPaymentPort("real", undefined);
+    await expect(port.createOrder({ quoteId: "q" }, "key")).rejects.toThrow(
+      "직접결제 진짜 adapter 없음",
+    );
+    await expect(port.getOrder("o")).rejects.toThrow();
+  });
+
+  it("I3. 가짜 모드에 가짜 운세가 없으면 던진다", () => {
+    expect(() => selectDirectPaymentPort("mock", undefined)).toThrow();
   });
 });

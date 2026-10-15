@@ -2,6 +2,7 @@
 // 진짜 구현(src/lib/api/adapters)은 모든 포트에 연결돼 있다. 진짜 모드는 가짜로 돌아가지 않는다.
 // 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
+// 직접결제는 NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO (비우면 paid). 진짜 직접결제 adapter 는 아직 없어 진짜 모드는 호출할 때 reject 한다 (DIRECT-PAY).
 // 모르는 값은 기본값으로 덮지 않고 던진다.
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
 
@@ -21,8 +22,14 @@ import {
 } from "@/mocks/account";
 import { createFakeBasicSajuPort } from "@/mocks/basicSaju";
 import {
+  createFakeDirectPaymentPort,
+  FAKE_DIRECT_PAYMENT_SCENARIOS,
+  type FakeDirectPaymentScenario,
+} from "@/mocks/directPayment";
+import {
   createFakeFortunePort,
   FAKE_FORTUNE_SCENARIOS,
+  type FakeFortunePort,
   type FakeFortuneScenario,
 } from "@/mocks/fortune";
 import { readMockOverrides } from "@/mocks/overrides";
@@ -37,6 +44,7 @@ import {
 } from "@/mocks/topUp";
 import { createFakeWallet, type FakeWallet } from "@/mocks/wallet";
 import type { BasicSajuPort } from "./basicSaju";
+import type { DirectPaymentPort } from "./directPayment";
 import type { FortunePort } from "./fortune";
 import { API_MODE, type ApiMode } from "./mode";
 import type { PaymentLauncher } from "./paymentLauncher";
@@ -136,6 +144,18 @@ export function resolveFortuneScenario(
   throw new Error(`NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO 값이 잘못됐다: ${raw}`);
 }
 
+function selectFakeFortunePort(
+  scenarioRaw: string | undefined,
+  wallet?: FakeWallet,
+  readings?: FakeReadings,
+): FakeFortunePort {
+  return createFakeFortunePort({
+    scenario: resolveFortuneScenario(scenarioRaw),
+    wallet,
+    onFulfilled: readings ? (product) => readings.create(product) : undefined,
+  });
+}
+
 export function selectFortunePort(
   mode: ApiMode,
   scenarioRaw: string | undefined,
@@ -146,11 +166,7 @@ export function selectFortunePort(
     return createFortuneAdapter(
       createApiClient({ csrf: getRealSession().csrf }),
     );
-  return createFakeFortunePort({
-    scenario: resolveFortuneScenario(scenarioRaw),
-    wallet,
-    onFulfilled: readings ? (product) => readings.create(product) : undefined,
-  });
+  return selectFakeFortunePort(scenarioRaw, wallet, readings);
 }
 
 export function selectReadingPort(
@@ -172,17 +188,82 @@ function getFakeReadings(): FakeReadings {
   return fakeReadings;
 }
 
-let fortunePort: FortunePort | null = null;
+// 가짜 운세는 탭 하나에 하나 — 가짜 직접결제가 같은 견적 · 구매 기록을 본다 (DIRECT-PAY)
+let fakeFortune: FakeFortunePort | null = null;
 
-export function getFortunePort(): FortunePort {
-  fortunePort ??= selectFortunePort(
-    API_MODE,
+function getFakeFortune(): FakeFortunePort {
+  fakeFortune ??= selectFakeFortunePort(
     readMockOverrides().fortune ??
       process.env.NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO,
     getFakeWallet(),
     getFakeReadings(),
   );
+  return fakeFortune;
+}
+
+let fortunePort: FortunePort | null = null;
+
+export function getFortunePort(): FortunePort {
+  fortunePort ??=
+    API_MODE === "real"
+      ? selectFortunePort(API_MODE, undefined)
+      : getFakeFortune();
   return fortunePort;
+}
+
+export function resolveDirectPaymentScenario(
+  raw: string | undefined,
+): FakeDirectPaymentScenario {
+  if (raw === undefined || raw === "") return "paid";
+  if ((FAKE_DIRECT_PAYMENT_SCENARIOS as readonly string[]).includes(raw)) {
+    return raw as FakeDirectPaymentScenario;
+  }
+  throw new Error(
+    `NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO 값이 잘못됐다: ${raw}`,
+  );
+}
+
+// 진짜 직접결제 adapter 는 아직 없다 (DIRECT-PAY). 선택 시점에 던지지 않고(정적 렌더 가드) 호출할 때 reject 한다.
+// 가짜로 돌아가지 않는다. TODO(DIRECT-PAY 진짜 adapter): PR #49 병합 · OPENAPI-FE-SYNC 후
+function createUnavailableDirectPaymentPort(): DirectPaymentPort {
+  const unavailable = async (): Promise<never> => {
+    throw new Error(
+      "직접결제 진짜 adapter 없음 — PR #49 병합 · OPENAPI-FE-SYNC 후 (DIRECT-PAY)",
+    );
+  };
+  return {
+    createOrder: unavailable,
+    confirm: unavailable,
+    getOrder: unavailable,
+    fulfillReading: unavailable,
+  };
+}
+
+export function selectDirectPaymentPort(
+  mode: ApiMode,
+  scenarioRaw: string | undefined,
+  fortune?: FakeFortunePort,
+): DirectPaymentPort {
+  if (mode === "real") return createUnavailableDirectPaymentPort();
+  if (!fortune) {
+    throw new Error("가짜 직접결제에는 가짜 운세 포트가 필요하다 (DIRECT-PAY)");
+  }
+  return createFakeDirectPaymentPort({
+    fortune,
+    scenario: resolveDirectPaymentScenario(scenarioRaw),
+  });
+}
+
+// 탭 하나에 하나. 조작판 연결은 다음 단계 — 지금은 환경 변수만 본다
+let directPaymentPort: DirectPaymentPort | null = null;
+
+export function getDirectPaymentPort(): DirectPaymentPort {
+  directPaymentPort ??= selectDirectPaymentPort(
+    API_MODE,
+    process.env.NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO,
+    API_MODE === "mock" ? getFakeFortune() : undefined,
+  );
+  return directPaymentPort;
 }
 
 let readingPort: ReadingPort | null = null;
