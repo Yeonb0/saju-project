@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: 부적 addon purchase 영속·차액 계산 기반
+
+- `talisman_addon_purchases` additive table을 추가했다. reading당 unique 한 purchase만 허용하고 owner, quote, wallet transaction, talisman, 상태를 각각 unique/FK로 묶어 동시 구매가 별도 차감을 만들지 않을 기반을 마련했다.
+- 서버 가격 계산기는 동일 fortune type의 현재 `READING_ONLY`와 `READING_WITH_TALISMAN` catalog 가격 차이만 등껍질 addon 금액으로 허용한다. 현재 catalog는 15−10으로 5 등껍질이지만 HTTP client가 금액을 정하거나 5를 코드에 고정하지 않는다.
+- PostgreSQL 17 새 DB `saju_talisman_addon_20261015`에서 migration 포함 `GiftRecipientPostgresTest` 41건 및 compile을 통과했다. 지갑 차감·멱등 purchase HTTP·동시성 검증·실제 PENDING talisman 생성은 다음 단계다. 적용: 6-2 unique/FK/차액 기준, 6-6 additive migration.
+
 ### 2026-10-15: 구매자 `보낸 선물` projection 보강
 
 - 기존 owner-only `GET /api/v1/gift-orders` 목록에 복호화 가능한 수신자 표시명, option, 수신 처리 상태(`INPUT_REQUIRED`/`PROCESSING`/`READY`), 최초 제공 시각, 7일 미제공 취소 가능 여부를 추가했다. private payload가 파기됐거나 복호화할 수 없으면 표시명은 null이며, 메시지·raw token·생년정보는 반환하지 않는다.
