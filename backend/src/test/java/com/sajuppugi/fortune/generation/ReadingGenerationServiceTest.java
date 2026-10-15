@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,55 @@ class ReadingGenerationServiceTest {
             assertThat(results).filteredOn(GeneratedReading::reused).hasSize(7);
         }
         assertThat(calls).hasValue(1);
+    }
+
+    @Test
+    void generatesTenPaidSectionsAsTwoParallelBatchesOfFive() throws Exception {
+        MemoryStore store = new MemoryStore();
+        AtomicInteger active = new AtomicInteger();
+        AtomicInteger maxActive = new AtomicInteger();
+        CountDownLatch bothStarted = new CountDownLatch(2);
+        List<List<SectionKey>> batches = java.util.Collections.synchronizedList(new ArrayList<>());
+        LinerProvider provider = provider(request -> {
+            batches.add(request.allowedSections());
+            int current = active.incrementAndGet();
+            maxActive.accumulateAndGet(current, Math::max);
+            bothStarted.countDown();
+            try {
+                if (!bothStarted.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("batches did not run concurrently");
+                }
+                var sections = request.allowedSections().stream()
+                        .map(key -> new GeneratedSection(key, "서로 다른 흐름을 차분하게 살펴보세요: " + key,
+                                List.of("dayMaster.hanja")))
+                        .toList();
+                return new LinerResponse(sections, List.of());
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(exception);
+            } finally {
+                active.decrementAndGet();
+            }
+        });
+        List<SectionKey> keys = List.of(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW, SectionKey.CAUTION,
+                SectionKey.ACTION_TIP, SectionKey.RELATIONSHIPS, SectionKey.STUDY_AND_WORK,
+                SectionKey.WEALTH_FLOW, SectionKey.CONDITION, SectionKey.LUCKY_POINT, SectionKey.INCOME);
+        var facts = new DeterministicSajuEngine().calculate(new BirthInput(LocalDate.of(2004, 3, 15),
+                LocalTime.of(14, 32), false, BirthInput.CalendarType.SOLAR, false, BirthInput.Gender.FEMALE),
+                CalculationPolicy.CURRENT);
+        GenerationCommand command = new GenerationCommand(UUID.randomUUID(), FortuneType.OVERALL,
+                LocalDate.of(2026, 10, 15), null, facts, keys, List.of(), "gen-v1", "content-v1");
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            GeneratedReading reading = service(provider, store, new DeterministicReadingFallback(), executor)
+                    .generate(command);
+
+            assertThat(reading.response().sections()).extracting(GeneratedSection::key)
+                    .containsExactlyElementsOf(keys);
+        }
+        assertThat(batches).hasSize(2).allSatisfy(batch -> assertThat(batch).hasSize(5));
+        assertThat(maxActive).hasValue(2);
+        assertThat(store.attempts).isEqualTo(1);
     }
 
     @Test
@@ -128,9 +179,14 @@ class ReadingGenerationServiceTest {
 
     private ReadingGenerationService service(LinerProvider provider, GenerationSnapshotStore store,
                                              DeterministicReadingFallback fallback) {
+        return service(provider, store, fallback, Runnable::run);
+    }
+
+    private ReadingGenerationService service(LinerProvider provider, GenerationSnapshotStore store,
+                                             DeterministicReadingFallback fallback, Executor executor) {
         return new ReadingGenerationService(provider, store, new LinerFactProjector(mapper),
                 new GenerationKeyFactory(mapper), new LinerResponseValidator(mapper),
-                fallback);
+                fallback, executor);
     }
 
     private GenerationCommand command() {

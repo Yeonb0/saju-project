@@ -1,9 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
-### 2026-10-16: AWS PG 비활성 첫 배포 준비
+### 2026-10-15: 유료 운세 Liner 5개×2 병렬 생성
 
-- FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
-- 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
+- 섹션이 정확히 10개인 유료 운세는 기존 단일 Liner 요청 대신 앞 5개와 뒤 5개를 제한된 전용 executor에서 동시에 생성한다. 두 응답을 각각 facts/허용 섹션 기준으로 검증한 뒤 원래 섹션 순서로 합치고, 합친 10개 전체를 다시 검증한 경우에만 기존 immutable snapshot 한 건으로 저장한다.
+- 어느 한 요청이라도 실패하거나 검증을 통과하지 못하면 부분 결과를 저장·공개하지 않고 기존 최대 3회 재시도 및 결정론적 fallback 경로로 수렴한다. Liner 호출은 기존처럼 DB transaction 밖에서 실행되며 generation key claim과 최종 snapshot 원자성은 유지한다.
+- 전용 executor는 core 4, max 20, queue 100으로 프로세스 내 동시 외부 호출을 제한한다. 단위 테스트에서 5개씩 두 요청의 실제 동시 시작, 합친 10개 순서, 단일 최종 attempt 기록을 확인했다. 실제 Liner 환경의 p95 시간·부분 실패율·계정별 비용과 다중 인스턴스 전체 동시 호출량은 staging에서 아직 측정하지 않았다.
+- 적용: 6-3 외부 provider timeout·bounded retry, 6-4 부분 결과 비공개·기존 lease/fallback 복구, 6-9 기존 facts-only 전송 유지, 6-10 executor 제한·실제 용량 미측정.
 
 ### 2026-10-15: 유료 운세 10개 섹션·신살 13종·생성 대기 preview 백엔드
 
