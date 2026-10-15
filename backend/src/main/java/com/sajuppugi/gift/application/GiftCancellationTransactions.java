@@ -43,7 +43,7 @@ public class GiftCancellationTransactions {
         jdbc.update("INSERT INTO gift_cancellations(order_id,state,next_attempt_at,requested_at) VALUES (?,'PENDING',?,?)",
                 id, Timestamp.from(now), Timestamp.from(now));
         work.stop(id, "CANCEL_PENDING", null);
-        jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE WHERE order_id = ?", id);
+        jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE,token_ciphertext = NULL WHERE order_id = ?", id);
         jdbc.update("UPDATE gift_delivery_outbox SET status = 'CANCELED', private_payload = '' WHERE order_id = ?", id);
         jdbc.update("UPDATE gift_delivery_jobs SET state = 'CANCELED', lease_token = NULL, lease_until = NULL WHERE order_id = ? AND state NOT IN ('SENT','FAILED','CANCELED')", id);
     }

@@ -52,7 +52,7 @@ export function createTossPaymentLauncher(deps: {
 }): PaymentLauncher {
   const loadSdk = deps.loadSdk ?? loadRealSdk;
   return {
-    async requestPayment(order) {
+    async requestPayment(order, options) {
       const { clientKey } = deps;
       // 키 값은 메시지에 넣지 않는다
       if (clientKey === undefined || !CLIENT_KEY_PATTERN.test(clientKey)) {
@@ -84,7 +84,8 @@ export function createTossPaymentLauncher(deps: {
               orderId: order.orderId,
               orderName: order.orderName,
               successUrl: `${origin}/pay/success`,
-              failUrl: `${origin}/pay/fail`,
+              // 실패 복귀에만 상품 코드를 붙인다 (TOPUP-RETRY-URL). successUrl 은 바꾸지 않는다
+              failUrl: `${origin}/pay/fail?product=${encodeURIComponent(options.retryProductCode)}`,
             });
           } catch (error) {
             // 정리 실패보다 결제 요청 실패 원인이 더 중요하다 — 원래 오류로 끝낸다

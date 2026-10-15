@@ -17,6 +17,10 @@ import type {
 export const POLL_INTERVAL_MS = 2_000;
 export const POLL_LIMIT_MS = 30_000;
 
+// 실패 뒤 서버가 알려 준 다음 행동 (FUNCTIONAL_SPEC 7장 — 다시 결제하기는 서버가 재결제를 허용할 때만, Q-50).
+// retry = 서버가 RETRY_PAYMENT, contact = CONTACT_SUPPORT, none = 그 밖 (재결제 허용을 알려 주지 않았다)
+export type FailedNext = "retry" | "contact" | "none";
+
 export type ConfirmTopUpResult =
   | Readonly<{
       kind: "credited";
@@ -28,6 +32,7 @@ export type ConfirmTopUpResult =
   | Readonly<{
       kind: "failed";
       orderId: string;
+      next: FailedNext;
       cause:
         | "order_failed"
         | "order_canceled"
@@ -81,6 +86,12 @@ function defaultSleep(ms: number, signal?: AbortSignal) {
   });
 }
 
+function failedNextOf(state: TopUpOrderState): FailedNext {
+  if (state.nextAction === "RETRY_PAYMENT") return "retry";
+  if (state.nextAction === "CONTACT_SUPPORT") return "contact";
+  return "none";
+}
+
 // 확정된 상태면 결과, 아니면 null(계속 조회). processing:false 만으로 성공 판단하지 않는다.
 function settle(state: TopUpOrderState): ConfirmTopUpResult | null {
   switch (state.status) {
@@ -92,17 +103,24 @@ function settle(state: TopUpOrderState): ConfirmTopUpResult | null {
         grantedShellAmount: state.grantedShellAmount,
       };
     case "FAILED":
-      return { kind: "failed", orderId: state.orderId, cause: "order_failed" };
+      return {
+        kind: "failed",
+        orderId: state.orderId,
+        next: failedNextOf(state),
+        cause: "order_failed",
+      };
     case "CANCELED":
       return {
         kind: "failed",
         orderId: state.orderId,
+        next: failedNextOf(state),
         cause: "order_canceled",
       };
     case "REFUNDED":
       return {
         kind: "failed",
         orderId: state.orderId,
+        next: failedNextOf(state),
         cause: "order_refunded",
       };
     default:
@@ -129,7 +147,8 @@ function onError(error: unknown, orderId: string): ConfirmTopUpResult | "poll" {
     return { kind: "login_required", orderId };
   }
   if (POLL_ON.has(kind)) return "poll";
-  return { kind: "failed", orderId, cause: kind };
+  // 오류 code 로 끝난 실패 — 서버가 재결제를 허용한다고 알려 주지 않았다
+  return { kind: "failed", orderId, next: "none", cause: kind };
 }
 
 export async function pollTopUpOrder(

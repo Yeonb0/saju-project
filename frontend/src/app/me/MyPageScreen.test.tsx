@@ -40,6 +40,7 @@ function ports() {
     personId: "99999999-9999-4999-8999-999999999999",
     isSelf: false,
     name: OTHER_NAME,
+    relationType: "FAMILY",
   });
   return {
     sessionPort: createFakeSessionPort({ account }),
@@ -116,6 +117,9 @@ describe("MyPageScreen (MY-01)", () => {
         productCode: "FIXTURE_SUNEUNG_READING_WITH_TALISMAN",
         personId: "66666666-6666-4666-8666-666666666666",
         counterpartPersonId: null,
+        productOption: null,
+        questionKey: null,
+        relationType: null,
       },
     });
     const { logoutSpy } = setup();

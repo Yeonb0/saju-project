@@ -1,9 +1,17 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
+import { BUSINESS_INFO } from "@/lib/business";
 import type { FortunePort, FortuneQuote } from "@/lib/ports/fortune";
 import {
   PaymentCanceledError,
@@ -40,6 +48,74 @@ function setup(port: TopUpPort = createFakeTopUpPort()) {
   return { createOrder, launcher };
 }
 
+const fmtWon = (n: number) => n.toLocaleString("ko-KR");
+// 고른 상품 기준 결제 버튼 이름 (PAY-01 「N원 결제하기」) — 가격은 픽스처 서버 값에서 가져온다. 인덱스는 FIXTURE_TOP_UP_PRODUCTS 순서
+const payName = (index: number) =>
+  `${fmtWon(FIXTURE_TOP_UP_PRODUCTS[index].price.amount)}원 결제하기`;
+const AGREEMENT = "주문 내용과 환불정책을 확인했으며 결제에 동의합니다. (필수)";
+// 결제하기를 누르는 테스트는 먼저 필수 동의를 체크한다 (Q-25)
+const agree = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole("checkbox", { name: AGREEMENT }));
+// 「문의하기」 링크의 메일 제목 (mailto 의 subject 를 푼다)
+const mailSubject = (link: HTMLElement) =>
+  decodeURIComponent(
+    (link.getAttribute("href") ?? "").split("?subject=")[1] ?? "",
+  );
+
+describe("WalletScreen — 다시 결제하기 상품 유지 (TOPUP-RETRY-URL, FUNCTIONAL_SPEC 7장)", () => {
+  // 픽스처일 뿐이며 실제 상품 코드 · 가격과 무관하다
+  const renderRetry = (retryProductCode: string | null) => {
+    const port = createFakeTopUpPort();
+    const launcher: PaymentLauncher = { requestPayment: vi.fn(async () => {}) };
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <WalletScreen
+          port={port}
+          launcher={launcher}
+          retryProductCode={retryProductCode}
+        />
+      </QueryClientProvider>,
+    );
+    return { port, launcher };
+  };
+  const checkedRadios = () =>
+    (screen.getAllByRole("radio") as HTMLInputElement[])
+      .filter((r) => r.checked)
+      .map((r) => r.value);
+
+  it("판매 중인 상품이면 처음부터 골라져 있고, 동의는 미리 체크하지 않아 결제하기는 꺼져 있다", async () => {
+    renderRetry("FIXTURE_TOP_UP_C");
+    await waitFor(() => expect(checkedRadios()).toEqual(["FIXTURE_TOP_UP_C"]));
+    expect(screen.getByRole("checkbox", { name: AGREEMENT })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: payName(2) })).toBeDisabled();
+  });
+
+  it.each([
+    ["비활성 상품", "FIXTURE_TOP_UP_INACTIVE"],
+    ["목록에 없는 코드", "FIXTURE_NOT_IN_LIST"],
+  ])("%s 이면 아무것도 고르지 않고 오류도 아니다", async (_name, code) => {
+    renderRetry(code);
+    await screen.findAllByRole("radio");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(checkedRadios()).toEqual([]);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("결제하기 → requestPayment 두 번째 인자는 고른 상품 code", async () => {
+    const user = userEvent.setup();
+    const { launcher } = renderRetry("FIXTURE_TOP_UP_C");
+    await waitFor(() => expect(checkedRadios()).toEqual(["FIXTURE_TOP_UP_C"]));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: payName(2) }));
+    await waitFor(() =>
+      expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
+    );
+    expect(vi.mocked(launcher.requestPayment).mock.calls[0][1]).toEqual({
+      retryProductCode: "FIXTURE_TOP_UP_C",
+    });
+  });
+});
+
 describe("WalletScreen (PAY-01)", () => {
   it("서버(가짜) 상품 값을 그대로 보여 주고, 비활성 상품은 고를 수 없다", async () => {
     setup();
@@ -47,7 +123,10 @@ describe("WalletScreen (PAY-01)", () => {
     expect(radios).toHaveLength(7);
     for (const radio of radios.slice(0, 6)) expect(radio).not.toBeDisabled();
     expect(radios[6]).toBeDisabled();
-    expect(screen.getByText(/1,111 KRW/)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${fmtWon(FIXTURE_TOP_UP_PRODUCTS[0].price.amount)}원`),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/KRW/)).toBeNull();
   });
 
   it("상품을 고르기 전에는 모든 카드가 data-selected=false, 고르면 그 카드만 true (PD 메모 301:165)", async () => {
@@ -77,10 +156,10 @@ describe("WalletScreen (PAY-01)", () => {
       `${fmt(b.paidAmount)} + 보너스 ${fmt(b.bonusAmount)}`,
     );
     expect(text).toContain(fmt(b.creditedAmount));
-    expect(text).toContain(`${fmt(b.price.amount)} ${b.price.currency}`);
+    expect(text).toContain(`${fmt(b.price.amount)}원`);
   });
 
-  it("l. 주문 내용 상자는 없고 안내 · 동의 자리가 하나씩 있으며 체크박스는 없다", async () => {
+  it("l. 주문 내용 상자는 없고 안내 · 동의 자리가 하나씩 있으며 동의 체크박스는 처음에 꺼져 있다", async () => {
     const { container } = render(
       <QueryClientProvider client={makeQueryClient()}>
         <WalletScreen
@@ -97,17 +176,74 @@ describe("WalletScreen (PAY-01)", () => {
     expect(
       container.querySelectorAll('[data-slot="top-up-agreement"]'),
     ).toHaveLength(1);
-    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: AGREEMENT })).not.toBeChecked();
   });
 
-  it("m. 동의 자리를 건드리지 않아도 상품을 고르면 결제하기가 켜지고 주문이 1회 나간다", async () => {
+  it("m. 동의하고 상품을 고르면 결제하기가 켜지고 주문이 1회 나간다", async () => {
     const user = userEvent.setup();
     const { createOrder } = setup();
     await user.click((await screen.findAllByRole("radio"))[1]);
-    const button = screen.getByRole("button", { name: "결제하기" });
+    await agree(user);
+    const button = screen.getByRole("button", { name: payName(1) });
     expect(button).toBeEnabled();
     await user.click(button);
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+  });
+
+  it("안내 상자에 다섯 문장이 글자 그대로 보이고, 환불정책 보기 링크는 /refund", async () => {
+    setup();
+    await screen.findAllByRole("radio");
+    for (const line of [
+      "등껍질은 결제 승인 즉시 지급돼요. 유효기간은 유료 5년, 보너스 1년이에요.",
+      "유효기간이 먼저 끝나는 등껍질부터 사용돼요.",
+      "충전 후 7일 이내, 그 충전의 등껍질을 하나도 쓰지 않았다면 고객센터로 신청해 전액 환불받을 수 있어요.",
+      "남은 유료 등껍질 환불도 고객센터 이메일로 신청해 주세요.",
+      "미성년자는 법정대리인 동의를 받아 결제해 주세요. 동의 없이 결제하면 취소될 수 있어요.",
+    ]) {
+      expect(screen.getByText(line)).toBeVisible();
+    }
+    expect(
+      screen.getByRole("link", { name: "환불정책 보기 >" }),
+    ).toHaveAttribute("href", "/refund");
+  });
+
+  describe("필수 동의 (Q-25)", () => {
+    it("상품을 골라도 동의 전에는 결제하기가 꺼져 있고, 체크하면 켜지고, 해제하면 다시 꺼진다", async () => {
+      const user = userEvent.setup();
+      setup();
+      await user.click((await screen.findAllByRole("radio"))[1]);
+      const button = screen.getByRole("button", { name: payName(1) });
+      expect(button).toBeDisabled();
+      await agree(user);
+      expect(button).toBeEnabled();
+      await agree(user);
+      expect(button).toBeDisabled();
+    });
+
+    it("동의 전에 버튼을 강제로 눌러도 주문 생성 요청은 0번", async () => {
+      const user = userEvent.setup();
+      const { createOrder, launcher } = setup();
+      await user.click((await screen.findAllByRole("radio"))[1]);
+      const button = screen.getByRole("button", { name: payName(1) });
+      expect(button).toBeDisabled();
+      // 비활성 버튼에 click 이벤트를 직접 보내 onPay 방어를 본다
+      fireEvent.click(button);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(createOrder).not.toHaveBeenCalled();
+      expect(launcher.requestPayment).not.toHaveBeenCalled();
+    });
+
+    it("동의 문구는 label 로 체크박스와 연결되고, 저장소에 남기지 않는다", async () => {
+      const user = userEvent.setup();
+      setup();
+      await screen.findAllByRole("radio");
+      const checkbox = screen.getByRole("checkbox", { name: AGREEMENT });
+      expect(checkbox).not.toBeChecked();
+      await user.click(screen.getByText(AGREEMENT));
+      expect(checkbox).toBeChecked();
+      expect(localStorage.length).toBe(0);
+      expect(sessionStorage.length).toBe(0);
+    });
   });
 
   it("결제하기 버튼은 하단 CTA 영역 안에 있다 (LAYOUT-FIGMA)", async () => {
@@ -124,16 +260,35 @@ describe("WalletScreen (PAY-01)", () => {
     expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
   });
 
+  it("a. 상품을 고르면 버튼 이름이 「{가격}원 결제하기」, 다른 상품으로 바꾸면 그 상품 가격으로 바뀐다 (PAY-01)", async () => {
+    const user = userEvent.setup();
+    setup();
+    const radios = await screen.findAllByRole("radio");
+    await user.click(radios[0]);
+    expect(
+      screen.getByRole("button", { name: payName(0) }),
+    ).toBeInTheDocument();
+    await user.click(radios[1]);
+    expect(
+      screen.getByRole("button", { name: payName(1) }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: payName(0) })).toBeNull();
+  });
+
   it("서버 주문 그대로 결제창을 연다", async () => {
     const user = userEvent.setup();
     const { createOrder, launcher } = setup();
     await user.click((await screen.findAllByRole("radio"))[1]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: payName(1) }));
     await waitFor(() =>
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
     const order = await createOrder.mock.results[0].value;
-    expect(launcher.requestPayment).toHaveBeenCalledWith(order);
+    // 두 번째 인자: 주문을 만든 상품 코드 (TOPUP-RETRY-URL) — 2번째 카드는 FIXTURE_TOP_UP_B
+    expect(launcher.requestPayment).toHaveBeenCalledWith(order, {
+      retryProductCode: "FIXTURE_TOP_UP_B",
+    });
   });
 
   it("실패 후 다시 눌러도 같은 상품이면 같은 Idempotency-Key", async () => {
@@ -149,9 +304,10 @@ describe("WalletScreen (PAY-01)", () => {
       </QueryClientProvider>,
     );
     await user.click((await screen.findAllByRole("radio"))[0]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await screen.findByRole("alert");
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
     expect(createOrder.mock.calls[1][1]).toBe(createOrder.mock.calls[0][1]);
   });
@@ -168,12 +324,13 @@ describe("WalletScreen (PAY-01)", () => {
       </QueryClientProvider>,
     );
     await user.click((await screen.findAllByRole("radio"))[0]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() =>
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "결제하기" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: payName(0) })).toBeEnabled(),
     );
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -191,12 +348,13 @@ describe("WalletScreen (PAY-01)", () => {
       </QueryClientProvider>,
     );
     await user.click((await screen.findAllByRole("radio"))[0]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "결제하기" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: payName(0) })).toBeEnabled(),
     );
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
     expect(createOrder.mock.calls[1][1]).toBe(createOrder.mock.calls[0][1]);
   });
@@ -215,10 +373,11 @@ describe("WalletScreen (PAY-01)", () => {
     );
     const radios = await screen.findAllByRole("radio");
     await user.click(radios[0]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: payName(0) }));
     await screen.findByRole("alert");
     await user.click(radios[1]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await user.click(screen.getByRole("button", { name: payName(1) }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
     expect(createOrder.mock.calls[1][1]).not.toBe(createOrder.mock.calls[0][1]);
   });
@@ -235,14 +394,22 @@ describe("WalletScreen (PAY-01)", () => {
     );
     const { createOrder, launcher } = setup(port);
     await user.click((await screen.findAllByRole("radio"))[1]);
-    await user.click(screen.getByRole("button", { name: "결제하기" }));
+    await agree(user);
+    await user.click(screen.getByRole("button", { name: payName(1) }));
+    const title = await screen.findByText("확인이 필요한 구매예요");
+    expect(title).toBeVisible();
+    // 푸터에도 같은 이메일이 있어 안내 블록 안에서만 본다
+    const block = title.parentElement as HTMLElement;
     expect(
-      await screen.findByText(
-        "확인이 필요한 결제가 있어 지금은 충전할 수 없습니다. 고객센터로 문의해 주세요",
-      ),
+      within(block).getByText("고객센터로 문의해 주시면 빠르게 도와드릴게요."),
     ).toBeVisible();
+    expect(within(block).getByText(BUSINESS_INFO.email ?? "")).toBeVisible();
+    // 주문이 만들어지기 전 거절이라 번호 없음
+    expect(mailSubject(screen.getByRole("link", { name: "문의하기" }))).toBe(
+      "[뿌기사주 문의]",
+    );
     expect(screen.queryByText("결제를 시작하지 못했습니다")).toBeNull();
-    expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: payName(1) })).toBeDisabled();
     expect(createOrder).toHaveBeenCalledTimes(1);
     expect(launcher.requestPayment).not.toHaveBeenCalled();
   });
@@ -251,7 +418,8 @@ describe("WalletScreen (PAY-01)", () => {
     const user = userEvent.setup();
     const { createOrder, launcher } = setup();
     await user.click((await screen.findAllByRole("radio"))[0]);
-    const button = screen.getByRole("button", { name: "결제하기" });
+    await agree(user);
+    const button = screen.getByRole("button", { name: payName(0) });
     // 렌더 사이 없이 두 번 — 실제 더블 탭 경쟁
     button.click();
     button.click();
@@ -267,22 +435,47 @@ describe("WalletScreen (PAY-01)", () => {
       vi.spyOn(port, "listTopUpProducts").mockResolvedValue(products);
       return port;
     };
-    const NOTICE = "판매 중인 충전 상품이 없습니다";
+    const NOTICE = "지금은 충전할 수 있는 상품이 없어요";
 
-    it("n. 전부 비활성이면 안내만 보이고 라디오 없음 · 결제 버튼 disabled", async () => {
-      setup(
+    // PAY-06 — 두 줄 문구, 홈으로, 결제하기 · 동의 · 안내 상자 없음
+    async function expectPay06(container: HTMLElement) {
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      expect(
+        screen.getByText("잠시 후 다시 확인해 주세요."),
+      ).toBeInTheDocument();
+      expect(screen.queryAllByRole("radio")).toHaveLength(0);
+      expect(screen.getByRole("link", { name: "홈으로" })).toHaveAttribute(
+        "href",
+        "/",
+      );
+      expect(screen.queryByRole("button", { name: "결제하기" })).toBeNull();
+      expect(screen.queryByRole("checkbox")).toBeNull();
+      expect(container.querySelector('[data-slot="top-up-notice"]')).toBeNull();
+      expect(
+        container.querySelector('[data-slot="top-up-agreement"]'),
+      ).toBeNull();
+    }
+
+    const renderWith = (port: TopUpPort) =>
+      render(
+        <QueryClientProvider client={makeQueryClient()}>
+          <WalletScreen
+            port={port}
+            launcher={{ requestPayment: vi.fn(async () => {}) }}
+          />
+        </QueryClientProvider>,
+      ).container;
+
+    it("n. 전부 비활성이면 PAY-06 (라디오 없음 · 결제하기 없음 · 홈으로)", async () => {
+      const container = renderWith(
         portWith(FIXTURE_TOP_UP_PRODUCTS.map((p) => ({ ...p, active: false }))),
       );
-      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
-      expect(screen.queryAllByRole("radio")).toHaveLength(0);
-      expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+      await expectPay06(container);
     });
 
-    it("o. 빈 배열이어도 같은 안내", async () => {
-      setup(portWith([]));
-      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
-      expect(screen.queryAllByRole("radio")).toHaveLength(0);
-      expect(screen.getByRole("button", { name: "결제하기" })).toBeDisabled();
+    it("o. 빈 배열이어도 같은 PAY-06", async () => {
+      const container = renderWith(portWith([]));
+      await expectPay06(container);
     });
 
     it("p. 활성 + 비활성이 섞여 있으면 안내 없이 기존 동작", async () => {
@@ -299,6 +492,9 @@ describe("WalletScreen (PAY-01)", () => {
       productCode: "FIXTURE_OVERALL_READING_ONLY",
       personId: "fixture-person",
       counterpartPersonId: null,
+      productOption: "READING_ONLY" as const,
+      questionKey: "OVERALL_FLOW",
+      relationType: null,
     };
 
     async function makeQuote(balance = 2): Promise<{
@@ -323,13 +519,17 @@ describe("WalletScreen (PAY-01)", () => {
       );
     }
 
-    function renderWith(fortune: FortunePort) {
+    function renderWith(
+      fortune: FortunePort,
+      retryProductCode: string | null = null,
+    ) {
       return render(
         <QueryClientProvider client={makeQueryClient()}>
           <WalletScreen
             port={createFakeTopUpPort()}
             launcher={{ requestPayment: vi.fn(async () => {}) }}
             fortunePort={fortune}
+            retryProductCode={retryProductCode}
           />
         </QueryClientProvider>,
       );
@@ -503,6 +703,18 @@ describe("WalletScreen (PAY-01)", () => {
       await settle();
       expect(getQuote).not.toHaveBeenCalled();
       expect(shortageBlock(container)).toBeNull();
+    });
+
+    it("retryProductCode 와 잔액 부족 추천이 둘 다 있으면 retryProductCode 가 골라진다 (TOPUP-RETRY-URL)", async () => {
+      const { fortune, quote } = await makeQuote();
+      // 추천(서버 값)과 다른 판매 중 상품을 다시 결제하기 상품으로 쓴다 (픽스처일 뿐이다)
+      expect(quote.recommendedTopUp).not.toBe("FIXTURE_TOP_UP_D");
+      saveFor(quote);
+      renderWith(fortune, "FIXTURE_TOP_UP_D");
+      await waitFor(() => expect(checkedCodes()).toEqual(["FIXTURE_TOP_UP_D"]));
+      // 추천이 뒤늦게 덮어쓰지 않는다
+      await settle();
+      expect(checkedCodes()).toEqual(["FIXTURE_TOP_UP_D"]);
     });
 
     it("j. 화면을 그린 뒤에도 저장값이 그대로 남는다", async () => {

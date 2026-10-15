@@ -4,6 +4,7 @@
 // 구매 상태 조회(getPurchaseStatus)는 API_SPEC 8장 상태표(Q-38 답, PR #20)의 조합을 따르고, 기록이 없으면 null 이다 (PURCHASE-STATUS-WAIT 해제).
 // 아래 상품 · 금액 · 이름은 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다 (P-03 값을 옮기지 않는다).
 import { ApiError } from "@/lib/api/errors";
+import { isQuestionKeyOf } from "@/lib/fortune/questions";
 import type {
   FortunePort,
   FortuneProduct,
@@ -72,6 +73,18 @@ type StoredPurchase = {
   result: ReadingPurchaseResult;
 };
 
+function sameSelection(a: FortuneSelection, b: FortuneSelection): boolean {
+  return (
+    a.fortuneType === b.fortuneType &&
+    a.productCode === b.productCode &&
+    a.productOption === b.productOption &&
+    a.questionKey === b.questionKey &&
+    a.relationType === b.relationType &&
+    a.personId === b.personId &&
+    a.counterpartPersonId === b.counterpartPersonId
+  );
+}
+
 export function createFakeFortunePort(
   options: {
     scenario?: FakeFortuneScenario;
@@ -123,6 +136,40 @@ export function createFakeFortunePort(
     // 서버 규칙 흉내 — 상품과 다른 운세 종류는 잘못된 요청 (ADAPTER-HTTP 의 selection.fortuneType)
     if (selection.fortuneType !== p.fortuneType) {
       throw fail(422, "INVALID_REQUEST");
+    }
+    // 서버 규칙 흉내 (GeneralReadingService.validateInput) — 수능운은 질문 값이 없고, 일반 운세는 옵션 · 질문 키(· 궁합은 관계 · 상대)가 맞아야 한다
+    const compat = selection.fortuneType === "COMPATIBILITY";
+    if (selection.fortuneType === "SUNEUNG") {
+      if (
+        selection.productOption !== null ||
+        selection.questionKey !== null ||
+        selection.relationType !== null
+      ) {
+        throw fail(422, "INVALID_REQUEST");
+      }
+    } else {
+      if (selection.productOption !== p.option) {
+        throw fail(422, "INVALID_REQUEST");
+      }
+      if (
+        selection.questionKey === null ||
+        !isQuestionKeyOf(selection.fortuneType, selection.questionKey)
+      ) {
+        throw fail(422, "INVALID_QUESTION_KEY");
+      }
+      if (compat) {
+        if (selection.counterpartPersonId === null) {
+          throw fail(422, "COMPATIBILITY_PERSON_REQUIRED");
+        }
+        if (selection.relationType === null) {
+          throw fail(422, "RELATION_TYPE_REQUIRED");
+        }
+      } else if (
+        selection.counterpartPersonId !== null ||
+        selection.relationType !== null
+      ) {
+        throw fail(422, "INVALID_REQUEST");
+      }
     }
     const balance = wallet.balance();
     const shortage = Math.max(0, p.price.amount - balance);
@@ -189,7 +236,8 @@ export function createFakeFortunePort(
         stored.expired = true;
         throw fail(409, "QUOTE_EXPIRED");
       }
-      if (stored.quote.productCode !== input.selection.productCode) {
+      // 서버 규칙 흉내 (validateQuoteSnapshot) — 견적을 만든 선택과 하나라도 다르면 잘못된 요청, 차감하지 않는다
+      if (!sameSelection(stored.selection, input.selection)) {
         throw fail(422, "INVALID_REQUEST");
       }
       const p = product(input.selection.productCode);

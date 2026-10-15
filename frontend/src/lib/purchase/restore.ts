@@ -7,10 +7,18 @@
 // - 전역 상태가 아니며 Zustand 를 쓰지 않는다.
 // - PURCHASE-KEY-STORE (2026-10-10 결정, 2026-10-12 구현): 구매를 보낸 뒤 결과를 모르는 의도의 Idempotency-Key 와 견적 ID 만 둔다.
 //   같은 24시간 · 완료 · 실패 · 로그아웃 때 지운다. 복귀하면 이 키로 상태 조회(Q-38 답 by-quote)부터 하고, 기록이 없을 때만 같은 키로 다시 보낸다 (I-05).
+// - v: 4 (질문 선택): productOption · questionKey · relationType 도 함께 둔다 — 복귀 때 같은 질문으로 팝업을 다시 연다. 생년정보 · 이름은 여전히 넣지 않는다.
+//   v: 3 · v: 2 는 질문이 없어 되살릴 수 없다 — 읽을 때 지운다 (24시간 만료라 배포 전 값은 하루 안에 사라진다).
 // 저장소를 쓸 수 없는 환경(사파리 개인 정보 보호 모드 등)에서는 조용히 저장하지 않는다 — 복원은 편의 기능이다.
 import { z } from "zod";
 import { safeReturnTo } from "@/lib/auth/returnTo";
-import { FORTUNE_TYPES, type FortuneSelection } from "@/lib/ports/fortune";
+import { isQuestionKeyOf } from "@/lib/fortune/questions";
+import {
+  FORTUNE_TYPES,
+  type FortuneSelection,
+  PRODUCT_OPTIONS,
+  RELATION_TYPES,
+} from "@/lib/ports/fortune";
 
 export const PURCHASE_SELECTION_KEY = "purchaseSelection";
 export const PURCHASE_SELECTION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -24,27 +32,56 @@ export type PurchaseSelection = Readonly<{
   purchaseKey: string | null;
 }>;
 
-const storedBase = {
+// 수능운은 질문 값이 모두 null, 그 밖은 옵션 · 질문 키가 있고 (궁합만) 관계 · 상대가 있다. 어긋나면 읽을 때 지운다
+function selectionShapeOk(selection: {
+  fortuneType: (typeof FORTUNE_TYPES)[number];
+  counterpartPersonId: string | null;
+  productOption: string | null;
+  questionKey: string | null;
+  relationType: string | null;
+}): boolean {
+  if (selection.fortuneType === "SUNEUNG") {
+    return (
+      selection.productOption === null &&
+      selection.questionKey === null &&
+      selection.relationType === null &&
+      selection.counterpartPersonId === null
+    );
+  }
+  if (
+    selection.productOption === null ||
+    selection.questionKey === null ||
+    !isQuestionKeyOf(selection.fortuneType, selection.questionKey)
+  ) {
+    return false;
+  }
+  if (selection.fortuneType === "COMPATIBILITY") {
+    return (
+      selection.relationType !== null && selection.counterpartPersonId !== null
+    );
+  }
+  return selection.relationType === null;
+}
+
+const storedSchema = z.object({
+  v: z.literal(4),
   savedAt: z.number().int().nonnegative(),
   returnPath: z.string(),
   quoteId: z.string().min(1),
-  selection: z.object({
-    // UNKNOWN 은 허용하지 않는다
-    fortuneType: z.enum(FORTUNE_TYPES),
-    productCode: z.string().min(1),
-    personId: z.string().min(1),
-    counterpartPersonId: z.string().min(1).nullable(),
-  }),
-};
-// v: 3 — purchaseKey 추가. v: 2 (배포 전 충전 복귀 값)는 purchaseKey null 로 읽는다. v: 1 등 그 밖은 모양이 달라 읽을 때 지운다
-const storedSchema = z.discriminatedUnion("v", [
-  z.object({
-    v: z.literal(3),
-    ...storedBase,
-    purchaseKey: z.string().min(1).nullable(),
-  }),
-  z.object({ v: z.literal(2), ...storedBase }),
-]);
+  selection: z
+    .object({
+      // UNKNOWN 은 허용하지 않는다
+      fortuneType: z.enum(FORTUNE_TYPES),
+      productCode: z.string().min(1),
+      personId: z.string().min(1),
+      counterpartPersonId: z.string().min(1).nullable(),
+      productOption: z.enum(PRODUCT_OPTIONS).nullable(),
+      questionKey: z.string().min(1).nullable(),
+      relationType: z.enum(RELATION_TYPES).nullable(),
+    })
+    .refine(selectionShapeOk, { message: "질문 선택 모양이 다르다" }),
+  purchaseKey: z.string().min(1).nullable(),
+});
 
 function storage(): Storage | null {
   try {
@@ -64,8 +101,8 @@ export function savePurchaseSelection(
   const store = storage();
   if (!store) return;
   // 필요한 값만 골라 담는다 — 호출하는 쪽이 다른 값을 섞어 넘겨도 저장되지 않게
-  const stored: Extract<z.infer<typeof storedSchema>, { v: 3 }> = {
-    v: 3,
+  const stored: z.infer<typeof storedSchema> = {
+    v: 4,
     savedAt: now,
     returnPath: safeReturnTo(value.returnPath),
     quoteId: value.quoteId,
@@ -74,6 +111,9 @@ export function savePurchaseSelection(
       productCode: value.selection.productCode,
       personId: value.selection.personId,
       counterpartPersonId: value.selection.counterpartPersonId,
+      productOption: value.selection.productOption,
+      questionKey: value.selection.questionKey,
+      relationType: value.selection.relationType,
     },
     purchaseKey: value.purchaseKey ?? null,
   };
@@ -118,7 +158,7 @@ export function loadPurchaseSelection(
     returnPath: safeReturnTo(returnPath),
     quoteId,
     selection,
-    purchaseKey: result.data.v === 3 ? result.data.purchaseKey : null,
+    purchaseKey: result.data.purchaseKey,
   };
 }
 

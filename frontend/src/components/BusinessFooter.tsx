@@ -62,8 +62,9 @@ export function BusinessFooter({
           <div key={row.join("-")} className="flex flex-wrap gap-x-[12px]">
             {row.map((key) => (
               // 한 줄 "이름 : 값" — 구분자는 dt 의 ::after 라 화면 글자(dt · dd)는 그대로다
+              // COMMON-01 — 항목 이름은 한 줄 (10/15 화면 점검)
               <div key={key} className="flex gap-x-[4px]">
-                <dt className="after:ml-[4px] after:content-[':']">
+                <dt className="shrink-0 whitespace-nowrap after:ml-[4px] after:content-[':']">
                   {LABEL_OF[key]}
                 </dt>
                 <dd className="min-w-0 break-words">{info[key] ?? MISSING}</dd>
@@ -72,6 +73,8 @@ export function BusinessFooter({
           </div>
         ))}
       </dl>
+      {/* FUNCTIONAL_SPEC 13장 · COMMON-01: 사업자 정보 아래, 저작권 줄 앞 */}
+      <p className="mt-[2px] text-[#737373]">문의는 이메일이 가장 빨라요.</p>
       {/* TODO(PD 문구): 저작권 표기 — 서비스명은 NAME(D-11) */}
       <p className="mt-[2px] text-[#737373]">© 뿌기사주</p>
     </footer>

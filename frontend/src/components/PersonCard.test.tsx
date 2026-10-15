@@ -17,11 +17,13 @@ const SELF: PersonSummary = {
   personId: "55555555-5555-4555-8555-555555555555",
   isSelf: true,
   name: "본인 픽스처",
+  relationType: null,
 };
 const OTHER: PersonSummary = {
   personId: "99999999-9999-4999-8999-999999999999",
   isSelf: false,
   name: "타인 픽스처",
+  relationType: "FAMILY",
 };
 
 describe("PersonCard", () => {

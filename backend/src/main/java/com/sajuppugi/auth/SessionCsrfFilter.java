@@ -16,7 +16,11 @@ public class SessionCsrfFilter extends OncePerRequestFilter {
     public SessionCsrfFilter(AuthService auth, ObjectMapper mapper) { this.auth=auth; this.mapper=mapper; }
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return "GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()) || "OPTIONS".equals(request.getMethod())
-                || ("POST".equals(request.getMethod()) && (request.getContextPath() + "/api/v1/webhooks/toss").equals(request.getRequestURI()));
+                || ("POST".equals(request.getMethod()) && java.util.Set.of(
+                        request.getContextPath() + "/api/v1/webhooks/toss",
+                        request.getContextPath() + "/api/v1/public/gifts/access",
+                        request.getContextPath() + "/api/v1/public/gifts/recipient-profile",
+                        request.getContextPath() + "/api/v1/public/gifts/result").contains(request.getRequestURI()));
     }
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         String raw=SessionAuthenticationFilter.cookie(req, AuthService.COOKIE); AuthRepository.Session session=auth.session(raw);

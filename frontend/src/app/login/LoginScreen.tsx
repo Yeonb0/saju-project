@@ -2,6 +2,7 @@
 
 // "use client" 이유: 세션 조회(TanStack Query) · 로그인 시작 · 화면 이동(useRouter)은 브라우저에서 한다.
 // HOME-01 · PG-2. 근거: A-01 (소셜 로그인 3종 — PG 심사 요청까지 화면은 카카오만, LOGIN-3 개정), A-02 (로그인 후 returnTo 로 복귀), A-03 (본인 정보 없으면 온보딩).
+// 문구는 PD 확정 (FUNCTIONAL_SPEC 3장 v0.4 · HOME-01 로그인_수정안 359:156).
 // 디자인 요소 없음 (PG-FIRST) — 기본 요소의 최소 레이아웃만.
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -82,18 +83,19 @@ export function LoginScreen({
         />
         {/* NAME (D-11) — 와이어 표기 "사주뿌기" 는 자리표시 (Q-23 j) */}
         <h1 className="mt-[30px] text-[40px]">뿌기사주</h1>
-        {/* TODO(PD 문구) */}
         <p
           data-slot="login-intro"
-          className="mt-[14px] min-h-[24px] text-[20px]"
-        />
+          className="mt-[23px] text-[20px] leading-[normal]"
+        >
+          사주를 보기 위해서는 로그인이 필요해요!
+        </p>
         {oauthStatus === "cancelled" ? (
           <p role="alert" className="mt-3 text-sm">
-            카카오 로그인이 취소되었습니다.
+            로그인을 취소했어요. 다시 시도해 주세요.
           </p>
         ) : oauthStatus === "failed" ? (
           <p role="alert" className="mt-3 text-sm">
-            카카오 로그인에 실패했습니다. 다시 시도해 주세요.
+            로그인 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.
           </p>
         ) : null}
         {/* TODO(LOGIN-3): 네이버 · 구글 버튼 — PG 심사 요청 후 추가 (A-01). 배치는 와이어 195:774, 버튼 값 224:1087 · 195:781 */}
@@ -102,15 +104,14 @@ export function LoginScreen({
           type="button"
           onClick={() => onStart("KAKAO")}
           disabled={login.isPending}
-          className="mt-[29px] inline-flex h-[56px] w-[368px] items-center justify-center gap-[10px] rounded-[10px] bg-[#fee502] text-center text-[20px] text-neutral-900 disabled:opacity-50"
+          className="mt-[31px] inline-flex h-[56px] w-[368px] items-center justify-center gap-[10px] rounded-[10px] bg-[#fee502] text-center text-[20px] text-neutral-900 disabled:opacity-50"
         >
           <span
             aria-hidden
             data-slot="kakao-logo"
             className="block h-[27px] w-[27px]"
           />
-          {/* TODO(PD 문구) */}
-          카카오로 시작하기
+          카카오로 계속하기
         </button>
       </div>
     </AppShell>

@@ -46,6 +46,8 @@ class GiftLifecyclePostgresTest {
     @Autowired GiftCancellationService cancellations;
     @Autowired GiftPayloadCipher cipher;
     @Autowired JdbcGiftAccess access;
+    @Autowired GiftFulfillmentPort fulfillment;
+    @Autowired GiftRecipientService recipientService;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @MockitoSpyBean GiftCancellationTransactions cancellationStore;
@@ -77,6 +79,8 @@ class GiftLifecyclePostgresTest {
     @AfterEach void cleanup() {
         reset(AopTestUtils.<GiftCancellationTransactions>getUltimateTargetObject(cancellationStore));
         reset(AopTestUtils.<WalletPurchaseService>getUltimateTargetObject(wallet));
+        jdbc.update("DELETE FROM gift_fulfillment_jobs WHERE gift_id IN (SELECT w.gift_id FROM gift_purchase_work w JOIN gift_order_drafts d ON d.id=w.order_id WHERE d.user_id=?)", owner);
+        jdbc.update("DELETE FROM gift_recipient_profiles WHERE gift_id IN (SELECT w.gift_id FROM gift_purchase_work w JOIN gift_order_drafts d ON d.id=w.order_id WHERE d.user_id=?)", owner);
         jdbc.update("DELETE FROM gift_action_commands WHERE user_id = ?", owner);
         for (String table : List.of("gift_link_commands", "gift_cancellations", "gift_delivery_outbox", "gift_purchase_tokens", "gift_purchase_work"))
             jdbc.update("DELETE FROM " + table + " WHERE order_id IN (SELECT id FROM gift_order_drafts WHERE user_id = ?)", owner);
@@ -197,6 +201,101 @@ class GiftLifecyclePostgresTest {
         jdbc.update("UPDATE gift_purchase_work SET approved_at = ?, access_expires_at = ? WHERE order_id = ?",
                 Timestamp.from(Instant.now().minusSeconds(2)), Timestamp.from(Instant.now().minusSeconds(1)), order.orderId());
         assertThatThrownBy(() -> access.verify(token)).isInstanceOf(ApiException.class);
+    }
+    @Test void publicAccessReturnsOnlyMinimalTextWithoutLoginOrCsrfAndDoesNotStartProvision() throws Exception {
+        var order = active(); String token = token(order.orderId());
+        String body = mapper.writeValueAsString(java.util.Map.of("token", token));
+        String response = mvc.perform(post("/api/v1/public/gifts/access")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recipientName").value("recipient"))
+                .andExpect(jsonPath("$.data.senderName").value("sender"))
+                .andExpect(jsonPath("$.data.message").value("Good luck!"))
+                .andExpect(jsonPath("$.data.option").value("TALISMAN_ONLY"))
+                .andExpect(jsonPath("$.data.state").value("INPUT_REQUIRED"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(response).doesNotContain(owner.toString(), order.orderId().toString(), token,
+                "tokenHash", "privatePayload", "objectKey");
+        assertThat(jdbc.queryForObject("SELECT first_provided_at FROM gift_purchase_work WHERE order_id = ?",
+                Timestamp.class, order.orderId())).isNull();
+
+        fulfillment.accept(token, UUID.randomUUID(), "a".repeat(64), () -> {});
+        mvc.perform(post("/api/v1/public/gifts/access")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.state").value("PROCESSING"));
+    }
+    @Test void mutatedAndUnknownPublicTokensHaveTheSameSafeResponse() throws Exception {
+        var order = active(); String token = token(order.orderId());
+        String mutated = (token.charAt(0) == 'A' ? "B" : "A") + token.substring(1);
+        String unknown = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
+        for (String candidate : java.util.List.of(mutated, unknown)) {
+            mvc.perform(post("/api/v1/public/gifts/access")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content(mapper.writeValueAsString(java.util.Map.of("token", candidate))))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                    .andExpect(jsonPath("$.details").isEmpty());
+        }
+    }
+    @Test void recipientSubmissionEncryptsOneProfileAndOneIntentAndReplaysWithoutBirthData() throws Exception {
+        var order = active(); String token = token(order.orderId());
+        UUID giftId = access.verify(token).giftId();
+        String body = mapper.writeValueAsString(java.util.Map.of(
+                "token", token, "displayName", " 수험생 ", "birthDate", "2007-03-14",
+                "birthTime", "09:30", "birthTimeUnknown", false, "calendarType", "SOLAR",
+                "leapMonth", false, "gender", "UNSPECIFIED"));
+        String first = mvc.perform(post("/api/v1/public/gifts/recipient-profile")
+                        .header("Idempotency-Key", "recipient-once")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.state").value("ACCEPTED"))
+                .andReturn().getResponse().getContentAsString();
+        String replay = mvc.perform(post("/api/v1/public/gifts/recipient-profile")
+                        .header("Idempotency-Key", "recipient-once")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+        assertThat(mapper.readTree(replay).path("data")).isEqualTo(mapper.readTree(first).path("data"));
+        assertThat(first).doesNotContain("2007-03-14", "09:30", "수험생", token, "snapshotHash");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_recipient_profiles WHERE gift_id=?", Integer.class, giftId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_fulfillment_jobs WHERE gift_id=?", Integer.class, giftId)).isEqualTo(1);
+        String encrypted = jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE gift_id=?", String.class, giftId);
+        assertThat(encrypted).matches("v(?:1|2:[^:]+):.+").doesNotContain("2007-03-14", "수험생");
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE gift_id=?", String.class, giftId)).isEqualTo("PENDING");
+
+        mvc.perform(post("/api/v1/public/gifts/recipient-profile")
+                        .header("Idempotency-Key", "different-request")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_recipient_profiles WHERE gift_id=?", Integer.class, giftId)).isEqualTo(1);
+    }
+    @Test void invalidRecipientInputCreatesNeitherReceiptProfileNorIntent() throws Exception {
+        var order = active(); String token = token(order.orderId());
+        UUID giftId = access.verify(token).giftId();
+        String body = mapper.writeValueAsString(java.util.Map.of(
+                "token", token, "displayName", "recipient", "birthDate", "2099-01-01",
+                "birthTimeUnknown", true, "calendarType", "SOLAR", "leapMonth", false, "gender", "FEMALE"));
+        mvc.perform(post("/api/v1/public/gifts/recipient-profile")
+                        .header("Idempotency-Key", "invalid-future")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_recipient_receipts WHERE order_id=?", Integer.class,
+                order.orderId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_recipient_profiles WHERE gift_id=?", Integer.class, giftId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_fulfillment_jobs WHERE gift_id=?", Integer.class, giftId)).isZero();
+    }
+    @Test void recipientProfileAndReceiptRollBackTogetherWhenIntentSaveFails() throws Exception {
+        var order = active(); String token = token(order.orderId()); UUID giftId = access.verify(token).giftId();
+        var command = new GiftRecipientService.Command("recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE);
+        jdbc.execute("ALTER TABLE gift_fulfillment_jobs ADD CONSTRAINT synthetic_gift_intent_failure CHECK (state <> 'PENDING')");
+        try { assertThatThrownBy(() -> recipientService.submit(token, "atomic", command)).isInstanceOf(RuntimeException.class); }
+        finally { jdbc.execute("ALTER TABLE gift_fulfillment_jobs DROP CONSTRAINT synthetic_gift_intent_failure"); }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_recipient_receipts WHERE order_id=?", Integer.class,
+                order.orderId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_recipient_profiles WHERE gift_id=?", Integer.class, giftId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_fulfillment_jobs WHERE gift_id=?", Integer.class, giftId)).isZero();
     }
     @Test void simultaneousCancelRequestsConvergeOnOneReturn() throws Exception {
         var order = active(); CountDownLatch start = new CountDownLatch(1);

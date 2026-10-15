@@ -9,6 +9,9 @@ public interface WalletPurchasePort {
     /** Committed receipt. Replays retain the original balance; use WalletQueryUseCase for current balance. */
     DebitResult debit(UUID userId, UUID quoteId, IdempotencyKey key);
 
+    /** Caller owns a short transaction that must atomically contain its durable purchase intent. */
+    DebitResult debitInCurrentTransaction(UUID userId, UUID quoteId, IdempotencyKey key);
+
     /** Trusted internal full reversal, not a user cash-refund API. */
     CompensationResult compensate(UUID originalTransactionId, String reasonCode, IdempotencyKey key);
 

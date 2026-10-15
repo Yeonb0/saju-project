@@ -157,7 +157,12 @@ describe("confirmTopUp (TOPUP-DONE)", () => {
 
   it("422 PAYMENT_REJECTED 는 실패, 조회하지 않는다", async () => {
     const { result, port } = await run("rejected");
-    expect(result).toMatchObject({ kind: "failed", cause: "invalid_input" });
+    // 오류 code 로 끝난 실패는 서버가 재결제를 허용한다고 알려 주지 않았다 — next "none"
+    expect(result).toMatchObject({
+      kind: "failed",
+      cause: "invalid_input",
+      next: "none",
+    });
     expect(port.getOrder).not.toHaveBeenCalled();
   });
 
@@ -210,9 +215,27 @@ describe("pollTopUpOrder", () => {
     expect(result).toEqual({
       kind: "failed",
       orderId: ORDER_ID,
+      next: "none",
       cause: "order_failed",
     });
     expect(getOrder).toHaveBeenCalledTimes(4);
+  });
+
+  it.each<[TopUpOrderState["status"], TopUpOrderState["nextAction"], string]>([
+    ["FAILED", "RETRY_PAYMENT", "retry"],
+    ["FAILED", "CONTACT_SUPPORT", "contact"],
+    ["CANCELED", "NONE", "none"],
+    ["REFUNDED", "VIEW_WALLET", "none"],
+    ["FAILED", "UNKNOWN", "none"],
+  ])("주문 %s + %s 는 next %s (FUNCTIONAL_SPEC 7장 · Q-50)", async (status, nextAction, next) => {
+    const getOrder = vi
+      .fn<TopUpPort["getOrder"]>()
+      .mockResolvedValue({ ...state(status), nextAction });
+    const result = await pollTopUpOrder(ORDER_ID, {
+      port: { confirm: vi.fn(), getOrder },
+      ...fakeClock(),
+    });
+    expect(result).toMatchObject({ kind: "failed", next });
   });
 
   it("processing:false 인 PAID 도 완료로 보지 않는다", async () => {
