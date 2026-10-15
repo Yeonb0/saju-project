@@ -6,6 +6,12 @@
 - 새 PostgreSQL 17 DB `saju_talisman_addon_purchase_20261015`에서 `TalismanAddonPurchasePostgresTest` 1건을 `--rerun-tasks`로 통과했다. 동시 두 요청, 커밋 뒤 응답 유실을 가정한 재시도, 20→15 등껍질 잔액, PURCHASE 원장 1건, addon purchase/PENDING 부적/render job 각 1건을 함께 대사했다.
 - 적용: 6-1 reading 소유권, 6-2 unique claim·wallet lock·원장/잔액 대사, 6-4 durable PENDING render intent, 6-6 기존 migration 변경 없이 검증. 실제 JVM `kill -9` 뒤 재기동, 별도 프로세스 두 개 부하, renderer/R2 및 staging/복원 검증은 아직 미실행이다.
 
+### 2026-10-15: 부적 addon 동시 claim deadlock·lease recovery 보완
+
+- 같은 reading/quote 두 요청이 `reading_id`와 `quote_id` unique index를 서로 다른 순서로 기다리며 PostgreSQL deadlock이 날 수 있음을 실제 회귀에서 발견했다. 대상 reading을 먼저 `FOR UPDATE`로 직렬화하고, 잠금 대기 중 다른 요청이 확정한 addon claim은 재사용하도록 수정했다.
+- 같은 PostgreSQL 17 DB에서 동시 구매/응답 유실 재시도와 render job lease 만료 후 재claim, 이전 lease의 늦은 완료 무효화를 `TalismanAddonPurchasePostgresTest` 2건으로 확인했다. renderer/R2 adapter가 없어 실제 JVM kill 뒤 파일 업로드 재개 및 독립 process 두 개의 renderer 호출은 아직 검증하지 않았다.
+- 적용: 6-2 lock ordering·중복 차감 방지, 6-4 expired lease/fence, 6-6 PostgreSQL 전용 검증. 
+
 ### 2026-10-15: 부적 addon catalog quote 상품
 
 - 일반 운세 다섯 유형에 `*_TALISMAN_ADDON` catalog 상품을 additive migration으로 추가했다. 현재 `READING_WITH_TALISMAN(15) - READING_ONLY(10)` 차액인 5 등껍질을 quote snapshot 가격으로 기록하며, client 입력 가격은 사용하지 않는다. 이후 정책 변경은 기존 quote를 수정하지 않고 새 catalog version/상품으로 처리한다.
