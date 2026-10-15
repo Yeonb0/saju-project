@@ -1008,15 +1008,15 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 ```
 
 - 수신자 생년정보를 받지 않는다.
-- 1차 request에는 전화번호가 없다. 2차 알림톡 전환 시 전화번호·발송 동의·보관 정책을 별도 호환 필드/버전으로 추가하며 기존 직접 링크 주문을 깨지 않는다.
+- 1차 직접 공유 신규 주문은 `recipientPhone`을 받거나 저장하지 않는다. 알림톡 전환은 2차 호환 계약과 발송 동의·보관 정책 확정 뒤 진행한다.
 - 메시지는 200 code point·제어문자 검증을 수행한다. 금칙어 정책은 미구현이다. 새 CREATED 초안은 미차감이며 `charged=null`이다.
 
 ### `POST /gift-orders/{orderId}/purchase`
 
 - 인증·CSRF·`Idempotency-Key` 필요
 - 본문 없이 명시적인 등껍질 구매 의도를 등록하고 기존 차감 receipt로 재개한다. 선물에 원화/토스 confirm은 없다.
-- 차감 확인 후 gift 권한·token hash와 제한된 구매자 복구용 token 암호문을 저장한다. ACTIVE는 이 저장의 완료이며 콘텐츠 생성 완료가 아니다.
-- 원문 token은 구매자 소유 `GET /gift-orders/{orderId}/link`의 제한된 공개 창에서만 반환한다. 영구 권한 조회는 hash를 사용한다.
+- 차감 확인 후 gift 권한·token hash·24시간 구매자 조회용 token 암호문을 저장한다. ACTIVE는 이 저장의 완료이며 직접 전달/콘텐츠 생성 완료가 아니다. 신규 알림톡 outbox는 만들지 않는다.
+- 구매자 응답의 `shareUrl`은 `/g#token=...`다. 원문 조회기간 종료·취소·만료에는 null이며 관리자/일반 목록에 원문을 제공하지 않는다. 운영 선물 암호화는 아직 local/test 제한이다.
 - `GET /gift-orders/{orderId}/purchase`로 같은 금융 상태를 조회한다. PENDING/CANCEL_PENDING의 POST 응답은 202다.
 
 ```json
@@ -1027,16 +1027,16 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
   "chargedShells": 10,
   "returnedShells": null,
   "approvedAt": "2026-10-13T00:00:00Z",
-  "nextAction": "NONE"
+  "nextAction": "NONE",
+  "shareUrl": "https://example.invalid/g#token=synthetic-placeholder"
 }
 ```
 
 ### `GET /gift-orders`
 
 - local/test 구현: 구매자의 보낸 선물 목록. size 기본 20, 1~50, cursor는 서버 응답을 그대로 사용한다.
-- items/nextCursor/hasNext 응답이며 chargedShells/accessExpiresAt은 null 가능하다. 알림톡 deliveryStatus는 현재 계약에서 사용하지 않는다.
-- 원문 token은 목록에 반환하지 않는다.
-- 와이어프레임의 보낸 선물 화면을 위해 수신자 표시 이름, option, 최초 제공 여부/시각, 취소 가능 여부가 필요하다. 현재 목록 응답에는 이 projection이 부족하다.
+- items/nextCursor/hasNext 응답을 반환한다. 신규 직접 공유 주문에 알림톡 deliveryStatus는 없으며 실제 generated gift OpenAPI를 따른다. chargedShells/accessExpiresAt은 null 가능하다. 상세 계약은 `backend/docs/GIFT_DIRECT_LINK_HANDOFF_20261014.md`를 따른다.
+- 수신자 표시 이름, option, 최초 제공 여부/시각, 취소 가능 여부를 반환한다. 원문 token과 전체 휴대전화번호는 반환하지 않는다.
 
 ### `GET /gift-orders/{orderId}`
 
@@ -1045,20 +1045,23 @@ category 누락/미지원 값, 알 수 없는 fortuneType, TOP_UP+fortuneType �
 
 ### `GET /gift-orders/{orderId}/link`
 
-- 구매자 소유권을 확인한 뒤 제한된 token 공개 기간에 `/g#token=...` 직접 전달 링크를 반환한다.
-- 응답과 raw token을 로그·analytics·오류 보고에 남기지 않는다. 공개 기간이 끝났으면 명시적 재발급을 사용한다.
+- 구매자 로그인·소유권을 검사한 뒤 링크를 조회한다. 24시간 원문 공개기간이 끝나면 shareUrl=null이다. 수신자의 90일 권한을 뜻하는 expiresAt과 구분한다.
+- orderId/giftId/tokenVersion/expiresAt/shareUrl/reused와 현재 canReissue/remainingReissues/nextReissueAt를 반환한다. 상세 schema는 generated gift OpenAPI를 따른다.
 
 ### `POST /gift-orders/{orderId}/link-reissues`
 
-- 인증·CSRF·`Idempotency-Key` 필요
-- 기존 token을 원자적으로 폐기하고 새 직접 전달 링크를 반환한다. 같은 요청 키는 같은 결과를 재사용하며 선물 만료일은 연장하지 않는다.
+- 구매자 인증·소유권·CSRF·`Idempotency-Key` 필요. 200 응답은 token 재발급 완료이며 실제 전달/콘텐츠 완료를 뜻하지 않는다.
+- 실제 구매 차감부터 30일 미만, 주문별 KST 하루 3회·1분 간격으로 재발급한다. 새 token과 24시간 원문 공개기간을 만들고 구 token을 폐기하며 선물 만료일은 연장하지 않는다.
+- 동일 key replay는 횟수를 다시 쓰지 않는다. 이전 key 이후 다른 재발급이 있었다면 이전 version과 shareUrl=null을 반환한다. 다른 주문에 같은 key를 사용하면 409 IDEMPOTENCY_KEY_REUSED다.
+- 기간/상태 제한은 GIFT_LINK_REISSUE_NOT_ALLOWED, 횟수/간격 제한은 GIFT_LINK_REISSUE_LIMIT_EXCEEDED다. 원문 조회/재발급 계약은 gift OpenAPI와 `GIFT_DIRECT_LINK_HANDOFF_20261014.md`를 따른다.
 
 ### 알림톡 전달 API (2차 목표)
 
-- 구매자 주문 목록/상세에 금융 상태와 분리된 `deliveryStatus`, 재발송 가능 여부·남은 횟수·다음 가능 시각을 추가한다.
-- 명시적 재발송은 CSRF·`Idempotency-Key`·횟수/간격 제한을 적용한다. 새 token을 만들면 기존 token을 폐기하되 원래 선물 만료일은 연장하지 않는다.
-- provider 호출은 DB transaction 밖에서 수행하고 durable outbox/lease/fence, 결과 불명 조회, 서명 webhook 멱등 처리를 사용한다.
-- 발송 실패는 선물 취소나 등껍질 반환이 아니다. 구매자는 같은 직접 링크를 조회·복사할 수 있다.
+- 2차 알림톡 설계·미구현. 1차 직접 공유에는 없다.
+- 알림톡 대행사의 서명과 이벤트 ID를 검증하고 멱등 처리한다.
+- 발송 성공·실패·수신 불가 상태를 선물 전달 기록에 반영한다.
+- 원문 휴대전화번호와 선물 토큰을 로그에 남기지 않는다.
+- provider 호출은 DB transaction 밖에서 수행하고 durable outbox/lease/fence, 결과 불명 조회, 제한 재시도를 사용한다. 발송 실패는 선물 취소나 등껍질 반환이 아니다.
 
 ### `POST /gift-orders/{orderId}/cancel`
 

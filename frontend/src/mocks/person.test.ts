@@ -24,10 +24,12 @@ const BASE: PersonFormInput = {
 
 const selfInput = () =>
   createPersonSchema({ kind: "self", today: TODAY }).parse(BASE);
-const otherInput = () =>
+const otherInput = (
+  relation: "mother" | "father" | "partner" | "custom" = "mother",
+) =>
   createPersonSchema({ kind: "other", today: TODAY }).parse({
     ...BASE,
-    relation: "mother",
+    relation,
     permissionConfirmed: true,
   });
 
@@ -84,5 +86,23 @@ describe("가짜 인물 포트 (MOCK-PORT)", () => {
     const people = await port.list();
     expect(people.map((p) => p.isSelf)).toEqual([true, false]);
     expect(people[1]).toEqual(other);
+  });
+
+  it("d. 서버 관계: createOther(partner) → LOVER, createOther(mother) → FAMILY, createSelf → null 이 list 에도 그대로", async () => {
+    const port = createFakePersonPort(
+      createFakeAccount("signed_in_without_person"),
+    );
+    const self = await port.createSelf(selfInput());
+    const partner = await port.createOther(otherInput("partner"));
+    const mother = await port.createOther(otherInput("mother"));
+    expect(self.relationType).toBeNull();
+    expect(partner.relationType).toBe("LOVER");
+    expect(mother.relationType).toBe("FAMILY");
+    const people = await port.list();
+    expect(people.map((p) => [p.personId, p.relationType])).toEqual([
+      [self.personId, null],
+      [partner.personId, "LOVER"],
+      [mother.personId, "FAMILY"],
+    ]);
   });
 });

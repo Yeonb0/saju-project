@@ -65,8 +65,7 @@ export function AboutScreen({
                 {active.map((product) => (
                   <li key={product.code}>
                     {/* 서버 값만 표시한다 (P-09). TODO(PD 문구): 항목 이름 · 단위 */}
-                    {formatNumber(product.price.amount)}{" "}
-                    {product.price.currency} · 유료{" "}
+                    {formatNumber(product.price.amount)}원 · 유료{" "}
                     {formatNumber(product.paidAmount)} · 보너스{" "}
                     {formatNumber(product.bonusAmount)} · 총{" "}
                     {formatNumber(product.creditedAmount)}

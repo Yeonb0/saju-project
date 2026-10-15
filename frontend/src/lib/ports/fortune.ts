@@ -8,7 +8,8 @@
 // - 금액 · 등껍질 수량 · 구매 후 잔액은 서버(또는 가짜 구현)가 준 값만 표시한다. 화면에서 계산하지 않는다 (P-03 · P-09).
 // - 견적 필드: OpenAPI SuneungQuoteResponse · FundedQuoteResponse 이름을 따른다 — quoteId · productCode · charged(차감 예정) · walletBalance · balanceAfter · shortage · recommendedTopUp · expiresAt (Q-34).
 //   견적의 productName 은 서버 필수 값이다 (Q-28 해결, PR #19). null 은 가짜 · 옛 응답 대비이며 지어내지 않는다.
-// - 고민 입력(interestKey · memo)은 F-04 · Q-26 확정 전이라 넣지 않는다. talismanType 은 T-01 자동생성으로 빠졌다.
+// - 고민 입력(interestKey · memo)은 F-04 로 1차에 없다. 선택 질문(questionKey)과 궁합 관계(relationType)는 선택지 칩으로 받는다
+//   (Q-26 · FUNCTIONAL_SPEC 8장 · API_SPEC 8장 허용 questionKey). talismanType 은 T-01 자동생성으로 빠졌다.
 // - 실패는 src/lib/api/errors.ts 의 ApiError · ApiNetworkError · ApiContractError 로 던진다 (가짜도 같다).
 import type { Money } from "./topUp";
 
@@ -53,13 +54,32 @@ export type FortuneProduct = Readonly<{
   saleEndsAt: string | null;
 }>;
 
-// 견적 요청 = 구매 선택. 궁합은 counterpartPersonId 를 쓴다 (API_SPEC 8장 초안, 관계 값은 Q-26 확정 후)
+// 궁합 관계 — OpenAPI CompatibilityQuoteRequest.relationType 순서
+export const RELATION_TYPES = [
+  "FAMILY",
+  "FRIEND",
+  "LOVER",
+  "CRUSH",
+  "WORK_SCHOOL",
+  "OTHER",
+] as const;
+
+export type RelationType = (typeof RELATION_TYPES)[number];
+
+// 견적 요청 = 구매 선택. 궁합은 counterpartPersonId · relationType 을 쓴다.
+// 근거: Q-26 · FUNCTIONAL_SPEC 8장 · API_SPEC 8장 · OpenAPI StandardQuoteRequest / CompatibilityQuoteRequest
 export type FortuneSelection = Readonly<{
   // 수능운 요청은 이 값을 서버에 보내지 않는다(personId 만, Q-04 · P-03). 화면 · 복원 · 견적 키가 쓴다
   fortuneType: Exclude<FortuneType, "UNKNOWN">;
   productCode: string;
   personId: string;
   counterpartPersonId: string | null;
+  // 수능운은 null (수능 요청은 personId 만, Q-04 · P-03). 일반 운세는 고른 상품의 option
+  productOption: Exclude<ProductOption, "UNKNOWN"> | null;
+  // 수능운은 null. 일반 운세 5종은 src/lib/fortune/questions.ts 의 키
+  questionKey: string | null;
+  // 궁합만 값, 나머지 null
+  relationType: RelationType | null;
 }>;
 
 export type FortuneQuote = Readonly<{

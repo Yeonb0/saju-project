@@ -49,22 +49,18 @@ describe("AboutScreen (PG-4 /about)", () => {
     setup();
     const items = await screen.findAllByRole("listitem");
     expect(items).toHaveLength(6);
-    // 첫 상품: 1,111 KRW · 유료 11 · 보너스 0 · 총 11
-    expect(items[0]).toHaveTextContent(
-      "1,111 KRW · 유료 11 · 보너스 0 · 총 11",
-    );
-    // 셋째 상품: 3,333 KRW · 유료 33 · 보너스 3 · 총 36
-    expect(items[2]).toHaveTextContent(
-      "3,333 KRW · 유료 33 · 보너스 3 · 총 36",
-    );
-    // 여섯째 상품: 6,666 KRW · 유료 66 · 보너스 6 · 총 72
-    expect(items[5]).toHaveTextContent(
-      "6,666 KRW · 유료 66 · 보너스 6 · 총 72",
-    );
+    // 첫 상품: 1,111원 · 유료 11 · 보너스 0 · 총 11
+    expect(items[0]).toHaveTextContent("1,111원 · 유료 11 · 보너스 0 · 총 11");
+    // 셋째 상품: 3,333원 · 유료 33 · 보너스 3 · 총 36
+    expect(items[2]).toHaveTextContent("3,333원 · 유료 33 · 보너스 3 · 총 36");
+    // 여섯째 상품: 6,666원 · 유료 66 · 보너스 6 · 총 72
+    expect(items[5]).toHaveTextContent("6,666원 · 유료 66 · 보너스 6 · 총 72");
     expect(screen.queryByText(NOTICE)).toBeNull();
+    // 통화 코드 글자는 화면에 내지 않는다 (PAY-01 v0.4 7장)
+    expect(screen.queryByText(/KRW/)).toBeNull();
   });
 
-  it("b. 비활성 상품(7,777 KRW)은 보이지 않는다", async () => {
+  it("b. 비활성 상품(7,777원)은 보이지 않는다", async () => {
     setup();
     await screen.findAllByRole("listitem");
     expect(screen.queryByText(/7,777/)).toBeNull();

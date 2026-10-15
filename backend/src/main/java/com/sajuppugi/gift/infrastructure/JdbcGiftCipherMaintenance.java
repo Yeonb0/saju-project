@@ -31,14 +31,16 @@ public class JdbcGiftCipherMaintenance {
                 SELECT d.id FROM gift_order_drafts d LEFT JOIN gift_delivery_outbox o ON o.order_id = d.id
                 LEFT JOIN gift_purchase_work w ON w.order_id = d.id
                 LEFT JOIN gift_recipient_profiles p ON p.gift_id = w.gift_id
+                LEFT JOIN gift_purchase_tokens t ON t.order_id = d.id
                 LEFT JOIN gift_payload_reencryption_work r ON r.order_id = d.id
                 WHERE ((d.private_payload <> '' AND LEFT(d.private_payload,?) <> ?)
                 OR (o.private_payload <> '' AND LEFT(o.private_payload,?) <> ?)
-                OR (p.profile_ciphertext IS NOT NULL AND p.profile_ciphertext <> '' AND LEFT(p.profile_ciphertext,?) <> ?))
+                OR (p.profile_ciphertext IS NOT NULL AND p.profile_ciphertext <> '' AND LEFT(p.profile_ciphertext,?) <> ?)
+                OR (t.token_ciphertext IS NOT NULL AND LEFT(t.token_ciphertext,?) <> ?))
                 AND (r.order_id IS NULL OR r.active_key_id <> ? OR (r.state = 'RETRY' AND r.next_attempt_at <= ?))
                 ORDER BY d.created_at,d.id LIMIT 20
                 """, (rs, row) -> rs.getObject(1, UUID.class), prefix.length(), prefix, prefix.length(), prefix,
-                prefix.length(), prefix, cipher.activeKeyId(), Timestamp.from(clock.instant()));
+                prefix.length(), prefix, prefix.length(), prefix, cipher.activeKeyId(), Timestamp.from(clock.instant()));
     }
     public boolean reencrypt(UUID order) {
         if (!cipher.versionedActive()) return false;
@@ -63,6 +65,17 @@ public class JdbcGiftCipherMaintenance {
             }
         }
         changed = recipientProfiles.reencryptForOrder(order) || changed;
+        var tokens = jdbc.query("SELECT token_version,token_ciphertext FROM gift_purchase_tokens WHERE order_id = ? FOR UPDATE",
+                (rs, row) -> new Token(rs.getLong(1), rs.getString(2)), order);
+        if (!tokens.isEmpty()) {
+            var token = tokens.getFirst();
+            if (token.payload() != null && !token.payload().startsWith(cipher.activePrefix())) {
+                String context = "gift-link|" + order + "|" + token.version();
+                jdbc.update("UPDATE gift_purchase_tokens SET token_ciphertext = ? WHERE order_id = ?",
+                        cipher.encrypt(cipher.decrypt(token.payload(), context), context), order);
+                changed = true;
+            }
+        }
         if (changed && grant != null) jdbc.update("INSERT INTO gift_delivery_events(id,order_id,action,created_at) VALUES (?,?,'PAYLOAD_REENCRYPTED',CURRENT_TIMESTAMP)", UUID.randomUUID(), order);
         jdbc.update("DELETE FROM gift_payload_reencryption_work WHERE order_id = ?", order);
         return changed;
@@ -89,5 +102,6 @@ public class JdbcGiftCipherMaintenance {
     }
     private record Draft(UUID owner, String payload) {}
     private record Box(UUID id, String payload) {}
+    private record Token(long version, String payload) {}
     private record Failure(String key, int failures, java.time.Instant next, String state) {}
 }

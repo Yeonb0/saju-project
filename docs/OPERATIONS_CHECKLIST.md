@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-15: BE-B 최신 main 통합·PostgreSQL 전체 회귀
+
+- `origin/main` `b0499a6`을 `feat/be-b-gift-recipient-access`에 병합했다. main의 직접 링크 token 암호문 키 회전·목적 종료 삭제와 BE-B의 recipient profile 키 회전·fulfillment lease 보호를 모두 유지했다. API/기능 명세 충돌은 최신 1차 직접 링크·24시간 원문 공개·30일 재발급 정책을 기준으로 BE-B 공개 수신/결과 구현 상태를 합쳤다.
+- 병합 뒤 상속 PostgreSQL suite에서 `Clock.withZone()` 미설정과 암호문 버전을 `v1`로만 단정한 fixture를 발견해 각각 서울 zone 동작과 `v1`/`v2:key-id` 암호문 계약을 검증하도록 고쳤다. addon 회귀가 남긴 합성 지갑·reading·render job이 후속 전체 suite의 전역 개수와 claim을 오염시키지 않도록 생성한 ID 범위만 정리한다.
+- 새 PostgreSQL 17 DB `saju_be_b_main_merge_full3_20261015`에서 `clean check bootJar --rerun-tasks`를 실행해 724건 중 712건 통과·12건 선택 제외·실패/오류 0과 bootJar 생성을 확인했다. 같은 PostgreSQL에서 공유/gift/admin OpenAPI export가 성공했다. FE OpenAPI 타입 재생성·TypeScript·Biome, Vitest 1,039건, production build도 통과했다.
+- H2 기반 OpenAPI export는 이미 적용된 `V202610151200`의 PostgreSQL `ON CONFLICT` 문법을 처리하지 못해 실패했으며, 적용 migration은 수정하지 않았다. PostgreSQL export 결과를 증거로 사용한다. 적용: 6-2 지갑/claim 회귀 격리, 6-4 lease·정리 통합, 6-6 최신 main·54개 migration·계약 산출물, 6-9 token/profile 암호문 파기. 실제 staging ingress/R2/외부 provider/복원은 수행하지 않았다.
+
 ### 2026-10-15: 부적 addon 구매 claim·차감·PENDING 부적 PostgreSQL 회귀
 
 - `reading_id` unique claim 뒤 같은 짧은 transaction에서 quote bind, 등껍질 원장 차감, `PENDING` 부적과 단일 render job, addon purchase 상태를 함께 확정했다. 같은 reading의 동시 요청은 PostgreSQL `ON CONFLICT DO NOTHING`으로 기존 claim을 재사용하므로 두 번째 요청이 quote를 다시 bind하거나 추가 차감하지 않는다.
@@ -142,6 +149,39 @@
 - 적용: 6-1 공개 bearer 권한과 로그인 소유권 분리, 6-5 token 변조/미존재 동일 404·최소 공개정보, 6-9 token URL 비노출·DTO 마스킹. 로컬 H2에서 Gift OpenAPI와 주문 회귀 검사를 통과했고, PostgreSQL 17 테스트 DB에서 정상 공개 안내, 무인증/무-CSRF 접근, 변조/미존재 token 동일 응답, PROCESSING 상태 전환, 최초 제공 시각 비변경을 포함한 `GiftLifecyclePostgresTest` 전체를 통과했다. backend 전용 gift OpenAPI export도 성공했다.
 - 아직 미구현/미검증: recipient profile 저장·입력 API, 공개 endpoint rate limit/Origin 정책, staging proxy/access log·Sentry·PostHog 검색, 만료·취소 전용 안전 오류, 실제 브라우저 fragment 제거. 다음 task는 암호화 recipient profile과 단일 제출/fulfillment intent의 동일 트랜잭션 저장이다.
 
+### 2026-10-14: A 직접 공유 재발급 마무리
+
+- #39 `4002187`에서 `codex/gift-direct-link-hardening`를 분리했다. 사용자 확정인 실제 차감부터 30일 미만·주문별 KST 하루 3회·1분 간격을 구현했다. 서버 Link 응답에 canReissue/remainingReissues/nextReissueAt를 추가했다. 동일 요청 replay는 횟수를 재사용하지 않고, 후속 재발급 이후 이전 key replay는 이전 version/shareUrl=null을 반환한다.
+- work→token 잠금과 요청 key 선점/회전을 같은 트랜잭션에 묶는다. 다른 주문의 동일 key 동시 요청은 하나만 성공하고 나머지는 409 IDEMPOTENCY_KEY_REUSED다. 실패 주문 token·원장은 바꾸지 않는다. 기존 미제공 취소/권한/비밀값 보호를 유지했다. 정책 v3·최종 화면 문구는 PD 반영이 필요하다.
+- 기능 명세 `/g`·전화번호 미수집·복사/공유, 결정 문서 G-05/G-07/G-10/G-10A, PRD, API 설명과 A/B 역할 안내를 직접 공유 기준으로 정리했다. 알림톡 기반과 migration은 삭제하지 않는다. 공개 수신·생성/부적·claim 완주는 B/FE 범위이고 운영 선물 암호화는 아직 local/test 제한이다.
+- 별도 PostgreSQL 17 `localhost:55433/saju_pr33_compat`에서 direct-link/admin suite 총 49건 전부 통과·실패/오류/선택 제외 0. bootJar/exportGiftOpenApi 성공. Clock의 PostgreSQL microsecond 경계를 맞춘 뒤 재검증했다. 30일 직전/정확한 종료, 59/60초, KST 자정/횟수 리셋, 동일/교차 주문 동시성, expired replay 무복원, 실제 세션 CSRF/소유권, no-store 응답, 기존 관리자·금융 lifecycle을 확인했다.
+- 적용: 6-1 소유권/CSRF, 6-2 잠금/원장 불변/멱등성, 6-5 token/기간·재발급, 6-8 운영 조회/문의, 6-9 비밀값 무복원. 새 migration/실제 환경 설정은 없다. FE 타입/화면은 gift OpenAPI의 추가 필드와 새 error code를 반영해야 한다. 실제 브라우저·외부 API·운영 배포·OS 중단/부하/복원은 이번 검사에서 수행하지 않았다.
+
+### 2026-10-14: A 견적번호 고객센터 운영 조회
+
+- PR #33 호환 보완 `4ef8f40`에서 `codex/admin-quote-support`를 분리했다. `GET /api/v1/admin/purchase-quotes/{quoteId}`로 만료된 견적 포함 상품/가격 snapshot, A의 확정 차감/반환 transaction·수량·시각과 연결된 선물 주문을 조회한다. `NO_DEBIT_RECEIPT`/`DEBIT_COMMITTED`/`RETURN_COMMITTED`는 A 원장 사실이며 B 생성/제공이나 PG 현금 환불 상태를 뜻하지 않는다.
+- DB 운영자 grant·ACTIVE 회원 권한을 확인한 뒤 조회와 감사를 같은 REPEATABLE_READ 트랜잭션으로 묶는다. 감사 실패는 응답을 차단한다. 개인정보·context/request/key hash·token/URL/결과 본문은 비노출이다. 원장·잔액·생성 상태를 변경하지 않는다. B 테이블을 직접 읽지 않았다. DB migration/운영 flags/FE 공유 계약을 바꾸지 않았다.
+- 별도 PostgreSQL 17 `localhost:55433/saju_pr33_compat`에서 신규 고객센터 suite와 관리자 OpenAPI test, bootJar, exportAdminOpenApi 성공. 최종 고객센터 suite 재실행 16건(신규 5 + 상속 lifecycle 11), 전부 통과·실패/오류/선택 제외 0. 검사: 만료 견적/당시 가격, 확정 차감/반환과 반복 조회 금융 불변, 권한·철회·없는/잘못된 UUID, 감사 실패 차단, 일반 운세 견적의 연결 참조/선물 없음. 앞선 #33 통합 전체 646건 검증 이후 이 후속 범위의 필요한 검사를 수행했다.
+- 적용: 6-1 운영자 권한, 6-2 동일 snapshot/원장 불변, 6-8 정확한 문의번호/감사, 6-9 응답 최소화. purchaseId→B 생성/결과 조회는 B public port 합의가 필요하다. 실제 CS 접수·브라우저·외부 API·운영 배포는 미검증이다. 설명: `backend/docs/ADMIN_PURCHASE_QUOTE_SUPPORT.md`.
+
+### 2026-10-14: PR #33 최신 main 호환·직접 링크 유지보수
+
+- `codex/gift-admin-operations`에서 main `84f87f0`(#35·#36·#38 포함)을 통합했다. 문서 충돌은 양쪽 운영 기록을 보존했다. 신규 직접 링크 주문과 과거 알림톡 주문을 구분하고, 전화번호 없는 주문의 전화번호 정리 후보/실패 검토/재개를 제외했다. 관리자에 링크 version/발급/공개기한/조회 가능 여부만 제공하며 원문 URL/token/hash/암호문은 비노출이다.
+- 기존 키 전환에 `token_ciphertext`를 추가하고 draft/outbox/token과 감사의 원자성을 유지했다. 손상된 token은 전체 rollback과 기존 제한 재시도/관리자 재개를 따른다. 취소/목적 종료 시 token 암호문도 삭제하며, 공개기간 종료는 유효한 bearer hash를 유지한다. 재발급과 취소는 work→token 잠금으로 직렬화한다. 링크 포함 DTO의 문자열 출력은 가렸다. 재발급 기간/횟수 등 Q-54 제품 정책은 바꾸지 않았다.
+- 공유 migration 번호를 바꾸지 않았다. #35만 먼저 적용된 DB는 기본 검증에서 #33의 늦게 도착한 앞 번호를 거절하므로 이력 확인 후 별도 migration 단계에서 한 번 out-of-order 적용하고 기본 설정으로 복귀해야 한다. 애플리케이션 기본값은 변경하지 않았다. 별도 schema에서 main→#33 upgrade와 기본 검증 복귀를 확인했다. 운영 DB에는 실행하지 않았다.
+- 별도 PostgreSQL 17 tmpfs 컨테이너의 `localhost:55433/saju_pr33_compat`에서 `check bootJar exportAdminOpenApi` 성공. test XML 646건: 통과 634, 선택 제외 12, 실패/오류 0. 관리자 전용 OpenAPI를 갱신했다. FE/공유 계약의 새 변경이나 실제 .env/개발 DB 수정은 없다.
+- 적용: 6-1 운영자 권한/CSRF, 6-2 원장 불변/원자성/잠금, 6-4 제한 재개, 6-5 링크 비노출/취소 경쟁, 6-6 main 통합/기존 schema upgrade, 6-8 관리자 감사, 6-9 개인정보 파기/암호문 전환. 실제 PG/Alimtalk/Liner/R2, FE/B 수신 완주, 운영 배포, OS 강제 종료, 부하/백업 복원은 미검증이다.
+
+### 2026-10-14: 선물 관리자 조회·소진된 유지보수 제한 재개
+
+- 기준 main `87cb89f`(B PR #29 병합)에서 `codex/gift-admin-operations`를 분리했다. 소스 `40336dc`. FE·B 인증/회원/인물/운세 코드·공유 OpenAPI·실제 .env·개발 DB는 변경하지 않았다. 기존 권한/worker 기본 비활성도 유지했다.
+- 관리자 선물 cursor 목록/정확한 주문 상세를 추가했다. 구매자 필터, 검토 대상 필터(24시간 초과 ACCEPTED 포함), 주문/차감/발송/접수/파기/키 전환 상태와 최근 20개 발송·50개 이벤트만 보여준다. 전화번호·이름·메시지·token·URL·암호문·키/lease/요청 hash를 반환하지 않는다. 조회 감사 실패 시 응답 차단.
+- 실패 5회 소진된 전화번호/전체 개인정보 정리와 현재 활성 키 전환만 재개한다. 운영자 can_recover·ACTIVE 회원·CSRF·Idempotency-Key를 요구한다. 주문별/kind별 전 운영자 합산 누적 3회이며 replay가 새 주기를 초기화하지 않는다. 요청 사유/종류/주문 변경은 충돌이다. 정상/이미 파기/비활성 worker는 거절한다.
+- gift 공개 내부 maintenance port로 work→draft 잠금 후 운영자 grant/member 잠금, 재개 의도·권한·한도·감사·대상 변경을 같은 트랜잭션에 저장한다. 실패는 전체 rollback이다. 외부 호출이나 지갑/원장/최초 제공/token/개인정보 복원은 없다. 기존 worker가 목적 종료·receipt·lease·키 조건을 다시 검사한다. REOPENED는 처리 기회를 열었다는 뜻이지 파기/전환 완료가 아니다.
+- 새 additive `V202610140100__a_admin_gift_maintenance_requests.sql`. PostgreSQL 17/55432의 빈 분리 DB `saju_gift_admin_20261014`에서 최종 `check bootJar exportAdminOpenApi` 성공. XML 689건 중 677 통과·12 선택 제외·실패/오류 0. 신규 관리자 suite 25건(신규 13 + 기존 lifecycle 12). read-only SQL로 migration 47개 모두 success=true 확인. 첫 선별도 성공했고 두 추가 검사를 포함한 최종 전체를 재실행했다.
+- 검사: 권한/CSRF/최소 응답·목록 cursor/검토 필터·중복·변경 입력·동시 재개·운영자 합산 한도·감사 실패 rollback·권한 철회·비활성 worker/이미 파기 거절·목적 조건 보호·재개 후 실제 전화번호 정리/replay 무복원·전환 재개 무암호문 수정·금융 불변. 관리자 전용 OpenAPI만 생성했으며 공유 계약/FE 타입은 그대로다.
+- 적용: 6-1 서버 권한/CSRF, 6-2 잠금/원장 불변/원자성, 6-4 영속 대응/제한 재개, 6-5 비밀 링크 비노출, 6-6 추가 migration/비활성/분리 DB, 6-8 감사/문의 조회, 6-9 개인정보 무복원. 실제 알림톡/PG·FE/B E2E·운영 배포/삭제·OS 강제 종료·부하/백업 복원은 미검증이다. 문서: `backend/docs/ADMIN_GIFT_OPERATIONS_20261014.md`.
+- 남음: 관리자 발송 결과 불명 재조회/재발송·B 생성 재개·선물 금융 검토 복구·실제 알림 채널·운세 구매/견적 문의 검색·외부 adapter. 조회할 수 있다는 이유로 강제 완료/반환/재발급 기능까지 구현됐다고 표시하지 않는다.
 ### 2026-10-14: 1차 선물 직접 링크 기반 전환
 
 - 최신 `origin/main` `2e5964b`에서 `feat/gift-direct-links-v1`을 새로 만들었다. 선물 주문 입력·응답·목록에서 전화번호와 마스킹 번호를 제거하고, 결제 활성화 트랜잭션이 알림톡 outbox 대신 32바이트 난수 token의 SHA-256 hash와 구매 응답 복구용 암호문을 함께 저장하도록 바꿨다. 암호문 공개 기간은 24시간이며 정리 worker가 만료 뒤 NULL 처리한다. 장기 권한은 hash만 남는다.

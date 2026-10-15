@@ -35,6 +35,7 @@ const created = (profileType: "SELF" | "OTHER" = "SELF") => ({
   id: PERSON_ID,
   profileType,
   displayName: "FIXTURE-NAME",
+  relationType: profileType === "SELF" ? null : "FAMILY",
 });
 
 function form(
@@ -179,10 +180,16 @@ describe("인물 adapter — createOther", () => {
 });
 
 describe("인물 adapter — list", () => {
-  const item = (id: string, profileType: string, name: string) => ({
+  const item = (
+    id: string,
+    profileType: string,
+    name: string,
+    relationType: string | null = null,
+  ) => ({
     id,
     profileType,
     displayName: name,
+    relationType,
   });
   const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -201,16 +208,38 @@ describe("인물 adapter — list", () => {
     const people = await adapter.list();
     expect(fetchMock.mock.calls[0][1]?.method).toBe("GET");
     expect(people).toEqual([
-      { personId: B, isSelf: true, name: "FIXTURE-B" },
-      { personId: A, isSelf: false, name: "FIXTURE-A" },
-      { personId: C, isSelf: false, name: "FIXTURE-C" },
+      { personId: B, isSelf: true, name: "FIXTURE-B", relationType: null },
+      { personId: A, isSelf: false, name: "FIXTURE-A", relationType: null },
+      { personId: C, isSelf: false, name: "FIXTURE-C", relationType: null },
     ]);
+  });
+
+  it.each([
+    ["LOVER", "LOVER"],
+    [null, null],
+    ["FIXTURE_NEW_RELATION", "UNKNOWN"],
+  ] as const)("b. 서버 relationType %s → %s", async (server, expected) => {
+    const { adapter } = setup(
+      ok({ items: [item(A, "OTHER", "FIXTURE-A", server)] }),
+    );
+    const people = await adapter.list();
+    expect(people[0].relationType).toBe(expected);
+  });
+
+  it("b2. relationType 키가 없으면 ApiContractError", async () => {
+    const { relationType: _omitted, ...withoutKey } = item(A, "OTHER", "X");
+    const { adapter } = setup(ok({ items: [withoutKey] }));
+    await expect(adapter.list()).rejects.toBeInstanceOf(ApiContractError);
   });
 
   it.each([
     ["id 가 uuid 아님", { items: [item("not-a-uuid", "SELF", "X")] }],
     ["profileType 모르는 값", { items: [item(A, "UNKNOWN", "X")] }],
     ["items 없음", {}],
+    [
+      "relationType 이 문자열도 null 도 아님",
+      { items: [{ ...item(A, "SELF", "X"), relationType: 1 }] },
+    ],
   ])("계약 위반 (%s) 은 ApiContractError", async (_name, data) => {
     const { adapter } = setup(ok(data));
     await expect(adapter.list()).rejects.toBeInstanceOf(ApiContractError);

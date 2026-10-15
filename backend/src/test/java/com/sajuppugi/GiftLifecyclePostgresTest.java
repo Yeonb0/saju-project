@@ -259,7 +259,7 @@ class GiftLifecyclePostgresTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_recipient_profiles WHERE gift_id=?", Integer.class, giftId)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gift_fulfillment_jobs WHERE gift_id=?", Integer.class, giftId)).isEqualTo(1);
         String encrypted = jdbc.queryForObject("SELECT profile_ciphertext FROM gift_recipient_profiles WHERE gift_id=?", String.class, giftId);
-        assertThat(encrypted).startsWith("v1:").doesNotContain("2007-03-14", "수험생");
+        assertThat(encrypted).matches("v(?:1|2:[^:]+):.+").doesNotContain("2007-03-14", "수험생");
         assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE gift_id=?", String.class, giftId)).isEqualTo("PENDING");
 
         mvc.perform(post("/api/v1/public/gifts/recipient-profile")

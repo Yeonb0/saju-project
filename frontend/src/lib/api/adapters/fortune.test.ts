@@ -18,6 +18,9 @@ const SUNEUNG: FortuneSelection = {
   productCode: "FIXTURE_SUNEUNG",
   personId: PERSON_ID,
   counterpartPersonId: null,
+  productOption: null,
+  questionKey: null,
+  relationType: null,
 };
 
 const quoteData = (overrides: Record<string, unknown> = {}) => ({
@@ -141,7 +144,9 @@ describe("운세 adapter — 견적 (createQuote)", () => {
     expect(quote.balanceAfter).toBe(0);
   });
 
-  it.each(NON_SUNEUNG)("b. %s 는 요청하지 않고 던진다", async (fortuneType) => {
+  it.each(
+    NON_SUNEUNG,
+  )("b. 질문 값이 없는 %s 는 요청하지 않고 던진다", async (fortuneType) => {
     const { adapter, fetchMock } = setup();
     await expect(
       adapter.createQuote({ ...SUNEUNG, fortuneType }),
@@ -396,7 +401,9 @@ describe("운세 adapter — 구매 (purchase)", () => {
     expect(headersOf(second)["X-CSRF-Token"]).toBe("FIXTURE-CSRF-2");
   });
 
-  it.each(NON_SUNEUNG)("h. %s 는 요청하지 않고 던진다", async (fortuneType) => {
+  it.each(
+    NON_SUNEUNG,
+  )("h. 질문 값이 없는 %s 는 요청하지 않고 던진다", async (fortuneType) => {
     const { adapter, fetchMock } = setup();
     await expect(
       adapter.purchase(
@@ -682,5 +689,313 @@ describe("운세 adapter — 구매 상태 (getPurchaseStatus)", () => {
     await expect(adapter.getPurchaseStatus(QUOTE_ID)).rejects.toBeInstanceOf(
       ApiContractError,
     );
+  });
+});
+
+// ---- 일반 운세 5종 (Q-26) ----------------------------------------------------------------
+// 아래 질문 키 · 금액 · ID 는 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다 (키는 API_SPEC 8장 표의 값을 쓴다).
+type General = Exclude<FortuneType, "UNKNOWN" | "SUNEUNG">;
+
+const STANDARD: readonly (readonly [General, string, string])[] = [
+  ["OVERALL", "overall", "OVERALL_FLOW"],
+  ["LOVE", "love", "CURRENT_RELATIONSHIP"],
+  ["WEALTH", "wealth", "OVERALL_WEALTH"],
+  ["SINSAL", "sinsal", "OVERALL_SINSAL"],
+];
+
+const generalSelection = (
+  fortuneType: General,
+  questionKey: string,
+): FortuneSelection => ({
+  fortuneType,
+  productCode: "FIXTURE_GENERAL",
+  personId: PERSON_ID,
+  counterpartPersonId: null,
+  productOption: "READING_WITH_TALISMAN",
+  questionKey,
+  relationType: null,
+});
+
+const COMPAT: FortuneSelection = {
+  ...generalSelection("COMPATIBILITY", "COMMUNICATION"),
+  counterpartPersonId: OTHER_ID,
+  relationType: "FRIEND",
+};
+
+// 일반 운세 견적 응답 — event 는 없고 productOption · questionKey 가 있다
+const generalQuoteData = (
+  selection: FortuneSelection,
+  overrides: Record<string, unknown> = {},
+) => ({
+  ...without(quoteData(), "event"),
+  productCode: "FIXTURE_GENERAL",
+  productOption: selection.productOption,
+  questionKey: selection.questionKey,
+  ...overrides,
+});
+
+const generalPurchaseData = (overrides: Record<string, unknown> = {}) => ({
+  ...purchaseData(),
+  // 포트에 넣지 않는 값 — 있어도 성공이어야 한다 (Q-37)
+  reading: { summary: "FIXTURE 결과 본문" },
+  ...overrides,
+});
+
+const GENERAL_PURCHASE_KEYS = [
+  "counterpartPersonId",
+  "personId",
+  "productOption",
+  "questionKey",
+  "quoteId",
+  "relationType",
+];
+
+describe("운세 adapter — 일반 운세 견적 (createQuote)", () => {
+  it.each(
+    STANDARD,
+  )("a. %s: POST /api/v1/quotes/fortune/%s 1번, 본문이 정확히 {personId, productOption, questionKey}, 멱등 키 없음", async (fortuneType, path, questionKey) => {
+    const selection = generalSelection(fortuneType, questionKey);
+    const { adapter, fetchMock } = setup(ok(generalQuoteData(selection)));
+    const quote = await adapter.createQuote(selection);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/api/v1/quotes/fortune/${path}`);
+    expect(init?.method).toBe("POST");
+    const body = JSON.parse(init?.body as string);
+    // 키 집합까지 — fortuneType · productCode · counterpartPersonId · relationType 은 보내지 않는다
+    expect(Object.keys(body).sort()).toEqual([
+      "personId",
+      "productOption",
+      "questionKey",
+    ]);
+    expect(body).toEqual({
+      personId: PERSON_ID,
+      productOption: "READING_WITH_TALISMAN",
+      questionKey,
+    });
+    expect(headersOf(init)["Idempotency-Key"]).toBeUndefined();
+    expect(headersOf(init)["X-CSRF-Token"]).toBe("FIXTURE-CSRF");
+    // 응답을 포트 모델로 — 옵션 · 질문은 포트에 넣지 않는다
+    expect(quote).toEqual({
+      quoteId: QUOTE_ID,
+      productCode: "FIXTURE_GENERAL",
+      productName: "FIXTURE_PRODUCT_NAME",
+      charged: { currency: "TURTLE_SHELL", amount: 13 },
+      walletBalance: 20,
+      balanceAfter: 7,
+      shortage: 0,
+      recommendedTopUp: null,
+      expiresAt: "2099-01-01T00:00:00Z",
+    });
+  });
+
+  it("b. COMPATIBILITY: POST /api/v1/quotes/fortune/compatibility, 본문이 정확히 {personId, counterpartPersonId, relationType, productOption, questionKey}", async () => {
+    const { adapter, fetchMock } = setup(ok(generalQuoteData(COMPAT)));
+    await adapter.createQuote(COMPAT);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/quotes/fortune/compatibility");
+    const body = JSON.parse(init?.body as string);
+    expect(Object.keys(body).sort()).toEqual([
+      "counterpartPersonId",
+      "personId",
+      "productOption",
+      "questionKey",
+      "relationType",
+    ]);
+    expect(body).toEqual({
+      personId: PERSON_ID,
+      counterpartPersonId: OTHER_ID,
+      relationType: "FRIEND",
+      productOption: "READING_WITH_TALISMAN",
+      questionKey: "COMMUNICATION",
+    });
+    expect(headersOf(init)["Idempotency-Key"]).toBeUndefined();
+  });
+
+  const LOVE = generalSelection("LOVE", "CURRENT_RELATIONSHIP");
+  it.each([
+    [
+      "questionKey 키 없음",
+      () => without(generalQuoteData(LOVE), "questionKey"),
+    ],
+    [
+      "productOption 키 없음",
+      () => without(generalQuoteData(LOVE), "productOption"),
+    ],
+    [
+      "questionKey 가 보낸 값과 다름",
+      () => generalQuoteData(LOVE, { questionKey: "MARRIAGE" }),
+    ],
+    [
+      "productOption 이 보낸 값과 다름",
+      () => generalQuoteData(LOVE, { productOption: "READING_ONLY" }),
+    ],
+  ])("c. 응답 위반(%s)은 ApiContractError", async (_name, make) => {
+    const { adapter } = setup(ok(make()));
+    await expect(adapter.createQuote(LOVE)).rejects.toBeInstanceOf(
+      ApiContractError,
+    );
+  });
+});
+
+describe("운세 adapter — 일반 운세 구매 (purchase)", () => {
+  it.each([
+    ...STANDARD,
+    ["COMPATIBILITY", "compatibility", "COMMUNICATION"] as const,
+  ])("d. %s: POST /api/v1/reading-purchases/%s, Idempotency-Key 는 받은 것, 본문 키 집합이 규칙과 같다", async (fortuneType, path, questionKey) => {
+    const selection =
+      fortuneType === "COMPATIBILITY"
+        ? COMPAT
+        : generalSelection(fortuneType, questionKey);
+    const { adapter, fetchMock } = setup(ok(generalPurchaseData(), 201));
+    await adapter.purchase({ quoteId: QUOTE_ID, selection }, KEY);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/api/v1/reading-purchases/${path}`);
+    expect(init?.method).toBe("POST");
+    expect(headersOf(init)["Idempotency-Key"]).toBe(KEY);
+    expect(headersOf(init)["X-CSRF-Token"]).toBe("FIXTURE-CSRF");
+    const body = JSON.parse(init?.body as string);
+    const expected =
+      fortuneType === "COMPATIBILITY"
+        ? GENERAL_PURCHASE_KEYS
+        : GENERAL_PURCHASE_KEYS.filter(
+            (key) => key !== "counterpartPersonId" && key !== "relationType",
+          );
+    expect(Object.keys(body).sort()).toEqual(expected);
+    expect(body.quoteId).toBe(QUOTE_ID);
+    expect(body.questionKey).toBe(selection.questionKey);
+    expect(body.productOption).toBe("READING_WITH_TALISMAN");
+  });
+
+  it("e. 201 FULFILLED 는 그대로 옮기고, reading 객체가 있어도 성공한다", async () => {
+    const { adapter } = setup(ok(generalPurchaseData(), 201));
+    const result = await adapter.purchase(
+      {
+        quoteId: QUOTE_ID,
+        selection: generalSelection("LOVE", "CURRENT_RELATIONSHIP"),
+      },
+      KEY,
+    );
+    expect(result).toEqual({
+      purchaseId: PURCHASE_ID,
+      readingId: READING_ID,
+      status: "FULFILLED",
+      compensationStatus: "NOT_REQUIRED",
+      nextAction: "VIEW_READING",
+      charged: { currency: "TURTLE_SHELL", amount: 13 },
+      balance: 7,
+    });
+  });
+
+  it("e. 202 GENERATING (readingId · balance · charged null) 은 null 로 남는다 (0 이 아님)", async () => {
+    const { adapter } = setup(
+      ok(
+        generalPurchaseData({
+          readingId: null,
+          balance: null,
+          charged: null,
+          status: "GENERATING",
+          nextAction: "WAIT",
+          reading: undefined,
+        }),
+        202,
+      ),
+    );
+    const result = await adapter.purchase(
+      { quoteId: QUOTE_ID, selection: COMPAT },
+      KEY,
+    );
+    expect(result.readingId).toBeNull();
+    expect(result.balance).toBeNull();
+    expect(result.charged).toBeNull();
+    expect(result.status).toBe("GENERATING");
+    expect(result.nextAction).toBe("WAIT");
+  });
+
+  it("g. 403 CSRF_FAILED 뒤 성공하면 두 요청의 Idempotency-Key · 본문 문자열이 같다", async () => {
+    const { adapter, fetchMock } = setup(
+      failure(403, "CSRF_FAILED"),
+      ok(generalPurchaseData(), 201),
+    );
+    await adapter.purchase({ quoteId: QUOTE_ID, selection: COMPAT }, KEY);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, first] = fetchMock.mock.calls[0];
+    const [, second] = fetchMock.mock.calls[1];
+    expect(headersOf(first)["Idempotency-Key"]).toBe(KEY);
+    expect(headersOf(second)["Idempotency-Key"]).toBe(KEY);
+    expect(first?.body).toBe(second?.body);
+    expect(headersOf(second)["X-CSRF-Token"]).toBe("FIXTURE-CSRF-2");
+  });
+
+  it.each([
+    ["INVALID_QUESTION_KEY"],
+    ["RELATION_TYPE_REQUIRED"],
+  ])("h. 422 %s 는 ApiError 로 code 가 그대로다 (삼키지 않는다)", async (code) => {
+    const { adapter } = setup(failure(422, code));
+    const error = await adapter
+      .purchase({ quoteId: QUOTE_ID, selection: COMPAT }, KEY)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).code).toBe(code);
+    expect((error as ApiError).status).toBe(422);
+  });
+
+  it.each([
+    ["INVALID_QUESTION_KEY"],
+    ["RELATION_TYPE_REQUIRED"],
+  ])("h. 견적 422 %s 도 ApiError 로 code 가 그대로다", async (code) => {
+    const { adapter } = setup(failure(422, code));
+    const error = await adapter.createQuote(COMPAT).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).code).toBe(code);
+  });
+});
+
+describe("운세 adapter — 요청 전 선택 검사 (일반 운세 · 수능운)", () => {
+  const LOVE = generalSelection("LOVE", "CURRENT_RELATIONSHIP");
+  const BAD: readonly (readonly [string, FortuneSelection])[] = [
+    ["일반 + questionKey null", { ...LOVE, questionKey: null }],
+    [
+      "OVERALL + 다른 운세의 키(CURRENT_RELATIONSHIP)",
+      generalSelection("OVERALL", "CURRENT_RELATIONSHIP"),
+    ],
+    ["일반 + productOption null", { ...LOVE, productOption: null }],
+    ["COMPATIBILITY + relationType null", { ...COMPAT, relationType: null }],
+    [
+      "COMPATIBILITY + counterpartPersonId null",
+      { ...COMPAT, counterpartPersonId: null },
+    ],
+    ["LOVE + relationType 있음", { ...LOVE, relationType: "LOVER" }],
+    [
+      "LOVE + counterpartPersonId 있음",
+      { ...LOVE, counterpartPersonId: OTHER_ID },
+    ],
+    ["SUNEUNG + questionKey 있음", { ...SUNEUNG, questionKey: "OVERALL_FLOW" }],
+    [
+      "SUNEUNG + productOption 있음",
+      { ...SUNEUNG, productOption: "READING_WITH_TALISMAN" },
+    ],
+  ];
+
+  it.each(
+    BAD,
+  )("f. %s: createQuote 는 fetch 0번으로 던진다", async (_name, selection) => {
+    const { adapter, fetchMock } = setup();
+    await expect(adapter.createQuote(selection)).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(
+    BAD,
+  )("f. %s: purchase 는 fetch 0번으로 던진다", async (_name, selection) => {
+    const { adapter, fetchMock } = setup();
+    await expect(
+      adapter.purchase({ quoteId: QUOTE_ID, selection }, KEY),
+    ).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

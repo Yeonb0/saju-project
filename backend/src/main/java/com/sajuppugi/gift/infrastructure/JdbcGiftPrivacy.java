@@ -79,7 +79,7 @@ public class JdbcGiftPrivacy {
                     """, Integer.class, grant.giftId(), Timestamp.from(now));
             if (fulfillmentInFlight != null && fulfillmentInFlight > 0) return false;
         }
-        jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE WHERE order_id = ?", order);
+        jdbc.update("UPDATE gift_purchase_tokens SET revoked = TRUE,token_ciphertext = NULL WHERE order_id = ?", order);
         jdbc.update("UPDATE gift_delivery_jobs SET state = 'CANCELED',lease_token = NULL,lease_until = NULL WHERE order_id = ? AND state NOT IN ('SENT','FAILED','CANCELED')", order);
         jdbc.update("UPDATE gift_delivery_outbox SET private_payload = '',status = 'CANCELED' WHERE order_id = ?", order);
         jdbc.update("UPDATE gift_order_drafts SET private_payload = '',recipient_phone_masked = 'REDACTED',private_payload_purged_at = ? WHERE id = ?", Timestamp.from(now), order);
