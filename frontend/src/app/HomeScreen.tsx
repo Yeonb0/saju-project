@@ -1,20 +1,16 @@
 "use client";
 
-// "use client" 이유: 세션 · 지갑 조회(TanStack Query)는 브라우저에서 한다.
+// "use client" 이유: 세션 조회(TanStack Query)는 브라우저에서 한다.
 // HOME-03 홈 (docs/FRONTEND.md 3장, Figma 195:92). 근거: A-02 (홈은 공개 — 들어간 화면이 로그인 가드),
-// P-09 · Q-22 (잔액은 서버 값만), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다), NAME (D-11), LAYOUT-FIGMA (와이어 값).
+// DIRECT-PAY (등껍질 잔액 · 충전 진입 삭제), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다), NAME (D-11), LAYOUT-FIGMA (와이어 값).
 // 선물하기는 OpenAPI 대기라 지금은 자리표시 화면(/gift/new)으로 간다. 디자인 요소 없음 (PG-FIRST).
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { SESSION_QUERY_KEY } from "@/lib/auth/RequireSession";
 import { FORTUNE_LABELS, type FortuneSlug } from "@/lib/navigation";
-import { getSessionPort, getTopUpPort } from "@/lib/ports";
+import { getSessionPort } from "@/lib/ports";
 import type { SessionPort } from "@/lib/ports/session";
-import type { TopUpPort } from "@/lib/ports/topUp";
-import { WALLET_QUERY_KEY } from "@/lib/wallet/query";
-
-const formatNumber = (value: number) => value.toLocaleString("ko-KR");
 
 // TODO(PD 토큰 v0): 와이어 임시값 (LAYOUT-FIGMA)
 const CARD_CLASS = "bg-[#d9d9d9]";
@@ -37,30 +33,19 @@ function FortuneTile({
 
 export function HomeScreen({
   sessionPort,
-  topUpPort,
 }: {
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다 (MOCK-PORT).
   sessionPort?: SessionPort;
-  topUpPort?: TopUpPort;
 }) {
   const session = useQuery({
     queryKey: SESSION_QUERY_KEY,
     queryFn: () => (sessionPort ?? getSessionPort()).getSession(),
-    // 로그아웃 직후 캐시에 남은 옛 세션으로 잔액을 보이지 않게, 들어올 때마다 새로 받는다
+    // 로그아웃 직후 캐시에 남은 옛 세션으로 보이지 않게, 들어올 때마다 새로 받는다
     refetchOnMount: "always",
-  });
-  const state = session.isFetchedAfterMount ? session.data : undefined;
-  const signedIn = state?.status === "signed_in";
-
-  const wallet = useQuery({
-    queryKey: WALLET_QUERY_KEY,
-    queryFn: () => (topUpPort ?? getTopUpPort()).getWallet(),
-    enabled: signedIn,
   });
 
   // 시끄럽게 실패: 조회 실패는 오류 화면(error.tsx)으로
   if (session.error) throw session.error;
-  if (wallet.error) throw wallet.error;
 
   return (
     // 홈은 자체 위 줄이 있어 AppShell 헤더를 그리지 않는다 (HOME-03)
@@ -68,23 +53,8 @@ export function HomeScreen({
       <div className="mx-[26px] mb-[31px]">
         {/* 위 줄 (y 34 ~ 69) */}
         <div className="mt-[34px] grid h-[35px] grid-cols-[1fr_auto_1fr] items-center">
-          <div className="flex items-center">
-            {/* TODO(PD 아이콘): 등껍질 */}
-            <div aria-hidden className="h-[35px] w-[33px]" />
-            <Link
-              href="/wallet"
-              className="ml-[3px] flex flex-col text-[13px] font-semibold"
-            >
-              {/* 로그인 상태일 때만 서버 잔액 (P-09) */}
-              <span className="min-h-[16px]">
-                {signedIn && wallet.data
-                  ? formatNumber(wallet.data.balance)
-                  : null}
-              </span>
-              {/* TODO(PD 문구) */}
-              <span>충전하기</span>
-            </Link>
-          </div>
+          {/* 등껍질 잔액 · 충전 삭제 — DIRECT-PAY. 가운데 「뿌기사주」 위치가 바뀌지 않게 빈 칸으로 둔다 */}
+          <div />
           {/* NAME (D-11) */}
           <h1 className="text-[30px]">뿌기사주</h1>
           <Link

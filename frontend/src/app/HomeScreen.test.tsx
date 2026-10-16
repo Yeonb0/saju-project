@@ -1,55 +1,35 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { SessionPort } from "@/lib/ports/session";
-import type { TopUpPort } from "@/lib/ports/topUp";
 import { makeQueryClient } from "@/lib/queryClient";
 import { createFakeAccount, type FakeSessionScenario } from "@/mocks/account";
 import { createFakeSessionPort } from "@/mocks/session";
-import { createFakeTopUpPort } from "@/mocks/topUp";
-import { createFakeWallet } from "@/mocks/wallet";
 import { HomeScreen } from "./HomeScreen";
 
 afterEach(cleanup);
 
-// 픽스처일 뿐이며 실제 사용자 · 잔액과 무관하다. 지갑 잔액은 src/mocks/wallet.ts 의 기본 픽스처(7)다.
+// 픽스처일 뿐이며 실제 사용자와 무관하다.
 function setup(scenario: FakeSessionScenario) {
   const account = createFakeAccount(scenario);
   const sessionPort: SessionPort = createFakeSessionPort({ account });
-  const topUpPort: TopUpPort = createFakeTopUpPort({
-    wallet: createFakeWallet(),
-  });
-  const getWallet = vi.spyOn(topUpPort, "getWallet");
   render(
     <QueryClientProvider client={makeQueryClient()}>
-      <HomeScreen sessionPort={sessionPort} topUpPort={topUpPort} />
+      <HomeScreen sessionPort={sessionPort} />
     </QueryClientProvider>,
   );
-  return { getWallet };
 }
 
 describe("HomeScreen (HOME-03)", () => {
-  it("b. 비로그인이면 잔액 글자가 없고 충전하기 링크는 /wallet, 지갑 조회는 하지 않는다", async () => {
-    const { getWallet } = setup("signed_out");
-    const link = await screen.findByRole("link", { name: "충전하기" });
-    expect(link).toHaveAttribute("href", "/wallet");
-    // 세션이 도착해 비로그인으로 판단될 때까지 기다린 뒤에도 조회가 없다
-    await waitFor(() => expect(link.textContent).toBe("충전하기"));
-    expect(getWallet).not.toHaveBeenCalled();
-  });
-
-  it("c. 로그인이면 지갑 픽스처 잔액(7)이 보인다", async () => {
-    const { getWallet } = setup("signed_in");
-    // 이름은 잔액 줄과 충전하기 줄을 이은 글자 (줄 사이 공백 유무와 무관하게)
-    // 세션 → 지갑 조회를 차례로 기다린다 — 전체 실행이 느릴 때 기본 1초를 넘긴 적이 있어 3초 (10/10)
-    expect(
-      await screen.findByRole(
-        "link",
-        { name: /^7\s*충전하기$/ },
-        { timeout: 3000 },
-      ),
-    ).toHaveAttribute("href", "/wallet");
-    expect(getWallet).toHaveBeenCalledTimes(1);
+  it("H1. 로그인 상태에서도 /wallet 링크와 「충전하기」 가 없다 (DIRECT-PAY)", async () => {
+    setup("signed_in");
+    // 홈은 지갑을 조회하지 않는다 — 충전 포트를 import 하지 않는 것으로 막는다 (DIRECT-PAY)
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "마이페이지" })).toBeVisible(),
+    );
+    expect(screen.queryByRole("link", { name: /충전하기/ })).toBeNull();
+    expect(screen.queryByText("충전하기")).toBeNull();
+    expect(document.querySelector('a[href="/wallet"]')).toBeNull();
   });
 
   it("d. 카드 · 타일 · 마이페이지 링크가 각자의 href 를 가진다", () => {

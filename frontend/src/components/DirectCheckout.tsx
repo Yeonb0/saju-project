@@ -20,6 +20,7 @@ import { ApiContractError, classifyApiError } from "@/lib/api/errors";
 import { createIdempotencyKey } from "@/lib/api/idempotency";
 import { loginHref } from "@/lib/auth/returnTo";
 import { BUSINESS_INFO } from "@/lib/business";
+import { DIRECT_NOTICE_LINES } from "@/lib/payment/directNotice";
 import {
   getDirectPaymentPort,
   getFortunePort,
@@ -39,14 +40,6 @@ import { savePurchaseSelection } from "@/lib/purchase/restore";
 import { supportMailtoHref } from "@/lib/support/contact";
 
 const formatNumber = (value: number) => value.toLocaleString("ko-KR");
-
-// 정책 v4 3 · 4 · 5 · 8조 문장 그대로 — TODO(PD 문구) 화면용 말투. 바꿀 때는 이 배열 한 곳.
-const DIRECT_NOTICE_LINES = [
-  "결제 승인이 확인되면 운세와 부적을 만들어 화면으로 제공합니다.",
-  "결제 후 7일 이내이고, 완성된 운세 결과 또는 부적을 아직 받지 않았다면 고객센터로 신청해 결제를 취소할 수 있습니다.",
-  "완성된 운세 결과를 확인했거나 부적이 지급되는 등 디지털 콘텐츠 제공이 시작된 뒤에는 단순 변심으로 취소 · 환불할 수 없습니다.",
-  "미성년자는 법정대리인의 동의를 받아 결제해 주세요.",
-] as const;
 
 // 팝업 배치 (LAYOUT-FIGMA, 248:267~271) — 내용 배치만
 // TODO(PD 토큰 v0): 와이어 임시값
