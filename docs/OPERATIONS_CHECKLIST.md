@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: AWS PG 비활성 첫 배포 준비
+
+- FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
+- 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
+
 ### 2026-10-16: BE-B 전체 코드리뷰 지적사항 보완 (로컬 PostgreSQL 17)
 
 - 직접결제 운세는 결제 소비 claim, 구매 `DEBITED`, 암호화 generation context 저장을 한 짧은 PostgreSQL transaction에서 확정하도록 묶었다. 외부 생성 호출은 이 transaction 밖에서 실행하며, wallet 기능이 꺼진 직접결제 환경에서도 generation recovery scheduler가 동작하도록 조건을 분리했다.
