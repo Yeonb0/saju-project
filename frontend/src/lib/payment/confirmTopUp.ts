@@ -68,7 +68,7 @@ export function readPaymentReturn(
   return { paymentKey, orderId, amount };
 }
 
-function defaultSleep(ms: number, signal?: AbortSignal) {
+export function defaultSleep(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason);

@@ -23,7 +23,9 @@ const VALUE: PurchaseSelection = {
     questionKey: null,
     relationType: null,
   },
-  purchaseKey: null,
+  orderKey: null,
+  orderId: null,
+  fulfillmentKey: null,
 };
 // 픽스처 시각
 const T0 = 1_000_000;
@@ -135,28 +137,45 @@ describe("구매 선택 복원 — fortuneType (v: 2)", () => {
   });
 });
 
-describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
+describe("직접결제 주문 키 저장 (DIRECT-PAY, v: 5)", () => {
   // 픽스처일 뿐이다
   const KEY = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
-  it("키를 넣어 저장하면 그대로 읽힌다", () => {
-    savePurchaseSelection({ ...VALUE, purchaseKey: KEY }, T0);
-    expect(loadPurchaseSelection(T0 + 1)).toEqual({
+  it("R1. orderKey · orderId · fulfillmentKey 를 넣어 저장하면 그대로 읽힌다", () => {
+    const full = {
       ...VALUE,
-      purchaseKey: KEY,
+      orderKey: KEY,
+      orderId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      fulfillmentKey: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    };
+    savePurchaseSelection(full, T0);
+    expect(loadPurchaseSelection(T0 + 1)).toEqual(full);
+  });
+
+  it("R1. 키를 생략하면 null 로 저장 · 읽힌다", () => {
+    const {
+      orderKey: _a,
+      orderId: _b,
+      fulfillmentKey: _c,
+      ...withoutKeys
+    } = VALUE;
+    savePurchaseSelection(withoutKeys, T0);
+    expect(loadPurchaseSelection(T0 + 1)).toMatchObject({
+      orderKey: null,
+      orderId: null,
+      fulfillmentKey: null,
+    });
+    expect(
+      JSON.parse(sessionStorage.getItem(PURCHASE_SELECTION_KEY) ?? "{}"),
+    ).toMatchObject({
+      v: 5,
+      orderKey: null,
+      orderId: null,
+      fulfillmentKey: null,
     });
   });
 
-  it("키를 생략하면 null 로 저장 · 읽힌다", () => {
-    const { purchaseKey: _omit, ...withoutKey } = VALUE;
-    savePurchaseSelection(withoutKey, T0);
-    expect(loadPurchaseSelection(T0 + 1)?.purchaseKey).toBeNull();
-    expect(
-      JSON.parse(sessionStorage.getItem(PURCHASE_SELECTION_KEY) ?? "{}"),
-    ).toMatchObject({ v: 4, purchaseKey: null });
-  });
-
-  it("빈 문자열 키는 저장값 무효 — 읽을 때 지운다", () => {
+  it("R2. v: 4 저장값(purchaseKey)은 읽을 때 지운다", () => {
     sessionStorage.setItem(
       PURCHASE_SELECTION_KEY,
       JSON.stringify({
@@ -165,7 +184,25 @@ describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
         returnPath: "/suneung",
         quoteId: VALUE.quoteId,
         selection: VALUE.selection,
-        purchaseKey: "",
+        purchaseKey: KEY,
+      }),
+    );
+    expect(loadPurchaseSelection(T0 + 1)).toBeNull();
+    expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
+  });
+
+  it("빈 문자열 키는 저장값 무효 — 읽을 때 지운다", () => {
+    sessionStorage.setItem(
+      PURCHASE_SELECTION_KEY,
+      JSON.stringify({
+        v: 5,
+        savedAt: T0,
+        returnPath: "/suneung",
+        quoteId: VALUE.quoteId,
+        selection: VALUE.selection,
+        orderKey: "",
+        orderId: null,
+        fulfillmentKey: null,
       }),
     );
     expect(loadPurchaseSelection(T0 + 1)).toBeNull();
@@ -188,9 +225,9 @@ describe("구매 키 저장 (PURCHASE-KEY-STORE)", () => {
   });
 
   it("24시간 만료는 키가 있어도 같다", () => {
-    savePurchaseSelection({ ...VALUE, purchaseKey: KEY }, T0);
+    savePurchaseSelection({ ...VALUE, orderKey: KEY }, T0);
     expect(
-      loadPurchaseSelection(T0 + PURCHASE_SELECTION_TTL_MS - 1)?.purchaseKey,
+      loadPurchaseSelection(T0 + PURCHASE_SELECTION_TTL_MS - 1)?.orderKey,
     ).toBe(KEY);
     expect(loadPurchaseSelection(T0 + PURCHASE_SELECTION_TTL_MS)).toBeNull();
     expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
@@ -216,7 +253,9 @@ describe("구매 선택 복원 — 질문 선택 (v: 4, Q-26)", () => {
       relationType: null,
       ...selection,
     },
-    purchaseKey: null,
+    orderKey: null,
+    orderId: null,
+    fulfillmentKey: null,
   });
   const compat = general({
     fortuneType: "COMPATIBILITY",
@@ -241,7 +280,11 @@ describe("구매 선택 복원 — 질문 선택 (v: 4, Q-26)", () => {
       returnPath: "/suneung",
       quoteId: VALUE.quoteId,
       selection,
-      ...(v >= 3 ? { purchaseKey: null } : {}),
+      ...(v >= 5
+        ? { orderKey: null, orderId: null, fulfillmentKey: null }
+        : v >= 3
+          ? { purchaseKey: null }
+          : {}),
     });
 
   it.each([
@@ -271,13 +314,13 @@ describe("구매 선택 복원 — 질문 선택 (v: 4, Q-26)", () => {
       { ...general({}).selection, productOption: null },
     ],
   ])("e. %s 는 읽으면 null 이고 저장소에서 사라진다", (_name, selection) => {
-    sessionStorage.setItem(PURCHASE_SELECTION_KEY, rawOf(4, selection));
+    sessionStorage.setItem(PURCHASE_SELECTION_KEY, rawOf(5, selection));
     expect(loadPurchaseSelection(T0 + 1)).toBeNull();
     expect(sessionStorage.getItem(PURCHASE_SELECTION_KEY)).toBeNull();
   });
 
   it.each([
-    3, 2,
+    4, 3, 2,
   ])("e. v: %i 원문은 읽으면 null 이고 저장소에서 사라진다", (v) => {
     sessionStorage.setItem(PURCHASE_SELECTION_KEY, rawOf(v, VALUE.selection));
     expect(loadPurchaseSelection(T0 + 1)).toBeNull();

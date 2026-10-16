@@ -50,6 +50,20 @@ tasks.named('jar') {
     enabled = false
 }
 
+// Upload this ZIP to a Java SE / Corretto 21 environment, not Amplify Hosting.
+// Allowlist only the runnable JAR and reviewed deployment settings; never package .env.
+tasks.register('beanstalkPrelaunchBundle', Zip) {
+    description = 'Build a payment-disabled Elastic Beanstalk Java SE prelaunch bundle.'
+    group = 'distribution'
+    dependsOn tasks.named('bootJar')
+    archiveFileName = 'sajuppugi-prelaunch.zip'
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    from(tasks.named('bootJar').flatMap { it.archiveFile }) { rename { 'app.jar' } }
+    from('deploy/elastic-beanstalk') { include 'Procfile', '.ebextensions/**' }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
 tasks.register('exportOpenApi', Test) {
     description = 'Export the local /api/v1 OpenAPI contract for frontend type generation.'
     group = 'documentation'

@@ -5,10 +5,12 @@
 // - 구매 성공 · 로그아웃 때 지운다 (clearPurchaseSelection).
 // - 가격 · 잔액은 저장하지 않는다. 복귀하면 quoteId 로 서버 견적을 다시 받는다 (GET /quotes/{quoteId}).
 // - 전역 상태가 아니며 Zustand 를 쓰지 않는다.
-// - PURCHASE-KEY-STORE (2026-10-10 결정, 2026-10-12 구현): 구매를 보낸 뒤 결과를 모르는 의도의 Idempotency-Key 와 견적 ID 만 둔다.
-//   같은 24시간 · 완료 · 실패 · 로그아웃 때 지운다. 복귀하면 이 키로 상태 조회(Q-38 답 by-quote)부터 하고, 기록이 없을 때만 같은 키로 다시 보낸다 (I-05).
-// - v: 4 (질문 선택): productOption · questionKey · relationType 도 함께 둔다 — 복귀 때 같은 질문으로 팝업을 다시 연다. 생년정보 · 이름은 여전히 넣지 않는다.
-//   v: 3 · v: 2 는 질문이 없어 되살릴 수 없다 — 읽을 때 지운다 (24시간 만료라 배포 전 값은 하루 안에 사라진다).
+// - DIRECT-PAY (2026-10-16): 직접결제 주문을 만든 뒤 결과를 모르는 의도의 키와 서버 주문 ID 만 둔다 (PURCHASE-KEY-STORE 의 구매 키를 대체).
+//   orderKey = 주문 생성 Idempotency-Key, orderId = 서버 주문 ID, fulfillmentKey = 결제 뒤 운세 생성 키 (이어 받기는 다음 단계). 보낸 적 없으면 null.
+//   같은 24시간 · 완료 · 실패 · 로그아웃 때 지운다. 복귀하면 주문 ID 로 주문 상태를 조회하고, 아직 결제 전이면 같은 키로 이어 간다 (I-05).
+//   금액 · 결제 키 · 생년정보 · 이름은 넣지 않는다.
+// - v: 5: v: 4 의 purchaseKey 를 orderKey · orderId · fulfillmentKey 로 바꿨다. v: 4 · 3 · 2 는 읽을 때 지운다 (24시간 만료라 배포 전 값은 하루 안에 사라진다).
+//   v: 4 (질문 선택): productOption · questionKey · relationType 도 함께 둔다 — 복귀 때 같은 질문으로 팝업을 다시 연다.
 // 저장소를 쓸 수 없는 환경(사파리 개인 정보 보호 모드 등)에서는 조용히 저장하지 않는다 — 복원은 편의 기능이다.
 import { z } from "zod";
 import { safeReturnTo } from "@/lib/auth/returnTo";
@@ -28,8 +30,12 @@ export type PurchaseSelection = Readonly<{
   returnPath: string;
   quoteId: string;
   selection: FortuneSelection;
-  // 구매를 보낸 뒤 결과를 모르는 의도의 Idempotency-Key. 보낸 적 없으면 null (PURCHASE-KEY-STORE)
-  purchaseKey: string | null;
+  // 직접결제 주문 생성 Idempotency-Key. 보낸 적 없으면 null (DIRECT-PAY)
+  orderKey: string | null;
+  // 서버 주문 ID. 주문을 만들기 전이면 null
+  orderId: string | null;
+  // 결제 뒤 운세 생성 Idempotency-Key. 생성을 보낸 적 없으면 null (다음 단계가 쓴다)
+  fulfillmentKey: string | null;
 }>;
 
 // 수능운은 질문 값이 모두 null, 그 밖은 옵션 · 질문 키가 있고 (궁합만) 관계 · 상대가 있다. 어긋나면 읽을 때 지운다
@@ -64,7 +70,7 @@ function selectionShapeOk(selection: {
 }
 
 const storedSchema = z.object({
-  v: z.literal(4),
+  v: z.literal(5),
   savedAt: z.number().int().nonnegative(),
   returnPath: z.string(),
   quoteId: z.string().min(1),
@@ -80,7 +86,9 @@ const storedSchema = z.object({
       relationType: z.enum(RELATION_TYPES).nullable(),
     })
     .refine(selectionShapeOk, { message: "질문 선택 모양이 다르다" }),
-  purchaseKey: z.string().min(1).nullable(),
+  orderKey: z.string().min(1).nullable(),
+  orderId: z.string().min(1).nullable(),
+  fulfillmentKey: z.string().min(1).nullable(),
 });
 
 function storage(): Storage | null {
@@ -92,9 +100,11 @@ function storage(): Storage | null {
 }
 
 export function savePurchaseSelection(
-  // purchaseKey 를 생략하면 null
-  value: Omit<PurchaseSelection, "purchaseKey"> & {
-    purchaseKey?: string | null;
+  // 키 필드를 생략하면 null
+  value: Omit<PurchaseSelection, "orderKey" | "orderId" | "fulfillmentKey"> & {
+    orderKey?: string | null;
+    orderId?: string | null;
+    fulfillmentKey?: string | null;
   },
   now: number = Date.now(),
 ): void {
@@ -102,7 +112,7 @@ export function savePurchaseSelection(
   if (!store) return;
   // 필요한 값만 골라 담는다 — 호출하는 쪽이 다른 값을 섞어 넘겨도 저장되지 않게
   const stored: z.infer<typeof storedSchema> = {
-    v: 4,
+    v: 5,
     savedAt: now,
     returnPath: safeReturnTo(value.returnPath),
     quoteId: value.quoteId,
@@ -115,7 +125,9 @@ export function savePurchaseSelection(
       questionKey: value.selection.questionKey,
       relationType: value.selection.relationType,
     },
-    purchaseKey: value.purchaseKey ?? null,
+    orderKey: value.orderKey ?? null,
+    orderId: value.orderId ?? null,
+    fulfillmentKey: value.fulfillmentKey ?? null,
   };
   try {
     store.setItem(PURCHASE_SELECTION_KEY, JSON.stringify(stored));
@@ -158,7 +170,9 @@ export function loadPurchaseSelection(
     returnPath: safeReturnTo(returnPath),
     quoteId,
     selection,
-    purchaseKey: result.data.purchaseKey,
+    orderKey: result.data.orderKey,
+    orderId: result.data.orderId,
+    fulfillmentKey: result.data.fulfillmentKey,
   };
 }
 

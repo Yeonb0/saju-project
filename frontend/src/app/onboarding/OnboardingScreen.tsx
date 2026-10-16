@@ -78,6 +78,7 @@ export function OnboardingScreen({
           />
           <PersonForm
             submitting={save.isPending}
+            submitLabel="저장하고 시작하기"
             // mutate 는 던지지 않는다 — 오류는 save.error 로 화면에 보이고, 제출은 onSettled 에서 끝난다
             onSubmit={(value) =>
               new Promise<void>((resolve) => {

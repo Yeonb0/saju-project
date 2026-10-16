@@ -4,6 +4,10 @@
 import { z } from "zod";
 import { API_MODE, type ApiMode } from "@/lib/ports/mode";
 import { FAKE_SESSION_SCENARIOS, type FakeSessionScenario } from "./account";
+import {
+  FAKE_DIRECT_PAYMENT_SCENARIOS,
+  type FakeDirectPaymentScenario,
+} from "./directPayment";
 import { FAKE_FORTUNE_SCENARIOS, type FakeFortuneScenario } from "./fortune";
 import { FAKE_TOP_UP_SCENARIOS, type FakeTopUpScenario } from "./topUp";
 
@@ -17,6 +21,7 @@ export type MockOverrides = {
   session?: FakeSessionScenario;
   topUp?: FakeTopUpScenario;
   fortune?: FakeFortuneScenario;
+  directPayment?: FakeDirectPaymentScenario;
   balance?: MockBalance;
 };
 
@@ -25,6 +30,7 @@ const storedSchema = z.object({
   session: z.enum(FAKE_SESSION_SCENARIOS).optional(),
   topUp: z.enum(FAKE_TOP_UP_SCENARIOS).optional(),
   fortune: z.enum(FAKE_FORTUNE_SCENARIOS).optional(),
+  directPayment: z.enum(FAKE_DIRECT_PAYMENT_SCENARIOS).optional(),
   balance: z.union([z.literal(0), z.literal(7), z.literal(100)]).optional(),
 });
 

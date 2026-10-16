@@ -39,4 +39,4 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - run: bash ./gradlew --no-daemon clean check bootJar
+      - run: bash ./gradlew --no-daemon clean check bootJar beanstalkPrelaunchBundle

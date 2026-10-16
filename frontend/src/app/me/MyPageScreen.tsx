@@ -143,7 +143,7 @@ export function MyPageScreen({
           aria-label="안내"
           className="mt-[29px] ml-[10px] flex flex-col text-[17px] font-medium leading-[24px]"
         >
-          {/* TODO(Q-24 ✚): 등껍질 충전 · 사용 내역 — 경로 없음 */}
+          {/* TODO(Q-66): 결제 내역 (MY-03) — 직접결제 목록 API 없음 (DIRECT-PAY) */}
           {/* TODO(A-08 · PD): 회원탈퇴 안내 모달 */}
           {/* TODO(PD 문구) */}
           <Link href="/terms" className="underline">

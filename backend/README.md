@@ -1,9 +1,9 @@
 # backend
 
-백엔드는 **Spring Boot 3 + PostgreSQL**로 확정됐다. AWS 배포를 사용하며, Spring Boot 컨테이너 실행 서비스는 App Runner/ECS/Elastic Beanstalk 중 확정 전이다. API prefix는 `/api/v1`을 사용한다.
+백엔드는 **Spring Boot 3 + PostgreSQL**, API prefix는 `/api/v1`을 사용한다. AWS 첫 배포는 FE Amplify / BE Elastic Beanstalk Java SE 기준으로 준비하며, 실제 AWS 자원·DB·리전은 배포 시 확정한다. [PG 연결 전 배포 안내](docs/AWS_PRELAUNCH_DEPLOYMENT.md).
 
 - 인증: 카카오 OAuth + 서버 세션 쿠키
-- 결제: 토스페이먼츠
+- 결제: 토스 기준 기존 구현, 최종 PG 미정. 첫 배포에서는 PG 비활성.
 - 파일: Cloudflare R2
 - 외부 생성: 만세력 계산 JSON에 근거한 Liner 해석 문장만 사용
 
@@ -261,7 +261,7 @@ TEST_DATABASE_PASSWORD=local-test-only \
 - 패키지: `common`, `auth`, `member`, `person`, `catalog`, `wallet`, `payment`, `gift`, `fortune`, `talisman`, `share`, `admin`, `infrastructure`.
 - `common`의 API 응답/오류, 요청 traceId, 최소 보안을 구현했다. A 영역에는 도메인 타입과 내부 호출 계약, 일부 확정 정책을 추가했다. 상세 범위는 [백엔드 A 골격](docs/BACKEND_A_SCAFFOLD.md)을 참고한다.
 
-## 컨테이너 및 AWS 실행 환경
+## 컨테이너 및 Railway
 
 `backend/`를 빌드 컨텍스트로 사용한다.
 
@@ -269,11 +269,11 @@ TEST_DATABASE_PASSWORD=local-test-only \
 docker build -t sajuppugi-backend .
 ```
 
-- AWS Amplify Hosting은 Node.js compute 계약이므로 이 Spring Boot 이미지를 직접 실행하지 않는다. App Runner/ECS/Elastic Beanstalk 중 선택한 서비스에서 Dockerfile 빌드를 사용한다.
+- Railway Root Directory를 `backend`로 설정하고 Dockerfile 빌드를 사용한다.
 - 컨테이너 기본 프로필은 `production`이다. 스테이징은 `SPRING_PROFILES_ACTIVE=staging`으로 지정한다.
 - DB 환경변수를 등록하고 준비 상태 확인 경로를 `/actuator/health/readiness`로 설정한다.
 - 실행 컨테이너는 비루트 사용자이며 플랫폼의 `PORT`를 사용한다.
-- 실제 AWS 백엔드 서비스·배포 주소·계정은 아직 등록하지 않았다.
+- 실제 배포 주소/계정은 아직 등록하지 않았다.
 
 운세 견적·구매·결과 및 오행분석 HTTP API와 Liner adapter가 있다. 견적 응답/재조회에는
 현재 잔액·부족분·추천을 포함하고 지갑 HTTP 조회는 유료·보너스 사용 가능 잔액을 반환한다.

@@ -8,6 +8,10 @@ import { useEffect, useState } from "react";
 import { API_MODE } from "@/lib/ports/mode";
 import { clearPurchaseSelection } from "@/lib/purchase/restore";
 import { FAKE_SESSION_SCENARIOS, type FakeSessionScenario } from "./account";
+import {
+  FAKE_DIRECT_PAYMENT_SCENARIOS,
+  type FakeDirectPaymentScenario,
+} from "./directPayment";
 import { FAKE_FORTUNE_SCENARIOS, type FakeFortuneScenario } from "./fortune";
 import {
   clearMockOverrides,
@@ -43,11 +47,19 @@ const FORTUNE_HELP: Record<FakeFortuneScenario, string> = {
   refunded: "환급 완료",
 };
 
+const DIRECT_PAYMENT_HELP: Record<FakeDirectPaymentScenario, string> = {
+  paid: "승인 즉시 완료",
+  pending_then_paid: "잠시 뒤 완료",
+  stuck_pending: "결제 대기에서 멈춤",
+  confirm_lost: "승인 응답 끊김",
+  review_required: "확인 필요",
+  rejected: "승인 거절",
+};
+
 const SHORTCUTS = [
   "/login",
   "/onboarding",
   "/suneung",
-  "/wallet",
   "/me",
   "/about",
 ] as const;
@@ -57,11 +69,13 @@ const ENV = {
   session: process.env.NEXT_PUBLIC_MOCK_SESSION_SCENARIO,
   topUp: process.env.NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO,
   fortune: process.env.NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO,
+  directPayment: process.env.NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO,
 } as const;
 const DEFAULTS = {
   session: "signed_out",
   topUp: "credited",
   fortune: "fulfilled",
+  directPayment: "paid",
   balance: 7,
 } as const;
 
@@ -163,6 +177,12 @@ function Panel() {
             "운세 구매 결과",
             FAKE_FORTUNE_SCENARIOS,
             FORTUNE_HELP,
+          )}
+          {group(
+            "directPayment",
+            "직접결제 결과",
+            FAKE_DIRECT_PAYMENT_SCENARIOS,
+            DIRECT_PAYMENT_HELP,
           )}
           {group("balance", "시작 잔액", MOCK_BALANCES)}
           <nav

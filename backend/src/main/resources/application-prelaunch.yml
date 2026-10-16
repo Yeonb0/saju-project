@@ -1,0 +1,23 @@
+# First shared deployment: combine with staging, not local/test/production.
+# Do not replace this with a payment-enabled environment without a separate review.
+spring:
+  config:
+    activate:
+      on-profile: prelaunch
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+
+server:
+  shutdown: graceful
+
+app:
+  liner:
+    adapter: ${LINER_ADAPTER:api}
+
+# Other feature flags retain their shared disabled defaults. PrelaunchDeploymentGuard
+# rejects accidental environment-variable overrides that would activate payments/jobs.

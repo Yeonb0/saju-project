@@ -111,8 +111,6 @@ export const ROUTES = {
   "/me/people/new": { screens: ["MY-02"] },
   "/me/people/[id]": { screens: ["MY-02"] },
   "/vault": { screens: ["TALBOX-01", "TALBOX-02"] },
-  // FUNCTIONAL_SPEC 2장 (Q-01) — 충전. FORT-04 는 PAY-02 와 같은 화면
-  "/wallet": { screens: ["PAY-01", "PAY-02", "FORT-04"], note: "충전" },
   "/pay/success": { screens: [], note: "결제 공통" },
   "/pay/fail": { screens: [], note: "결제 공통" },
   "/about": { screens: [], note: "심사용·법적 고지" },
@@ -128,9 +126,12 @@ export const ROUTELESS_SCREENS = {
   "HOME-04": "AppShell",
 } as const satisfies Partial<Record<ScreenId, string>>;
 
-// 와이어에는 있지만 만들지 않는 화면 — 선물 단건 (P-03A, Q-23)
+// 와이어에는 있지만 만들지 않는 화면 — 선물 단건 (P-03A, Q-23), 충전 화면 (DIRECT-PAY — 건별 결제로 바뀌어 만들지 않는다)
 export const NOT_BUILT_SCREENS = {
   "GIFT-06": "Q-23",
   "GIFT-07": "Q-23",
   "GIFT-08": "Q-23",
+  "PAY-01": "DIRECT-PAY",
+  "PAY-02": "DIRECT-PAY",
+  "FORT-04": "DIRECT-PAY",
 } as const satisfies Partial<Record<ScreenId, string>>;

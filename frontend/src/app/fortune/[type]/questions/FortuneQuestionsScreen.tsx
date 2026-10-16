@@ -1,10 +1,10 @@
 "use client";
 
-// "use client" 이유: 인물 · 상품 조회(TanStack Query), 옵션 선택과 팝업 열림 상태, 충전 후 복귀(sessionStorage), 화면 이동(useRouter)은 브라우저에서 한다.
+// "use client" 이유: 인물 · 상품 조회(TanStack Query), 옵션 선택과 팝업 열림 상태, 결제창에서 돌아온 뒤의 복귀(sessionStorage), 화면 이동(useRouter)은 브라우저에서 한다.
 // FORT-02 · FORT-03 · MATCH-03 유료 운세 질문 + 옵션 선택 (docs/FRONTEND.md 3장, Figma 195:611 · 248:956 · 248:849 · 195:620 · 245:240).
 // 궁합(MATCH-03)은 본인 + 상대 (Q-26) — 상대 ID 를 견적 · 복원 · 복귀 경로에 넣는다.
-// 근거: CHECKOUT-POPUP (차감 확인은 이 화면 안 Modal), P-03 (옵션 둘: 부적 포함 / 사주만), P-09 (가격 · 등껍질 수량은 이 화면에서 표시하지 않는다 — 팝업이 서버 견적으로 보인다),
-// PURCHASE-RESTORE (충전 후 복귀하면 질문 선택까지 되살리고 저장한 견적을 재확인), F-07 (판매 판단은 서버 active 기준),
+// 근거: CHECKOUT-POPUP · DIRECT-PAY (결제하기 팝업은 이 화면 안 Modal), P-03 (옵션 둘: 부적 포함 / 사주만), P-09 (가격은 이 화면에서 표시하지 않는다 — 팝업이 서버 견적으로 보인다),
+// PURCHASE-RESTORE (결제창에서 돌아오면 질문 선택까지 되살리고 저장한 견적을 재확인), F-07 (판매 판단은 서버 active 기준),
 // Q-26 · FUNCTIONAL_SPEC 8장 "정보·질문" (선택지 칩 — 질문(questionKey)은 모든 운세, 관계(relationType)는 궁합. 고르기 전에는 구매 버튼 비활성. 고민 입력은 F-04 로 1차 없음),
 // A-02 · A-03 (로그인 가드는 page.tsx 의 RequireSession), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다), LAYOUT-FIGMA. 디자인 요소 없음 (PG-FIRST).
 import { useQuery } from "@tanstack/react-query";
@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
-import { ShellCheckout } from "@/components/ShellCheckout";
+import { DirectCheckout } from "@/components/DirectCheckout";
 import {
   isQuestionKeyOf,
   QUESTION_SETS,
@@ -27,13 +27,14 @@ import {
   type FortuneSlug,
 } from "@/lib/navigation";
 import { getFortunePort, getPersonPort } from "@/lib/ports";
+import type { DirectPaymentPort } from "@/lib/ports/directPayment";
 import type {
   FortunePort,
   FortuneProduct,
   RelationType,
 } from "@/lib/ports/fortune";
+import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
 import type { PersonPort } from "@/lib/ports/person";
-import type { TopUpPort } from "@/lib/ports/topUp";
 import {
   clearPurchaseSelection,
   loadPurchaseSelection,
@@ -103,7 +104,8 @@ export function FortuneQuestionsScreen({
   counterpartId,
   personPort,
   fortunePort,
-  topUpPort,
+  directPort,
+  launcher,
 }: {
   slug: FortuneSlug;
   // FORT-01 · MATCH-01 이 쿼리로 넘긴 인물 ID — ID 만 받는다 (생년정보 · 이름 금지)
@@ -113,7 +115,8 @@ export function FortuneQuestionsScreen({
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다 (MOCK-PORT).
   personPort?: PersonPort;
   fortunePort?: FortunePort;
-  topUpPort?: TopUpPort;
+  directPort?: DirectPaymentPort;
+  launcher?: PaymentLauncher;
 }) {
   const router = useRouter();
   const fortuneType = FORTUNE_TYPE_OF_SLUG[slug];
@@ -137,17 +140,18 @@ export function FortuneQuestionsScreen({
   const [questionKey, setQuestionKey] = useState<string | null>(null);
   const [relationType, setRelationType] = useState<RelationType | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  // 충전 후 복귀면 저장해 둔 견적 ID — 팝업을 닫으면 비운다 (다음 열기는 새 견적)
+  // 결제창에서 돌아왔으면 저장해 둔 견적 ID — 팝업을 닫으면 비운다 (다음 열기는 새 견적)
   const [resumeQuoteId, setResumeQuoteId] = useState<string | null>(null);
-  // 저장해 둔 구매 키 (PURCHASE-KEY-STORE) — 견적 ID 와 함께 팝업에 넘기면 상태 조회부터 한다
-  const [resumePurchaseKey, setResumePurchaseKey] = useState<string | null>(
-    null,
-  );
+  // 저장해 둔 주문 키 · 주문 ID (DIRECT-PAY) — 팝업이 주문 상태를 보고 이어 갈지 정한다
+  const [resumeOrder, setResumeOrder] = useState<{
+    orderKey: string;
+    orderId: string | null;
+  } | null>(null);
   const relationPrefilled = useRef(false);
   const restored = useRef(false);
   const redirected = useRef(false);
 
-  // 충전 후 돌아와도 같은 대상이 오도록 쿼리를 포함한다
+  // 결제창에서 돌아와도 같은 대상이 오도록 쿼리를 포함한다
   const returnPath =
     isCompat && counterpartId !== null
       ? `/fortune/compatibility/questions?personId=${encodeURIComponent(personId)}&counterpartId=${encodeURIComponent(counterpartId)}`
@@ -197,7 +201,7 @@ export function FortuneQuestionsScreen({
     }
   }, [people.data, targetInvalid, counterpartRelation]);
 
-  // 충전 후 복귀 (PURCHASE-RESTORE): 인물 · 상품이 모두 온 뒤 한 번만 읽는다
+  // 결제창에서 돌아온 뒤 복귀 (PURCHASE-RESTORE): 인물 · 상품이 모두 온 뒤 한 번만 읽는다
   useEffect(() => {
     if (restored.current || !people.data || !products.data) return;
     if (targetInvalid) return;
@@ -226,7 +230,11 @@ export function FortuneQuestionsScreen({
     setRelationType(saved.selection.relationType);
     setChosenCode(saved.selection.productCode);
     setResumeQuoteId(saved.quoteId);
-    setResumePurchaseKey(saved.purchaseKey);
+    setResumeOrder(
+      saved.orderKey
+        ? { orderKey: saved.orderKey, orderId: saved.orderId }
+        : null,
+    );
     setCheckoutOpen(true);
   }, [
     people.data,
@@ -347,13 +355,13 @@ export function FortuneQuestionsScreen({
           ) : null}
 
           {person && chosen && !targetInvalid ? (
-            <ShellCheckout
+            <DirectCheckout
               open={checkoutOpen}
               onOpenChange={(next) => {
                 setCheckoutOpen(next);
                 if (!next) {
                   setResumeQuoteId(null);
-                  setResumePurchaseKey(null);
+                  setResumeOrder(null);
                 }
               }}
               selection={{
@@ -369,15 +377,11 @@ export function FortuneQuestionsScreen({
               targetName={targetName}
               optionLabel={chosenLabel}
               resumeQuoteId={resumeQuoteId}
-              resumePurchaseKey={resumePurchaseKey}
+              resumeOrder={resumeOrder}
               returnPath={returnPath}
-              onPurchased={(result) =>
-                router.push(
-                  `/fortune/r/${encodeURIComponent(result.readingId)}`,
-                )
-              }
-              port={fortunePort}
-              topUpPort={topUpPort}
+              fortunePort={fortunePort}
+              directPort={directPort}
+              launcher={launcher}
             />
           ) : null}
         </>

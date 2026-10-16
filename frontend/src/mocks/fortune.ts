@@ -32,29 +32,35 @@ export type FakeFortuneScenario = (typeof FAKE_FORTUNE_SCENARIOS)[number];
 
 // 픽스처일 뿐이며 실제 가격 · 규칙과 무관하다. 가격은 가짜 잔액(src/mocks/wallet.ts)보다 크게 둬서
 // 처음에는 잔액 부족 → 충전 → 복귀 경로를 지나게 한다. 숫자를 실제와 다르게 둔 것은 화면 하드코딩을 테스트에서 드러내려는 것이다.
+// currency 만 옵션(priceCurrency)으로 바뀐다 — 직접결제 시험은 "KRW" (DIRECT-PAY). 금액은 그대로이며 실제 원화 가격이 아니다.
+type PriceCurrency = "TURTLE_SHELL" | "KRW";
+
 const fixture = (
   fortuneType: Exclude<FortuneType, "UNKNOWN">,
   option: FortuneProduct["option"],
   amount: number,
+  currency: PriceCurrency,
 ): FortuneProduct => ({
   code: `FIXTURE_${fortuneType}_${option}`,
   fortuneType,
   option,
-  price: { currency: "TURTLE_SHELL", amount },
+  price: { currency, amount },
   active: true,
   saleEndsAt: null,
 });
 
-const FIXTURE_PRODUCTS: readonly FortuneProduct[] = [
-  // 수능운은 부적 포함 단일 상품 (P-03) — 구성만 맞춘다
-  fixture("SUNEUNG", "READING_WITH_TALISMAN", 13),
-  ...(
-    ["OVERALL", "LOVE", "WEALTH", "COMPATIBILITY", "SINSAL"] as const
-  ).flatMap((type) => [
-    fixture(type, "READING_ONLY", 9),
-    fixture(type, "READING_WITH_TALISMAN", 12),
-  ]),
-];
+function fixtureProducts(currency: PriceCurrency): readonly FortuneProduct[] {
+  return [
+    // 수능운은 부적 포함 단일 상품 (P-03) — 구성만 맞춘다
+    fixture("SUNEUNG", "READING_WITH_TALISMAN", 13, currency),
+    ...(
+      ["OVERALL", "LOVE", "WEALTH", "COMPATIBILITY", "SINSAL"] as const
+    ).flatMap((type) => [
+      fixture(type, "READING_ONLY", 9, currency),
+      fixture(type, "READING_WITH_TALISMAN", 12, currency),
+    ]),
+  ];
+}
 
 const TRACE = "fixture-trace";
 // 픽스처일 뿐이며 실제 규칙과 무관하다 — 견적 유효 시간 (Q-07 의 30분과 같게)
@@ -73,7 +79,10 @@ type StoredPurchase = {
   result: ReadingPurchaseResult;
 };
 
-function sameSelection(a: FortuneSelection, b: FortuneSelection): boolean {
+export function sameSelection(
+  a: FortuneSelection,
+  b: FortuneSelection,
+): boolean {
   return (
     a.fortuneType === b.fortuneType &&
     a.productCode === b.productCode &&
@@ -85,9 +94,36 @@ function sameSelection(a: FortuneSelection, b: FortuneSelection): boolean {
   );
 }
 
+// 가짜 직접결제 포트(src/mocks/directPayment.ts)만 쓰는 내부 연결 — 같은 견적 · 구매 기록을 본다 (DIRECT-PAY, MOCK-PORT).
+// 지갑 차감 · 되돌림이 없다.
+export type FakeFortuneDirectLink = {
+  // 없으면 404 RESOURCE_NOT_FOUND. 만료 여부를 보지 않는다 (결제 뒤 생성은 서버가 견적 스냅숏을 쓴다)
+  quoteSnapshot(quoteId: string): {
+    quote: FortuneQuote;
+    selection: FortuneSelection;
+  };
+  // quoteSnapshot 과 같되 만료면 409 QUOTE_EXPIRED (주문 생성 때 쓴다)
+  activeQuote(quoteId: string): {
+    quote: FortuneQuote;
+    selection: FortuneSelection;
+  };
+  // 구매 기록에 넣는다 — 그래서 getPurchaseStatus(quoteId) 가 직접결제 구매도 찾는다
+  fulfill(
+    quoteId: string,
+    selection: FortuneSelection,
+    idempotencyKey: string,
+  ): ReadingPurchaseResult;
+};
+
+export type FakeFortunePort = FortunePort & {
+  readonly direct: FakeFortuneDirectLink;
+};
+
 export function createFakeFortunePort(
   options: {
     scenario?: FakeFortuneScenario;
+    // 픽스처 상품 가격의 currency (기본 "TURTLE_SHELL" — 기존 동작). 금액은 그대로
+    priceCurrency?: PriceCurrency;
     wallet?: FakeWallet;
     // 추천 충전 상품 계산에 쓰는 가짜 충전 상품 목록 (기본: src/mocks/topUp.ts 픽스처)
     topUpProducts?: readonly TopUpProduct[];
@@ -98,8 +134,11 @@ export function createFakeFortunePort(
       selection: FortuneSelection,
     ) => string;
   } = {},
-): FortunePort {
+): FakeFortunePort {
   const scenario = options.scenario ?? "fulfilled";
+  const FIXTURE_PRODUCTS = fixtureProducts(
+    options.priceCurrency ?? "TURTLE_SHELL",
+  );
   const wallet = options.wallet ?? createFakeWallet();
   const now = options.now ?? Date.now;
   const topUpProducts = options.topUpProducts ?? FIXTURE_TOP_UP_PRODUCTS;
@@ -199,7 +238,79 @@ export function createFakeFortunePort(
     return stored;
   }
 
+  const direct: FakeFortuneDirectLink = {
+    quoteSnapshot(quoteId) {
+      const stored = quotes.get(quoteId);
+      if (!stored) throw fail(404, "RESOURCE_NOT_FOUND");
+      return { quote: stored.quote, selection: stored.selection };
+    },
+    activeQuote(quoteId) {
+      const stored = findQuote(quoteId);
+      return { quote: stored.quote, selection: stored.selection };
+    },
+    fulfill(quoteId, selection, idempotencyKey) {
+      const p = product(selection.productCode);
+      if (
+        scenario === "processing_409" &&
+        !processingSent.has(idempotencyKey)
+      ) {
+        processingSent.add(idempotencyKey);
+        throw fail(409, "IDEMPOTENCY_REQUEST_PROCESSING");
+      }
+      // 결과 조합은 기존 purchase 와 같은 시나리오 표. 직접결제에는 등껍질 환급이 없고(refunded) 견적 만료는 주문 생성 때 이미 본다(quote_expired) → 완료와 같다.
+      // balance 는 지갑과 무관해 null (DIRECT-PAY)
+      const base = { purchaseId: crypto.randomUUID(), balance: null };
+      let result: ReadingPurchaseResult;
+      if (scenario === "generation_failed") {
+        // 직접결제에서 RETRY_PURCHASE 는 두 번 결제로 이어질 수 있다 — 서버 값 미확인, TODO(Q-65)
+        result = {
+          ...base,
+          readingId: null,
+          status: "FAILED",
+          compensationStatus: "NOT_REQUIRED",
+          nextAction: "CONTACT_SUPPORT",
+          charged: p.price,
+        };
+      } else if (scenario === "review_required") {
+        result = {
+          ...base,
+          readingId: null,
+          status: "FAILED",
+          compensationStatus: "REVIEW_REQUIRED",
+          nextAction: "CONTACT_SUPPORT",
+          charged: p.price,
+        };
+      } else if (scenario === "generating") {
+        result = {
+          ...base,
+          readingId: null,
+          status: "GENERATING",
+          compensationStatus: "NOT_REQUIRED",
+          nextAction: "WAIT",
+          charged: p.price,
+        };
+      } else {
+        result = {
+          ...base,
+          readingId: options.onFulfilled?.(p, selection) ?? crypto.randomUUID(),
+          status: "FULFILLED",
+          compensationStatus: "NOT_REQUIRED",
+          nextAction: "VIEW_READING",
+          charged: p.price,
+        };
+      }
+      purchases.set(idempotencyKey, {
+        body: JSON.stringify({ quoteId, selection }),
+        quoteId,
+        pending: scenario === "generating" ? { product: p, selection } : null,
+        result,
+      });
+      return result;
+    },
+  };
+
   return {
+    direct,
     async listProducts(fortuneType) {
       return FIXTURE_PRODUCTS.filter((p) => p.fortuneType === fortuneType);
     },
