@@ -147,7 +147,7 @@ public class SuneungReadingController {
 
     public record PurchaseResponse(UUID purchaseId, UUID readingId, String status,
                                    String compensationStatus, String nextAction,
-                                   String calculationVersion, String generationVersion, String contentVersion,
+                                   String calculationVersion, String generationVersion, String ruleVersion, String contentVersion,
                                    Charged charged, Integer balance, boolean reused, ReadingResponse reading) {
         static PurchaseResponse from(PurchaseResult result) {
             var status = ReadingPurchaseStatusPolicy.project(result.status());
@@ -155,6 +155,7 @@ public class SuneungReadingController {
                     status.compensationStatus().name(), status.nextAction().name(),
                     result.reading() == null ? null : result.reading().calculationVersion(),
                     result.reading() == null ? null : result.reading().generationVersion(),
+                    result.reading() == null ? null : result.reading().ruleVersion(),
                     result.reading() == null ? null : result.reading().contentVersion(),
                     result.charged() == null ? null : new Charged(
                             result.charged().currency().name(), result.charged().amount()),
@@ -167,7 +168,8 @@ public class SuneungReadingController {
     public record ReadingResponse(UUID id, String fortuneType, String productOption, String subjectDisplayName,
                                   Counterpart counterpart, String questionKey, Event event,
                                   List<GeneratedSection> sections, SuneungGuide suneungGuide, String calculationVersion,
-                                  String generationVersion, String contentVersion, String generationMode, Instant createdAt,
+                                  String generationVersion, String ruleVersion, String contentVersion,
+                                  List<OwnedReading.SectionEvidence> evidenceSummary, String generationMode, Instant createdAt,
                                   List<String> disclaimers, Talisman talisman) {
         static ReadingResponse from(OwnedReading reading) {
             return new ReadingResponse(reading.id(), reading.fortuneType().name(), reading.productOption().name(),
@@ -175,7 +177,7 @@ public class SuneungReadingController {
                             reading.counterpartPersonId(), reading.counterpartDisplayName(), reading.relationType()),
                     reading.questionKey(), reading.eventDate() == null ? null : new Event("CSAT", reading.eventDate()),
                     reading.sections().sections(), reading.sections().suneungGuide(), reading.calculationVersion(), reading.generationVersion(),
-                    reading.contentVersion(), reading.generationMode().name(), reading.createdAt(), List.of("FOR_ENTERTAINMENT"),
+                    reading.ruleVersion(), reading.contentVersion(), reading.evidenceSummary(), reading.generationMode().name(), reading.createdAt(), List.of("FOR_ENTERTAINMENT"),
                     reading.talismanId() == null ? null : new Talisman(reading.talismanId(), reading.talismanStatus()));
         }
     }
