@@ -50,7 +50,7 @@ public class PublicResultShareService {
         UUID id=UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO public_result_shares(id,public_token_hash,owner_user_id,source_kind,source_id,snapshot,created_at,expires_at)
-                VALUES (?,?,?,?,?,CAST(? AS jsonb),?,?) ON CONFLICT (source_kind,source_id) DO UPDATE SET
+                VALUES (?,?,?,?,?,?,?,?) ON CONFLICT (source_kind,source_id) DO UPDATE SET
                 public_token_hash=EXCLUDED.public_token_hash, owner_user_id=EXCLUDED.owner_user_id, snapshot=EXCLUDED.snapshot,
                 created_at=EXCLUDED.created_at, expires_at=EXCLUDED.expires_at, revoked_at=NULL
                 """,
