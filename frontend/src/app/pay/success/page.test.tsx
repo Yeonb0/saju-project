@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { DirectPaymentReturn } from "./DirectPaymentReturn";
 import Page from "./page";
+import { TopUpSuccess } from "./TopUpSuccess";
 
 // 픽스처일 뿐이며 실제 결제 키 · 금액 · 규칙과 무관하다.
 const ORDER_ID = "33333333-3333-4333-8333-333333333333";
@@ -33,5 +35,40 @@ describe("/pay/success page", () => {
       orderId: ORDER_ID,
       amount: "05000",
     });
+  });
+
+  it("S1. flow=direct 면 DirectPaymentReturn 에 복귀 값을 그대로 넘긴다", async () => {
+    const element = await Page(
+      props({
+        paymentKey: "pk",
+        orderId: ORDER_ID,
+        amount: "5000",
+        flow: "direct",
+      }),
+    );
+    expect(element.type).toBe(DirectPaymentReturn);
+    expect(element.props.ret).toEqual({
+      paymentKey: "pk",
+      orderId: ORDER_ID,
+      amount: "5000",
+    });
+  });
+
+  it("S2. flow 가 없으면 TopUpSuccess", async () => {
+    const element = await Page(
+      props({ paymentKey: "pk", orderId: ORDER_ID, amount: "5000" }),
+    );
+    expect(element.type).toBe(TopUpSuccess);
+  });
+
+  it.each([
+    ["다른 값", "other"],
+    ["여러 번", ["direct", "direct"]],
+  ])("S3. flow %s 면 not-found", async (_name, flow) => {
+    await expect(
+      Page(
+        props({ paymentKey: "pk", orderId: ORDER_ID, amount: "5000", flow }),
+      ),
+    ).rejects.toThrow();
   });
 });

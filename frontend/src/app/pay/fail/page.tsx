@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { safeReturnTo } from "@/lib/auth/returnTo";
 import { readRetryProduct } from "@/lib/payment/retryProduct";
 import {
   PAY_ACTION_PRIMARY,
@@ -15,7 +16,7 @@ import {
 const CANCELED_CODE = "PAY_PROCESS_CANCELED";
 
 export default async function Page(props: PageProps<"/pay/fail">) {
-  const { code, product } = await props.searchParams;
+  const { code, product, flow, return: returnTo } = await props.searchParams;
   const retryProduct = readRetryProduct(product);
   const retryHref =
     retryProduct === null
@@ -23,17 +24,45 @@ export default async function Page(props: PageProps<"/pay/fail">) {
       : `/wallet?product=${encodeURIComponent(retryProduct)}`;
   // 정확히 한 번 온 문자열 code 만 본다 (배열 · 없음은 실패 문구)
   const canceled = code === CANCELED_CODE;
+  const sub = (
+    <p>
+      {canceled
+        ? "결제를 취소했어요."
+        : "결제 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요."}
+    </p>
+  );
+  if (flow === "direct") {
+    // 직접결제 (DIRECT-PAY): 돌아갈 앞 화면은 return 쿼리를 safeReturnTo 로 거른 경로. 문자열 하나가 아니면 다시 결제하기를 그리지 않는다.
+    // product 쿼리는 보지 않는다 (충전 전용)
+    const directHref =
+      typeof returnTo === "string" ? safeReturnTo(returnTo) : null;
+    return (
+      <PayResultLayout
+        variant="failed"
+        title={<p role="alert">결제가 완료되지 않았어요</p>}
+        sub={sub}
+        // TODO(PD 문구) — Figma 직접결제 수정안 PAY-05 초안
+        box={<p>결제가 완료되지 않아 결제 금액은 청구되지 않았어요.</p>}
+        actions={
+          <>
+            {directHref === null ? null : (
+              <Link href={directHref} className={PAY_ACTION_PRIMARY}>
+                다시 결제하기
+              </Link>
+            )}
+            <Link href="/" className={PAY_ACTION_SECONDARY}>
+              홈으로
+            </Link>
+          </>
+        }
+      />
+    );
+  }
   return (
     <PayResultLayout
       variant="failed"
       title={<p role="alert">결제가 완료되지 않았어요</p>}
-      sub={
-        <p>
-          {canceled
-            ? "결제를 취소했어요."
-            : "결제 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요."}
-        </p>
-      }
+      sub={sub}
       box={<p>결제가 완료되지 않아 등껍질은 지급되지 않았어요.</p>}
       actions={
         <>
