@@ -7,6 +7,11 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:1000}
   jpa:
     open-in-view: false
     hibernate:
@@ -17,6 +22,12 @@ spring:
 
 server:
   port: ${PORT:8080}
+  tomcat:
+    threads:
+      max: ${HTTP_MAX_THREADS:100}
+      min-spare: ${HTTP_MIN_SPARE_THREADS:10}
+    max-connections: ${HTTP_MAX_CONNECTIONS:200}
+    accept-count: ${HTTP_ACCEPT_COUNT:50}
   error:
     include-message: never
     include-stacktrace: never
@@ -47,6 +58,12 @@ logging:
     level: '%5p [traceId=%X{traceId}]'
 
 app:
+  database:
+    pool:
+      max-size: ${DB_POOL_MAX_SIZE:10}
+      min-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout-ms: ${DB_POOL_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout-ms: ${DB_POOL_VALIDATION_TIMEOUT_MS:1000}
   member:
     consent:
       terms-version: ${TERMS_VERSION:2026-10-14}

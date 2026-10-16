@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -26,6 +27,8 @@ class OperationsAlertsTest {
     @Autowired JdbcOperationsAlerts alerts;
     @Autowired OperationsAlertService service;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.zaxxer.hikari.HikariDataSource dataSource;
+    @Autowired Environment environment;
     @MockitoBean Clock clock;
     @MockitoBean OperationsAlertSink sink;
     static final Instant NOW = Instant.parse("2026-10-12T00:00:00Z");
@@ -153,6 +156,15 @@ class OperationsAlertsTest {
         jdbc.update("UPDATE direct_payment_batches SET status = 'FAILED' WHERE id = ?", review);
         alerts.resolveIfHealthy(incident, NOW.plusSeconds(1));
         assertThat(jdbc.queryForObject("SELECT state FROM operations_incidents WHERE id = ?", String.class, incident)).isEqualTo("RESOLVED");
+    }
+    @Test void sharedServerConfigurationUsesBoundedDatabaseAndHttpQueues() {
+        assertThat(dataSource.getMaximumPoolSize()).isEqualTo(6);
+        assertThat(dataSource.getMinimumIdle()).isEqualTo(1);
+        assertThat(dataSource.getConnectionTimeout()).isEqualTo(3000);
+        assertThat(dataSource.getValidationTimeout()).isEqualTo(1000);
+        assertThat(environment.getProperty("server.tomcat.threads.max", Integer.class)).isEqualTo(100);
+        assertThat(environment.getProperty("server.tomcat.max-connections", Integer.class)).isEqualTo(200);
+        assertThat(environment.getProperty("server.tomcat.accept-count", Integer.class)).isEqualTo(50);
     }
     private UUID problem() {
         UUID user = UUID.randomUUID(); users.add(user); resources.add(user);

@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: PostgreSQL pool·HTTP 대기열 상한 명시 (격리 PostgreSQL 17)
+
+- 운영 기본값을 Hikari 최대 연결 10/최소 유휴 2/connection wait 5초로 고정했다. `DB_POOL_MAX_SIZE`는 1~20, `DB_POOL_MIN_IDLE`은 0~max, 대기 시간은 250~10,000ms 범위만 허용한다. Tomcat은 요청 worker thread 100, 동시 connection 200, accept queue 50으로 기본 상한을 명시하고 환경별 조정을 허용한다. test profile은 기존 격리 설정인 max 6/min 1을 유지하고 대기 한도 3초를 적용했다.
+- 새 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 실제 `HikariDataSource` 값과 Tomcat 설정값을 Spring context test로 확인했다. `DatabasePoolPropertiesTest`, `OperationsAlertsTest` 9건, 32건 동시 승인 두 종류를 함께 재실행해 통과했다. 서로 다른 주문 burst와 동일 주문 재전송에서 원장/잔액 일치 및 provider confirm 단일 호출이 계속 유지됐다.
+- DB 전체 연결 예산은 `최대 앱 replica 수 × DB_POOL_MAX_SIZE + migration/관리/다른 worker 연결`로 계산하고, DB 제공자 한도의 최소 20%는 여유로 남겨야 한다. 현재 배포 replica 수와 관리형 PostgreSQL 한도를 확인하지 못했으므로 운영 적정성은 미확정이다. `connectionTimeout`은 앱의 대기 시간을 제한하지만 DB 과부하를 해결하거나 사용자가 항상 503을 받게 하지는 않는다.
+- 적용: 6-2 앱별 DB 연결 상한, 6-10 HTTP worker/accept queue와 DB pool 대기의 명시적 상한. 미확인: 실제 Tomcat HTTP/TLS/ingress 부하, 동시 요청별 p95·오류율, pool pending/timeout 지표와 경보, 운영 replica/DB connection budget, 실제 PG/Liner 혼합 부하. 웹훅 발신 보호는 요청대로 제외했으며 직접결제 현금 취소·환불 정책도 별도 확정이 필요하다.
+
 ### 2026-10-16: 충전 승인 PostgreSQL burst 회귀 보강 (격리 PostgreSQL 17)
 
 - `TopUpPaymentFlowTest`에 32개 동시 승인 burst 두 종류를 추가했다. 같은 지갑의 서로 다른 주문 32개가 한꺼번에 승인돼도 wallet lock 아래 원장 32건, 지급 lot 64건, 최종 잔액 1,792 등껍질이 일치해야 하며, 같은 주문의 32개 동시 재전송은 provider `confirm` 1회와 원장 1건·lot 2건·56 등껍질만 남아야 한다.
