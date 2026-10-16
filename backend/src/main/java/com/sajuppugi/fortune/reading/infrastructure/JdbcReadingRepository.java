@@ -177,14 +177,14 @@ public class JdbcReadingRepository implements ReadingRepository {
                 INSERT INTO readings (id, reading_result_id, owner_user_id, purchase_id, fortune_type,
                 product_option, subject_person_id, subject_display_name, counterpart_person_id,
                 counterpart_display_name, relation_type, question_key, event_date, public_snapshot,
-                calculation_version, generation_version, content_version, generation_mode, talisman_id,
-                talisman_status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                calculation_version, rule_version, generation_version, content_version, evidence_summary,
+                generation_mode, talisman_id, talisman_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, reading.id(), reading.resultId(), reading.ownerUserId(), reading.purchaseId(),
                 reading.fortuneType().name(), reading.productOption().name(), reading.subjectPersonId(),
                 reading.subjectDisplayName(), reading.counterpartPersonId(), reading.counterpartDisplayName(),
                 reading.relationType(), reading.questionKey(), reading.eventDate(), json(reading.sections()), reading.calculationVersion(),
-                reading.generationVersion(), reading.contentVersion(), reading.generationMode().name(),
+                reading.ruleVersion(), reading.generationVersion(), reading.contentVersion(), json(reading.evidenceSummary()), reading.generationMode().name(),
                 reading.talismanId(), reading.talismanStatus(),
                 Timestamp.from(reading.createdAt()));
         String sql = """
@@ -292,8 +292,8 @@ public class JdbcReadingRepository implements ReadingRepository {
                     rs.getString("relation_type"), rs.getString("question_key"),
                     rs.getObject("event_date", java.time.LocalDate.class),
                     mapper.readValue(rs.getString("public_snapshot"), LinerResponse.class),
-                    rs.getString("calculation_version"), rs.getString("generation_version"),
-                    rs.getString("content_version"), GenerationMode.valueOf(rs.getString("generation_mode")),
+                    rs.getString("calculation_version"), rs.getString("rule_version"), rs.getString("generation_version"),
+                    rs.getString("content_version"), evidence(rs.getString("evidence_summary")), GenerationMode.valueOf(rs.getString("generation_mode")),
                     rs.getObject("talisman_id", UUID.class),
                     currentTalismanStatus == null ? rs.getString("talisman_status") : currentTalismanStatus,
                     instant(rs, "created_at"));
@@ -308,6 +308,12 @@ public class JdbcReadingRepository implements ReadingRepository {
         } catch (JsonProcessingException exception) {
             throw new SQLException("Invalid reading generation context", exception);
         }
+    }
+
+    private List<OwnedReading.SectionEvidence> evidence(String value) throws JsonProcessingException {
+        if (value == null || value.isBlank()) return List.of();
+        return mapper.readValue(value, mapper.getTypeFactory()
+                .constructCollectionType(List.class, OwnedReading.SectionEvidence.class));
     }
 
     private String json(Object value) {

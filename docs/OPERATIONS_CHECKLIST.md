@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 결과 snapshot의 해석 규칙·근거 요약 영속 (로컬 compile)
+
+- additive migration `V202610161300__b_reading_rule_evidence_snapshot.sql`이 `readings`에 nullable `rule_version`, `evidence_summary`를 추가한다. 새 일반/수능운 및 recovery 결과는 계산 facts의 `specialStars.ruleVersion`과 섹션별 fact key 목록만 확정해 저장한다. raw birth input·이름·facts 전체는 새 컬럼에 저장하지 않는다.
+- 기존 reading은 nullable 값으로 계속 읽히며, 일반 운세 owner response의 meta에는 `ruleVersion`과 `evidenceSummary`를 additive로 제공한다. 재시도/recovery는 암호화된 기존 generation context의 facts에서 같은 rule version을 다시 읽으므로, 새 현재 규칙으로 결과를 덮어쓰지 않는다.
+- `compileTestJava`는 통과했다. `ReadingGenerationPersistenceTest`/`BundledReadingFulfillmentTransactionTest`를 포함한 H2 테스트는 이 변경 전부터 존재한 PostgreSQL 전용 Flyway SQL을 H2가 해석하지 못해 context migration 단계에서 실패했으며, 이번 migration의 PostgreSQL 적용·기존 row legacy read·동시 lease/restore는 아직 검증하지 못했다. PostgreSQL 전용 DB에서 migration과 generation recovery 회귀를 실행해야 한다.
+- 적용: 6-2 snapshot insert와 purchase `FULFILLED` 전환은 기존 한 transaction 경계를 유지, 6-4 recovery는 durable context와 lease fence 재사용, 6-6 additive nullable migration/rolling read 호환, 6-9 raw birth input 미저장. 외부 Liner 호출은 계속 transaction 밖이며, wallet/payment 상태는 변경하지 않았다.
+
 ### 2026-10-16: 신살 규칙 fixture 분리 (로컬 단위 회귀)
 
 - `backend/src/test/resources/saju-rules/sinsal-v1/cases.json`으로 `sinsal-v1` 회귀를 계산 fixture와 분리했다. test는 calculation policy와 rule version을 각각 대조하고 13종 판정 구조, 홍염살·백호살 count, 대운/세운 activation 존재를 확인한다.

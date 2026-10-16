@@ -116,8 +116,8 @@ public class SuneungReadingService {
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     FortuneType.SUNEUNG, ProductOption.READING_WITH_TALISMAN, personId, subject.displayName(),
                     null, null, null, "EXAM_FOCUS", SuneungEventPolicy.EXAM_DATE,
-                    generated.response(), generated.calculationVersion(),
-                    generated.generationVersion(), generated.contentVersion(), generated.generationMode(), null,
+                    generated.response(), generated.calculationVersion(), facts.specialStars().ruleVersion(),
+                    generated.generationVersion(), generated.contentVersion(), OwnedReading.evidenceFrom(generated.response()), generated.generationMode(), null,
                     null, clock.instant());
             return bundledFulfillment.fulfill(purchase, reading, new CreateTalisman(
                     userId, readingId, FortuneType.SUNEUNG, facts, SuneungEventPolicy.CONTENT_VERSION), lease);
