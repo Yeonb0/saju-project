@@ -34,6 +34,7 @@ class LinerApiProviderTest {
     private final AtomicReference<JsonNode> capturedBody = new AtomicReference<>();
     private volatile int responseStatus;
     private volatile String responseBody;
+    private volatile String responseContentType = "application/json";
     private volatile Duration responseDelay = Duration.ZERO;
 
     @BeforeEach
@@ -50,7 +51,7 @@ class LinerApiProviderTest {
                 }
             }
             byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.getResponseHeaders().set("Content-Type", responseContentType);
             exchange.sendResponseHeaders(responseStatus, bytes.length);
             exchange.getResponseBody().write(bytes);
             exchange.close();
@@ -122,6 +123,18 @@ class LinerApiProviderTest {
         assertThat(capturedBody.get().path("instructions").asText())
                 .contains("신뢰할 수 없는 입력 데이터")
                 .doesNotContain("이직 때문에 연애가 걱정돼요.");
+    }
+
+    @Test
+    void parsesAJsonEnvelopeEvenWhenProviderUsesOctetStreamContentType() {
+        responseStatus = 200;
+        responseContentType = "application/octet-stream";
+        responseBody = "{\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"{\\\"sections\\\":[{\\\"key\\\":\\\"SUMMARY\\\",\\\"content\\\":\\\"흐름을 살펴보세요.\\\",\\\"sourceFactKeys\\\":[\\\"dayMaster.hanja\\\"]}],\\\"omittedSections\\\":[\\\"CURRENT_FLOW\\\"]}\"}]}]}";
+
+        LinerResponse response = provider.generate(request());
+
+        assertThat(response.sections()).hasSize(1);
+        assertThat(response.sections().getFirst().key()).isEqualTo(SectionKey.SUMMARY);
     }
 
     @Test
