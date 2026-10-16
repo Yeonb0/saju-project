@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 사주 응답 사실성 검증·정책 초안 (로컬 단위 회귀)
+
+- `LinerResponseValidator`가 section의 근거 key뿐 아니라, 문장·제목에 언급된 간지와 13종 신살 label을 supplied facts와 대조한다. facts에 없는 간지 또는 count가 0인 신살을 "있다"고 쓰면 `LINER_UNSUPPORTED_ENTITY`로 거절되어 기존 bounded retry/fallback 경로로만 수렴한다.
+- `docs/policies/SAJU_CALCULATION_POLICY.md`에 현재 KST·자정 일주·절입·음력/윤달·시각 미상 처리와 버전 변경 원칙을, `SAJU_INTERPRETATION_RULES.md`에 `sinsal-v1`의 13종·표현 경계를 기록했다. 두 문서는 명리 검수 전 초안이며 용신·격국·길흉 결론을 새로 출시하지 않는다.
+- 로컬에서 `LinerResponseValidatorTest`, `DeterministicSajuEngineRegressionTest`, `SpecialStarCalculatorTest`를 실행해 통과했다. 실제 Liner의 malformed/timeout fault injection, PostgreSQL generation lease 동시 실행, 명리 검수된 독립 골든 데이터셋과 staging은 아직 미검증이다.
+- 적용: 6-3 provider invalid response는 validator rejection/fallback으로 처리, 6-4 기존 durable generation context·lease 재사용, 6-6 schema 변경 없음/버전 정책 문서화, 6-9 raw birth input 없이 facts projection만 검사. 결제·지갑·외부 credential은 이 범위에서 변경하지 않았다.
+
 ### 2026-10-16: 오행 미리보기 전용 최소 API·문구 catalog (격리 PostgreSQL 17)
 
 - `POST /api/v1/fortune/element-preview`는 인증된 사용자가 소유한 `personId`만 받아 목·화·토·금·수 count, 일간 기준 대표 오행, 오행별 5개씩의 결정론적 headline/description, 균형 안내와 content version만 반환한다. 기존 `/fortune/basic`의 사주 기둥·십신 등 상세 응답은 호환을 위해 유지하고, 화면 전용 API에는 넣지 않는다.
