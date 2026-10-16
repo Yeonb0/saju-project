@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 일반 운세·부적 공개 공유 링크 1차 구현 (격리 PostgreSQL 17)
+
+- 로그인 소유자는 완료된 일반 운세 또는 `READY` 부적마다 공개 링크를 생성하고 철회할 수 있다. 링크는 32바이트 URL-safe token의 SHA-256 hash만 저장하며 30일 뒤 만료된다. 같은 source로 새 링크를 생성하면 이전 token을 회전해 즉시 무효화한다.
+- 공개 조회는 `READING`의 fortune type/content version/생성된 sections 또는 `TALISMAN`의 오행·동물·문구·설명·composition만 저장된 JSONB snapshot에서 반환한다. 사용자·사람·구매·reading/talisman ID, 원본 사주 입력, object key는 반환하지 않는다. 부적 이미지는 기존 외부 object storage 공개/서명 adapter가 확정되지 않아 이번 API에서 URL로 노출하지 않는다.
+- 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 `GiftRecipientPostgresTest`를 `--rerun-tasks`로 실행해 신규 Flyway migration과 기존 공개 선물/직접결제 흐름의 호환을 확인했다. 공유 생성·회전·철회 HTTP와 두 독립 JVM 동시 생성, browser rendering, 실제 R2/서명 URL은 아직 전용 회귀로 검증하지 않았다.
+- 적용: 6-1 source별 owner 확인과 공개 projection 분리, 6-2 source unique constraint로 단일 share row 수렴, 6-5 URL token hash·만료·철회, 6-6 additive migration, 6-9 공개 snapshot 최소화. 6-10 실제 공유 유입량·캐시/스토리지 부하는 미측정이다.
+
 ### 2026-10-16: 직접결제 수능 선물 수신 안내 API 통일 (격리 PostgreSQL 17)
 
 - 공개 선물 접근 응답은 수신자 표시명·보내는 사람·메시지와 option뿐 아니라, 서버가 보장하는 구성 ID(`LETTER`, `TALISMAN`, `READING`, `SUNEUNG_CHECKLIST`)를 함께 반환한다. 클라이언트는 이 ID를 화면 문구·아이콘으로 매핑하며, 상품 정책에 없는 구성품을 임의로 표시하지 않는다. 기존 견적의 구성 enum은 그대로 유지했다.
