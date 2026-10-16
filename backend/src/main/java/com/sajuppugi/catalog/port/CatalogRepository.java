@@ -11,6 +11,9 @@ import java.util.UUID;
 public interface CatalogRepository {
     List<Product> findAvailableProducts(Product.Category category, Instant now);
 
+    /** Includes unavailable products for an explicitly requested public catalog lifecycle view. */
+    List<Product> findProducts(Product.Category category);
+
     List<TopUpProduct> findAvailableTopUps(Instant now);
 
     Optional<Product> findProductByCode(String code);

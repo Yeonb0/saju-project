@@ -1,9 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
-### 2026-10-16: AWS PG 비활성 첫 배포 준비
+### 2026-10-16: 수능운 판매 lifecycle API 1차 반영 (로컬 compile + 단위 테스트)
 
-- FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
-- 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
+- `GET /api/v1/products?category=FORTUNE&includeUnavailable=true`는 기존의 구매 가능 상품 목록을 바꾸지 않고 `UPCOMING`·`AVAILABLE`·`ENDED`·`RETIRED` 상태를 함께 반환한다. 기본 조회와 quote/direct payment는 계속 `AVAILABLE`만 허용하므로, 화면의 종료 상태가 결제 권한을 넓히지 않는다. TOP_UP의 과거 상품은 이번 공개 lifecycle 범위에서 제외한다.
+- `ProductSaleStatusTest`와 `compileTestJava`는 통과했다. 기존 HTTP catalog 회귀를 PostgreSQL 17 컨테이너에서 실행하려 했지만, 실행 중 컨테이너의 테스트 계정 인증이 저장소의 공개 local test 안내와 일치하지 않아 Flyway 연결 전에 실패했다. 비밀값을 조회하거나 컨테이너를 재생성하지 않았으므로 PostgreSQL HTTP/경계 시각 검증은 미확인이다. H2는 기존 PostgreSQL 전용 Flyway migration에서 기동 실패해 대체 근거로 쓰지 않았다.
+- 적용: 6-6 additive HTTP 응답 계약과 기존 기본 목록 호환. 미확인: 6-10 실제 FE polling/캐시 영향, PostgreSQL의 판매 종료 경계 및 quote 동시 요청. 다음 선물 목록/공유 변경 전 이 기능은 별도 commit/PR 경계로 유지한다.
 
 ### 2026-10-16: BE-B 전체 코드리뷰 지적사항 보완 (로컬 PostgreSQL 17)
 

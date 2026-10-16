@@ -38,8 +38,21 @@ public record Product(UUID id, String code, Category category, Price price,
                 && (saleEndsAt == null || now.isBefore(saleEndsAt));
     }
 
+    /**
+     * Display-only lifecycle. Purchase eligibility must continue to use {@link #isAvailableAt(Instant)}.
+     * An inactive product is retired even if it has historical sale dates.
+     */
+    public SaleStatus saleStatusAt(Instant now) {
+        Objects.requireNonNull(now, "now");
+        if (!active) return SaleStatus.RETIRED;
+        if (saleStartsAt != null && now.isBefore(saleStartsAt)) return SaleStatus.UPCOMING;
+        if (saleEndsAt != null && !now.isBefore(saleEndsAt)) return SaleStatus.ENDED;
+        return SaleStatus.AVAILABLE;
+    }
+
     // Internal persistence names; the HTTP catalog uses FORTUNE for READING.
     public enum Category { TOP_UP, READING, GIFT, TALISMAN_ADDON }
     public enum FortuneType { OVERALL, LOVE, WEALTH, COMPATIBILITY, SINSAL, SUNEUNG }
     public enum ProductOption { READING_ONLY, READING_WITH_TALISMAN }
+    public enum SaleStatus { UPCOMING, AVAILABLE, ENDED, RETIRED }
 }
