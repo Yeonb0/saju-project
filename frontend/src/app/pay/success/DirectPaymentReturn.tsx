@@ -9,7 +9,7 @@
 // b3d2051 (완료되어도 결과 화면으로 자동 이동하지 않는다 — 버튼을 누를 때 한 번만),
 // Q-65 (직접결제 생성 실패는 「다시 시도」 대신 문의 — 서버 nextAction 이 RETRY_PURCHASE 여도 두 번 결제로 이어질 수 있다. TODO(Q-65) 서버 값 확인 뒤 재검토).
 // 화면에 paymentKey · error.message · 서버 원문은 쓰지 않는다. 디자인 요소 없음 (PG-FIRST). 배치는 LAYOUT-FIGMA PAY-04 · 05.
-// 결제 단계 문구는 TopUpSuccess 의 PD 확정 문구와 같다.
+// 결제 단계 문구는 FUNCTIONAL_SPEC 7장 PD 확정 문구다 (옛 충전 복귀 화면과 같은 문구).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";

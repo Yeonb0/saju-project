@@ -1,6 +1,6 @@
 // PAY-03 · 04 · 05 공통 배치 (LAYOUT-FIGMA 301:166 · 301:180 · 301:190). 헤더 없음.
 // 색은 TODO(PD 토큰 v0): 와이어 임시값. 캐릭터는 TODO(캐릭터): 뿌기 — PG 심사 후 (자리만).
-// "use client" 없음 — 서버 컴포넌트(/pay/fail)와 클라이언트(TopUpSuccess) 둘 다에서 쓴다.
+// "use client" 없음 — 서버 컴포넌트(/pay/fail)와 클라이언트(DirectPaymentReturn) 둘 다에서 쓴다.
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 
