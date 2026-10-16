@@ -48,7 +48,7 @@ class OpenApiIntegrationTest {
                         .value("#/components/schemas/ApiError"))
                 .andExpect(jsonPath("$.components.schemas.ApiError.properties.details").exists())
                 .andExpect(jsonPath("$.components.schemas.FieldError.properties.field").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/products'].get.operationId").value("listTopUpProducts"))
+                .andExpect(jsonPath("$.paths['/api/v1/products'].get.operationId").value("listProducts"))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         Map<String, Object> schema = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         Path output = Path.of(System.getProperty("openapi.export.path"));

@@ -36,6 +36,14 @@ public class JdbcCatalogRepository implements CatalogRepository {
     }
 
     @Override
+    public List<Product> findProducts(Product.Category category) {
+        String filter = category == null ? "" : " WHERE category = ?";
+        Object[] args = category == null ? new Object[0] : new Object[] {category.name()};
+        return jdbc.query("SELECT * FROM products" + filter + " ORDER BY code",
+                (rs, row) -> product(rs, "id", "code"), args);
+    }
+
+    @Override
     public Optional<Product> findProductByCode(String code) {
         return jdbc.query("SELECT * FROM products WHERE code = ?",
                 (rs, row) -> product(rs, "id", "code"), code).stream().findFirst();

@@ -1,7 +1,10 @@
 package com.sajuppugi.gift.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ErrorCode;
+import com.sajuppugi.gift.infrastructure.GiftPayloadCipher;
 import com.sajuppugi.payment.domain.DirectPaymentBatch;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,24 +22,42 @@ import org.springframework.transaction.annotation.Transactional;
 public class DirectGiftBatchService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
+    private final GiftPayloadCipher cipher;
+    private final ObjectMapper mapper;
 
-    public DirectGiftBatchService(JdbcTemplate jdbc, Clock clock) {
+    public DirectGiftBatchService(JdbcTemplate jdbc, Clock clock, GiftPayloadCipher cipher, ObjectMapper mapper) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.cipher = cipher;
+        this.mapper = mapper;
     }
 
     @Transactional(timeout = 5)
     public DirectPaymentBatch create(UUID user, List<Option> recipients, String idempotencyKey) {
-        if (user == null || recipients == null || recipients.isEmpty() || idempotencyKey == null
+        return createInternal(user, recipients == null ? null : recipients.stream()
+                .map(option -> new Payload("수능 선물", "선물 보낸 사람", "legacy", option)).toList(), idempotencyKey);
+    }
+
+    @Transactional(timeout = 5)
+    public DirectPaymentBatch create(UUID user, Command command, String idempotencyKey) {
+        if (command == null || command.recipients() == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
+        return createInternal(user, command.recipients().stream()
+                .map(recipient -> new Payload(recipient.recipientName(), command.senderName(), command.message(), recipient.option())).toList(), idempotencyKey);
+    }
+
+    private DirectPaymentBatch createInternal(UUID user, List<Payload> requested, String idempotencyKey) {
+        if (user == null || requested == null || requested.isEmpty() || idempotencyKey == null
                 || idempotencyKey.isBlank() || idempotencyKey.length() > 512) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
-        List<Option> requested = List.copyOf(recipients);
+        if (requested.size() > 16 || requested.stream().anyMatch(value -> !valid(value))) throw new ApiException(ErrorCode.INVALID_REQUEST);
+        requested = List.copyOf(requested);
+        String requestHash = fingerprint(requested);
         String keyHash = hash(idempotencyKey);
         DirectPaymentBatch existing = findByKey(user, keyHash);
-        if (existing != null) return requireSameRequest(existing, requested);
+        if (existing != null) return requireSameRequest(existing, requestHash);
 
-        int total = requested.stream().mapToInt(Option::amount).sum();
+        int total = requested.stream().mapToInt(value -> value.option().amount()).sum();
         if (total >= 50_000) throw new ApiException(ErrorCode.PAYMENT_BATCH_LIMIT_EXCEEDED);
         Instant now = clock.instant();
         UUID id = UUID.randomUUID();
@@ -50,34 +71,42 @@ public class DirectGiftBatchService {
                 ON CONFLICT (buyer_user_id,key_hash) DO NOTHING
                 """, id, user, batch.productCode(), batch.productName(), total, 1, total, keyHash,
                 batch.status().name(), java.sql.Timestamp.from(now));
-        if (inserted == 0) return requireSameRequest(requireExisting(user, keyHash), requested);
+        if (inserted == 0) return requireSameRequest(requireExisting(user, keyHash), requestHash);
 
         jdbc.update("""
-                INSERT INTO direct_gift_batches(payment_batch_id,buyer_user_id,status,recipient_count,created_at)
-                VALUES (?,?,'PAYMENT_PENDING',?,?)
-                """, id, user, requested.size(), java.sql.Timestamp.from(now));
+                INSERT INTO direct_gift_batches(payment_batch_id,buyer_user_id,status,recipient_count,created_at,request_hash)
+                VALUES (?,?,'PAYMENT_PENDING',?,?,?)
+                """, id, user, requested.size(), java.sql.Timestamp.from(now), requestHash);
         for (int index = 0; index < requested.size(); index++) {
-            Option option = requested.get(index);
+            Payload payload = requested.get(index);
+            UUID recipientId = UUID.randomUUID();
             jdbc.update("""
                     INSERT INTO direct_gift_batch_recipients
-                        (id,payment_batch_id,recipient_index,option,amount_krw,state,created_at)
-                    VALUES (?,?,?,?,?,'PENDING_PAYMENT',?)
-                    """, UUID.randomUUID(), id, index, option.name(), option.amount(), java.sql.Timestamp.from(now));
+                        (id,payment_batch_id,recipient_index,option,amount_krw,state,created_at,private_payload)
+                    VALUES (?,?,?,?,?,'PENDING_PAYMENT',?,?)
+                    """, recipientId, id, index, payload.option().name(), payload.option().amount(), java.sql.Timestamp.from(now),
+                    cipher.encrypt(json(payload), context(id, recipientId)));
         }
         return batch;
     }
 
-    private DirectPaymentBatch requireSameRequest(DirectPaymentBatch batch, List<Option> requested) {
-        List<Option> stored = jdbc.query("""
-                SELECT r.option
-                FROM direct_gift_batches b
-                JOIN direct_gift_batch_recipients r ON r.payment_batch_id = b.payment_batch_id
-                WHERE b.payment_batch_id = ?
-                ORDER BY r.recipient_index
-                """, (rs, row) -> Option.valueOf(rs.getString(1)), batch.id());
-        if (!stored.equals(requested)) throw new ApiException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
+    private DirectPaymentBatch requireSameRequest(DirectPaymentBatch batch, String requestHash) {
+        String stored = jdbc.query("SELECT request_hash FROM direct_gift_batches WHERE payment_batch_id=?",
+                (rs, row) -> rs.getString(1), batch.id()).stream().findFirst().orElse(null);
+        if (stored == null || !stored.equals(requestHash)) throw new ApiException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
         return batch;
     }
+
+    private boolean valid(Payload payload) {
+        return payload != null && payload.option() != null && payload.recipientName() != null && !payload.recipientName().isBlank()
+                && payload.recipientName().length() <= 50 && payload.senderName() != null && !payload.senderName().isBlank()
+                && payload.senderName().length() <= 50 && payload.message() != null && !payload.message().isBlank()
+                && payload.message().length() <= 100;
+    }
+    private String fingerprint(List<Payload> payloads) { return cipher.fingerprint(json(payloads)); }
+    private String json(Object value) { try { return mapper.writeValueAsString(value); }
+        catch (JsonProcessingException failure) { throw new IllegalStateException("Direct gift payload serialization failed", failure); } }
+    private String context(UUID batchId, UUID recipientId) { return "direct-gift|" + batchId + "|" + recipientId; }
 
     private DirectPaymentBatch requireExisting(UUID user, String keyHash) {
         DirectPaymentBatch existing = findByKey(user, keyHash);
@@ -111,4 +140,7 @@ public class DirectGiftBatchService {
         Option(int amount) { this.amount = amount; }
         public int amount() { return amount; }
     }
+    public record Recipient(String recipientName, Option option) {}
+    public record Command(String senderName, String message, List<Recipient> recipients) {}
+    public record Payload(String recipientName, String senderName, String message, Option option) {}
 }

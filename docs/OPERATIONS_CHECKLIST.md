@@ -5,6 +5,19 @@
 - FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
 - 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
 
+### 2026-10-16: 직접결제 선물 표시 payload·보낸/받은 선물 projection 보강 (격리 PostgreSQL 17)
+
+- 직접결제 선물 batch 요청은 수신자별 표시 이름, 보내는 사람, 메시지를 받고 recipient 행의 AES-GCM payload로만 저장한다. 같은 `Idempotency-Key`는 옵션뿐 아니라 이 본문도 HMAC fingerprint로 대조하므로, 같은 키로 메시지나 수신자를 바꾸는 요청은 거절한다. fulfillment은 이 값을 기존 gift draft의 owner/order AAD로 재암호화해 공개 bearer token·목록 응답에 원문을 넣지 않는다. migration은 새 nullable 열만 추가해 기존 직접결제 선물은 legacy 표시값으로 읽는다.
+- 보낸 선물 목록은 직접결제 recipient ID와 재발급 가능 여부를 반환하고, 직접결제 gift를 기존 등껍질 취소 경로의 취소 가능으로 잘못 표시하지 않는다. 받은 선물 목록에는 제공 완료·유효한 선물의 보낸 사람 표시명만 추가하며, 수신자 birth profile·메시지·token은 포함하지 않는다.
+- 새 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 test DB)에서 `DirectGiftBatchServiceTest`와 `GiftRecipientPostgresTest`를 `--rerun-tasks`로 실행해 ciphertext 원문 비노출, 같은 키/다른 메시지 거절, direct gift 동시 fulfillment·재발급·lease recovery 및 기존 recipient 회귀를 확인했다. 실제 browser 목록 rendering, 두 독립 JVM worker, staging feature flag·실 PG/R2/결제 provider는 미검증이다.
+- 적용: 6-1 구매자·수신자 projection 소유권, 6-2 idempotency body binding, 6-4 기존 durable fulfillment 재사용, 6-5 token 재발급/legacy link 호환, 6-6 additive migration, 6-9 원문 payload·token 최소화. 직접결제 현금 취소/환불은 여전히 미구현이다.
+
+### 2026-10-16: 수능운 판매 lifecycle API 1차 반영 (로컬 compile + 단위 테스트)
+
+- `GET /api/v1/products?category=FORTUNE&includeUnavailable=true`는 기존의 구매 가능 상품 목록을 바꾸지 않고 `UPCOMING`·`AVAILABLE`·`ENDED`·`RETIRED` 상태를 함께 반환한다. 기본 조회와 quote/direct payment는 계속 `AVAILABLE`만 허용하므로, 화면의 종료 상태가 결제 권한을 넓히지 않는다. TOP_UP의 과거 상품은 이번 공개 lifecycle 범위에서 제외한다.
+- `ProductSaleStatusTest`와 `compileTestJava`는 통과했다. 기존 HTTP catalog 회귀를 PostgreSQL 17 컨테이너에서 실행하려 했지만, 실행 중 컨테이너의 테스트 계정 인증이 저장소의 공개 local test 안내와 일치하지 않아 Flyway 연결 전에 실패했다. 비밀값을 조회하거나 컨테이너를 재생성하지 않았으므로 PostgreSQL HTTP/경계 시각 검증은 미확인이다. H2는 기존 PostgreSQL 전용 Flyway migration에서 기동 실패해 대체 근거로 쓰지 않았다.
+- 적용: 6-6 additive HTTP 응답 계약과 기존 기본 목록 호환. 미확인: 6-10 실제 FE polling/캐시 영향, PostgreSQL의 판매 종료 경계 및 quote 동시 요청. 다음 선물 목록/공유 변경 전 이 기능은 별도 commit/PR 경계로 유지한다.
+
 ### 2026-10-16: BE-B 전체 코드리뷰 지적사항 보완 (로컬 PostgreSQL 17)
 
 - 직접결제 운세는 결제 소비 claim, 구매 `DEBITED`, 암호화 generation context 저장을 한 짧은 PostgreSQL transaction에서 확정하도록 묶었다. 외부 생성 호출은 이 transaction 밖에서 실행하며, wallet 기능이 꺼진 직접결제 환경에서도 generation recovery scheduler가 동작하도록 조건을 분리했다.

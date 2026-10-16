@@ -35,9 +35,10 @@ public class GiftOrderQueryService {
         String sql = """
                 SELECT d.id,d.quote_id,d.product_code,d.product_name,d.shell_amount,
                 d.created_at,d.private_payload,COALESCE(w.status,'CREATED') AS financial_status,w.charged_amount,w.access_expires_at,
-                w.approved_at,w.first_provided_at,r.state AS receipt_state
+                w.approved_at,w.first_provided_at,r.state AS receipt_state,dgr.id AS direct_recipient_id,dgr.state AS direct_recipient_state
                 FROM gift_order_drafts d LEFT JOIN gift_purchase_work w ON w.order_id = d.id
                 LEFT JOIN gift_recipient_receipts r ON r.order_id = d.id
+                LEFT JOIN direct_gift_batch_recipients dgr ON dgr.order_id = d.id
                 WHERE d.user_id = ?
                 """;
         List<Object> args = new ArrayList<>(List.of(owner));
@@ -53,7 +54,9 @@ public class GiftOrderQueryService {
                 rs.getTimestamp("access_expires_at") == null ? null : rs.getTimestamp("access_expires_at").toInstant(),
                 recipient(rs.getString("private_payload"), owner, rs.getObject("id", UUID.class)), option(rs.getString("product_code")),
                 fulfillmentState(rs.getString("receipt_state")), rs.getTimestamp("first_provided_at") == null ? null : rs.getTimestamp("first_provided_at").toInstant(),
-                cancelEligible(rs.getString("financial_status"), rs.getTimestamp("approved_at"), rs.getString("receipt_state"), now)), args.toArray());
+                cancelEligible(rs.getString("financial_status"), rs.getTimestamp("approved_at"), rs.getString("receipt_state"), now,
+                        rs.getObject("direct_recipient_id", UUID.class) != null), rs.getObject("direct_recipient_id", UUID.class),
+                canReissueDirect(rs.getString("direct_recipient_state"), rs.getTimestamp("approved_at"), rs.getTimestamp("access_expires_at"), now)), args.toArray());
         boolean hasNext = rows.size() > limit;
         var items = List.copyOf(rows.subList(0, Math.min(rows.size(), limit)));
         return new Page(items, hasNext ? encode(new Cursor(items.getLast().createdAt(), items.getLast().orderId())) : null, hasNext);
@@ -79,19 +82,25 @@ public class GiftOrderQueryService {
     private String option(String code) { return switch (code) { case "GIFT_SUNEUNG_TALISMAN_ONLY" -> "TALISMAN_ONLY";
         case "GIFT_SUNEUNG_READING_WITH_TALISMAN" -> "READING_WITH_TALISMAN"; default -> null; }; }
     private String fulfillmentState(String receipt) { return receipt == null ? "INPUT_REQUIRED" : "PROVIDED".equals(receipt) ? "READY" : "PROCESSING"; }
-    private boolean cancelEligible(String status, Timestamp approved, String receipt, Instant now) {
+    private boolean cancelEligible(String status, Timestamp approved, String receipt, Instant now, boolean directPayment) {
+        if (directPayment) return false;
         return "ACTIVE".equals(status) && approved != null && !now.isBefore(approved.toInstant())
                 && !now.isAfter(approved.toInstant().plus(Duration.ofDays(7))) && !"PROVIDED".equals(receipt);
+    }
+    private boolean canReissueDirect(String state, Timestamp approved, Timestamp expires, Instant now) {
+        return "LINK_ACTIVE".equals(state) && approved != null && expires != null && now.isBefore(expires.toInstant())
+                && now.isBefore(approved.toInstant().plus(Duration.ofDays(30)));
     }
     private record Cursor(Instant createdAt, UUID orderId) {}
     private record DraftPayload(String recipientName, String senderName, String message) {}
     @Schema(requiredProperties = {"items","nextCursor","hasNext"})
     public record Page(List<Item> items, @Schema(types = {"string","null"}) String nextCursor, boolean hasNext) {}
-    @Schema(requiredProperties = {"orderId","quoteId","productCode","productName","plannedShells","status","chargedShells","createdAt","accessExpiresAt","recipientName","option","fulfillmentState","firstProvidedAt","cancelEligible"})
+    @Schema(requiredProperties = {"orderId","quoteId","productCode","productName","plannedShells","status","chargedShells","createdAt","accessExpiresAt","recipientName","option","fulfillmentState","firstProvidedAt","cancelEligible","directRecipientId","canReissue"})
     public record Item(UUID orderId, UUID quoteId, String productCode, String productName, int plannedShells, String status,
             @Schema(types = {"integer","null"}) Integer chargedShells, Instant createdAt,
             @Schema(types = {"string","null"}, format = "date-time") Instant accessExpiresAt,
             @Schema(types = {"string","null"}) String recipientName, @Schema(types = {"string","null"}) String option,
             String fulfillmentState, @Schema(types = {"string","null"}, format = "date-time") Instant firstProvidedAt,
-            boolean cancelEligible) {}
+            boolean cancelEligible, @Schema(types = {"string","null"}, format = "uuid") UUID directRecipientId,
+            boolean canReissue) {}
 }
