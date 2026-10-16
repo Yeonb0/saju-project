@@ -42,7 +42,7 @@ public class SecurityConfig {
             authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->
                     new org.springframework.security.authorization.AuthorizationDecision(admin.allows(authentication.get(),
                             !java.util.List.of("GET", "HEAD", "OPTIONS").contains(context.getRequest().getMethod()))));
-            authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
+            authorize.requestMatchers("/api/v1/fortune/basic", "/api/v1/fortune/element-preview").authenticated();
             authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
             authorize.requestMatchers("/api/v1/top-up-orders", "/api/v1/top-up-orders/**").authenticated();
             authorize.requestMatchers("/api/v1/direct-gift-batches", "/api/v1/direct-gift-batches/**",

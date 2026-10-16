@@ -48,6 +48,24 @@ class BasicSajuApiTest {
     }
 
     @Test
+    void returnsOnlyElementPreviewForOwnedPerson() throws Exception {
+        UUID owner = UUID.randomUUID(), person = UUID.randomUUID();
+        when(subjects.getOwnedSubject(owner, person)).thenReturn(new ReadingSubjectPort.OwnedSubject(person,
+                "private-name", new BirthInput(LocalDate.of(2004, 3, 15), LocalTime.of(14, 32), false,
+                        BirthInput.CalendarType.SOLAR, false, BirthInput.Gender.FEMALE)));
+        mvc.perform(post("/api/v1/fortune/element-preview").with(user(owner.toString())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"personId\":\"" + person + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.counts.WOOD").isNumber())
+                .andExpect(jsonPath("$.data.primaryElement").isString())
+                .andExpect(jsonPath("$.data.headline").isString())
+                .andExpect(jsonPath("$.data.description").isString())
+                .andExpect(jsonPath("$.data.pillars").doesNotExist())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private-name"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("2004-03-15"))));
+    }
+
+    @Test
     void unknownOrOtherPersonsAreNotDisclosed() throws Exception {
         mvc.perform(post("/api/v1/fortune/basic").with(user(UUID.randomUUID().toString())).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

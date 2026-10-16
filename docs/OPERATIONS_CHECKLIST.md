@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 오행 미리보기 전용 최소 API·문구 catalog (격리 PostgreSQL 17)
+
+- `POST /api/v1/fortune/element-preview`는 인증된 사용자가 소유한 `personId`만 받아 목·화·토·금·수 count, 일간 기준 대표 오행, 오행별 5개씩의 결정론적 headline/description, 균형 안내와 content version만 반환한다. 기존 `/fortune/basic`의 사주 기둥·십신 등 상세 응답은 호환을 위해 유지하고, 화면 전용 API에는 넣지 않는다.
+- 문구 선택은 사용자 ID가 아니라 person ID와 계산 결과/콘텐츠 버전 hash로 고정한다. 같은 입력과 version에서 새로고침마다 카피가 바뀌지 않으며, birth profile 변경으로 계산 결과가 바뀔 때만 새 선택이 가능하다. 건강·성격·합격을 단정하지 않는 안내 문구만 사용한다.
+- 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 `BasicSajuApiTest`를 `--rerun-tasks`로 실행해 소유 person 계산, count/문구 projection, 이름·생년일·사주 기둥 미노출을 확인했다. 실제 FE 퍼센트 막대 rendering, content catalog 명리 검수와 staging은 미검증이다.
+- 적용: 6-1 person 소유권, 6-6 additive API/content version, 6-9 birth input/개인 식별자 최소 projection. 외부 provider·DB write·worker가 없는 read-only 계산이므로 6-2~6-5의 결제/복구 경계는 해당하지 않는다.
+
 ### 2026-10-16: 일반 운세·부적 공개 공유 링크 1차 구현 (격리 PostgreSQL 17)
 
 - 로그인 소유자는 완료된 일반 운세 또는 `READY` 부적마다 공개 링크를 생성하고 철회할 수 있다. 링크는 32바이트 URL-safe token의 SHA-256 hash만 저장하며 30일 뒤 만료된다. 같은 source로 새 링크를 생성하면 이전 token을 회전해 즉시 무효화한다.
