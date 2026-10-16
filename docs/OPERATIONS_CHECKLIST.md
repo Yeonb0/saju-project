@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: AWS PG 비활성 첫 배포 준비
+
+- FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
+- 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
+
 ### 2026-10-16: PostgreSQL pool·HTTP 대기열 상한 명시 (격리 PostgreSQL 17)
 
 - 운영 기본값을 Hikari 최대 연결 10/최소 유휴 2/connection wait 5초로 고정했다. `DB_POOL_MAX_SIZE`는 1~20, `DB_POOL_MIN_IDLE`은 0~max, 대기 시간은 250~10,000ms 범위만 허용한다. Tomcat은 요청 worker thread 100, 동시 connection 200, accept queue 50으로 기본 상한을 명시하고 환경별 조정을 허용한다. test profile은 기존 격리 설정인 max 6/min 1을 유지하고 대기 한도 3초를 적용했다.
