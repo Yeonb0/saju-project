@@ -44,6 +44,9 @@ public class LinerResponseValidator {
             Map.entry("괴강살", "GANG_STRENGTH"), Map.entry("망신살", "DISGRACE"),
             Map.entry("홍염살", "RED_CHARM"));
     private static final Pattern GANJI = Pattern.compile("[갑을병정무기경신임계][자축인묘진사오미신유술해]");
+    // A ganji can also occur as ordinary Korean verb syllables (for example, "정해").
+    // Treat it as a factual claim only when the response gives it a pillar label.
+    private static final Pattern GANJI_MENTION = Pattern.compile("([갑을병정무기경신임계][자축인묘진사오미신유술해])\\s*(?:년주|월주|일주|시주|기둥)");
     private static final Pattern YEAR = Pattern.compile("(?<!\\d)(?:19|20)\\d{2}(?!\\d)");
     private final ObjectMapper mapper;
     private final JsonSchema schema;
@@ -154,10 +157,10 @@ public class LinerResponseValidator {
         }
         Set<String> pillars = textualValues(facts).stream()
                 .filter(value -> GANJI.matcher(value).matches()).collect(Collectors.toSet());
-        var matcher = GANJI.matcher(text);
-        while (matcher.find() && !pillars.contains(matcher.group())) {
+        var matcher = GANJI_MENTION.matcher(text);
+        while (matcher.find() && !pillars.contains(matcher.group(1))) {
             throw new InvalidGenerationException("LINER_UNSUPPORTED_ENTITY",
-                    "mentioned pillar is absent from supplied facts: " + matcher.group());
+                    "mentioned pillar is absent from supplied facts: " + matcher.group(1));
         }
         Set<String> supportedYears = new LinkedHashSet<>();
         supportedYears.add(String.valueOf(request.referenceDate().getYear()));
