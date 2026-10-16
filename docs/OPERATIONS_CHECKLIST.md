@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 직접결제 대사 상태 운영 알림 연결 (격리 PostgreSQL 17)
+
+- `JdbcOperationsAlerts`가 기존 충전·환불·지갑 무결성 incident와 같은 내구적 alert pipeline에서 직접결제 batch의 `REVIEW_REQUIRED`와 승인 execution의 장기 `READY`/`IN_FLIGHT`/`RETRY`를 감지한다. 상태가 정상화되면 기존 incident를 `RESOLVED`로 전환하며, alert 전달의 lease·재시도·중복 억제 계약은 바꾸지 않았다. 금액, 결제 상태 전이, provider 호출, 등껍질 원장은 변경하지 않았다.
+- 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 `OperationsAlertsTest`를 실행해 직접결제 review/stalled 감지 및 recovery resolution, 기존 concurrent detect·alert lease·retry 회귀를 포함한 8건을 통과했다. H2 실행은 기존 적용 Flyway migration `V202610151200`의 PostgreSQL `ON CONFLICT` 문법을 해석하지 못해 context migration 전에 실패했으므로 검증 근거로 사용하지 않았다.
+- 적용: 6-3 승인 결과 불명/재시도 소진의 운영 가시화, 6-4 내구 incident·alert lease 재사용, 6-8 batch ID 중심 추적, 6-10 장기 결제 대기 조기 탐지. 미확인: 실제 alert webhook/운영 수신자 설정은 기본 비활성이며, 웹훅 발신 인증 보호는 사용자 요청으로 이번 범위에서 제외했다. 직접결제 현금 취소·환불 정책과 구현, DB pool·scheduler 용량, 부하 측정은 계속 남아 있다.
+
 ### 2026-10-16: 실제 Liner `/responses` 합성 facts 품질 점검 (로컬 opt-in)
 
 - 실제 Liner 연결 스모크와 합성 `OVERALL/SUMMARY` 한 섹션 생성·validator 검증을 실행했다. 이름·계정·raw birth input 없이 결정론적 facts projection만 전송했으며, 응답은 오행 우세와 2026년 세운을 source fact key로 인용하고 투자 권유·의학 진단을 피했다. 합성 결과 파일은 build output에만 남기고 Git에 추가하지 않았다.

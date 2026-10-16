@@ -25,10 +25,14 @@ public class JdbcOperationsAlerts {
                     UNION ALL SELECT 'TOP_UP_STALLED', e.order_id FROM top_up_executions e JOIN top_up_confirmation_intents i ON i.order_id = e.order_id
                         WHERE e.state IN ('READY','IN_FLIGHT','RETRY') AND i.created_at < ?
                     UNION ALL SELECT 'PAYMENT_RECONCILIATION', order_id FROM payment_reconciliation_jobs WHERE state = 'REVIEW_REQUIRED'
+                    UNION ALL SELECT 'DIRECT_PAYMENT_REVIEW', id FROM direct_payment_batches WHERE status = 'REVIEW_REQUIRED'
+                    UNION ALL SELECT 'DIRECT_PAYMENT_STALLED', e.batch_id FROM direct_payment_executions e
+                        JOIN direct_payment_confirmation_intents i ON i.batch_id = e.batch_id
+                        WHERE e.state IN ('READY','IN_FLIGHT','RETRY') AND i.created_at < ?
                     UNION ALL SELECT DISTINCT 'WALLET_INTEGRITY', wallet_user_id FROM wallet_integrity_findings WHERE resolved_at IS NULL
                 ) p LEFT JOIN operations_incidents i ON i.kind = p.kind AND i.resource_id = p.resource_id
                 WHERE i.id IS NULL OR i.state = 'RESOLVED' ORDER BY p.kind, p.resource_id LIMIT 100
-                """, (rs, row) -> new Problem(rs.getString(1), rs.getObject(2, UUID.class)), threshold(now), threshold(now));
+                """, (rs, row) -> new Problem(rs.getString(1), rs.getObject(2, UUID.class)), threshold(now), threshold(now), threshold(now));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 5)
@@ -105,6 +109,8 @@ public class JdbcOperationsAlerts {
             case "TOP_UP_REVIEW" -> "SELECT COUNT(*) FROM top_up_executions WHERE order_id = ? AND state = 'REVIEW_REQUIRED'";
             case "TOP_UP_STALLED" -> "SELECT COUNT(*) FROM top_up_executions e JOIN top_up_confirmation_intents i ON i.order_id = e.order_id WHERE e.order_id = ? AND e.state IN ('READY','IN_FLIGHT','RETRY') AND i.created_at < ?";
             case "PAYMENT_RECONCILIATION" -> "SELECT COUNT(*) FROM payment_reconciliation_jobs WHERE order_id = ? AND state = 'REVIEW_REQUIRED'";
+            case "DIRECT_PAYMENT_REVIEW" -> "SELECT COUNT(*) FROM direct_payment_batches WHERE id = ? AND status = 'REVIEW_REQUIRED'";
+            case "DIRECT_PAYMENT_STALLED" -> "SELECT COUNT(*) FROM direct_payment_executions e JOIN direct_payment_confirmation_intents i ON i.batch_id = e.batch_id WHERE e.batch_id = ? AND e.state IN ('READY','IN_FLIGHT','RETRY') AND i.created_at < ?";
             case "WALLET_INTEGRITY" -> "SELECT COUNT(*) FROM wallet_integrity_findings WHERE wallet_user_id = ? AND resolved_at IS NULL";
             default -> throw new IllegalArgumentException("Unsupported operations alert kind");
         };

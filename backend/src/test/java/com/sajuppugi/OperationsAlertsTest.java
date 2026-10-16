@@ -31,13 +31,19 @@ class OperationsAlertsTest {
     static final Instant NOW = Instant.parse("2026-10-12T00:00:00Z");
     List<UUID> users;
     List<UUID> resources;
+    List<UUID> directBatches;
     @BeforeEach void setup() {
-        users = new ArrayList<>(); resources = new ArrayList<>(); when(clock.instant()).thenReturn(NOW);
+        users = new ArrayList<>(); resources = new ArrayList<>(); directBatches = new ArrayList<>(); when(clock.instant()).thenReturn(NOW);
         when(sink.send(any())).thenAnswer(call -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse(); return true;
         });
     }
     @AfterEach void cleanup() {
+        for (UUID batch : directBatches) {
+            jdbc.update("DELETE FROM operations_alert_deliveries WHERE incident_id IN (SELECT id FROM operations_incidents WHERE resource_id = ?)", batch);
+            jdbc.update("DELETE FROM operations_incidents WHERE resource_id = ?", batch);
+            jdbc.update("DELETE FROM direct_payment_batches WHERE id = ?", batch);
+        }
         for (UUID resource : resources) {
             jdbc.update("DELETE FROM operations_alert_deliveries WHERE incident_id IN (SELECT id FROM operations_incidents WHERE resource_id = ?)", resource);
             jdbc.update("DELETE FROM operations_incidents WHERE resource_id = ?", resource);
@@ -131,11 +137,37 @@ class OperationsAlertsTest {
         assertThat(alerts.candidates(NOW)).extracting(JdbcOperationsAlerts.Problem::kind)
                 .containsExactlyInAnyOrder("REFUND_REVIEW", "TOP_UP_REVIEW", "PAYMENT_RECONCILIATION");
     }
+    @Test void directPaymentSourcesRaiseAndResolveReviewAndStalledAlerts() {
+        UUID buyer = UUID.randomUUID(), review = directBatch(buyer, "REVIEW_REQUIRED", NOW);
+        UUID stalled = directBatch(buyer, "PAYMENT_PENDING", NOW.minusSeconds(901));
+        jdbc.update("INSERT INTO direct_payment_confirmation_intents(batch_id,payment_key_hash,amount_krw,created_at) VALUES (?,?,3000,?)",
+                stalled, "a".repeat(64), Timestamp.from(NOW.minusSeconds(901)));
+        jdbc.update("INSERT INTO direct_payment_executions(batch_id,state,next_attempt_at,updated_at) VALUES (?,'RETRY',?,?)",
+                stalled, Timestamp.from(NOW), Timestamp.from(NOW));
+
+        assertThat(alerts.candidates(NOW)).extracting(JdbcOperationsAlerts.Problem::kind)
+                .containsExactlyInAnyOrder("DIRECT_PAYMENT_REVIEW", "DIRECT_PAYMENT_STALLED");
+        alerts.observe(new JdbcOperationsAlerts.Problem("DIRECT_PAYMENT_REVIEW", review), NOW);
+        UUID incident = jdbc.queryForObject("SELECT id FROM operations_incidents WHERE kind = ? AND resource_id = ?",
+                UUID.class, "DIRECT_PAYMENT_REVIEW", review);
+        jdbc.update("UPDATE direct_payment_batches SET status = 'FAILED' WHERE id = ?", review);
+        alerts.resolveIfHealthy(incident, NOW.plusSeconds(1));
+        assertThat(jdbc.queryForObject("SELECT state FROM operations_incidents WHERE id = ?", String.class, incident)).isEqualTo("RESOLVED");
+    }
     private UUID problem() {
         UUID user = UUID.randomUUID(); users.add(user); resources.add(user);
         jdbc.update("INSERT INTO wallets(user_id, updated_at) VALUES (?, ?)", user, Timestamp.from(NOW));
         jdbc.update("INSERT INTO wallet_integrity_findings(wallet_user_id, kind, detected_at) VALUES (?, 'BALANCE_MISMATCH', ?)", user, Timestamp.from(NOW));
         return user;
+    }
+    private UUID directBatch(UUID buyer, String status, Instant createdAt) {
+        UUID batch = UUID.randomUUID(); directBatches.add(batch);
+        jdbc.update("""
+                INSERT INTO direct_payment_batches
+                    (id,buyer_user_id,quote_id,product_code,product_name,unit_amount_krw,quantity,total_amount_krw,key_hash,status,created_at)
+                VALUES (?,?,NULL,'TEST_DIRECT','테스트 직접결제',3000,1,3000,?,?,?)
+                """, batch, buyer, batch.toString().replace("-", "").repeat(2), status, Timestamp.from(createdAt));
+        return batch;
     }
     private int count(UUID user) { return jdbc.queryForObject("SELECT COUNT(*) FROM operations_alert_deliveries d JOIN operations_incidents i ON i.id = d.incident_id WHERE i.resource_id = ?", Integer.class, user); }
     private UUID delivery(UUID user) { return jdbc.queryForObject("SELECT d.id FROM operations_alert_deliveries d JOIN operations_incidents i ON i.id = d.incident_id WHERE i.resource_id = ?", UUID.class, user); }
