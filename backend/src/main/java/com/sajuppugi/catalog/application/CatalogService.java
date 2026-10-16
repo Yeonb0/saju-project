@@ -30,6 +30,11 @@ public class CatalogService implements CatalogUseCase {
     }
 
     @Override
+    public List<Product> products(Product.Category category) {
+        return repository.findProducts(category);
+    }
+
+    @Override
     public List<TopUpProduct> availableTopUps() {
         return repository.findAvailableTopUps(clock.instant());
     }

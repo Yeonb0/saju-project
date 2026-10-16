@@ -79,6 +79,8 @@ class TopUpProductApiTest {
         }
         mvc.perform(get("/api/v1/products").param("category", "TOP_UP").param("fortuneType", "LOVE"))
                 .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/products").param("category", "TOP_UP").param("includeUnavailable", "true"))
+                .andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/products").param("category", "FORTUNE").param("fortuneType", "UNKNOWN"))
                 .andExpect(status().isBadRequest());
     }
@@ -92,6 +94,7 @@ class TopUpProductApiTest {
                 .andExpect(jsonPath("$.data.items[0].fortuneType").value("LOVE"))
                 .andExpect(jsonPath("$.data.items[0].option").value("READING_ONLY"))
                 .andExpect(jsonPath("$.data.items[0].saleEndsAt").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].saleStatus").value("AVAILABLE"))
                 .andExpect(jsonPath("$.data.items[0].price.amount").value(10))
                 .andExpect(jsonPath("$.data.items[0].regularPrice").value(nullValue()))
                 .andExpect(jsonPath("$.data.items[0].paidAmount").value(nullValue()))
@@ -99,6 +102,24 @@ class TopUpProductApiTest {
                 .andExpect(jsonPath("$.data.items[1].price.amount").value(15))
                 .andExpect(jsonPath("$.data.items[1].regularPrice.currency").value("TURTLE_SHELL"))
                 .andExpect(jsonPath("$.data.items[1].regularPrice.amount").value(20));
+    }
+
+    @Test
+    void includesExplicitFortuneSaleLifecycleWithoutMakingUnavailableProductsPurchasable() throws Exception {
+        jdbc.update("UPDATE products SET sale_start_at = ? WHERE code = 'OVERALL_READING_ONLY'",
+                Timestamp.from(Instant.now().plusSeconds(3600)));
+        jdbc.update("UPDATE products SET sale_end_at = ? WHERE code = 'OVERALL_READING_WITH_TALISMAN'",
+                Timestamp.from(Instant.now().minusSeconds(3600)));
+        jdbc.update("UPDATE products SET active = FALSE WHERE code = 'SUNEUNG_READING_WITH_TALISMAN'");
+
+        mvc.perform(get("/api/v1/products").param("category", "FORTUNE").param("includeUnavailable", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[?(@.code == 'OVERALL_READING_ONLY')].saleStatus").value(contains("UPCOMING")))
+                .andExpect(jsonPath("$.data.items[?(@.code == 'OVERALL_READING_WITH_TALISMAN')].saleStatus").value(contains("ENDED")))
+                .andExpect(jsonPath("$.data.items[?(@.code == 'SUNEUNG_READING_WITH_TALISMAN')].saleStatus").value(contains("RETIRED")));
+
+        mvc.perform(get("/api/v1/products").param("category", "FORTUNE").param("fortuneType", "OVERALL"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items").isEmpty());
     }
 
     @Test
