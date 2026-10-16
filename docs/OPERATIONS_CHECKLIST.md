@@ -4,6 +4,7 @@
 
 - 실제 Liner 연결 스모크와 합성 `OVERALL/SUMMARY` 한 섹션 생성·validator 검증을 실행했다. 이름·계정·raw birth input 없이 결정론적 facts projection만 전송했으며, 응답은 오행 우세와 2026년 세운을 source fact key로 인용하고 투자 권유·의학 진단을 피했다. 합성 결과 파일은 build output에만 남기고 Git에 추가하지 않았다.
 - 실제 응답의 HTTP content type이 `application/octet-stream`일 수 있어 기존 `JsonNode` 변환이 실패하는 문제를 확인·수정했다. 어댑터는 이제 body를 문자열로 받은 뒤 Jackson JSON parser로 읽으며, octet-stream JSON envelope 회귀 테스트를 추가했다. HTTP error body·API key는 계속 exception/log에 포함하지 않는다.
+- live 응답의 2026년 세운 표현을 점검하며, validator가 문장 속 4자리 연도도 request 기준일 또는 facts의 숫자/날짜 연도와 대조하도록 보강했다. facts 밖의 연도(예: 2028년)를 결과처럼 언급하면 `LINER_UNSUPPORTED_ENTITY`로 거절하고, `luck.annual`에 실제로 있는 연도는 허용한다.
 - `LinerApiProviderTest`, `LinerResponseValidatorTest`, opt-in live quality test를 실행해 통과했다. live quality harness는 비용·시간을 제한하려 한 섹션만 요청한다. 실제 유료 10섹션 응답의 latency, retry/fallback, malformed JSON/429 fault injection, PostgreSQL snapshot 저장은 별도 장시간·격리 PostgreSQL 환경에서 아직 미검증이다.
 - 적용: 6-3 provider content-type 변동에 대한 정상 JSON 처리와 timeout 경계, 6-4 validator 실패 시 기존 retry/fallback 경로 유지, 6-9 합성 facts-only 전송·API key/원문 개인정보 미출력, 6-10 한 섹션 live smoke로 외부 호출량을 제한. 외부 호출은 DB transaction 밖에서만 수행하며 wallet/payment은 변경하지 않았다.
 

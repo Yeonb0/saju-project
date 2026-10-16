@@ -44,6 +44,7 @@ public class LinerResponseValidator {
             Map.entry("괴강살", "GANG_STRENGTH"), Map.entry("망신살", "DISGRACE"),
             Map.entry("홍염살", "RED_CHARM"));
     private static final Pattern GANJI = Pattern.compile("[갑을병정무기경신임계][자축인묘진사오미신유술해]");
+    private static final Pattern YEAR = Pattern.compile("(?<!\\d)(?:19|20)\\d{2}(?!\\d)");
     private final ObjectMapper mapper;
     private final JsonSchema schema;
     private final JsonSchema suneungSchema;
@@ -94,7 +95,7 @@ public class LinerResponseValidator {
             if (FORBIDDEN.stream().anyMatch(pattern -> pattern.matcher(content).find())) {
                 throw new InvalidGenerationException("LINER_FORBIDDEN_EXPRESSION", "forbidden expression found");
             }
-            validateMentionedEntities(title + "\n" + content, request.facts());
+            validateMentionedEntities(title + "\n" + content, request);
             if (section.sourceFactKeys().isEmpty()
                     || section.sourceFactKeys().stream().anyMatch(path -> !validFactPaths.contains(path))) {
                 throw new InvalidGenerationException("LINER_SOURCE_FACT_INVALID", "sourceFactKeys must reference supplied facts");
@@ -134,7 +135,8 @@ public class LinerResponseValidator {
      * 간지 or 신살 is present. Check only unambiguous domain labels so ordinary Korean prose is
      * not treated as a calculation assertion.
      */
-    private void validateMentionedEntities(String text, JsonNode facts) {
+    private void validateMentionedEntities(String text, LinerRequest request) {
+        JsonNode facts = request.facts();
         Set<String> presentStars = new LinkedHashSet<>();
         JsonNode natal = facts.path("specialStars").path("natal");
         if (natal.isArray()) {
@@ -157,6 +159,17 @@ public class LinerResponseValidator {
             throw new InvalidGenerationException("LINER_UNSUPPORTED_ENTITY",
                     "mentioned pillar is absent from supplied facts: " + matcher.group());
         }
+        Set<String> supportedYears = new LinkedHashSet<>();
+        supportedYears.add(String.valueOf(request.referenceDate().getYear()));
+        for (String value : textualValues(facts)) {
+            var yearMatcher = YEAR.matcher(value);
+            while (yearMatcher.find()) supportedYears.add(yearMatcher.group());
+        }
+        var yearMatcher = YEAR.matcher(text);
+        while (yearMatcher.find() && !supportedYears.contains(yearMatcher.group())) {
+            throw new InvalidGenerationException("LINER_UNSUPPORTED_ENTITY",
+                    "mentioned year is absent from supplied facts: " + yearMatcher.group());
+        }
     }
 
     private Set<String> textualValues(JsonNode node) {
@@ -171,7 +184,7 @@ public class LinerResponseValidator {
             node.elements().forEachRemaining(value -> collectText(value, values));
         } else if (node.isArray()) {
             node.elements().forEachRemaining(value -> collectText(value, values));
-        } else if (node.isTextual()) {
+        } else if (node.isTextual() || node.isNumber()) {
             values.add(node.asText());
         }
     }
