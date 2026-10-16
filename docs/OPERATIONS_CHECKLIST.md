@@ -7,6 +7,11 @@
 - `compileTestJava`와 계산·신살·validator 회귀는 통과했다. `ReadingGenerationPersistenceTest`/`BundledReadingFulfillmentTransactionTest`를 포함한 H2 테스트는 이 변경 전부터 존재한 PostgreSQL 전용 Flyway SQL을 H2가 해석하지 못해 context migration 단계에서 실패했다. 별도 PostgreSQL recovery task도 실행했으나, 실행 중인 격리 컨테이너가 저장소의 공개 local-test 계정 인증을 거절해 Flyway 연결 전에 중단됐다. 비밀번호 조회·기존 컨테이너 재생성은 하지 않았다. 이번 migration의 PostgreSQL 적용·기존 row legacy read·동시 lease/restore는 아직 검증하지 못했다.
 - 적용: 6-2 snapshot insert와 purchase `FULFILLED` 전환은 기존 한 transaction 경계를 유지, 6-4 recovery는 durable context와 lease fence 재사용, 6-6 additive nullable migration/rolling read 호환, 6-9 raw birth input 미저장. 외부 Liner 호출은 계속 transaction 밖이며, wallet/payment 상태는 변경하지 않았다.
 
+### 2026-10-16: snapshot evidence 최소화 단위 회귀 (로컬)
+
+- `OwnedReadingEvidenceTest`가 snapshot evidence가 섹션의 fact key 경로만 복사하고, immutable list로 유지되며, 생년일·시각 같은 raw birth input을 포함하지 않는지 확인한다. legacy constructor는 `ruleVersion`을 null로 유지해 이미 저장된 결과의 read 호환을 보장한다.
+- `OwnedReadingEvidenceTest`와 계산·신살·validator 회귀를 로컬에서 실행해 통과했다. PostgreSQL insert/read와 migration 검증은 위의 격리 DB 인증 불일치 때문에 여전히 미확인이다. 적용: 6-9 evidence 최소화, 6-6 legacy read 계약 유지.
+
 ### 2026-10-16: 신살 규칙 fixture 분리 (로컬 단위 회귀)
 
 - `backend/src/test/resources/saju-rules/sinsal-v1/cases.json`으로 `sinsal-v1` 회귀를 계산 fixture와 분리했다. test는 calculation policy와 rule version을 각각 대조하고 13종 판정 구조, 홍염살·백호살 count, 대운/세운 activation 존재를 확인한다.
