@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ErrorCode;
 import com.sajuppugi.gift.application.DirectGiftBatchService.Option;
+import com.sajuppugi.gift.infrastructure.GiftPayloadCipher;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -18,11 +19,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.gift.orders-enabled=true",
+        "app.gift.payload-key=dGVzdC1vbmx5LXBlcnNvbi1lbmNyeXB0aW9uLWtleSE="
+})
 @ActiveProfiles("test")
 class DirectGiftBatchServiceTest {
     @Autowired DirectGiftBatchService service;
     @Autowired JdbcTemplate jdbc;
+    @Autowired GiftPayloadCipher cipher;
     private UUID buyer;
 
     @AfterEach
@@ -65,5 +70,25 @@ class DirectGiftBatchServiceTest {
                 JOIN direct_gift_batches b ON b.payment_batch_id = r.payment_batch_id
                 WHERE b.buyer_user_id = ?
                 """, Integer.class, buyer)).isEqualTo(1);
+    }
+
+    @Test
+    void storesDisplayPayloadEncryptedAndRejectsSameKeyWithChangedMessage() {
+        buyer = UUID.randomUUID();
+        var command = new DirectGiftBatchService.Command("서인", "민지야 수능 대박 나자!", List.of(
+                new DirectGiftBatchService.Recipient("민지", Option.READING_WITH_TALISMAN)));
+
+        var created = service.create(buyer, command, "display-payload-key");
+        var encrypted = jdbc.queryForObject("SELECT private_payload FROM direct_gift_batch_recipients WHERE payment_batch_id = ?",
+                String.class, created.id());
+        UUID recipient = jdbc.queryForObject("SELECT id FROM direct_gift_batch_recipients WHERE payment_batch_id = ?", UUID.class, created.id());
+        assertThat(encrypted).doesNotContain("민지", "서인", "수능 대박")
+                .isNotBlank();
+        assertThat(cipher.decrypt(encrypted, "direct-gift|" + created.id() + "|" + recipient))
+                .contains("민지", "서인", "수능 대박");
+        assertThatThrownBy(() -> service.create(buyer,
+                new DirectGiftBatchService.Command("서인", "다른 메시지", command.recipients()), "display-payload-key"))
+                .isInstanceOfSatisfying(ApiException.class,
+                        failure -> assertThat(failure.errorCode()).isEqualTo(ErrorCode.IDEMPOTENCY_KEY_REUSED));
     }
 }
