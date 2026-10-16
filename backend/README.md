@@ -1,9 +1,9 @@
 # backend
 
-백엔드는 **Spring Boot 3 + PostgreSQL**로 확정됐다. 운영 배포는 Railway, API prefix는 `/api/v1`을 사용한다.
+백엔드는 **Spring Boot 3 + PostgreSQL**, API prefix는 `/api/v1`을 사용한다. AWS 첫 배포는 FE Amplify / BE Elastic Beanstalk Java SE 기준으로 준비하며, 실제 AWS 자원·DB·리전은 배포 시 확정한다. [PG 연결 전 배포 안내](docs/AWS_PRELAUNCH_DEPLOYMENT.md).
 
 - 인증: 카카오 OAuth + 서버 세션 쿠키
-- 결제: 토스페이먼츠
+- 결제: 토스 기준 기존 구현, 최종 PG 미정. 첫 배포에서는 PG 비활성.
 - 파일: Cloudflare R2
 - 외부 생성: 만세력 계산 JSON에 근거한 Liner 해석 문장만 사용
 

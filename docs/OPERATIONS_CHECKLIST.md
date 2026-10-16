@@ -1,5 +1,16 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: AWS PG 비활성 첫 배포 준비
+
+- 기준 main `2aadee5`, 브랜치 `codex/aws-prelaunch-deployment`. 사용자 요청에 따라 PG 연결보다 서버 배포 준비를 먼저 진행. FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 구성이며 실제 AWS 자원 생성·배포는 미실행.
+- `staging,prelaunch` 전용 기동 검사 추가. local/test/production 혼합, PG adapter·금융/선물/관리자/미준비 worker 활성화, fake Liner, 누락 설정, 잘못된 FE HTTPS origin·카카오 proxy callback을 거절. 값 원문 없이 설정 이름만 오류에 사용. 기존 업무 API·원장·migration 변경 없음.
+- `beanstalkPrelaunchBundle`은 app.jar·Procfile·검토된 .ebextensions만 ZIP으로 묶음. PORT=5000, readiness 경로, graceful shutdown 및 연결 풀 설정 추가. .env·실제 키·소스 미포함 확인.
+- 적용 점검: 6-1 고정 FE origin/콜백·권한 유지, 6-3 PG 비활성, 6-4 미준비 작업 차단, 6-6 실행 패키지/기동, 6-7 복원 절차 안내, 6-8 health·관측, 6-9 비밀값·암호화 키 보존.
+- 배포 설정 27건·기존 Toss 설정 3건 총 30건 통과, 실패/오류/선택 제외 0. bootJar·배포 ZIP 생성 성공, git diff --check 통과. 전체 회귀 재실행 아님.
+- 별도 일회용 PostgreSQL 17 컨테이너(127.0.0.1:55436/saju_prelaunch_check), synthetic OAuth/Liner 키·새 테스트 암호화 키로 실제 실행 JAR 기동. 54 migrations 적용, readiness=200/UP·liveness=200·세션 GET=200·API docs=401 확인. 실제 PG·Liner·카카오 외부 호출 없음. 임시 JVM·컨테이너 종료, 기존 개발/운영 DB 미사용.
+- 미검증: AWS 리전/계정/HTTPS/보안 그룹/Secrets Manager, 실제 FE proxy·카카오 로그인·인물 저장 E2E, 운영 용량·강제 종료 복구·백업 복원. guard 테스트와 health 결과는 실제 결제·로그인·판매 준비 완료의 근거가 아님.
+- 환경 변수·업로드·검증·제한은 `backend/docs/AWS_PRELAUNCH_DEPLOYMENT.md`. 최신 FE 직접결제와 BE API 호환·PG 선정/전환은 별도 작업. 실제 배포 업체·리전 확정 후 개인정보처리방침 수정 필요.
+
 ### 2026-10-15: BE-B 최신 main 통합·PostgreSQL 전체 회귀
 
 - `origin/main` `b0499a6`을 `feat/be-b-gift-recipient-access`에 병합했다. main의 직접 링크 token 암호문 키 회전·목적 종료 삭제와 BE-B의 recipient profile 키 회전·fulfillment lease 보호를 모두 유지했다. API/기능 명세 충돌은 최신 1차 직접 링크·24시간 원문 공개·30일 재발급 정책을 기준으로 BE-B 공개 수신/결과 구현 상태를 합쳤다.
