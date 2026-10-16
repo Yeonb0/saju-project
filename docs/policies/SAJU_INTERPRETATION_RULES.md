@@ -34,4 +34,3 @@
 ## 변경 관리
 
 신살 표, 판정 기준, 출력 허용 범주가 바뀌면 `ruleVersion`을 올리고 fixture와 검수 근거를 함께 갱신한다. `calculationVersion`과 `ruleVersion`은 독립적으로 관리한다.
-
