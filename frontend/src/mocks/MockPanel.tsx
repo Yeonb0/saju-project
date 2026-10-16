@@ -60,7 +60,6 @@ const SHORTCUTS = [
   "/login",
   "/onboarding",
   "/suneung",
-  "/wallet",
   "/me",
   "/about",
 ] as const;
