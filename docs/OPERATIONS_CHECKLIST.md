@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 직접결제 수능 선물 수신 안내 API 통일 (격리 PostgreSQL 17)
+
+- 공개 선물 접근 응답은 수신자 표시명·보내는 사람·메시지와 option뿐 아니라, 서버가 보장하는 구성 ID(`LETTER`, `TALISMAN`, `READING`, `SUNEUNG_CHECKLIST`)를 함께 반환한다. 클라이언트는 이 ID를 화면 문구·아이콘으로 매핑하며, 상품 정책에 없는 구성품을 임의로 표시하지 않는다. 기존 견적의 구성 enum은 그대로 유지했다.
+- 직접결제 전용 공개 접근 경로도 일반 공개 선물 접근과 같은 projection을 반환하도록 통일했다. 이 경로는 fulfillment가 만든 gift draft/token을 다시 검증하므로, recipient 내부 ID나 direct batch 상태를 공개하지 않는다. token은 계속 JSON body로만 받고, rate limit과 활성·만료·폐기 검증을 공통으로 적용한다.
+- 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 `GiftRecipientPostgresTest`를 `--rerun-tasks`로 실행해, 직접결제 선물 payload의 수신자·보내는 이·메시지 복호화와 구성 ID 반환, 동시 fulfillment·재발급·lease recovery 회귀를 확인했다. browser 화면, OpenAPI/FE 타입 재생성, staging ingress와 실제 결제 provider는 미검증이다.
+- 적용: 6-1 bearer token 접근 경계와 내부 ID 최소화, 6-2 이미 확정된 gift draft/work 읽기만 수행, 6-5 수신 링크의 활성·만료·재발급 정책 재사용, 6-9 메시지는 유효 token 수신자에게만 복호화. 현금 취소/환불과 policy에 없는 `도시락` 구성품은 이번 범위에 포함하지 않는다.
+
 ### 2026-10-16: 직접결제 선물 표시 payload·보낸/받은 선물 projection 보강 (격리 PostgreSQL 17)
 
 - 직접결제 선물 batch 요청은 수신자별 표시 이름, 보내는 사람, 메시지를 받고 recipient 행의 AES-GCM payload로만 저장한다. 같은 `Idempotency-Key`는 옵션뿐 아니라 이 본문도 HMAC fingerprint로 대조하므로, 같은 키로 메시지나 수신자를 바꾸는 요청은 거절한다. fulfillment은 이 값을 기존 gift draft의 owner/order AAD로 재암호화해 공개 bearer token·목록 응답에 원문을 넣지 않는다. migration은 새 nullable 열만 추가해 기존 직접결제 선물은 legacy 표시값으로 읽는다.
