@@ -1,5 +1,10 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: AWS PG 비활성 첫 배포 준비
+
+- FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
+- 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
+
 ### 2026-10-16: 직접결제 선물 표시 payload·보낸/받은 선물 projection 보강 (격리 PostgreSQL 17)
 
 - 직접결제 선물 batch 요청은 수신자별 표시 이름, 보내는 사람, 메시지를 받고 recipient 행의 AES-GCM payload로만 저장한다. 같은 `Idempotency-Key`는 옵션뿐 아니라 이 본문도 HMAC fingerprint로 대조하므로, 같은 키로 메시지나 수신자를 바꾸는 요청은 거절한다. fulfillment은 이 값을 기존 gift draft의 owner/order AAD로 재암호화해 공개 bearer token·목록 응답에 원문을 넣지 않는다. migration은 새 nullable 열만 추가해 기존 직접결제 선물은 legacy 표시값으로 읽는다.
