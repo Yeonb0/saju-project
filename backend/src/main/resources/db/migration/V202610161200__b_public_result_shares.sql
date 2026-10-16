@@ -4,7 +4,7 @@ CREATE TABLE public_result_shares (
     owner_user_id UUID NOT NULL,
     source_kind VARCHAR(16) NOT NULL CHECK (source_kind IN ('READING', 'TALISMAN')),
     source_id UUID NOT NULL,
-    snapshot JSONB NOT NULL,
+    snapshot TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     revoked_at TIMESTAMP WITH TIME ZONE,

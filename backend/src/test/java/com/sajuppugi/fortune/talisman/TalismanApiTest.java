@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,6 +80,48 @@ class TalismanApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.url").value("https://signed.invalid/file"))
                 .andExpect(jsonPath("$.data.expiresInSeconds").value(600));
+    }
+
+    @Test
+    void sharesOnlyReadyOwnedTalismanAndRevokesThePublicToken() throws Exception {
+        UUID owner = UUID.randomUUID(), other = UUID.randomUUID();
+        UUID ready = insert(owner, "READY", Instant.parse("2026-10-13T02:00:00Z"));
+        UUID pending = insert(owner, "PENDING", Instant.parse("2026-10-13T03:00:00Z"));
+
+        mvc.perform(post("/api/v1/talismans/{id}/share", pending).with(user(owner.toString())).with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TALISMAN_NOT_READY"));
+        mvc.perform(post("/api/v1/talismans/{id}/share", ready).with(user(other.toString())).with(csrf()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TALISMAN_NOT_FOUND"));
+
+        String created = mvc.perform(post("/api/v1/talismans/{id}/share", ready).with(user(owner.toString())).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.kind").value("TALISMAN"))
+                .andExpect(jsonPath("$.data.snapshot.ownerUserId").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        String token = JsonPath.read(created, "$.data.token");
+        String shareId = JsonPath.read(created, "$.data.shareId");
+        String rotated = mvc.perform(post("/api/v1/talismans/{id}/share", ready).with(user(owner.toString())).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shareId").value(shareId))
+                .andReturn().getResponse().getContentAsString();
+        String renewedToken = JsonPath.read(rotated, "$.data.token");
+        mvc.perform(get("/api/v1/public/result-shares/{token}", token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SHARE_NOT_FOUND"));
+        mvc.perform(get("/api/v1/public/result-shares/{token}", renewedToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.kind").value("TALISMAN"))
+                .andExpect(jsonPath("$.data.snapshot.phrase").value("문구"))
+                .andExpect(jsonPath("$.data.snapshot.sourceReadingId").doesNotExist());
+        mvc.perform(delete("/api/v1/result-shares/{id}", shareId).with(user(other.toString())).with(csrf()))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/result-shares/{id}", shareId).with(user(owner.toString())).with(csrf()))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/public/result-shares/{token}", renewedToken))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value("SHARE_REVOKED"));
     }
 
     private UUID insert(UUID owner, String status, Instant createdAt) {

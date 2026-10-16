@@ -4,7 +4,7 @@
 
 - 로그인 소유자는 완료된 일반 운세 또는 `READY` 부적마다 공개 링크를 생성하고 철회할 수 있다. 링크는 32바이트 URL-safe token의 SHA-256 hash만 저장하며 30일 뒤 만료된다. 같은 source로 새 링크를 생성하면 이전 token을 회전해 즉시 무효화한다.
 - 공개 조회는 `READING`의 fortune type/content version/생성된 sections 또는 `TALISMAN`의 오행·동물·문구·설명·composition만 저장된 JSONB snapshot에서 반환한다. 사용자·사람·구매·reading/talisman ID, 원본 사주 입력, object key는 반환하지 않는다. 부적 이미지는 기존 외부 object storage 공개/서명 adapter가 확정되지 않아 이번 API에서 URL로 노출하지 않는다.
-- 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 `GiftRecipientPostgresTest`를 `--rerun-tasks`로 실행해 신규 Flyway migration과 기존 공개 선물/직접결제 흐름의 호환을 확인했다. 공유 생성·회전·철회 HTTP와 두 독립 JVM 동시 생성, browser rendering, 실제 R2/서명 URL은 아직 전용 회귀로 검증하지 않았다.
+- 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 `TalismanApiTest`를 `--rerun-tasks`로 실행해 신규 Flyway migration, 준비 전 부적 거절, 타인 소유 부적 거절, 공개 snapshot의 내부 ID 비노출, token 회전의 이전 URL 무효화, 소유자 철회 뒤 `410 SHARE_REVOKED`를 확인했다. 기존 `GiftRecipientPostgresTest`도 신규 migration과 공개 선물/직접결제 흐름 호환을 통과했다. 두 독립 JVM 동시 생성, 일반 운세 공유 HTTP, browser rendering, 실제 R2/서명 URL은 아직 전용 회귀로 검증하지 않았다.
 - 적용: 6-1 source별 owner 확인과 공개 projection 분리, 6-2 source unique constraint로 단일 share row 수렴, 6-5 URL token hash·만료·철회, 6-6 additive migration, 6-9 공개 snapshot 최소화. 6-10 실제 공유 유입량·캐시/스토리지 부하는 미측정이다.
 
 ### 2026-10-16: 직접결제 수능 선물 수신 안내 API 통일 (격리 PostgreSQL 17)
