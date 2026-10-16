@@ -2,11 +2,12 @@
 // 진짜 구현(src/lib/api/adapters)은 모든 포트에 연결돼 있다. 진짜 모드는 가짜로 돌아가지 않는다.
 // 가짜 시나리오는 NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO (비우면 credited),
 // NEXT_PUBLIC_MOCK_SESSION_SCENARIO (비우면 signed_out), NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO (비우면 fulfilled).
-// 직접결제는 NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO (비우면 paid). 진짜 직접결제 adapter 는 아직 없어 진짜 모드는 호출할 때 reject 한다 (DIRECT-PAY).
+// 직접결제는 NEXT_PUBLIC_MOCK_DIRECT_PAYMENT_SCENARIO (비우면 paid). 진짜 모드는 직접결제 adapter(src/lib/api/adapters/directPayment.ts)를 쓴다 (DIRECT-PAY).
 // 모르는 값은 기본값으로 덮지 않고 던진다.
 // 가짜 모드에서는 화면 안 패널(MOCK-PANEL)이 고른 저장값이 환경 변수보다 먼저다: 저장값 → 환경 변수 → 기본값 (src/mocks/overrides.ts).
 
 import { createBasicSajuAdapter } from "@/lib/api/adapters/basicSaju";
+import { createDirectPaymentAdapter } from "@/lib/api/adapters/directPayment";
 import { createFortuneAdapter } from "@/lib/api/adapters/fortune";
 import { createPersonAdapter } from "@/lib/api/adapters/person";
 import { createReadingAdapter } from "@/lib/api/adapters/reading";
@@ -225,28 +226,15 @@ export function resolveDirectPaymentScenario(
   );
 }
 
-// 진짜 직접결제 adapter 는 아직 없다 (DIRECT-PAY). 선택 시점에 던지지 않고(정적 렌더 가드) 호출할 때 reject 한다.
-// 가짜로 돌아가지 않는다. TODO(DIRECT-PAY 진짜 adapter): PR #49 병합 · OPENAPI-FE-SYNC 후
-function createUnavailableDirectPaymentPort(): DirectPaymentPort {
-  const unavailable = async (): Promise<never> => {
-    throw new Error(
-      "직접결제 진짜 adapter 없음 — PR #49 병합 · OPENAPI-FE-SYNC 후 (DIRECT-PAY)",
-    );
-  };
-  return {
-    createOrder: unavailable,
-    confirm: unavailable,
-    getOrder: unavailable,
-    fulfillReading: unavailable,
-  };
-}
-
 export function selectDirectPaymentPort(
   mode: ApiMode,
   scenarioRaw: string | undefined,
   fortune?: FakeFortunePort,
 ): DirectPaymentPort {
-  if (mode === "real") return createUnavailableDirectPaymentPort();
+  if (mode === "real")
+    return createDirectPaymentAdapter(
+      createApiClient({ csrf: getRealSession().csrf }),
+    );
   if (!fortune) {
     throw new Error("가짜 직접결제에는 가짜 운세 포트가 필요하다 (DIRECT-PAY)");
   }

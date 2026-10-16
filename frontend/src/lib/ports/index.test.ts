@@ -372,12 +372,22 @@ describe("직접결제 포트 선택 (DIRECT-PAY, MOCK-PORT)", () => {
     );
   });
 
-  it("I2. 진짜 모드는 선택할 때 던지지 않고 호출하면 reject 한다 — 가짜 결과를 내지 않는다", async () => {
+  it("I2. 진짜 모드는 선택할 때 던지지 않고 adapter 를 준다 (요청 메서드 4개가 함수) — 가짜로 돌아가지 않는다", () => {
     const port = selectDirectPaymentPort("real", undefined);
-    await expect(port.createOrder({ quoteId: "q" }, "key")).rejects.toThrow(
-      "직접결제 진짜 adapter 없음",
+    expect(typeof port.createOrder).toBe("function");
+    expect(typeof port.confirm).toBe("function");
+    expect(typeof port.getOrder).toBe("function");
+    expect(typeof port.fulfillReading).toBe("function");
+  });
+
+  it("I2. 진짜 모드 adapter 는 서버로 요청한다 — 가짜 결과를 내지 않는다", async () => {
+    const fetchMock = stubFetch({});
+    await selectDirectPaymentPort("real", undefined)
+      .getOrder("33333333-3333-4333-8333-333333333333")
+      .catch(() => undefined);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/v1/direct-payment-batches/33333333-3333-4333-8333-333333333333",
     );
-    await expect(port.getOrder("o")).rejects.toThrow();
   });
 
   it("I3. 가짜 모드에 가짜 운세가 없으면 던진다", () => {

@@ -1,5 +1,5 @@
 // 직접결제(건별 원화 결제) 포트 모델 — 등껍질 차감 대신 운세 한 건을 원화로 바로 결제한다 (DIRECT-PAY, 2026-10-16 사용자 결정).
-// 초안 — PR #49 병합 · OPENAPI-FE-SYNC 후 생성 타입과 대조 (MOCK-PORT). 이름은 BE 전달본 DIRECT_PAYMENT_FRONTEND_HANDOFF 응답을 따른다.
+// 진짜 구현 src/lib/api/adapters/directPayment.ts (PR #49 c2a1392 기준). TODO(OPENAPI-FE-SYNC): 공유 OpenAPI 반영 후 생성 타입과 대조 (MOCK-PORT). 이름은 BE 전달본 DIRECT_PAYMENT_FRONTEND_HANDOFF 응답을 따른다.
 // 금액 · 상태는 서버 값만 쓴다 — 화면이 주문 금액을 계산하지 않는다 (P-09).
 import type { FortuneSelection, ReadingPurchaseStatus } from "./fortune";
 import type { KrwPrice, PaymentReturn } from "./topUp";
