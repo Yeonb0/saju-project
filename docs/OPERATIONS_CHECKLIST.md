@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 수능운 판매 lifecycle API 1차 반영 (로컬 compile + 단위 테스트)
+
+- `GET /api/v1/products?category=FORTUNE&includeUnavailable=true`는 기존의 구매 가능 상품 목록을 바꾸지 않고 `UPCOMING`·`AVAILABLE`·`ENDED`·`RETIRED` 상태를 함께 반환한다. 기본 조회와 quote/direct payment는 계속 `AVAILABLE`만 허용하므로, 화면의 종료 상태가 결제 권한을 넓히지 않는다. TOP_UP의 과거 상품은 이번 공개 lifecycle 범위에서 제외한다.
+- `ProductSaleStatusTest`와 `compileTestJava`는 통과했다. 기존 HTTP catalog 회귀를 PostgreSQL 17 컨테이너에서 실행하려 했지만, 실행 중 컨테이너의 테스트 계정 인증이 저장소의 공개 local test 안내와 일치하지 않아 Flyway 연결 전에 실패했다. 비밀값을 조회하거나 컨테이너를 재생성하지 않았으므로 PostgreSQL HTTP/경계 시각 검증은 미확인이다. H2는 기존 PostgreSQL 전용 Flyway migration에서 기동 실패해 대체 근거로 쓰지 않았다.
+- 적용: 6-6 additive HTTP 응답 계약과 기존 기본 목록 호환. 미확인: 6-10 실제 FE polling/캐시 영향, PostgreSQL의 판매 종료 경계 및 quote 동시 요청. 다음 선물 목록/공유 변경 전 이 기능은 별도 commit/PR 경계로 유지한다.
+
 ### 2026-10-16: BE-B 전체 코드리뷰 지적사항 보완 (로컬 PostgreSQL 17)
 
 - 직접결제 운세는 결제 소비 claim, 구매 `DEBITED`, 암호화 generation context 저장을 한 짧은 PostgreSQL transaction에서 확정하도록 묶었다. 외부 생성 호출은 이 transaction 밖에서 실행하며, wallet 기능이 꺼진 직접결제 환경에서도 generation recovery scheduler가 동작하도록 조건을 분리했다.

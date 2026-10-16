@@ -10,6 +10,9 @@ import java.util.UUID;
 public interface CatalogUseCase {
     List<Product> availableProducts(Product.Category category);
 
+    /** Display catalog only. Callers must not use this as a purchase-eligibility check. */
+    List<Product> products(Product.Category category);
+
     List<TopUpProduct> availableTopUps();
 
     PurchaseQuote issueQuote(IssueQuote command);
