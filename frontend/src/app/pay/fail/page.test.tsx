@@ -19,7 +19,11 @@ describe("/pay/fail (PAY-05)", () => {
     // 픽스처일 뿐이며 실제 PG 코드 · 메시지와 무관하다
     render(
       await Page(
-        props({ code: "PAY_PROCESS_CANCELED", message: "FIXTURE 원문" }),
+        props({
+          flow: "direct",
+          code: "PAY_PROCESS_CANCELED",
+          message: "FIXTURE 원문",
+        }),
       ),
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
@@ -28,7 +32,7 @@ describe("/pay/fail (PAY-05)", () => {
     expect(screen.getByText("결제를 취소했어요.")).toBeVisible();
     expect(screen.queryByText(FAILURE_SUB)).toBeNull();
     expect(
-      screen.getByText("결제가 완료되지 않아 등껍질은 지급되지 않았어요."),
+      screen.getByText("결제가 완료되지 않아 결제 금액은 청구되지 않았어요."),
     ).toBeVisible();
     expect(document.body.textContent).not.toContain("FIXTURE 원문");
     expect(document.body.textContent).not.toContain("PAY_PROCESS_CANCELED");
@@ -39,7 +43,7 @@ describe("/pay/fail (PAY-05)", () => {
     ["code 없음", { message: "FIXTURE 원문" }],
     ["code 가 여러 번", { code: ["PAY_PROCESS_CANCELED", "X"] }],
   ])("%s 면 실패 문구, code · message 글자는 화면에 없다", async (_name, query) => {
-    render(await Page(props(query)));
+    render(await Page(props({ flow: "direct", ...query })));
     expect(screen.getByRole("alert")).toHaveTextContent(
       "결제가 완료되지 않았어요",
     );
@@ -48,38 +52,14 @@ describe("/pay/fail (PAY-05)", () => {
     expect(document.body.textContent).not.toContain("FIXTURE");
   });
 
-  it("product=FIXTURE_TOP_UP_X 면 다시 결제하기가 상품을 유지하고, 그 코드는 화면 글자에 없다 (TOPUP-RETRY-URL)", async () => {
-    // 픽스처일 뿐이며 실제 상품 코드와 무관하다
-    render(await Page(props({ product: "FIXTURE_TOP_UP_X" })));
-    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
-      "href",
-      "/wallet?product=FIXTURE_TOP_UP_X",
-    );
-    expect(document.body.textContent).not.toContain("FIXTURE_TOP_UP_X");
-  });
-
   it.each([
-    ["이상한 값", { product: "x<y" }],
-    ["없음", {}],
-    ["여러 번", { product: ["FIXTURE_TOP_UP_X", "FIXTURE_TOP_UP_Y"] }],
-  ])("product %s 면 다시 결제하기는 /wallet", async (_name, query) => {
-    render(await Page(props(query)));
-    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
-      "href",
-      "/wallet",
-    );
-  });
-
-  it("다시 결제하기(/wallet) · 홈으로(/) 링크, 헤더 없음", async () => {
-    render(await Page(props({})));
-    const links = within(screen.getByTestId("app-cta")).getAllByRole("link");
-    expect(links.map((l) => l.textContent)).toEqual([
-      "다시 결제하기",
-      "홈으로",
-    ]);
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/wallet", "/"]);
-    expect(screen.queryByRole("banner")).toBeNull();
-    expect(document.body.textContent).not.toContain("청구");
+    ["flow 없음", {}],
+    ["flow 없음 + product", { product: "FIXTURE_TOP_UP_X" }],
+    ["flow=top_up", { flow: "top_up" }],
+    ["flow=top_up + product", { flow: "top_up", product: "FIXTURE_TOP_UP_X" }],
+    ["flow 여러 번", { flow: ["direct", "direct"] }],
+  ])("P2. %s 면 not-found (충전 실패 복귀는 닫았다, DIRECT-PAY)", async (_name, query) => {
+    await expect(Page(props(query))).rejects.toThrow();
   });
 });
 
@@ -145,16 +125,5 @@ describe("/pay/fail?flow=direct (DIRECT-PAY)", () => {
       "href",
       "/",
     );
-  });
-
-  it("F4. flow 가 다른 값이면 지금 동작 그대로(충전 문장 · /wallet)", async () => {
-    render(await Page(props({ flow: "other", return: "/x" })));
-    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
-      "href",
-      "/wallet",
-    );
-    expect(
-      screen.getByText("결제가 완료되지 않아 등껍질은 지급되지 않았어요."),
-    ).toBeVisible();
   });
 });
