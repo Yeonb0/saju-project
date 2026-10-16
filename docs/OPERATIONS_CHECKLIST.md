@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 충전 승인 PostgreSQL burst 회귀 보강 (격리 PostgreSQL 17)
+
+- `TopUpPaymentFlowTest`에 32개 동시 승인 burst 두 종류를 추가했다. 같은 지갑의 서로 다른 주문 32개가 한꺼번에 승인돼도 wallet lock 아래 원장 32건, 지급 lot 64건, 최종 잔액 1,792 등껍질이 일치해야 하며, 같은 주문의 32개 동시 재전송은 provider `confirm` 1회와 원장 1건·lot 2건·56 등껍질만 남아야 한다.
+- 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB, test Hikari max 6)에서 각각 실행했다. 서로 다른 주문 burst test 본문은 0.417초, 동일 주문 재전송 burst test 본문은 0.219초였고 모두 통과했다. 이 시간은 로컬 단일 JVM·fake provider의 test body 시간이며 Gradle/Spring 기동, HTTP ingress, 실제 PG network/provider 지연을 포함하지 않으므로 운영 p95나 용량 수치가 아니다.
+- 적용: 6-2 PostgreSQL 동시 원장/잔액 일치와 duplicate grant 방지, 6-3 provider 호출 1회 수렴, 6-10 connection pool보다 많은 caller burst에서의 bounded 대기 확인. 미확인: 실제 토스 timeout/429, 다중 JVM·DB pool saturation·Tomcat queue·HTTP p95, scheduler와 foreground 승인 혼합 부하, staging ingress와 운영 용량은 별도 시험이 필요하다.
+
 ### 2026-10-16: 결제 복구 scheduler 동시성 경계 분리 (격리 PostgreSQL 17)
 
 - 충전 복구, 현금 환불/대사, 직접결제 대사는 Spring 기본 scheduler를 공유하지 않고 `paymentOperationsScheduler`의 bounded pool을 사용한다. 기본 pool size는 3이며 환경 변수 `TOSS_OPERATIONS_SCHEDULER_POOL_SIZE`로 1~8만 설정할 수 있다. 각 worker 내부의 batch 순차 처리, lease, provider 호출의 transaction 밖 경계는 바꾸지 않았다.

@@ -222,6 +222,42 @@ class TopUpPaymentFlowTest {
         assertLedger(2, 112, 4);
     }
 
+    @Test void postgresBurstOfThirtyTwoDifferentOrdersForOneWalletPreservesEveryLedgerFact() throws Exception {
+        var orders = java.util.stream.IntStream.range(0, 32).mapToObj(index -> order("burst-" + index)).toList();
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(32)) {
+            var approvals = orders.stream().map(order -> pool.submit(() -> {
+                start.await();
+                return approve(order);
+            })).toList();
+            start.countDown();
+            for (var approval : approvals) {
+                assertThat(approval.get(30, TimeUnit.SECONDS).order().status()).isEqualTo(TopUpOrder.Status.CREDITED);
+            }
+        }
+        assertLedger(32, 32 * 56, 64);
+        verify(provider, times(32)).confirm(any(), any());
+    }
+
+    @Test void postgresBurstOfThirtyTwoRetriesForOneOrderConfirmsAndCreditsExactlyOnce() throws Exception {
+        var order = order("same-order-burst");
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(32)) {
+            var approvals = java.util.stream.IntStream.range(0, 32).mapToObj(index -> pool.submit(() -> {
+                start.await();
+                return approve(order);
+            })).toList();
+            start.countDown();
+            for (var approval : approvals) {
+                assertThat(approval.get(30, TimeUnit.SECONDS).order().status())
+                        .isIn(TopUpOrder.Status.PAYMENT_PENDING, TopUpOrder.Status.CREDITED);
+            }
+        }
+        assertThat(payments.get(user, order.id()).order().status()).isEqualTo(TopUpOrder.Status.CREDITED);
+        assertLedger(1, 56, 2);
+        verify(provider, times(1)).confirm(eq(order.id()), any());
+    }
+
     @Test void grantFaultRollsBackAllWalletFactsAndRecoveryUsesLookup() {
         var order = order("create");
         var target = org.springframework.test.util.AopTestUtils.<JdbcWalletTopUps>getUltimateTargetObject(grants);
