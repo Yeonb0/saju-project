@@ -82,3 +82,79 @@ describe("/pay/fail (PAY-05)", () => {
     expect(document.body.textContent).not.toContain("청구");
   });
 });
+
+describe("/pay/fail?flow=direct (DIRECT-PAY)", () => {
+  const BOX = "결제가 완료되지 않아 결제 금액은 청구되지 않았어요.";
+
+  it("F1. return 경로로 다시 결제하기, box 는 직접결제 문장이고 등껍질 문장은 없다", async () => {
+    render(
+      await Page(
+        props({
+          flow: "direct",
+          return: "/fortune/love/questions",
+          code: "PAY_PROCESS_CANCELED",
+        }),
+      ),
+    );
+    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
+      "href",
+      "/fortune/love/questions",
+    );
+    expect(screen.getByText(BOX)).toBeVisible();
+    expect(screen.getByText("결제를 취소했어요.")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "결제가 완료되지 않았어요",
+    );
+    expect(document.body.textContent).not.toContain("등껍질");
+  });
+
+  it("F1. 인코딩된 쿼리가 든 return 도 그대로 이어 준다 (product 는 보지 않는다)", async () => {
+    render(
+      await Page(
+        props({
+          flow: "direct",
+          return: "/fortune/love/questions?personId=abc",
+          product: "FIXTURE_TOP_UP_X",
+        }),
+      ),
+    );
+    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
+      "href",
+      "/fortune/love/questions?personId=abc",
+    );
+  });
+
+  it("F2. return 이 없으면 다시 결제하기 없이 홈으로만", async () => {
+    render(await Page(props({ flow: "direct" })));
+    expect(screen.queryByRole("link", { name: "다시 결제하기" })).toBeNull();
+    const links = within(screen.getByTestId("app-cta")).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual(["홈으로"]);
+    expect(screen.getByText(BOX)).toBeVisible();
+  });
+
+  it("F2. return 이 여러 번 오면 다시 결제하기 없이 홈으로만", async () => {
+    render(await Page(props({ flow: "direct", return: ["/a", "/b"] })));
+    expect(screen.queryByRole("link", { name: "다시 결제하기" })).toBeNull();
+  });
+
+  it("F3. 바깥 주소 return 은 safeReturnTo 결과(/)가 된다", async () => {
+    render(
+      await Page(props({ flow: "direct", return: "https://evil.example" })),
+    );
+    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
+  it("F4. flow 가 다른 값이면 지금 동작 그대로(충전 문장 · /wallet)", async () => {
+    render(await Page(props({ flow: "other", return: "/x" })));
+    expect(screen.getByRole("link", { name: "다시 결제하기" })).toHaveAttribute(
+      "href",
+      "/wallet",
+    );
+    expect(
+      screen.getByText("결제가 완료되지 않아 등껍질은 지급되지 않았어요."),
+    ).toBeVisible();
+  });
+});

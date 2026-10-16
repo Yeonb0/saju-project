@@ -111,6 +111,7 @@ describe("WalletScreen — 다시 결제하기 상품 유지 (TOPUP-RETRY-URL, F
       expect(launcher.requestPayment).toHaveBeenCalledTimes(1),
     );
     expect(vi.mocked(launcher.requestPayment).mock.calls[0][1]).toEqual({
+      kind: "top_up",
       retryProductCode: "FIXTURE_TOP_UP_C",
     });
   });
@@ -287,6 +288,7 @@ describe("WalletScreen (PAY-01)", () => {
     const order = await createOrder.mock.results[0].value;
     // 두 번째 인자: 주문을 만든 상품 코드 (TOPUP-RETRY-URL) — 2번째 카드는 FIXTURE_TOP_UP_B
     expect(launcher.requestPayment).toHaveBeenCalledWith(order, {
+      kind: "top_up",
       retryProductCode: "FIXTURE_TOP_UP_B",
     });
   });

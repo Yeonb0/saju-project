@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { safeReturnTo } from "@/lib/auth/returnTo";
 import { PaymentCanceledError } from "@/lib/ports/paymentLauncher";
 import type { TopUpOrder } from "@/lib/ports/topUp";
 import {
@@ -91,7 +92,10 @@ function launcher(
 }
 
 // 픽스처일 뿐이며 실제 상품 코드와 무관하다
-const OPTIONS = { retryProductCode: "FIXTURE_TOP_UP_X" };
+const OPTIONS = {
+  kind: "top_up" as const,
+  retryProductCode: "FIXTURE_TOP_UP_X",
+};
 
 // 이벤트를 걸 때까지 기다린다
 async function waitForHandlers(handlers: Handlers) {
@@ -235,5 +239,56 @@ describe("토스 결제창 (TOSS-SDK)", () => {
     await expect(
       launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER, OPTIONS),
     ).rejects.toBe(failure);
+  });
+});
+
+describe("토스 결제창 복귀 주소 (DIRECT-PAY · TOPUP-RETRY-URL)", () => {
+  it("T1. direct: successUrl 은 flow=direct, failUrl 은 flow=direct + safeReturnTo 뒤 인코딩한 return", async () => {
+    const sdk = fakeSdk();
+    // 한글 · 쿼리가 섞인 내부 경로 (픽스처일 뿐이다)
+    const returnPath = "/fortune/love/questions?personId=abc&q=한글 값";
+    void launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER, {
+      kind: "direct",
+      returnPath,
+    });
+    await waitForHandlers(sdk.handlers);
+    await sdk.handlers.paymentRequest?.();
+    expect(sdk.args.requestPayment).toEqual({
+      orderId: ORDER.orderId,
+      orderName: "FIXTURE 주문",
+      successUrl: `${ORIGIN}/pay/success?flow=direct`,
+      failUrl: `${ORIGIN}/pay/fail?flow=direct&return=${encodeURIComponent(safeReturnTo(returnPath))}`,
+    });
+    const failUrl = new URL(
+      (sdk.args.requestPayment as { failUrl: string }).failUrl,
+    );
+    expect(failUrl.searchParams.get("return")).toBe(safeReturnTo(returnPath));
+  });
+
+  it("T1. direct: 바깥 주소는 safeReturnTo 가 / 로 바꾼 뒤 붙는다", async () => {
+    const sdk = fakeSdk();
+    void launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER, {
+      kind: "direct",
+      returnPath: "https://evil.example/x",
+    });
+    await waitForHandlers(sdk.handlers);
+    await sdk.handlers.paymentRequest?.();
+    expect((sdk.args.requestPayment as { failUrl: string }).failUrl).toBe(
+      `${ORIGIN}/pay/fail?flow=direct&return=${encodeURIComponent("/")}`,
+    );
+  });
+
+  it("T2. top_up: 기존과 글자까지 같다", async () => {
+    const sdk = fakeSdk();
+    void launcher(sdk.loadSdk, CLIENT_KEY).requestPayment(ORDER, {
+      kind: "top_up",
+      retryProductCode: "FIXTURE TOP/UP",
+    });
+    await waitForHandlers(sdk.handlers);
+    await sdk.handlers.paymentRequest?.();
+    expect(sdk.args.requestPayment).toMatchObject({
+      successUrl: `${ORIGIN}/pay/success`,
+      failUrl: `${ORIGIN}/pay/fail?product=${encodeURIComponent("FIXTURE TOP/UP")}`,
+    });
   });
 });

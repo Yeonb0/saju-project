@@ -1,25 +1,25 @@
 "use client";
 
-// "use client" 이유: 인물 · 상품 조회(TanStack Query), 대상 선택과 팝업 열림 상태, 충전 후 복귀(sessionStorage), 화면 이동(useRouter)은 브라우저에서 한다.
-// CSAT-01 수능운 정보 확인 (docs/FRONTEND.md 3장). 근거: CHECKOUT-POPUP (차감 확인은 이 화면 안 Modal),
+// "use client" 이유: 인물 · 상품 조회(TanStack Query), 대상 선택과 팝업 열림 상태, 결제창에서 돌아온 뒤의 복귀(sessionStorage)는 브라우저에서 한다.
+// CSAT-01 수능운 정보 확인 (docs/FRONTEND.md 3장). 근거: CHECKOUT-POPUP · DIRECT-PAY (결제하기 팝업은 이 화면 안 Modal),
 // P-03 (수능운은 부적 포함 단일 상품 — 옵션 선택 UI 없음), Q-04 (시험 종류 · 시험일 선택 UI 없음),
 // F-07 (판매 마감 판단은 서버 active 기준 — 화면이 날짜로 판단하지 않는다), F-09 (오행분석은 결제 전 노출 — FiveElementsSection, 진짜 adapter 는 Q-35 · OpenAPI 후),
-// PURCHASE-RESTORE (충전 후 복귀하면 선택을 되살리고 저장한 견적을 재확인), P-09 (금액은 표시하지 않는다 — 팝업이 서버 견적으로 보인다),
+// PURCHASE-RESTORE (결제창에서 돌아오면 선택을 되살리고 저장한 견적을 재확인), P-09 (금액은 표시하지 않는다 — 팝업이 서버 견적으로 보인다),
 // MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다). 디자인 요소 없음 (PG-FIRST).
 // 로그인 가드는 page.tsx 의 RequireSession (A-02 · A-03).
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
+import { DirectCheckout } from "@/components/DirectCheckout";
 import { FiveElementsSection } from "@/components/FiveElementsSection";
 import { PersonCard } from "@/components/PersonCard";
-import { ShellCheckout } from "@/components/ShellCheckout";
 import { getFortunePort, getPersonPort } from "@/lib/ports";
 import type { BasicSajuPort } from "@/lib/ports/basicSaju";
+import type { DirectPaymentPort } from "@/lib/ports/directPayment";
 import type { FortunePort } from "@/lib/ports/fortune";
+import type { PaymentLauncher } from "@/lib/ports/paymentLauncher";
 import type { PersonPort } from "@/lib/ports/person";
-import type { TopUpPort } from "@/lib/ports/topUp";
 import {
   clearPurchaseSelection,
   loadPurchaseSelection,
@@ -30,17 +30,17 @@ const RETURN_PATH = "/suneung";
 export function SuneungInfoScreen({
   personPort,
   fortunePort,
-  topUpPort,
+  directPort,
+  launcher,
   basicSajuPort,
 }: {
   // 테스트에서 주입한다. 기본값은 포트 선택(src/lib/ports) — 요청할 때 고른다 (MOCK-PORT).
   personPort?: PersonPort;
   fortunePort?: FortunePort;
-  topUpPort?: TopUpPort;
+  directPort?: DirectPaymentPort;
+  launcher?: PaymentLauncher;
   basicSajuPort?: BasicSajuPort;
 }) {
-  const router = useRouter();
-
   const people = useQuery({
     queryKey: ["people"],
     queryFn: () => (personPort ?? getPersonPort()).list(),
@@ -52,19 +52,20 @@ export function SuneungInfoScreen({
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  // 충전 후 복귀면 저장해 둔 견적 ID — 팝업을 닫으면 비운다 (다음 열기는 새 견적)
+  // 결제창에서 돌아왔으면 저장해 둔 견적 ID — 팝업을 닫으면 비운다 (다음 열기는 새 견적)
   const [resumeQuoteId, setResumeQuoteId] = useState<string | null>(null);
-  // 저장해 둔 구매 키 (PURCHASE-KEY-STORE) — 견적 ID 와 함께 팝업에 넘기면 상태 조회부터 한다
-  const [resumePurchaseKey, setResumePurchaseKey] = useState<string | null>(
-    null,
-  );
+  // 저장해 둔 주문 키 · 주문 ID (DIRECT-PAY) — 팝업이 주문 상태를 보고 이어 갈지 정한다
+  const [resumeOrder, setResumeOrder] = useState<{
+    orderKey: string;
+    orderId: string | null;
+  } | null>(null);
   const restored = useRef(false);
 
   // 판매 중인 상품은 서버 active 기준이다 (F-07). 날짜로 판단하지 않는다
   const activeProducts = products.data?.filter((p) => p.active);
   const product = activeProducts?.length === 1 ? activeProducts[0] : null;
 
-  // 충전 후 복귀 (PURCHASE-RESTORE): 인물 · 상품이 모두 온 뒤 한 번만 읽는다
+  // 결제창에서 돌아온 뒤 복귀 (PURCHASE-RESTORE): 인물 · 상품이 모두 온 뒤 한 번만 읽는다
   useEffect(() => {
     if (restored.current || !people.data || !products.data) return;
     restored.current = true;
@@ -85,7 +86,11 @@ export function SuneungInfoScreen({
     }
     setSelectedId(target.personId);
     setResumeQuoteId(saved.quoteId);
-    setResumePurchaseKey(saved.purchaseKey);
+    setResumeOrder(
+      saved.orderKey
+        ? { orderKey: saved.orderKey, orderId: saved.orderId }
+        : null,
+    );
     setCheckoutOpen(true);
   }, [people.data, products.data, product]);
 
@@ -156,13 +161,13 @@ export function SuneungInfoScreen({
 
       {/* TODO(F-07 · PD 문구): 판매 마감 안내 — 가격 · saleEndsAt 은 이 화면에 표시하지 않는다 (P-09) */}
       {person && product ? (
-        <ShellCheckout
+        <DirectCheckout
           open={checkoutOpen}
           onOpenChange={(next) => {
             setCheckoutOpen(next);
             if (!next) {
               setResumeQuoteId(null);
-              setResumePurchaseKey(null);
+              setResumeOrder(null);
             }
           }}
           selection={{
@@ -178,13 +183,11 @@ export function SuneungInfoScreen({
           // TODO(PD 문구)
           optionLabel="사주+부적"
           resumeQuoteId={resumeQuoteId}
-          resumePurchaseKey={resumePurchaseKey}
+          resumeOrder={resumeOrder}
           returnPath={RETURN_PATH}
-          onPurchased={(result) =>
-            router.push(`/suneung/r/${encodeURIComponent(result.readingId)}`)
-          }
-          port={fortunePort}
-          topUpPort={topUpPort}
+          fortunePort={fortunePort}
+          directPort={directPort}
+          launcher={launcher}
         />
       ) : null}
     </AppShell>

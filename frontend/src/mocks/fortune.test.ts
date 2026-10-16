@@ -497,3 +497,15 @@ describe("가짜 운세 구매 포트 — 질문 선택 규칙 (GeneralReadingSe
     expect(wallet.balance()).toBe(100);
   });
 });
+
+describe("가짜 운세 priceCurrency (DIRECT-PAY)", () => {
+  it("F1. 기본은 견적 charged.currency TURTLE_SHELL, KRW 를 주면 KRW 이고 금액은 같다", async () => {
+    const shell = createFakeFortunePort();
+    const krw = createFakeFortunePort({ priceCurrency: "KRW" });
+    const a = await shell.createQuote((await selectionFor(shell)).selection);
+    const b = await krw.createQuote((await selectionFor(krw)).selection);
+    expect(a.charged.currency).toBe("TURTLE_SHELL");
+    expect(b.charged.currency).toBe("KRW");
+    expect(b.charged.amount).toBe(a.charged.amount);
+  });
+});

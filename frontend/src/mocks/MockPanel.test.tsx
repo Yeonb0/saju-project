@@ -89,6 +89,20 @@ describe("MockPanel (MOCK-PANEL)", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("j. 직접결제 결과 라디오를 고르고 적용하면 directPayment 저장값이 그 값이다 (DIRECT-PAY)", async () => {
+    const user = userEvent.setup();
+    render(<MockPanel />);
+    await user.click(screen.getByRole("button", { name: "가짜" }));
+    const direct = screen.getByRole("group", { name: "직접결제 결과" });
+    expect(direct).toHaveTextContent("현재: paid (기본값)");
+    await user.click(
+      within(direct).getByRole("radio", { name: /^confirm_lost/ }),
+    );
+    await user.click(screen.getByRole("button", { name: "적용하고 처음부터" }));
+    expect(stored()).toEqual({ v: 1, directPayment: "confirm_lost" });
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it("i. 기본값으로 누르면 저장값이 없고 새로고침 1회", async () => {
     const user = userEvent.setup();
     localStorage.setItem(

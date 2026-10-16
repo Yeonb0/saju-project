@@ -28,6 +28,11 @@ describe("supportMailtoHref (FUNCTIONAL_SPEC 13장 · Q-38 g · Q-47)", () => {
       { kind: "quote", id: "FIXTURE-3" },
       "[뿌기사주 문의] 운세 견적번호 FIXTURE-3",
     ],
+    [
+      "결제 주문번호",
+      { kind: "paymentOrder", id: "FIXTURE-4" },
+      "[뿌기사주 문의] 결제 주문번호 FIXTURE-4",
+    ],
     ["번호 없음", undefined, "[뿌기사주 문의]"],
   ])("%s 제목", (_name, ref, subject) => {
     const parsed = parse(supportMailtoHref(ref));

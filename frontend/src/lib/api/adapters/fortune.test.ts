@@ -456,7 +456,7 @@ describe("운세 adapter — 상품 목록", () => {
     fortuneType: "SUNEUNG",
     option: "READING_ONLY",
     productName: "FIXTURE_PRODUCT_NAME",
-    price: { currency: "TURTLE_SHELL", amount: 13 },
+    price: { currency: "KRW", amount: 13 },
     regularPrice: { currency: "TURTLE_SHELL", amount: 20 },
     paidAmount: null,
     bonusAmount: null,
@@ -504,7 +504,7 @@ describe("운세 adapter — 상품 목록", () => {
         code: "FIXTURE_B",
         fortuneType: "SUNEUNG",
         option: "READING_ONLY",
-        price: { currency: "TURTLE_SHELL", amount: 13 },
+        price: { currency: "KRW", amount: 13 },
         active: true,
         saleEndsAt: null,
       },
@@ -512,7 +512,7 @@ describe("운세 adapter — 상품 목록", () => {
         code: "FIXTURE_A",
         fortuneType: "SUNEUNG",
         option: "READING_WITH_TALISMAN",
-        price: { currency: "TURTLE_SHELL", amount: 13 },
+        price: { currency: "KRW", amount: 13 },
         active: false,
         saleEndsAt: "2099-01-01T00:00:00Z",
       },
@@ -545,15 +545,17 @@ describe("운세 adapter — 상품 목록", () => {
       { items: [productData({ fortuneType: "LOVE" })] },
     ],
     [
-      "price.currency KRW",
-      { items: [productData({ price: { currency: "KRW", amount: 13 } })] },
+      "price.currency TURTLE_SHELL (DIRECT-PAY: 등껍질 가격은 계약 위반)",
+      {
+        items: [
+          productData({ price: { currency: "TURTLE_SHELL", amount: 13 } }),
+        ],
+      },
     ],
     [
       "price.amount 0",
       {
-        items: [
-          productData({ price: { currency: "TURTLE_SHELL", amount: 0 } }),
-        ],
+        items: [productData({ price: { currency: "KRW", amount: 0 } })],
       },
     ],
     ["paidAmount 가 숫자", { items: [productData({ paidAmount: 10 })] }],

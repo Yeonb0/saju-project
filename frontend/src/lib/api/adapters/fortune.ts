@@ -11,7 +11,7 @@
 // 일반 운세 5종 (Q-26): 견적 요청은 {personId, productOption, questionKey} (궁합은 + counterpartPersonId · relationType) — fortuneType · productCode 는 보내지 않는다.
 // 구매 요청은 견적 발급 때 쓴 필드를 똑같이 + quoteId (API_SPEC 8장 "POST /reading-purchases/{category}", GeneralReadingService.validateInput · validateQuoteSnapshot).
 // 운세별 결과 상세 경로(GET /readings/{category}/{readingId})는 reading adapter 범위라 여기서 다루지 않는다.
-// 상품 목록: API_SPEC 5장 GET /products (PR #19), F-07 (서버가 판매 중인 상품만 준다 — 화면이 active 를 본다), P-03 (운세는 등껍질로만 산다), Q-22 (정가 표시는 미정 — 검사만).
+// 상품 목록: API_SPEC 5장 GET /products (PR #19), F-07 (서버가 판매 중인 상품만 준다 — 화면이 active 를 본다), DIRECT-PAY (운세는 원화 건별 결제), Q-22 (정가 표시는 미정 — 검사만).
 import { z } from "zod";
 import { ApiContractError, ApiError } from "@/lib/api/errors";
 import type { ApiClient } from "@/lib/api/http";
@@ -167,7 +167,7 @@ const purchaseStatusSchema = z.object({
 });
 
 // 운세 상품 한 항목. fortuneType · option 은 모르는 값도 받고, 요청한 fortuneType 과의 일치는 호출할 때 검사한다.
-// 운세는 등껍질로만 산다 (P-03) — 지급량(paidAmount · bonusAmount · creditedAmount)은 null 이어야 한다. 정가는 검사만 한다 (TODO(Q-22))
+// 운세 상품은 원화 건별 결제다 (DIRECT-PAY, BE 카탈로그 전환 V202610151400) — 지급량(paidAmount · bonusAmount · creditedAmount)은 null 이어야 한다. 정가는 검사만 한다 (TODO(Q-22))
 const productSchema = z.object({
   code: text,
   category: z.literal("FORTUNE"),
@@ -175,7 +175,8 @@ const productSchema = z.object({
   option: text,
   productName: text,
   price: z.object({
-    currency: z.literal("TURTLE_SHELL"),
+    // 운세 상품은 원화 건별 결제 — DIRECT-PAY, BE 카탈로그 전환 V202610151400. 등껍질 가격은 계약 위반이다
+    currency: z.literal("KRW"),
     amount: count.min(1),
   }),
   regularPrice: z.object({ currency: text, amount: count }).nullable(),
@@ -229,7 +230,7 @@ type ProductOptionWire =
 type RelationTypeWire =
   components["schemas"]["CompatibilityQuoteRequest"]["relationType"];
 
-type CheckedSelection =
+export type CheckedSelection =
   | { kind: "SUNEUNG"; personId: string }
   | {
       kind: "STANDARD";
@@ -249,7 +250,7 @@ type CheckedSelection =
 
 // 요청하기 전에 선택이 서버 규칙에 맞는지 본다 — 어긋나면 던진다 (화면 코드 오류라 error.tsx 로 간다).
 // 근거: Q-04 · P-03 (수능운 요청에 질문 값이 하나라도 있으면 BE 가 수능 요청으로 보지 않는다), API_SPEC 8장 허용 questionKey 표, GeneralReadingService.validateInput.
-function checkSelection(selection: FortuneSelection): CheckedSelection {
+export function checkSelection(selection: FortuneSelection): CheckedSelection {
   const {
     fortuneType,
     personId,

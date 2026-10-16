@@ -133,6 +133,7 @@ export function WalletScreen({
         next.key,
       );
       await pay().requestPayment(created, {
+        kind: "top_up",
         retryProductCode: next.productCode,
       });
     },

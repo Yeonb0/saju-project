@@ -4,7 +4,7 @@
 // FORT-01 유료 운세 정보 확인 (docs/FRONTEND.md 3장, Figma 195:180). 근거: A-02 · A-03 (로그인 가드는 page.tsx 의 RequireSession),
 // F-09 · Q-30 (오행분석은 결제 전 노출 — FiveElementsSection, 진짜 adapter 는 Q-35 · OpenAPI 후), MOCK-PORT (포트는 렌더 중이 아니라 요청할 때 고른다),
 // LAYOUT-FIGMA (CSAT-01 과 같은 좌표). 디자인 요소 없음 (PG-FIRST).
-// 이 화면은 상품 조회 · 견적 · ShellCheckout · 구매 선택 복원(PURCHASE-RESTORE) · 가격 표시를 하지 않는다.
+// 이 화면은 상품 조회 · 견적 · 결제하기 팝업(DirectCheckout) · 구매 선택 복원(PURCHASE-RESTORE) · 가격 표시를 하지 않는다.
 // 차감 확인은 질문 화면(FORT-02 · 03)의 몫이다 (CHECKOUT-POPUP).
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";

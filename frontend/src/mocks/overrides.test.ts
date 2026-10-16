@@ -49,6 +49,20 @@ describe("mockOverrides (MOCK-PANEL)", () => {
     expect(localStorage.getItem(MOCK_OVERRIDES_KEY)).toBeNull();
   });
 
+  it("e. directPayment 저장값을 쓰고 읽으며, 모르는 값은 지운다 (DIRECT-PAY)", () => {
+    writeOverridesFor("mock", { directPayment: "stuck_pending" });
+    expect(readOverridesFor("mock")).toEqual({
+      directPayment: "stuck_pending",
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    localStorage.setItem(
+      MOCK_OVERRIDES_KEY,
+      JSON.stringify({ v: 1, directPayment: "nope" }),
+    );
+    expect(readOverridesFor("mock")).toEqual({});
+    expect(localStorage.getItem(MOCK_OVERRIDES_KEY)).toBeNull();
+  });
+
   it("c. 모르는 시나리오 값 · 깨진 JSON 은 키를 지우고 {} 를 준다", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     localStorage.setItem(
