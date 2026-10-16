@@ -3,6 +3,8 @@ package com.sajuppugi.fortune.calculation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sajuppugi.fortune.calculation.domain.BirthInput;
 import com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType;
 import com.sajuppugi.fortune.calculation.domain.BirthInput.Gender;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
+import org.springframework.core.io.ClassPathResource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -23,6 +26,35 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class DeterministicSajuEngineRegressionTest {
     private final DeterministicSajuEngine engine = new DeterministicSajuEngine();
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("versionedGoldenCases")
+    void matchesVersionedGoldenFacts(GoldenCase fixture) {
+        assertThat(fixture.policyVersion()).isEqualTo(CalculationPolicy.CURRENT.version());
+        var input = fixture.input();
+        CalculationFacts facts = engine.calculate(new BirthInput(LocalDate.parse(input.birthDate()),
+                input.birthTimeUnknown() ? null : LocalTime.parse(input.birthTime()), input.birthTimeUnknown(),
+                CalendarType.valueOf(input.calendarType()), input.leapMonth(), Gender.valueOf(input.gender())),
+                CalculationPolicy.CURRENT);
+        GoldenExpected expected = fixture.expected();
+
+        if (expected.pillars() != null) {
+            assertPillar(expected.pillars().year(), facts.pillars().year());
+            assertPillar(expected.pillars().month(), facts.pillars().month());
+            assertPillar(expected.pillars().day(), facts.pillars().day());
+            assertPillar(expected.pillars().hour(), facts.pillars().hour());
+        }
+        if (expected.dayMaster() != null) assertThat(facts.dayMaster().element().name()).isEqualTo(expected.dayMaster());
+        if (expected.fiveElements() != null) assertThat(facts.fiveElements().counts()).containsExactlyInAnyOrderEntriesOf(expected.fiveElements());
+        if (expected.solarDate() != null) assertThat(facts.calendarDates().solarDate()).isEqualTo(LocalDate.parse(expected.solarDate()));
+        if (expected.lunarLeapMonth() != null) assertThat(facts.calendarDates().lunarLeapMonth()).isEqualTo(expected.lunarLeapMonth());
+        if (expected.birthTimeKnown() != null) assertThat(facts.meta().birthTimeKnown()).isEqualTo(expected.birthTimeKnown());
+        if (Boolean.TRUE.equals(expected.hourPillarAbsent())) assertThat(facts.pillars().hour()).isNull();
+        if (expected.fiveElementTotal() != null) {
+            assertThat(facts.fiveElements().counts().values().stream().mapToInt(Integer::intValue).sum())
+                    .isEqualTo(expected.fiveElementTotal());
+        }
+    }
 
     @ParameterizedTest(name = "{0} {1} => {2} {3} {4} {5}")
     @MethodSource("goldenCases")
@@ -105,6 +137,32 @@ class DeterministicSajuEngineRegressionTest {
     private CalculationFacts calculate(String date, String time, CalendarType type, boolean leap, Gender gender) {
         return engine.calculate(new BirthInput(LocalDate.parse(date), LocalTime.parse(time), false, type, leap, gender), CalculationPolicy.CURRENT);
     }
+
+    private void assertPillar(String expected, CalculationFacts.Pillar actual) {
+        if (expected == null) return;
+        assertThat(actual).isNotNull();
+        assertThat(actual.display()).isEqualTo(expected);
+    }
+
+    private static Stream<GoldenCase> versionedGoldenCases() {
+        try (var stream = new ClassPathResource("saju-golden/v1/cases.json").getInputStream()) {
+            List<GoldenCase> fixtures = new ObjectMapper().findAndRegisterModules()
+                    .readValue(stream, new TypeReference<List<GoldenCase>>() {});
+            return fixtures.stream();
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("Cannot load versioned saju golden fixtures", exception);
+        }
+    }
+
+    record GoldenCase(String caseId, String policyVersion, GoldenInput input, GoldenExpected expected) {
+        @Override public String toString() { return caseId; }
+    }
+    record GoldenInput(String birthDate, String birthTime, boolean birthTimeUnknown, String calendarType,
+                       boolean leapMonth, String gender) {}
+    record GoldenExpected(GoldenPillars pillars, String dayMaster, java.util.Map<CalculationFacts.Element, Integer> fiveElements,
+                          String solarDate, Boolean lunarLeapMonth, Boolean birthTimeKnown,
+                          Boolean hourPillarAbsent, Integer fiveElementTotal) {}
+    record GoldenPillars(String year, String month, String day, String hour) {}
 
     private static Stream<Arguments> goldenCases() {
         return Stream.of(

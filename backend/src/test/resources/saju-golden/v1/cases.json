@@ -1,0 +1,56 @@
+[
+  {
+    "caseId": "solar-kst-2004-03-15-1432",
+    "policyVersion": "manse-2026.10-v1",
+    "input": { "birthDate": "2004-03-15", "birthTime": "14:32", "birthTimeUnknown": false, "calendarType": "SOLAR", "leapMonth": false, "gender": "FEMALE" },
+    "expected": {
+      "pillars": { "year": "갑신", "month": "정묘", "day": "계사", "hour": "기미" },
+      "dayMaster": "WATER",
+      "fiveElements": { "WOOD": 2, "FIRE": 2, "EARTH": 2, "METAL": 1, "WATER": 1 }
+    }
+  },
+  {
+    "caseId": "solar-kst-1901-06-16-0247",
+    "policyVersion": "manse-2026.10-v1",
+    "input": { "birthDate": "1901-06-16", "birthTime": "02:47", "birthTimeUnknown": false, "calendarType": "SOLAR", "leapMonth": false, "gender": "MALE" },
+    "expected": {
+      "pillars": { "year": "신축", "month": "갑오", "day": "을축", "hour": "정축" },
+      "dayMaster": "WOOD",
+      "fiveElements": { "WOOD": 2, "FIRE": 2, "EARTH": 3, "METAL": 1, "WATER": 0 }
+    }
+  },
+  {
+    "caseId": "solar-kst-1904-09-19-0508",
+    "policyVersion": "manse-2026.10-v1",
+    "input": { "birthDate": "1904-09-19", "birthTime": "05:08", "birthTimeUnknown": false, "calendarType": "SOLAR", "leapMonth": false, "gender": "MALE" },
+    "expected": {
+      "pillars": { "year": "갑진", "month": "계유", "day": "병진", "hour": "신묘" },
+      "dayMaster": "FIRE",
+      "fiveElements": { "WOOD": 2, "FIRE": 1, "EARTH": 2, "METAL": 2, "WATER": 1 }
+    }
+  },
+  {
+    "caseId": "solar-kst-2024-ipchun-before",
+    "policyVersion": "manse-2026.10-v1",
+    "input": { "birthDate": "2024-02-04", "birthTime": "17:26", "birthTimeUnknown": false, "calendarType": "SOLAR", "leapMonth": false, "gender": "MALE" },
+    "expected": { "pillars": { "year": "계묘" } }
+  },
+  {
+    "caseId": "solar-kst-2024-ipchun-after",
+    "policyVersion": "manse-2026.10-v1",
+    "input": { "birthDate": "2024-02-04", "birthTime": "17:28", "birthTimeUnknown": false, "calendarType": "SOLAR", "leapMonth": false, "gender": "MALE" },
+    "expected": { "pillars": { "year": "갑진" } }
+  },
+  {
+    "caseId": "lunar-leap-2020-04-15-0900",
+    "policyVersion": "manse-2026.10-v1",
+    "input": { "birthDate": "2020-04-15", "birthTime": "09:00", "birthTimeUnknown": false, "calendarType": "LUNAR", "leapMonth": true, "gender": "FEMALE" },
+    "expected": { "solarDate": "2020-06-06", "lunarLeapMonth": true }
+  },
+  {
+    "caseId": "solar-unknown-time-2004-03-15",
+    "policyVersion": "manse-2026.10-v1",
+    "input": { "birthDate": "2004-03-15", "birthTimeUnknown": true, "calendarType": "SOLAR", "leapMonth": false, "gender": "FEMALE" },
+    "expected": { "birthTimeKnown": false, "hourPillarAbsent": true, "fiveElementTotal": 6 }
+  }
+]

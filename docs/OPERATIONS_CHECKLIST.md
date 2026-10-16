@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 버전 고정 사주 계산 fixture 초안 (로컬 단위 회귀)
+
+- 합성 입력만 담은 `backend/src/test/resources/saju-golden/v1/cases.json`을 추가하고, `DeterministicSajuEngineRegressionTest`가 fixture의 `policyVersion`과 실행 `CalculationPolicy.CURRENT`를 먼저 대조한 뒤 사주 기둥·일간 오행·오행 count·윤달 변환·절입 경계·시각 미상 결과를 비교하도록 연결했다.
+- fixture는 실제 사용자 정보가 없고, 현재 7개 정책 경계 사례의 초안이다. 명리 검수자/독립 만세력 provenance와 100건 규모의 검수 사례는 아직 없으므로 외부 계산 정확성의 완료 증거로 취급하지 않는다.
+- `DeterministicSajuEngineRegressionTest`, `SpecialStarCalculatorTest`, `LinerResponseValidatorTest`를 로컬에서 실행해 통과했다. PostgreSQL write·wallet·외부 provider 호출이 없는 순수 계산 회귀 범위라 6-2~6-5는 직접 적용되지 않으며, 실제 timezone 환경/staging에서의 골든 suite는 미검증이다. 적용: 6-6 calculation version 변경 시 CI 실패, 6-9 합성 fixture로 개인정보 미보관.
+
 ### 2026-10-16: 사주 응답 사실성 검증·정책 초안 (로컬 단위 회귀)
 
 - `LinerResponseValidator`가 section의 근거 key뿐 아니라, 문장·제목에 언급된 간지와 13종 신살 label을 supplied facts와 대조한다. facts에 없는 간지 또는 count가 0인 신살을 "있다"고 쓰면 `LINER_UNSUPPORTED_ENTITY`로 거절되어 기존 bounded retry/fallback 경로로만 수렴한다.
