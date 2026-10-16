@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 결제 복구 scheduler 동시성 경계 분리 (격리 PostgreSQL 17)
+
+- 충전 복구, 현금 환불/대사, 직접결제 대사는 Spring 기본 scheduler를 공유하지 않고 `paymentOperationsScheduler`의 bounded pool을 사용한다. 기본 pool size는 3이며 환경 변수 `TOSS_OPERATIONS_SCHEDULER_POOL_SIZE`로 1~8만 설정할 수 있다. 각 worker 내부의 batch 순차 처리, lease, provider 호출의 transaction 밖 경계는 바꾸지 않았다.
+- `PaymentOperationsSchedulerPropertiesTest`로 0 또는 9 이상 설정을 기동 전에 거절하는 것을 확인했다. 새 빈 PostgreSQL 17 컨테이너(`localhost:55434`, 격리 DB)에서 `OperationsAlertsTest` 8건을 재실행해 현재 Spring context가 새 scheduler 설정으로 기동하고 기존 결제 incident/alert lease 회귀가 유지됨을 확인했다.
+- 적용: 6-3 느린 PG lookup의 scheduled 작업 격리, 6-4 worker scheduler 경쟁 완화와 기존 lease 복구 유지, 6-10 provider 호출 동시성 상한 명시. 미확인: 실제 PG/provider p95를 기준으로 한 pool 크기 3의 적정성, Hikari/DB connection 상한, 다중 인스턴스와 부하 시험은 아직 수행하지 않았다. 웹훅 발신 인증과 직접결제 현금 취소·환불은 이번 범위에서 제외했다.
+
 ### 2026-10-16: 직접결제 대사 상태 운영 알림 연결 (격리 PostgreSQL 17)
 
 - `JdbcOperationsAlerts`가 기존 충전·환불·지갑 무결성 incident와 같은 내구적 alert pipeline에서 직접결제 batch의 `REVIEW_REQUIRED`와 승인 execution의 장기 `READY`/`IN_FLIGHT`/`RETRY`를 감지한다. 상태가 정상화되면 기존 incident를 `RESOLVED`로 전환하며, alert 전달의 lease·재시도·중복 억제 계약은 바꾸지 않았다. 금액, 결제 상태 전이, provider 호출, 등껍질 원장은 변경하지 않았다.

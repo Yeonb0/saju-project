@@ -92,6 +92,9 @@ app:
     refunds-enabled: ${TOSS_REFUNDS_ENABLED:false}
     webhooks-enabled: ${TOSS_WEBHOOKS_ENABLED:false}
     operations-enabled: ${TOSS_OPERATIONS_ENABLED:false}
+    operations-scheduler:
+      # Three payment workflows can make bounded provider calls without sharing Spring's default scheduler.
+      pool-size: ${TOSS_OPERATIONS_SCHEDULER_POOL_SIZE:3}
     adapter: ${TOSS_ADAPTER:disabled}
     base-url: https://api.tosspayments.com
     secret-key: ${TOSS_SECRET_KEY:}

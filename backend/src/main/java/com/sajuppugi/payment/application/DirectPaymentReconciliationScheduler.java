@@ -20,7 +20,7 @@ public class DirectPaymentReconciliationScheduler {
         this.confirmations = confirmations;
     }
 
-    @Scheduled(fixedDelayString = "${app.toss.direct-payment-reconciliation-delay:30s}",
+    @Scheduled(scheduler = "paymentOperationsScheduler", fixedDelayString = "${app.toss.direct-payment-reconciliation-delay:30s}",
             initialDelayString = "${app.toss.direct-payment-reconciliation-delay:30s}")
     public void run() {
         for (UUID batchId : confirmations.dueForReconciliation(BATCH_SIZE)) {
