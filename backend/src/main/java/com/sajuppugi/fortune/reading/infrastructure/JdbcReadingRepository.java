@@ -79,6 +79,11 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
+    public boolean markDirectPaid(UUID purchaseId) {
+        return jdbc.update("UPDATE reading_purchases SET status = 'DEBITED' WHERE id = ? AND status = 'CREATED'", purchaseId) == 1;
+    }
+
+    @Override
     public void saveGenerationContext(UUID purchaseId, GenerationResumeContext context) {
         int updated = jdbc.update("""
                 UPDATE reading_purchases SET generation_context = ?
@@ -90,6 +95,14 @@ public class JdbcReadingRepository implements ReadingRepository {
                 WHERE id = ? AND status IN ('CREATED', 'DEBITED') AND generation_context IS NOT NULL
                 """, (rs, row) -> context(rs.getString(1)), purchaseId).stream().findFirst().orElse(null);
         if (!context.equals(existing)) throw new IllegalStateException("Generation context changed for purchase");
+    }
+
+    @Override
+    public Optional<GenerationResumeContext> findGenerationContext(UUID buyerUserId, UUID quoteId) {
+        return jdbc.query("""
+                SELECT generation_context FROM reading_purchases
+                WHERE buyer_user_id = ? AND quote_id = ? AND generation_context IS NOT NULL
+                """, (rs, row) -> context(rs.getString(1)), buyerUserId, quoteId).stream().findFirst();
     }
 
     @Override

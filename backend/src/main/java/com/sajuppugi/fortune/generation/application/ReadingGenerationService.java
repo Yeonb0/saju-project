@@ -12,6 +12,11 @@ import com.sajuppugi.fortune.generation.port.LinerProvider;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.stream.Stream;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,17 +33,20 @@ public class ReadingGenerationService {
     private final GenerationKeyFactory keys;
     private final LinerResponseValidator validator;
     private final DeterministicReadingFallback fallback;
+    private final Executor linerGenerationExecutor;
     private final ConcurrentHashMap<String, Object> localLocks = new ConcurrentHashMap<>();
 
     public ReadingGenerationService(LinerProvider provider, GenerationSnapshotStore snapshots,
                                     LinerFactProjector projector, GenerationKeyFactory keys,
-                                    LinerResponseValidator validator, DeterministicReadingFallback fallback) {
+                                    LinerResponseValidator validator, DeterministicReadingFallback fallback,
+                                    @Qualifier("linerGenerationExecutor") Executor linerGenerationExecutor) {
         this.provider = provider;
         this.snapshots = snapshots;
         this.projector = projector;
         this.keys = keys;
         this.validator = validator;
         this.fallback = fallback;
+        this.linerGenerationExecutor = linerGenerationExecutor;
     }
 
     public GeneratedReading generate(GenerationCommand command) {
@@ -55,7 +63,8 @@ public class ReadingGenerationService {
                 if (cached != null) return reused(cached);
                 LinerRequest request = new LinerRequest(generationKey,
                         command.calculationFacts().meta().calculationVersion(), command.generationVersion(),
-                        command.fortuneType(), command.referenceDate(), command.interestKey(), command.relationKey(), safeFacts,
+                        command.fortuneType(), command.referenceDate(), command.interestKey(), command.relationKey(),
+                        command.personalizedConcern(), safeFacts,
                         command.missingFields(), command.allowedSections());
                 if (!snapshots.tryClaim(request, command.contentVersion(), GENERATION_LEASE)) {
                     cached = snapshots.findSucceeded(generationKey).orElse(null);
@@ -80,7 +89,7 @@ public class ReadingGenerationService {
             long started = System.nanoTime();
             LinerResponse response;
             try {
-                response = provider.generate(attemptRequest);
+                response = generateProviderResponse(attemptRequest);
                 validator.validate(attemptRequest, response);
             } catch (InvalidGenerationException exception) {
                 lastValidation = exception;
@@ -120,6 +129,48 @@ public class ReadingGenerationService {
         snapshots.recordAttempt(request.generationKey(), firstAttempt + MAX_ATTEMPTS, fallback.name(), inputHash,
                 "FALLBACK_SUCCEEDED", elapsedMillis(started), null);
         return snapshots.saveSucceeded(attemptRequest, response, contentVersion, GenerationMode.FALLBACK);
+    }
+
+    private LinerResponse generateProviderResponse(LinerRequest request) {
+        if (request.allowedSections().size() != 10) return provider.generate(request);
+
+        LinerRequest first = withSections(request, request.allowedSections().subList(0, 5));
+        LinerRequest second = withSections(request, request.allowedSections().subList(5, 10));
+        CompletableFuture<LinerResponse> firstFuture = CompletableFuture.supplyAsync(
+                () -> validatedBatch(first), linerGenerationExecutor);
+        CompletableFuture<LinerResponse> secondFuture = CompletableFuture.supplyAsync(
+                () -> validatedBatch(second), linerGenerationExecutor);
+        try {
+            CompletableFuture.allOf(firstFuture, secondFuture).join();
+            LinerResponse firstResponse = firstFuture.join();
+            LinerResponse secondResponse = secondFuture.join();
+            var sectionsByKey = Stream.concat(firstResponse.sections().stream(), secondResponse.sections().stream())
+                    .collect(java.util.stream.Collectors.toMap(section -> section.key(), section -> section,
+                            (left, right) -> left, java.util.LinkedHashMap::new));
+            var sections = request.allowedSections().stream().filter(sectionsByKey::containsKey)
+                    .map(sectionsByKey::get).toList();
+            var omitted = request.allowedSections().stream().filter(key -> !sectionsByKey.containsKey(key)).toList();
+            var guide = request.fortuneType() == com.sajuppugi.fortune.generation.domain.GenerationModels.FortuneType.SUNEUNG
+                    ? SuneungGuideFactory.fromSections(sections) : null;
+            return new LinerResponse(sections, omitted, guide);
+        } catch (CompletionException exception) {
+            if (exception.getCause() instanceof RuntimeException cause) throw cause;
+            throw exception;
+        }
+    }
+
+    private LinerResponse validatedBatch(LinerRequest request) {
+        LinerResponse response = provider.generate(request);
+        validator.validate(request, response);
+        return response;
+    }
+
+    private LinerRequest withSections(LinerRequest request,
+                                      java.util.List<com.sajuppugi.fortune.generation.domain.GenerationModels.SectionKey> sections) {
+        return new LinerRequest(request.generationKey(), request.calculationVersion(), request.generationVersion(),
+                request.fortuneType(), request.referenceDate(), request.interestKey(), request.relationKey(),
+                request.personalizedConcern(), request.facts(), request.missingFields(), sections,
+                request.validationFeedback());
     }
 
     private long elapsedMillis(long started) {

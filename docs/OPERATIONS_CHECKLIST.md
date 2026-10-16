@@ -1,22 +1,118 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
-### 2026-10-16: FE·B 직접결제 인수인계와 배포 차단 보완
-
-- 최신 main `51c76bf`(FE #52·#55)를 배포 브랜치에 충돌 없이 통합. FE·B의 Q-64~66 전달은 API/실결제 완료 사실이 아니라 후속 계약·구현 항목으로 기록.
-- prelaunch 전용 HTTP filter로 직접결제 batch 생성·승인·일반/수능 fulfillment·구 충전·구매·선물·webhook 쓰기를 controller 이전에 503으로 차단. future direct-payment 하위 경로도 포함. PG 키 비활성만으로 주문 상태 변경을 막을 수 없는 위험 보완. 기존 staging/production에 filter 자동 적용하지 않음.
-- P-07·상단 결제 방향과 P-08의 PG 미선정 상태 갱신. 기존 금융/개인정보 데이터·migration·업무 API 계약 변경 없음. API 구현 없는 OpenAPI 추가·직접결제 #49 머지·FE 버튼/문구 수정은 수행하지 않음.
-- CI에 배포 ZIP 생성 추가. 신규 차단 검사와 최종 회귀 결과는 PR 검증 결과 기준. 실제 AWS 배포·카카오/PG/R2 실연결은 여전히 별도 검증.
-
 ### 2026-10-16: AWS PG 비활성 첫 배포 준비
 
-- 기준 main `2aadee5`, 브랜치 `codex/aws-prelaunch-deployment`. 사용자 요청에 따라 PG 연결보다 서버 배포 준비를 먼저 진행. FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 구성이며 실제 AWS 자원 생성·배포는 미실행.
-- `staging,prelaunch` 전용 기동 검사 추가. local/test/production 혼합, PG adapter·금융/선물/관리자/미준비 worker 활성화, fake Liner, 누락 설정, 잘못된 FE HTTPS origin·카카오 proxy callback을 거절. 값 원문 없이 설정 이름만 오류에 사용. 기존 업무 API·원장·migration 변경 없음.
-- `beanstalkPrelaunchBundle`은 app.jar·Procfile·검토된 .ebextensions만 ZIP으로 묶음. PORT=5000, readiness 경로, graceful shutdown 및 연결 풀 설정 추가. .env·실제 키·소스 미포함 확인.
-- 적용 점검: 6-1 고정 FE origin/콜백·권한 유지, 6-3 PG 비활성, 6-4 미준비 작업 차단, 6-6 실행 패키지/기동, 6-7 복원 절차 안내, 6-8 health·관측, 6-9 비밀값·암호화 키 보존.
-- 배포 설정 27건·기존 Toss 설정 3건 총 30건 통과, 실패/오류/선택 제외 0. bootJar·배포 ZIP 생성 성공, git diff --check 통과. 전체 회귀 재실행 아님.
-- 별도 일회용 PostgreSQL 17 컨테이너(127.0.0.1:55436/saju_prelaunch_check), synthetic OAuth/Liner 키·새 테스트 암호화 키로 실제 실행 JAR 기동. 54 migrations 적용, readiness=200/UP·liveness=200·세션 GET=200·API docs=401 확인. 실제 PG·Liner·카카오 외부 호출 없음. 임시 JVM·컨테이너 종료, 기존 개발/운영 DB 미사용.
-- 미검증: AWS 리전/계정/HTTPS/보안 그룹/Secrets Manager, 실제 FE proxy·카카오 로그인·인물 저장 E2E, 운영 용량·강제 종료 복구·백업 복원. guard 테스트와 health 결과는 실제 결제·로그인·판매 준비 완료의 근거가 아님.
-- 환경 변수·업로드·검증·제한은 `backend/docs/AWS_PRELAUNCH_DEPLOYMENT.md`. 최신 FE 직접결제와 BE API 호환·PG 선정/전환은 별도 작업. 실제 배포 업체·리전 확정 후 개인정보처리방침 수정 필요.
+- FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.
+- 일회용 PostgreSQL 17 환경에서 실행 JAR의 migration 적용 및 readiness/liveness 확인을 수행했다. 실제 PG·Liner·카카오 외부 호출, 운영 용량·복원은 별도 검증이 필요하다.
+
+### 2026-10-16: BE-B 전체 코드리뷰 지적사항 보완 (로컬 PostgreSQL 17)
+
+- 직접결제 운세는 결제 소비 claim, 구매 `DEBITED`, 암호화 generation context 저장을 한 짧은 PostgreSQL transaction에서 확정하도록 묶었다. 외부 생성 호출은 이 transaction 밖에서 실행하며, wallet 기능이 꺼진 직접결제 환경에서도 generation recovery scheduler가 동작하도록 조건을 분리했다.
+- 직접결제 승인 `RETRY`와 만료된 `IN_FLIGHT`를 주기적으로 조회·대사하는 bounded scheduler를 추가했다. provider 호출은 DB transaction 밖에서 수행하고 개별 실패가 다음 대상을 막지 않는다. 실제 PG adapter와 운영 credential을 사용한 timeout/unknown-outcome 대사는 아직 검증하지 않았다.
+- 부적 추가 결제의 기존 claim 재사용 전 소유자·quote를 다시 확인해 다른 사용자의 reading claim이나 결제 batch가 소비되지 않게 했다. 직접 선물 batch의 멱등키는 정렬된 수신 옵션 본문과 결합해, 동일 요청은 같은 batch로 수렴하고 같은 키의 다른 본문은 거절한다.
+- 공개 직접 선물 조회에 기존 PostgreSQL rate limit과 gift access의 활성·만료·폐기 검증을 적용하고, 43자 URL-safe token 검증 및 CSRF 공개 POST 경계를 명시했다. 부적 목록은 composition을 join으로 함께 읽어 N+1 조회를 제거했으며 문구 선택은 실제 후보 수를 bound로 사용해 modulo 편향을 없앴다.
+- 빈 PostgreSQL 17 DB에서 직접결제 운세 원자성, 승인 대사, addon 소유권, 선물 batch 재전송·동시 요청, 공개 직접 선물 접근 복구를 각각 검증했다. 이어 `check bootJar --rerun-tasks`를 실행해 742건 중 실패 0건·선택 제외 12건과 실행 JAR 생성을 확인했다.
+- 적용: 6-1 서버 소유권·공개 bearer/CSRF 경계, 6-2 PostgreSQL 원자성·동시 멱등 처리, 6-3 provider 결과 불명 대사, 6-4 durable context·scheduler 복구, 6-5 gift token 활성/만료/폐기, 6-6 기존 schema 변경 없음, 6-9 raw token·결제키 추가 저장 없음, 6-10 bounded batch/N+1 제거. 실제 process `kill -9`, 독립 JVM 다중 worker, staging ingress, 실제 PG·renderer/R2, 백업 복원과 운영 부하는 미검증이다.
+
+### 2026-10-16: 오늘의 운세 한 줄 문구 100개 content version 갱신 (로컬 PostgreSQL 17)
+
+- 오행별 한 줄 문구를 각각 20개(총 100개)로 확장한 뒤, 같은 KST 날짜의 선택 후보 수가 바뀌어 기존 응답과 조용히 달라지는 것을 막기 위해 content version을 `daily-2026.10-v5`로 올렸다. 기존 공유 결과는 저장된 immutable snapshot을 계속 반환하고, 새 직접 조회와 새 공유는 v5 선택을 사용한다.
+- 빈 PostgreSQL 17 컨테이너에서 `DailyFortuneApiTest`와 `DailyFortuneServiceTest`를 실행해 API 계약, 오행별 후보 20개·중복 없음, 여러 seed에서의 선택 변화를 확인했다. 문구 수 증가는 메모리의 작은 상수 목록에 대한 O(1) index 선택뿐이므로 Liner 호출·DB 조회·외부 지연을 추가하지 않는다.
+- 적용: 6-1 기존 person 소유권 API 경계 유지, 6-6 content version을 통한 응답 계약 분리, 6-9 외부 전송·추가 개인정보 저장 없음. 실제 배포 뒤 기존 v4 공유 URL과 v5 직접 조회를 같은 날짜에 비교하는 browser/staging 검증은 미실행이다.
+
+### 2026-10-16: 오늘의 운세 v3·부적 조합 catalog 반영 (로컬 PostgreSQL 17)
+
+- 오늘의 운세는 기존 점수/소유권 검사를 유지한 채 PD catalog의 수호 동물·미션·초성·노래를 additive `luckyExtras`로 제공한다. 각 항목은 `userId + KST 날짜 + content version` 해시로 고정되어 새로고침·재시도에서 바뀌지 않으며, 원문 생년정보는 저장·외부 전송하지 않는다. 기존 색/아이템/장소 필드는 호환을 위해 유지한다.
+- 새 부적은 `talisman_compositions`에 border/paper/animal/item/phrase/seal key와 문구 snapshot을 함께 저장한다. 부적·소유권·조합·render intent는 기존 짧은 transaction 안에 있으며 renderer 재시도는 저장 조합을 재선택하지 않는다. 기존 부적은 composition 행 없이 legacy로 계속 조회된다. 실제 디자인 자산·R2 renderer는 여전히 비활성/미검증이다.
+- 빈 PostgreSQL 17 컨테이너(`localhost:55434`)에서 `DailyFortuneApiTest` 3건, `TalismanCompositionPolicyTest`, `TalismanPersistenceTest`, `TalismanCreationServiceTest`, `TalismanApiTest`를 실행해 통과했다. H2는 기존 applied PostgreSQL `ON CONFLICT` migration에서 새 변경 이전에 실패하므로 근거로 사용하지 않았다.
+- 적용: 6-1 daily person/talisman 소유권, 6-4 render intent와 재시도 조합 불변, 6-6 additive migration/legacy read 호환, 6-9 user ID 외 추가 개인정보 저장 없음. 실제 renderer/R2, 두 JVM worker, staging 성능·복원은 미검증이다.
+
+### 2026-10-16: 직접결제 FE 전달본을 PR #49 API 계약에 맞춰 갱신 (문서 변경)
+
+- 작업공간 외부의 `~/Desktop/DIRECT_PAYMENT_FRONTEND_HANDOFF.md`를 현재 backend controller/service와 대조해 갱신했다. 일반 direct batch 경로와 별도 `/api/v1/direct-gift-batches` 경로, 운세 fulfillment의 필수 `Idempotency-Key`, 부적 추가 요청, 직접결제 선물 수신/재발급/공개 결과 polling을 반영했다.
+- 전달본에 `PAID` 확인, 로그인 구매자 소유권, 공통 응답/HTTP 상태, token fragment→JSON body 경계, 로그/analytics/storage 최소화와 202 PROCESSING/200 READY 차이를 명시했다. 현금 취소/환불 API 미구현, Toss 실결제 미검증, gift/worker flag 기본 비활성, PR 미merge·미배포 가능성도 구현 완료와 분리해 표시했다.
+- 후속 문서 요청에 따라 PG사는 아직 미정이며 Toss Payments 연동은 결정 전 보류 가능하다고 명시했다. 기존 Toss 승인 요청 예시는 확정 사업자 계약이 아니라 참고 형식으로 표시하고, 실제 PG 선택 뒤 adapter·credential·대사·환불 복구를 확정하도록 보정했다.
+- 적용: 6-1 인증·소유권·bearer token, 6-3 승인 결과 불명과 환불 미구현, 6-4 gift worker flag와 polling/recovery 기대치, 6-5 token·수신 결과 접근, 6-6 PR/배포 경계, 6-9 개인정보/token 최소화. 문서 대조 작업이며 API/코드/설정 변경이나 새 테스트 실행은 하지 않았다.
+
+### 2026-10-16: PD v4 정책·콘텐츠 데이터 문서와 현재 구현 대조 (코드 변경 없음)
+
+- 다운로드 전달본 `환불정책/이용약관/개인정보처리방침 v4 (2026-10-15)`, 오늘의 운세 데이터, 부적 조합, BE 확인 요청을 현재 branch의 migration·API·설정과 읽기 전용으로 대조했다. 일반 운세 1,800/2,500원, 부적 추가 1,000원, 수능운 3,000원, 수능 선물 1,000/3,000원, 신규 TOP_UP 비활성화와 batch 총액 5만 원 미만은 `V202610151400` 및 direct gift 제약과 일치한다. 선물의 미사용 90일과 첫 제공 뒤 90일 다시 보기 정책도 `GiftLifetimePolicy`와 일치한다.
+- 그러나 직접결제 batch에는 현금 취소/환불 API·상태·provider 취소/reconciliation이 아직 없다. legacy 등껍질 선물 취소는 등껍질 반환 경로이므로, v4의 “생성 실패 자동 취소”, “7일 내 직접결제 선물 취소”, “수신자별 부분 취소”를 출시 정책으로 게시하면 안 된다. 실제 토스 adapter/refund와 recovery는 기본 비활성이고, direct payment의 PostgreSQL timeout/응답 유실/취소 검증도 확인하지 않았다.
+- 직접 링크 재발급은 구현상 결제 승인 뒤 30일, KST 하루 3회·1분 간격이며 90일 전체가 아니다. 정책 문구는 30일로 고치거나 재발급 정책·테스트를 90일로 명시적으로 확장해야 한다. 24시간 뒤 원문 링크 재표시는 사라지지만 수신 권한 token hash와 90일 접근 기한은 별개다.
+- 오늘의 운세 전달 데이터(수호동물/미션/초성/노래)와 부적 조합 전달 데이터(border/paper/item/4글자 멘트)는 아직 backend API·저장 모델에 반영되지 않았다. 현재 오늘의 운세는 색/아이템/장소/존댓말 action이고, 부적은 element/animal/문구만 저장한다. 렌더 worker와 실제 private object-storage adapter는 기본 비활성이다.
+- 개인정보 처리방침의 Railway 리전과 R2 저장 위치는 저장소 설정만으로 확인할 수 없다. 실제 deployment dashboard/계약에서 확인 전에는 빈칸을 채우거나 단정하지 않는다. 프론트 코드에는 Sentry/PostHog 설정 지점은 있으나, 운영값·실제 전송/보관 기간은 이번 읽기 전용 검토 범위에서 확인하지 않았다.
+- 적용: 6-3 직접결제 결과 불명·취소/환불 미구현, 6-4 worker/renderer 기본 비활성, 6-5 링크 재발급과 수신 기한 구분, 6-6 정책 공개 전 배포 설정 확인, 6-9 보관/국외 이전 사실 확인, 6-10 실제 provider·render 용량 미측정. 코드·API·환경 설정은 변경하지 않았다.
+
+### 2026-10-15: 직접결제 선물 recipient를 기존 fulfillment 파이프라인에 연결 (PostgreSQL 실행 검증 대기)
+
+- `POST /direct-payment-batches/{batchId}/gift-fulfillment`은 `PAID` batch의 단일 `GIFT_BATCH` 소비 claim과 buyer/batch 행 잠금 뒤, recipient마다 기존 `gift_order_drafts → gift_purchase_work(ACTIVE) → gift_purchase_tokens`를 한 짧은 transaction에서 만든다. 직접결제 work에는 `direct_payment_batch_id`를 명시해 지갑 transaction/등껍질 차감으로 위장하지 않는다. 각 recipient의 `gift_id`와 `order_id`를 직접결제 recipient 행에 대사 가능하게 저장한다.
+- 따라서 `/g#token=…`은 기존 공개 선물 수신 API로 진입하며, 제출된 수신자 profile은 기존 암호화 context, `gift_fulfillment_jobs` lease/fence, immutable `gift_result_snapshots`를 그대로 사용한다. worker/provider 호출은 이 링크 발급 transaction 밖에서 계속 실행된다. 링크 재발급도 canonical token과 recipient token hash를 함께 회전한다.
+- additive migration `V202610151404`은 직접결제 선물의 quote 없는 draft와 zero shell audit 값을 명시적으로 허용하고, 기존 wallet-funded ACTIVE work의 제약은 유지하면서 direct batch settlement를 별도 허용한다. batch의 quote nullable 처리는 기존 `V202610151403`이 담당한다. 기존 applied migration은 수정하지 않았다. `claimGiftBatch`가 의도된 null quote를 잘못 거절하던 문제도 gift consumer에 한정해 고쳤다.
+- shared applied migration은 수정하지 않고, 그보다 먼저 실행되는 additive `V202610151399`에서 catalog check를 KRW 일반 판매와 기존 등껍질 판매 모두 허용하도록 호환시켰다. PostgreSQL 17 Docker의 빈 `sajuppugi_test` DB에서 `V202610151399 → V202610151400 → V202610151404`가 모두 적용됐고, `GiftRecipientPostgresTest` 42건이 통과했다. fixture는 historical wallet-funded 선물을 검증할 때만 product를 등껍질 가격으로 되돌리고 종료 시 원 catalog 값으로 복원한다.
+- 직접결제 recipient 회귀는 같은 batch의 동시 fulfill 2건에서 단일 consumption/work와 링크 원문 1개만 생성되는지, 재전송, wallet transaction 미생성, 암호화 recipient profile/job 생성, 기존 reissue의 1분 간격·idempotency 정책 적용, lease 만료 뒤 worker snapshot 완료와 stale lease 완료 거절을 함께 확인한다. 직접결제 재발급 API도 `Idempotency-Key`를 필수로 하여 기존 선물 링크 정책을 재사용한다. 별도 JVM process 두 개의 fulfill, HTTP 응답 유실과 실제 renderer/R2 복구는 아직 미검증이다.
+- PR #49 CI에서 gift purchase가 꺼진 일반 Spring context까지 `DirectGiftFulfillmentService`가 조건부 `GiftLinkService`를 요구해 335개 test가 context 시작 전에 연쇄 실패한 것을 확인했다. 직접결제 선물 service와 세 controller를 같은 `app.gift.purchases-enabled` 조건에 묶었다. PostgreSQL `AdminFinancialQueriesTest` 및 `GiftRecipientPostgresTest` 42건을 재실행해 각각 일반 context와 gift-enabled 경로의 기동을 확인했다.
+- 이어 CI에서 남은 legacy wallet 회귀 38건은 production KRW catalog 전환 뒤 등껍질 가격을 전제한 test fixture 충돌이었다. `test` profile `data.sql`에서만 historical reading/gift/addon의 등껍질 가격을 복원하며, production Flyway catalog에는 영향을 주지 않는다. PostgreSQL에서 `GiftQuoteApiTest`, `QuoteWalletApiTest`, `TopUpProductApiTest`, `TalismanAddonPurchasePostgresTest`를 함께 통과시켰다.
+- 적용: 6-1 buyer 소유권과 bearer token 경계, 6-2 batch/recipient 행 잠금·단일 소비·wallet 미차감, 6-4 기존 profile/job lease/snapshot recovery, 6-5 token 재발급 일관성, 6-6 additive migration과 clean PostgreSQL 검증, 6-8 batch/order/gift 대사 식별자, 6-9 profile 암호화·raw token 미저장. `compileJava`, `compileTestJava`, whitespace 검사는 통과했다.
+
+### 2026-10-15: 직접결제 batch·승인 intent 1차 구현 (PostgreSQL 실행 검증 대기)
+
+- 신규 판매 catalog는 KRW 일반 사주 1,800원, 일반 사주+부적 2,500원, 부적 추가 1,000원, 수능 사주+부적 3,000원, 수능 선물 부적/사주+부적 1,000/3,000원으로 전환했고, TOP_UP 상품은 비활성화한다. 기존 지갑·충전·환불 이력은 migration에서 삭제하거나 수정하지 않는다.
+- 인증된 구매자는 소유한 quote로만 `direct-payment-batches`를 만들 수 있다. 서버가 quote snapshot의 KRW 가격과 수량으로 총액을 확정하며, client 가격은 입력받지 않는다. quote lock과 `(buyer,key_hash)`, `quote_id` unique 경계로 재전송이 별도 checkout을 만들지 않도록 했다. 50,000원 이상은 PG를 열기 전에 거절한다.
+- 승인에서는 payment key 원문 대신 SHA-256 digest, 주문·금액을 내구적으로 bind한다. 실행 lease/재시도 상태를 별도 table에 남기고 PG `confirm`/`lookup`은 DB transaction 밖에서 호출한다. 승인 성공은 `PAID`, 명시적 거절/취소는 `FAILED`/`CANCELED`, timeout·형식 불명은 재조회 후 제한 횟수에서 `REVIEW_REQUIRED`로 수렴한다. raw payment key를 응답·로그용 `toString`에 남기지 않는다.
+- 적용: 6-1 quote/batch 소유권, 6-3 승인 결과 불명과 외부 호출 경계, 6-4 lease 기반 재조회 의도, 6-6 additive migration, 6-8 주문 ID 추적 및 key 원문 비저장, 6-9 payment key 최소 보관. `compileJava`와 diff whitespace는 통과했다. 기존 `TopUpConfirmationPersistenceTest`는 H2가 기존 PostgreSQL 전용 migration을 처리하지 못해 application context 전에 13건 모두 실패했으며, 직접결제 실패로 해석하지 않는다. 로컬 Docker daemon이 없어 PostgreSQL migration·동시성·timeout/response-loss·PG lookup은 아직 실행하지 못했다. `PAID`를 운세/부적/선물 fulfillment의 단일 소비 claim으로 연결하는 후속 구현도 아직 남았다.
+
+### 2026-10-15: 직접결제 운세 소비 claim 기반 (API 연결 전)
+
+- `PAID` 직접결제 batch는 buyer·quote 일치 확인과 batch row lock 뒤 `direct_payment_consumptions`에 `READING` consumer 한 건만 기록한다. 동일 batch의 재전송은 같은 reading purchase라면 재사용하고, 다른 consumer를 붙이려는 요청은 거절한다.
+- 운세 생성 orchestration에는 직접결제 분기를 추가해, 위 소비 claim 뒤에만 지갑 차감 없이 `CREATED → DEBITED → generation lease`로 진행할 수 있게 했다. 기존 지갑 차감 경로는 유지한다.
+- `compileJava`만 재확인했다. public reading API에 payment batch를 요구하고 일반/수능 운세에 모두 연결하는 작업, PostgreSQL 동시성·응답 유실 시험, 생성 실패의 PG 취소/문의 상태는 아직 남았다.
+
+### 2026-10-15: 일반 사주 직접결제 fulfillment API
+
+- 신규 `POST /api/v1/direct-payment-batches/{batchId}/reading-fulfillment`은 기존 지갑 구매 API를 바꾸지 않고 추가했다. `PAID`인 본인 batch와 동일 quote만 소비 claim할 수 있으며, claim 뒤 직접결제 generation 분기에서만 지갑 차감 없이 생성한다. `PAYMENT_PENDING` 등 미확정/종료 batch는 생성 권한이 아니다.
+- 프론트 전환 계약은 작업공간 밖 `~/Desktop/DIRECT_PAYMENT_FRONTEND_HANDOFF.md`에 전달용으로 작성했다. 프론트 파일 자체는 수정하지 않았다.
+- 적용: 6-1 buyer/quote/batch 소유권, 6-2 batch lock과 소비 unique, 6-3 PAID 전 결과 비공개, 6-4 기존 generation lease 재사용. `compileJava`만 통과했으며 PostgreSQL의 동시 fulfillment, 승인 뒤 응답 유실, 생성 실패 뒤 현금 취소/문의 대사는 미검증/미구현이다.
+
+### 2026-10-15: 부적 추가 직접결제 fulfillment API
+
+- `POST /api/v1/direct-payment-batches/{batchId}/talisman-fulfillment`를 추가했다. 본인 소유의 일반 운세 결과 중 부적이 없는 `READING_ONLY`만 대상이며, quote context·fortune type·PAID batch를 확인한 뒤 addon purchase와 `TALISMAN_ADDON` 소비 claim을 만들고 PENDING render intent를 만든다. 이 흐름은 wallet ledger를 차감하지 않는다.
+- 적용: 6-1 reading/batch 소유권, 6-2 reading unique addon claim과 batch lock, 6-4 PENDING talisman/render intent. `compileJava`만 통과했다. PostgreSQL 동시 batch 승인/같은 reading addon/renderer 실패 및 PG 취소·문의 분리는 아직 검증·구현이 남았다.
+
+### 2026-10-15: PR #48 유료 운세 생성 계약 CI 보완 (GitHub 재검증 대기)
+
+- 유료 운세 10개 섹션의 5개×2 병렬 생성과 한줄 고민 추가 뒤 남아 있던 API test mock 인자 수, category 응답의 additive `sections` 10개, 부적 content version, Liner 호출 횟수(성공 2회·최대 3회 재시도 시 6회)를 현재 계약에 맞췄다. 분할 batch의 프롬프트도 전체 10개가 아니라 이번 요청의 `allowedSections`를 모두 작성하라고 명시해 5개 batch에서의 누락/불필요 재시도 가능성을 줄였다.
+- 로컬 Docker daemon이 실행 중이지 않아 PostgreSQL 17 CI 동등 suite를 시작하지 못했다. 기본 H2 profile은 기존 PostgreSQL 전용 Flyway migration 비호환으로 application context 전에 실패하므로 통과 근거로 사용하지 않는다. GitHub PostgreSQL `clean check bootJar` 재실행 결과를 확인한 뒤 이 항목을 갱신해야 한다.
+- 적용: 6-3 분할 provider 요청·최대 재시도 횟수 계약, 6-6 additive API/content version 계약과 PostgreSQL CI 확인 대기, 6-10 batch 누락에 따른 재시도·지연 완화. 실제 provider p95/비용과 multi-instance 부하는 여전히 미측정이다.
+
+### 2026-10-15: 유료 운세 한줄 고민 맞춤 생성
+
+- 유료 운세 구매 요청에 선택형 `personalizedConcern`(최대 100자)을 추가했다. 무료 운세·견적 API·결과/목록 projection에는 넣지 않는다. 공백을 정리하고 빈 값은 무시하며, 이메일·전화번호·주민등록번호 형태·URL은 일반 표기로 마스킹한 값만 암호화된 generation context와 Liner 입력에 사용한다.
+- 고민은 generation key에 포함해 같은 만세력 facts라도 고민이 다르면 별도 결과가 생성된다. 재시도·lease recovery도 암호화 context에 저장된 동일 입력을 사용한다. Liner system instruction에는 원문을 넣지 않고 untrusted input data로만 전달하며, 원문 인용·개인정보 반복·입력 속 명령 수행을 금지했다.
+- 프롬프트 계약 변경으로 일반 운세 generation version을 v5, 수능운을 v4로 올려 기존 snapshot 재사용을 피한다. input 마스킹, provider 전달 위치, generation key 분리를 단위 검증했다. 실제 Liner의 맞춤성·p95 지연·개인정보 탐지 누락률은 staging에서 아직 측정하지 않았다.
+- 적용: 6-1 구매자 소유권·기존 request idempotency 유지, 6-3 Liner 입력/재시도, 6-4 암호화 context recovery, 6-6 버전 호환, 6-9 최소 보관·common identifier 마스킹·결과 미노출, 6-10 입력 증가가 작아 병렬/출력 상한은 유지.
+
+### 2026-10-15: 유료 운세 쉬운 구어체·생활 장면 품질 정책
+
+- 5개×2 병렬 호출과 `low` reasoning, 출력 상한은 유지하면서 각 묶음에 포함된 섹션의 역할만 짧게 전달한다. 각 본문은 결론→facts 근거→생활 장면→실행 행동 순서의 존댓말 구어체로 작성하고, 어려운 명리 용어는 일상어로 바로 풀며 반복적인 면책·추상 조언을 줄인다.
+- 신살은 도화·홍염, 역마·망신, 화개·귀문, 양인·백호·괴강을 서로 다른 관계·이동·몰입·추진력 장면으로 설명하도록 분리했다. 사실에 없는 신살이나 사건을 재미를 위해 만들지는 않으며, 가벼운 비유도 섹션당 한 번으로 제한한다.
+- 새 구매가 이전 prompt snapshot을 재사용하지 않도록 일반 운세 generation version을 v4, 수능운을 v3으로 갱신했다. 기존 구매 결과는 immutable snapshot으로 유지된다. 단위 테스트로 모든 질문의 품질 지침과 섹션별 역할을 확인했으며 실제 Liner 표본의 가독성·p95 지연·재시도율은 staging에서 아직 측정하지 않았다.
+- 적용: 6-3 schema 출력·재시도 경로 유지, 6-4 기존 snapshot/fallback 유지, 6-6 생성/content version 분리, 6-9 facts-only 및 비추론 정책 유지, 6-10 병렬도·토큰 상한 유지와 실제 성능 미측정.
+
+### 2026-10-15: 유료 운세 Liner 5개×2 병렬 생성
+
+- 섹션이 정확히 10개인 유료 운세는 기존 단일 Liner 요청 대신 앞 5개와 뒤 5개를 제한된 전용 executor에서 동시에 생성한다. 두 응답을 각각 facts/허용 섹션 기준으로 검증한 뒤 원래 섹션 순서로 합치고, 합친 10개 전체를 다시 검증한 경우에만 기존 immutable snapshot 한 건으로 저장한다.
+- 어느 한 요청이라도 실패하거나 검증을 통과하지 못하면 부분 결과를 저장·공개하지 않고 기존 최대 3회 재시도 및 결정론적 fallback 경로로 수렴한다. Liner 호출은 기존처럼 DB transaction 밖에서 실행되며 generation key claim과 최종 snapshot 원자성은 유지한다.
+- 전용 executor는 core 4, max 20, queue 100으로 프로세스 내 동시 외부 호출을 제한한다. 단위 테스트에서 5개씩 두 요청의 실제 동시 시작, 합친 10개 순서, 단일 최종 attempt 기록을 확인했다. 실제 Liner 환경의 p95 시간·부분 실패율·계정별 비용과 다중 인스턴스 전체 동시 호출량은 staging에서 아직 측정하지 않았다.
+- 적용: 6-3 외부 provider timeout·bounded retry, 6-4 부분 결과 비공개·기존 lease/fallback 복구, 6-9 기존 facts-only 전송 유지, 6-10 executor 제한·실제 용량 미측정.
+
+### 2026-10-15: 유료 운세 10개 섹션·신살 13종·생성 대기 preview 백엔드
+
+- 결정론적 만세력 facts에 `sinsal-v1` 규칙의 원국 13종을 모두 포함하고, 출현 위치·개수·반복 신살과 10년 대운/개별 세운 활성 후보를 계산한다. Liner는 이 facts를 설명할 뿐 신살을 자체 계산하지 않는다. 학파별 규칙 차이가 있으므로 출시 전 명리 담당자가 `sinsal-v1` 표를 검수해야 한다.
+- 무료 운세는 바꾸지 않고 일반 유료 운세 5종과 수능운의 생성 section을 10개로 맞췄다. 각 section은 `title`, `content`, `sourceFactKeys`를 가지며 Liner prompt의 본문 목표를 약 700자로 올렸다. 기존 일반운 응답 필드는 유지하고 순서가 있는 `sections`를 additive로 제공한다.
+- 소유자 전용 구매 상태 조회의 처리 중 상태에만 `generationPreview`를 추가했다. 암호화된 구매 generation context의 facts로 약 300자 구어체를 결정론적으로 만들며, 구매 시각의 서울 날짜 일진 지지를 `mouse`~`pig` 키로 반환한다. 이름·원문 생년정보는 응답에 포함하지 않는다.
+- 10개×약 700자 응답을 수용하도록 기본 Liner 출력 상한을 8,000 token으로 높였다. 실제 평균 token·비용·p95 생성 시간과 동시 생성 한도는 staging에서 측정하지 않았으므로 출시 전 6-10 용량 점검이 필요하다.
+- 적용: 6-1 구매자/quote 소유권, 6-3 Liner schema·재시도·fallback, 6-4 암호화 generation context 재사용, 6-6 additive 응답과 생성/content version 갱신, 6-9 facts-only 외부 전송, 6-10 출력량·비용·지연 미측정. 부적 조합은 PD 목록 미수령으로 변경하지 않았고 오늘의 운세도 변경하지 않았다.
+- 배포 결정은 프론트 AWS Amplify Hosting으로 갱신했다. AWS 공식 Amplify Hosting compute는 Node.js 서버 계약이어서 현재 Spring Boot/JVM 백엔드는 직접 실행할 수 없다. 백엔드의 AWS App Runner/ECS/Elastic Beanstalk 중 대상, PostgreSQL 제공처, ingress/cookie/rollback은 미확정이며 실제 배포는 수행하지 않았다.
 
 ### 2026-10-15: BE-B 최신 main 통합·PostgreSQL 전체 회귀
 

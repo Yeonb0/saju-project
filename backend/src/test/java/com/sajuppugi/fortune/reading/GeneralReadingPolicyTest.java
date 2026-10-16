@@ -17,17 +17,22 @@ class GeneralReadingPolicyTest {
         assertThat(GeneralReadingPolicy.require(FortuneType.OVERALL).allowedSections())
                 .containsExactly(SectionKey.SUMMARY, SectionKey.CURRENT_FLOW, SectionKey.RELATIONSHIPS,
                         SectionKey.STUDY_AND_WORK, SectionKey.WEALTH_FLOW, SectionKey.CONDITION,
-                        SectionKey.LUCKY_POINT, SectionKey.MISSING_ELEMENT);
+                        SectionKey.LUCKY_POINT, SectionKey.MISSING_ELEMENT, SectionKey.STRENGTHS,
+                        SectionKey.TIMING);
         assertThat(GeneralReadingPolicy.require(FortuneType.LOVE).questionKeys())
                 .contains("CURRENT_RELATIONSHIP", "NEW_RELATIONSHIP", "RECONCILIATION", "MARRIAGE");
         assertThat(GeneralReadingPolicy.require(FortuneType.WEALTH).allowedSections())
                 .contains(SectionKey.INCOME, SectionKey.SPENDING_CAUTION, SectionKey.GOOD_PERIOD);
         assertThat(GeneralReadingPolicy.require(FortuneType.COMPATIBILITY).allowedSections())
                 .containsExactly(SectionKey.SUMMARY, SectionKey.MATCH_STRENGTH, SectionKey.MATCH_CONFLICT,
-                        SectionKey.COMMUNICATION, SectionKey.RELATIONSHIP_TIP, SectionKey.MISSING_ELEMENT);
+                        SectionKey.COMMUNICATION, SectionKey.RELATIONSHIP_TIP, SectionKey.CURRENT_FLOW,
+                        SectionKey.CAUTION, SectionKey.TIMING, SectionKey.DAILY_PRACTICE,
+                        SectionKey.MISSING_ELEMENT);
         assertThat(GeneralReadingPolicy.require(FortuneType.SINSAL).allowedSections())
-                .containsExactly(SectionKey.SUMMARY, SectionKey.SPECIAL_STARS,
-                        SectionKey.BALANCING_SPECIAL_STARS, SectionKey.MISSING_ELEMENT);
+                .containsExactly(SectionKey.SUMMARY, SectionKey.SPECIAL_STARS, SectionKey.SINSAL_POPULAR,
+                        SectionKey.SINSAL_MOVEMENT, SectionKey.SINSAL_INTUITION, SectionKey.SINSAL_INTENSITY,
+                        SectionKey.SINSAL_TIMING, SectionKey.BALANCING_SPECIAL_STARS,
+                        SectionKey.MISSING_ELEMENT, SectionKey.ACTION_TIP);
     }
 
     @Test

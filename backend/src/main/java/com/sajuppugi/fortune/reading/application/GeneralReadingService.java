@@ -77,21 +77,59 @@ public class GeneralReadingService {
     public PurchaseResult purchase(UUID userId, UUID quoteId, FortuneType fortuneType, ProductOption option,
                                    UUID personId, UUID counterpartPersonId, RelationType relationType,
                                    String questionKey, IdempotencyKey key) {
+        return purchase(userId, quoteId, fortuneType, option, personId, counterpartPersonId, relationType,
+                questionKey, null, key);
+    }
+
+    public PurchaseResult purchase(UUID userId, UUID quoteId, FortuneType fortuneType, ProductOption option,
+                                   UUID personId, UUID counterpartPersonId, RelationType relationType,
+                                   String questionKey, String personalizedConcern, IdempotencyKey key) {
+        return purchaseInternal(userId, null, quoteId, fortuneType, option, personId, counterpartPersonId,
+                relationType, questionKey, personalizedConcern, key);
+    }
+
+    public PurchaseResult purchaseDirect(UUID userId, UUID batchId, UUID quoteId, FortuneType fortuneType,
+                                         ProductOption option, UUID personId, UUID counterpartPersonId,
+                                         RelationType relationType, String questionKey, String personalizedConcern,
+                                         IdempotencyKey key) {
+        if (batchId == null) throw new ApiException(ErrorCode.INVALID_REQUEST);
+        return purchaseInternal(userId, batchId, quoteId, fortuneType, option, personId, counterpartPersonId,
+                relationType, questionKey, personalizedConcern, key);
+    }
+
+    private PurchaseResult purchaseInternal(UUID userId, UUID batchId, UUID quoteId, FortuneType fortuneType, ProductOption option,
+                                   UUID personId, UUID counterpartPersonId, RelationType relationType,
+                                   String questionKey, String personalizedConcern, IdempotencyKey key) {
         validateInput(fortuneType, option, personId, counterpartPersonId, relationType, questionKey);
+        String concern = PersonalizedConcern.normalize(personalizedConcern);
         ReadingPurchase existing = readings.findPurchaseByQuote(userId, quoteId).orElse(null);
         if (existing != null) {
             PurchaseQuote snapshot = validateQuoteSnapshot(catalog.getQuoteSnapshot(userId, quoteId), fortuneType,
-                    option, personId, counterpartPersonId, relationType, questionKey);
+                    option, personId, counterpartPersonId, relationType, questionKey,
+                    batchId == null ? Price.Currency.TURTLE_SHELL : Price.Currency.KRW);
             return existing(existing, userId, snapshot.productSnapshot().price());
         }
         Subjects subjects = ownedSubjects(userId, personId, counterpartPersonId);
-        PurchaseQuote quote = validateQuote(userId, quoteId, fortuneType, option, personId,
-                counterpartPersonId, relationType, questionKey);
+        PurchaseQuote quote = validateQuoteSnapshot(catalog.getQuote(userId, quoteId), fortuneType, option, personId,
+                counterpartPersonId, relationType, questionKey, batchId == null ? Price.Currency.TURTLE_SHELL : Price.Currency.KRW);
         CalculationFacts facts = calculate(subjects.primary());
         CalculationFacts counterpartFacts = subjects.counterpart() == null ? null : calculate(subjects.counterpart());
 
-        ReadingPurchase purchase = claims.claim(userId, quoteId, quote.productSnapshot().id(), personId,
-                counterpartPersonId, value(relationType), questionKey);
+        GeneralReadingPolicy.Definition policy = GeneralReadingPolicy.require(fortuneType);
+        List<String> missingFields = missingFields(subjects.primary(), subjects.counterpart());
+        GenerationCommand command = new GenerationCommand(userId, fortuneType,
+                LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
+                value(relationType), policy.allowedSections(), missingFields,
+                GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion(), concern);
+        GenerationResumeContext resumeContext = new GenerationResumeContext(command, option, personId,
+                subjects.primary().displayName(), counterpartPersonId,
+                subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
+                questionKey, option == ProductOption.READING_WITH_TALISMAN);
+        ReadingPurchase purchase = batchId == null
+                ? claims.claim(userId, quoteId, quote.productSnapshot().id(), personId, counterpartPersonId,
+                        value(relationType), questionKey)
+                : claims.claimDirectPaid(userId, batchId, quoteId, quote.productSnapshot().id(), personId,
+                        counterpartPersonId, value(relationType), questionKey, resumeContext);
         if (purchase.status() == Status.FULFILLED) {
             OwnedReading reading = readings.findOwnedReading(userId, purchase.readingId())
                     .orElseThrow(() -> new ApiException(ErrorCode.READING_NOT_FOUND));
@@ -101,17 +139,6 @@ public class GeneralReadingService {
             return new PurchaseResult(purchase.id(), purchase.readingId(), purchase.status(), null, null, true,
                     quote.productSnapshot().price());
         }
-
-        GeneralReadingPolicy.Definition policy = GeneralReadingPolicy.require(fortuneType);
-        List<String> missingFields = missingFields(subjects.primary(), subjects.counterpart());
-        GenerationCommand command = new GenerationCommand(userId, fortuneType,
-                LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
-                value(relationType), policy.allowedSections(), missingFields,
-                GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion());
-        GenerationResumeContext resumeContext = new GenerationResumeContext(command, option, personId,
-                subjects.primary().displayName(), counterpartPersonId,
-                subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
-                questionKey, option == ProductOption.READING_WITH_TALISMAN);
         ExecutionResult result = orchestrator.execute(new Execution(userId, quoteId, key, purchase,
                 quote.productSnapshot().price(), command, resumeContext, (generated, lease) -> {
             UUID readingId = UUID.randomUUID();
@@ -128,7 +155,7 @@ public class GeneralReadingService {
                 readings.fulfill(purchase, reading, lease);
             }
             return reading;
-        }));
+        }, batchId != null));
         if (result.current() != null) return existing(result.current(), userId, quote.productSnapshot().price());
         return completed(result.reading(), result.balance(), result.reused(), quote.productSnapshot().price());
     }
@@ -143,13 +170,19 @@ public class GeneralReadingService {
     private PurchaseQuote validateQuoteSnapshot(PurchaseQuote quote, FortuneType fortuneType, ProductOption option,
                                         UUID personId, UUID counterpartPersonId, RelationType relationType,
                                         String questionKey) {
+        return validateQuoteSnapshot(quote, fortuneType, option, personId, counterpartPersonId, relationType, questionKey,
+                Price.Currency.TURTLE_SHELL);
+    }
+    private PurchaseQuote validateQuoteSnapshot(PurchaseQuote quote, FortuneType fortuneType, ProductOption option,
+                                        UUID personId, UUID counterpartPersonId, RelationType relationType,
+                                        String questionKey, Price.Currency currency) {
         Product product = quote.productSnapshot();
         String expectedCode = GeneralReadingPolicy.productCode(fortuneType, option);
         String expectedHash = quoteContext.hash(fortuneType, option, personId,
                 counterpartPersonId, relationType, questionKey);
         if (!expectedHash.equals(quote.contextHash()) || !expectedCode.equals(product.code())
                 || product.category() != Product.Category.READING
-                || product.price().currency() != Price.Currency.TURTLE_SHELL) {
+                || product.price().currency() != currency) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
         return quote;

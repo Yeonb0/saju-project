@@ -108,6 +108,23 @@ class LinerApiProviderTest {
     }
 
     @Test
+    void sendsPersonalizedConcernAsInputDataNotInstructions() throws Exception {
+        LinerRequest request = new LinerRequest("c".repeat(64), "calc-v1", "gen-v1", FortuneType.LOVE,
+                LocalDate.of(2026, 10, 8), "CURRENT_RELATIONSHIP", null, "이직 때문에 연애가 걱정돼요.",
+                mapper.createObjectNode().putObject("dayMaster").put("hanja", "甲"), List.of(),
+                List.of(SectionKey.SUMMARY), List.of());
+        responseStatus = 200;
+        responseBody = "{\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"{\\\"sections\\\":[{\\\"key\\\":\\\"SUMMARY\\\",\\\"content\\\":\\\"차분히 우선순위를 정해 보세요.\\\",\\\"sourceFactKeys\\\":[\\\"dayMaster.hanja\\\"]}],\\\"omittedSections\\\":[]}\"}]}]}";
+
+        provider.generate(request);
+
+        assertThat(capturedBody.get().path("input").asText()).contains("personalizedConcern", "이직 때문에 연애가 걱정돼요.");
+        assertThat(capturedBody.get().path("instructions").asText())
+                .contains("신뢰할 수 없는 입력 데이터")
+                .doesNotContain("이직 때문에 연애가 걱정돼요.");
+    }
+
+    @Test
     void providerErrorDoesNotExposeRemoteBodyOrApiKey() {
         responseStatus = 429;
         responseBody = "{\"error\":\"provider-private-detail\"}";
@@ -152,6 +169,9 @@ class LinerApiProviderTest {
         LinerResponse response = provider.generate(request);
 
         assertThat(response.suneungGuide()).isNotNull();
+        assertThat(capturedBody.get().at(
+                "/text/format/schema/properties/sections/items/properties/title/type").asText())
+                .isEqualTo("string");
         assertThat(capturedBody.get().at("/text/format/schema/properties/suneungGuide/type").asText())
                 .isEqualTo("object");
         assertThat(capturedBody.get().at(

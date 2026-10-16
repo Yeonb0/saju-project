@@ -16,10 +16,13 @@ import com.sajuppugi.gift.infrastructure.GiftPayloadCipher;
 import com.sajuppugi.gift.infrastructure.JdbcGiftFulfillmentJobs;
 import com.sajuppugi.gift.infrastructure.JdbcGiftResultSnapshots;
 import com.sajuppugi.gift.infrastructure.GiftFulfillmentWorker;
+import com.sajuppugi.gift.application.DirectGiftFulfillmentService;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,6 +49,7 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
     @Autowired JdbcGiftFulfillmentJobs fulfillmentJobs;
     @Autowired JdbcGiftResultSnapshots resultSnapshots;
     @Autowired GiftFulfillmentWorker fulfillmentWorker;
+    @Autowired DirectGiftFulfillmentService directGifts;
     @Autowired @Qualifier("recipientPrivacy") JdbcGiftPrivacy privacy;
     @Autowired GiftPayloadCipher cipher;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
@@ -59,8 +63,72 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         when(clock.withZone(any())).thenReturn(clock);
     }
     void advance(long seconds) { time = time.plusSeconds(seconds); }
+    @AfterEach void cleanupDirectGiftRows() {
+        jdbc.update("DELETE FROM direct_payment_consumptions WHERE batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?)", owner);
+        jdbc.update("DELETE FROM direct_gift_batches WHERE buyer_user_id = ?", owner);
+        jdbc.update("DELETE FROM gift_fulfillment_jobs WHERE gift_id IN (SELECT gift_id FROM gift_purchase_work WHERE direct_payment_batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?))", owner);
+        jdbc.update("DELETE FROM gift_recipient_profiles WHERE gift_id IN (SELECT gift_id FROM gift_purchase_work WHERE direct_payment_batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?))", owner);
+        jdbc.update("DELETE FROM gift_result_snapshots WHERE gift_id IN (SELECT gift_id FROM gift_purchase_work WHERE direct_payment_batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?))", owner);
+        jdbc.update("DELETE FROM gift_recipient_receipts WHERE order_id IN (SELECT order_id FROM gift_purchase_work WHERE direct_payment_batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?))", owner);
+        jdbc.update("DELETE FROM gift_link_commands WHERE order_id IN (SELECT order_id FROM gift_purchase_work WHERE direct_payment_batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?))", owner);
+        jdbc.update("DELETE FROM gift_purchase_tokens WHERE order_id IN (SELECT order_id FROM gift_purchase_work WHERE direct_payment_batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?))", owner);
+        jdbc.update("DELETE FROM gift_purchase_work WHERE direct_payment_batch_id IN (SELECT id FROM direct_payment_batches WHERE buyer_user_id = ?)", owner);
+        jdbc.update("DELETE FROM gift_order_drafts WHERE user_id = ? AND quote_id IS NULL", owner);
+        jdbc.update("DELETE FROM direct_payment_batches WHERE buyer_user_id = ?", owner);
+    }
     com.sajuppugi.gift.application.GiftFulfillmentPort.Receipt accept(UUID order, UUID request) throws Exception {
         return recipients.accept(token(order), request, snapshotHash, () -> assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue());
+    }
+    @Test void directPaymentRecipientUsesDurableGiftWorkAndRecoversExpiredLease() throws Exception {
+        UUID batch = UUID.randomUUID(), recipient = UUID.randomUUID();
+        jdbc.update("INSERT INTO direct_payment_batches(id,buyer_user_id,quote_id,product_code,product_name,unit_amount_krw,quantity,total_amount_krw,key_hash,status,created_at) VALUES (?,?,NULL,'GIFT_SUNEUNG_BATCH','수능 선물',3000,1,3000,?,'PAID',?)",
+                batch, owner, "d".repeat(64), Timestamp.from(time));
+        jdbc.update("INSERT INTO direct_gift_batches(payment_batch_id,buyer_user_id,status,recipient_count,created_at) VALUES (?,?,'PAID',1,?)", batch, owner, Timestamp.from(time));
+        jdbc.update("INSERT INTO direct_gift_batch_recipients(id,payment_batch_id,recipient_index,option,amount_krw,state,created_at) VALUES (?,?,0,'READING_WITH_TALISMAN',3000,'PENDING_PAYMENT',?)", recipient, batch, Timestamp.from(time));
+
+        String raw;
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(() -> { start.await(); return directGifts.fulfill(owner, batch); });
+            var second = pool.submit(() -> { start.await(); return directGifts.fulfill(owner, batch); });
+            start.countDown();
+            var results = List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
+            assertThat(results).allSatisfy(links -> assertThat(links).hasSize(1));
+            var urls = results.stream().map(links -> links.getFirst().shareUrl()).filter(Objects::nonNull).toList();
+            assertThat(urls).hasSize(1); raw = urls.getFirst().substring(urls.getFirst().indexOf("#token=") + 7);
+        } catch (Exception failure) { throw new AssertionError(failure); }
+        var issued = directGifts.fulfill(owner, batch);
+        assertThat(issued).hasSize(1); assertThat(issued.getFirst().reused()).isTrue();
+        UUID giftId = access.verify(raw).giftId();
+        assertThat(jdbc.queryForObject("SELECT direct_payment_batch_id FROM gift_purchase_work WHERE gift_id = ?", UUID.class, giftId)).isEqualTo(batch);
+        assertThat(jdbc.queryForObject("SELECT wallet_transaction_id FROM gift_purchase_work WHERE gift_id = ?", UUID.class, giftId)).isNull();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM direct_payment_consumptions WHERE batch_id = ? AND consumer_type = 'GIFT_BATCH'", Integer.class, batch)).isEqualTo(1);
+        assertThat(directGifts.fulfill(owner, batch).getFirst().reused()).isTrue();
+        var reissued = directGifts.reissue(owner, recipient, new com.sajuppugi.common.idempotency.IdempotencyKey("direct-reissue"));
+        assertThat(reissued.reused()).isFalse(); assertThat(reissued.shareUrl()).contains("#token=");
+        assertThat(directGifts.reissue(owner, recipient, new com.sajuppugi.common.idempotency.IdempotencyKey("direct-reissue")).shareUrl())
+                .isEqualTo(reissued.shareUrl());
+        assertThatThrownBy(() -> directGifts.reissue(owner, recipient, new com.sajuppugi.common.idempotency.IdempotencyKey("too-soon")))
+                .isInstanceOf(ApiException.class);
+        raw = reissued.shareUrl().substring(reissued.shareUrl().indexOf("#token=") + 7);
+
+        mvc.perform(post("/api/v1/public/direct-gifts/access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(java.util.Map.of("token", raw))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recipientId").value(recipient.toString()))
+                .andExpect(jsonPath("$.data.status").value("LINK_ACTIVE"));
+
+        recipientService.submit(raw, "direct-recipient", new com.sajuppugi.gift.application.GiftRecipientService.Command(
+                "recipient", "2007-03-14", null, true,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.CalendarType.SOLAR, false,
+                com.sajuppugi.fortune.calculation.domain.BirthInput.Gender.FEMALE));
+        UUID job = jdbc.queryForObject("SELECT id FROM gift_fulfillment_jobs WHERE gift_id = ?", UUID.class, giftId);
+        var stale = fulfillmentJobs.claim(job, time, Duration.ofSeconds(30), 5).orElseThrow();
+        advance(31); fulfillmentWorker.run();
+        assertThat(resultSnapshots.find(giftId)).isPresent();
+        assertThat(jdbc.queryForObject("SELECT state FROM gift_fulfillment_jobs WHERE id = ?", String.class, job)).isEqualTo("READY");
+        assertThat(fulfillmentJobs.complete(stale, JdbcGiftFulfillmentJobs.State.READY, time)).isFalse();
     }
     @Test void timelyReceiptSurvivesExpiryAndReviewThenStartsNinetyDaysOnProvision() throws Exception {
         var order = active(); String raw = token(order.orderId()); UUID request = UUID.randomUUID();

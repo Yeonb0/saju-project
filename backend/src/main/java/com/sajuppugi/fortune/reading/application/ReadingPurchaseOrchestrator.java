@@ -45,6 +45,9 @@ public class ReadingPurchaseOrchestrator {
         ReadingPurchase purchase = execution.purchase();
         readings.saveGenerationContext(purchase.id(), execution.resumeContext());
 
+        if (execution.directPaid()) {
+            return generate(execution, null);
+        }
         WalletPurchasePort wallet = required(walletProvider.getIfAvailable());
         UUID debitClaim = UUID.randomUUID();
         if (!readings.tryClaimDebit(purchase.id(), debitClaim, clock.instant(),
@@ -66,6 +69,11 @@ public class ReadingPurchaseOrchestrator {
             throw new ApiException(ErrorCode.PURCHASE_DEBIT_MISMATCH);
         }
 
+        return generate(execution, debit.balance().balance());
+    }
+
+    private ExecutionResult generate(Execution execution, Integer balance) {
+        ReadingPurchase purchase = execution.purchase();
         GenerationLease lease = readings.tryClaimGeneration(purchase.id(), UUID.randomUUID(), clock.instant(),
                 clock.instant().plus(generationLease.leaseDuration())).orElse(null);
         if (lease == null) return current(execution);
@@ -73,7 +81,7 @@ public class ReadingPurchaseOrchestrator {
         try {
             GeneratedReading generated = generation.generate(execution.command());
             OwnedReading reading = execution.fulfillment().fulfill(generated, lease);
-            return new ExecutionResult(reading, debit.balance().balance(), false);
+            return new ExecutionResult(reading, balance, false);
         } catch (GenerationInProgressException inProgress) {
             readings.releaseGenerationLease(purchase.id(), lease);
             throw new ApiException(ErrorCode.READING_FULFILLMENT_UNAVAILABLE);
@@ -107,7 +115,11 @@ public class ReadingPurchaseOrchestrator {
 
     public record Execution(UUID userId, UUID quoteId, IdempotencyKey requestKey, ReadingPurchase purchase,
                             Price charged, GenerationCommand command, GenerationResumeContext resumeContext,
-                            Fulfillment fulfillment) {}
+                            Fulfillment fulfillment, boolean directPaid) {
+        public Execution(UUID userId, UUID quoteId, IdempotencyKey requestKey, ReadingPurchase purchase,
+                         Price charged, GenerationCommand command, GenerationResumeContext resumeContext,
+                         Fulfillment fulfillment) { this(userId, quoteId, requestKey, purchase, charged, command, resumeContext, fulfillment, false); }
+    }
 
     public record ExecutionResult(OwnedReading reading, Integer balance, boolean reused, ReadingPurchase current) {
         public ExecutionResult(OwnedReading reading, Integer balance, boolean reused) {

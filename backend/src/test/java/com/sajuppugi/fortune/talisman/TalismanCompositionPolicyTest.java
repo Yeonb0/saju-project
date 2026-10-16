@@ -31,7 +31,8 @@ class TalismanCompositionPolicyTest {
                 facts(counts(1, 1, 3, 4, 5), List.of()));
 
         assertThat(composition.element()).isEqualTo(Element.WOOD);
-        assertThat(composition.phrase()).startsWith("따뜻한 인연");
+        assertThat(composition.phrase()).isEqualTo(composition.visual().phrase().text());
+        assertThat(composition.visual().phrase().hanja()).isNotBlank();
     }
 
     @Test

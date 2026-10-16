@@ -23,6 +23,7 @@ public class LinerFactProjector {
         safe.set("twelveStages", mapper.valueToTree(facts.twelveStages()));
         safe.set("relations", mapper.valueToTree(facts.relations()));
         safe.set("luck", mapper.valueToTree(facts.luck()));
+        safe.set("specialStars", mapper.valueToTree(facts.specialStars()));
         return safe;
     }
 

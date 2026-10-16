@@ -89,10 +89,10 @@ class GeneralReadingApiTest {
 
     @Test
     void purchasesAllFiveGeneralFortunesWithTheirExactSections() throws Exception {
-        assertPurchase("OVERALL", "OVERALL_FLOW", 8);
-        assertPurchase("LOVE", "CURRENT_RELATIONSHIP", 6);
-        assertPurchase("WEALTH", "OVERALL_WEALTH", 7);
-        assertPurchase("SINSAL", "OVERALL_SINSAL", 4);
+        assertPurchase("OVERALL", "OVERALL_FLOW", 10);
+        assertPurchase("LOVE", "CURRENT_RELATIONSHIP", 10);
+        assertPurchase("WEALTH", "OVERALL_WEALTH", 10);
+        assertPurchase("SINSAL", "OVERALL_SINSAL", 10);
 
         String compatibility = body("COMPATIBILITY", "OVERALL_MATCH", true);
         UUID quoteId = issueQuote(compatibility, "COMPATIBILITY_READING_ONLY");
@@ -104,7 +104,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.counterpart.personId").value(counterpartId.toString()))
                 .andExpect(jsonPath("$.data.reading.counterpart.displayName").value("서준"))
                 .andExpect(jsonPath("$.data.reading.counterpart.relationType").value("LOVER"))
-                .andExpect(jsonPath("$.data.reading.sections.length()").value(6));
+                .andExpect(jsonPath("$.data.reading.sections.length()").value(10));
     }
 
     @Test
@@ -124,7 +124,7 @@ class GeneralReadingApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.meta.questionKey").value("CURRENT_RELATIONSHIP"))
                 .andExpect(jsonPath("$.data.goodPeriod.content").isString())
-                .andExpect(jsonPath("$.data.sections").doesNotExist());
+                .andExpect(jsonPath("$.data.sections.length()").value(10));
         mvc.perform(get("/api/v1/readings/love").with(user(userId.toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
@@ -183,7 +183,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.reading.talisman.status").value("PENDING"));
         verify(talismans).create(argThat(command -> command.ownerUserId().equals(userId)
                 && command.fortuneType().name().equals("LOVE")
-                && command.contentVersion().equals("love-2026.10.08")));
+                && command.contentVersion().equals("love-2026.10.15-v3")));
     }
 
     @Test
@@ -206,7 +206,7 @@ class GeneralReadingApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.reused").value(true));
         verify(wallet, times(1)).debit(eq(userId), eq(quoteId), any());
-        verify(liner, times(1)).generate(any());
+        verify(liner, times(2)).generate(any());
     }
 
     @Test
@@ -250,7 +250,7 @@ class GeneralReadingApiTest {
                 .andExpect(jsonPath("$.data.charged.currency").value("TURTLE_SHELL"))
                 .andExpect(jsonPath("$.data.charged.amount").value(10))
                 .andExpect(jsonPath("$.data.calculationVersion").value("manse-2026.10-v1"))
-                .andExpect(jsonPath("$.data.generationVersion").value("liner-general-reading-v2"))
+                .andExpect(jsonPath("$.data.generationVersion").value("liner-general-reading-v5"))
                 .andExpect(jsonPath("$.data.reading.fortuneType").value(type))
                 .andExpect(jsonPath("$.data.reading.questionKey").value(questionKey))
                 .andExpect(jsonPath("$.data.reading.sections.length()").value(sections))
@@ -282,7 +282,7 @@ class GeneralReadingApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.reading.meta.questionKey").value(questionKey))
                 .andExpect(jsonPath("$.data.reading.summary.content").isString())
-                .andExpect(jsonPath("$.data.reading.sections").doesNotExist());
+                .andExpect(jsonPath("$.data.reading.sections.length()").value(10));
         for (String field : expectedFields) {
             action.andExpect(jsonPath("$.data.reading." + field + ".content").isString());
         }

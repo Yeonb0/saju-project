@@ -5,6 +5,7 @@ import com.sajuppugi.common.api.ApiResponse;
 import com.sajuppugi.common.api.ErrorCode;
 import com.sajuppugi.fortune.talisman.application.TalismanQueryService;
 import com.sajuppugi.fortune.talisman.domain.Talisman;
+import com.sajuppugi.fortune.talisman.domain.TalismanComposition;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
@@ -58,11 +59,11 @@ public class TalismanController {
 
     public record TalismanView(UUID id, UUID sourceReadingId, String fortuneType, String element,
             String animal, String phrase, String description, String contentVersion, String status,
-            Instant createdAt, Instant readyAt) {
+            TalismanComposition composition, Instant createdAt, Instant readyAt) {
         static TalismanView from(Talisman value) {
             return new TalismanView(value.id(), value.sourceReadingId(), value.fortuneType().name(),
                     value.element().name(), value.animal().name(), value.phrase(), value.description(),
-                    value.contentVersion(), value.status().name(), value.createdAt(), value.readyAt());
+                    value.contentVersion(), value.status().name(), value.composition(), value.createdAt(), value.readyAt());
         }
     }
 }
