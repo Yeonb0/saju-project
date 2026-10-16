@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: 신살 규칙 fixture 분리 (로컬 단위 회귀)
+
+- `backend/src/test/resources/saju-rules/sinsal-v1/cases.json`으로 `sinsal-v1` 회귀를 계산 fixture와 분리했다. test는 calculation policy와 rule version을 각각 대조하고 13종 판정 구조, 홍염살·백호살 count, 대운/세운 activation 존재를 확인한다.
+- `SpecialStarCalculatorTest`, `DeterministicSajuEngineRegressionTest`, `LinerResponseValidatorTest`를 로컬에서 실행해 통과했다. fixture는 합성 사례 한 건의 초안이며, 13종의 명리 검수된 개별 판정 표와 추가 사례는 미완료다. rules가 바뀌면 기존 fixture를 조용히 수정하지 않고 새 rule/fixture version과 검수 근거를 추가해야 한다.
+- 적용: 6-6 계산·해석 rule version 분리와 CI 회귀 차단, 6-9 합성 입력만 저장. DB schema, 결과 snapshot, wallet/payment, 외부 provider는 변경하지 않았다.
+
 ### 2026-10-16: 버전 고정 사주 계산 fixture 초안 (로컬 단위 회귀)
 
 - 합성 입력만 담은 `backend/src/test/resources/saju-golden/v1/cases.json`을 추가하고, `DeterministicSajuEngineRegressionTest`가 fixture의 `policyVersion`과 실행 `CalculationPolicy.CURRENT`를 먼저 대조한 뒤 사주 기둥·일간 오행·오행 count·윤달 변환·절입 경계·시각 미상 결과를 비교하도록 연결했다.
