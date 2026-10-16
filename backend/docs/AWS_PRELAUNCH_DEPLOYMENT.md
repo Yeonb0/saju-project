@@ -7,6 +7,7 @@
 - `staging,prelaunch` 프로필로 로그인·인물 등록·기존 결과/무료 기능 연결 확인.
 - PG 키 불필요. 결제·지갑 구매·선물 주문·관리자·생성 복구·부적 render 등 미준비 쓰기 기능 비활성.
 - 활성화 시 기동 거절. PG가 정해진 이후 별도 배포 변경으로 해당 프로필 해제·결제 검증.
+- prelaunch 전용 HTTP filter가 직접결제/충전/운세 구매/선물/PG webhook의 쓰기 요청을 controller 이전에 503 `PAYMENT_FULFILLMENT_UNAVAILABLE`로 차단. GET/HEAD/OPTIONS·로그인·동의·인물 관리에는 기존 인증/CSRF 규칙 유지. 아직 없는 수능운 fulfillment도 직접결제 하위 경로 차단에 포함.
 - 현재 main의 FE 직접결제 adapter와 BE의 API 호환은 별도 확인 대상. 이번 배포는 구매 완주 환경이 아님.
 - 공유 환경의 fake Liner 금지. Liner API 키는 기동 시 필요하며, 무료 운세 등 실제 생성 요청에는 외부 API 비용 발생 가능.
 - Spring 프로필 이름이 staging이어도 금융/개인정보 테스트용 기존 DB를 자동 생성하거나 초기화하지 않음.
@@ -55,6 +56,7 @@ ZIP 루트는 `app.jar`, `Procfile`, `.ebextensions/01-prelaunch.config`. 저장
 - 카카오 Developers에 위 `KAKAO_REDIRECT_URI`와 정확히 같은 URI 등록.
 - 콜백이 FE proxy를 경유하므로 세션 쿠키는 FE 도메인에서 저장. 세션·CSRF/Origin 검사는 유지.
 - PG 미준비 안내·구매 버튼 노출은 FE 담당과 조정. BE 설정만으로 FE에서 결제창 버튼을 자동 숨기지는 않음.
+- 10/16 FE·B 전달 반영: FE는 주문 생성 전 구매 진입 비활성/준비 중 안내 필요. 503을 PG 결제 실패·미청구 확정·환불 완료로 해석하지 않음. PG 미선정 배포에서는 실제 결제 E2E 일정과 비결제 로그인 점검 일정을 구분.
 - Amplify의 Next.js rewrites·쿠키·서버 환경 변수 반영은 실제 브라우저에서 검증. Amplify만으로 Java BE가 실행되지는 않음.
 
 ## 첫 기동·확인
@@ -76,6 +78,16 @@ ZIP 루트는 `app.jar`, `Procfile`, `.ebextensions/01-prelaunch.config`. 저장
 - 설정 guard는 prelaunch 프로필을 위한 보호이며, 기존 production의 모든 기동 조건을 바꾸지는 않음.
 - 프록시가 검증하지 않은 forwarded header를 전역 신뢰하도록 설정하지 않음. TLS·cookie 실제 결과는 배포 후 확인.
 - 개인정보처리방침의 Vercel/Railway 표기는 실제 Amplify/BE/DB 구성이 정해진 후 PD 수정 필요.
+
+## 10/16 FE·B 계약 인수인계
+
+- Q-64: 수능운 전용 fulfillment는 B의 직접결제 PR에서 구현/검증. 현재 일반 경로의 옵션·질문 제약을 배포 준비 PR에서 임의 완화하지 않음. 상세 고민은 1차 제외 정책 유지.
+- Q-65: 자동 현금 취소 상태/작업·재시도 설계와 fake provider 검증은 PG 선정 전 가능. 실제 PG 취소 성공 검증은 선정/키 설정 이후. FAILED, REVIEW_REQUIRED, compensationStatus, nextAction은 구현과 일치하는 계약 합의 전 확정 응답으로 공지하지 않음.
+- Q-66: 본인 직접결제 주문 내역 API는 별도 구현. 결제 상태·생성 상태·환불 상태를 혼동하지 않음.
+- 공유 OpenAPI: 직접결제 PR의 실제 경로와 함께 export하고 FE generated type을 동기화. 존재하지 않는 API를 이 배포 PR에서 공유 snapshot에 추가하지 않음.
+- P-07은 10/15 회의·정책 v4에 맞춰 신규 판매 원화 직접결제로 갱신. 옛 충전형 코드/기록 보존과 신규 판매 활성화는 별개.
+- PR #52의 FE 충전 화면 제거·직접결제 복귀 변경과 PR #55 문서는 최신 main에서 통합. 직접결제 PR #49는 별도이며 이 배포 PR이 승인/머지하지 않음.
+- 실제 배포 후 FE 전달 항목: FE origin, HTTPS BE origin, callback URI, FRONTEND_BASE_URL 일치 여부, PG 비활성 상태, 실제 검증 완료 항목. 주소가 만들어지기 전 임의 URL을 확정값으로 보내지 않음.
 
 ## 공식 참고
 

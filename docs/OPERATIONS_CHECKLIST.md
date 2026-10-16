@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-16: FE·B 직접결제 인수인계와 배포 차단 보완
+
+- 최신 main `51c76bf`(FE #52·#55)를 배포 브랜치에 충돌 없이 통합. FE·B의 Q-64~66 전달은 API/실결제 완료 사실이 아니라 후속 계약·구현 항목으로 기록.
+- prelaunch 전용 HTTP filter로 직접결제 batch 생성·승인·일반/수능 fulfillment·구 충전·구매·선물·webhook 쓰기를 controller 이전에 503으로 차단. future direct-payment 하위 경로도 포함. PG 키 비활성만으로 주문 상태 변경을 막을 수 없는 위험 보완. 기존 staging/production에 filter 자동 적용하지 않음.
+- P-07·상단 결제 방향과 P-08의 PG 미선정 상태 갱신. 기존 금융/개인정보 데이터·migration·업무 API 계약 변경 없음. API 구현 없는 OpenAPI 추가·직접결제 #49 머지·FE 버튼/문구 수정은 수행하지 않음.
+- CI에 배포 ZIP 생성 추가. 신규 차단 검사와 최종 회귀 결과는 PR 검증 결과 기준. 실제 AWS 배포·카카오/PG/R2 실연결은 여전히 별도 검증.
+
 ### 2026-10-16: AWS PG 비활성 첫 배포 준비
 
 - 기준 main `2aadee5`, 브랜치 `codex/aws-prelaunch-deployment`. 사용자 요청에 따라 PG 연결보다 서버 배포 준비를 먼저 진행. FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 구성이며 실제 AWS 자원 생성·배포는 미실행.
