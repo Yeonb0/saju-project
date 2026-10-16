@@ -3,7 +3,7 @@
 > **FE 개인 작업 문서다. 팀 합의 문서가 아니다.** 일정 · Phase · 담당 표기는 FE 가 작업 순서를 잡으려고 세운 계획이다 (DOCS-FE-OWN).
 > **결정 기준은 GitHub 의 팀 문서다** — 루트 [`docs/PENDING_DECISIONS.md`](../../docs/PENDING_DECISIONS.md) (DOCS-GITHUB). 결정은 팀 ID(P- · F- · G- · A- · S- · T- · X- · O- · D- · I-)로 부른다. 옛 FE 결정 번호 D-01 ~ D-16 은 닫았고 기록에서만 "구 D-xx" 로 부른다 (7장, DECISION-IDS).
 > 팀 문서끼리 어긋나거나 정의가 빈 곳은 [`TEAM-QUESTIONS.md`](TEAM-QUESTIONS.md) (Q-xx · R-xx). BE 일정은 [`backend/docs/BACKEND_ROLE_SPLIT.md`](../../backend/docs/BACKEND_ROLE_SPLIT.md) 9장.
-> 작성: 2026-09-26 (토) · 상태: **v3.7** (2026-10-16 직접결제 전환 — 등껍질 충전 · 차감 삭제, 운세 건별 원화 결제 · 정책 v4 · 호스팅 AWS Amplify 예정 · v3.6 2026-10-14 저녁 PG 심사 점검 · 퀵오픈 방향 · 정책 원고 표시 구조 · v3.5 2026-10-14 기능 명세서 v0.4 반영 — PD 확정 문구 · 일반 운세 질문 칩 · 일반 운세 진짜 연결 · 수능 8장 카드 · 구매 완료 안내 · v3.4 2026-10-13 BE 고객센터 환불 전환 대응 · PAY-03 유료 · 보너스 내역 · 지갑 확인 안내 · v3.3 2026-10-12 FE 진짜 연결 코드 완료 · 결과 서버 구조 · 구매 상태 · v3.2 2026-10-11 BE ↔ FE 연결 점검 · 수능운 견적 · 구매 adapter · v3.1 2026-10-10 오전 팀 답 반영 · OpenAPI 생성 타입 · 첫 adapter 2개 · v3.0 2026-10-09 오후 PG 가짜 범위 배치 완료 · BE-B PR #15 연동 TODO · v2.9 PD 추가 화면 PAY-03 ~ 05 · INFO · COMMON, 디자인 시스템 확정 · v2.8 유료 운세 5종 · 궁합 · 잔액 부족 · 분석 로딩 가짜 범위 · 2026-10-08 와이어 배치 LAYOUT-FIGMA · BE-A PR #14 · 2026-10-05 MOCK-PORT 진행 · 2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
+> 작성: 2026-09-26 (토) · 상태: **v3.8** (2026-10-16 저녁 AWS Amplify 배포 시작 — 도메인 `ppugi-saju.kr` · 배포 단계 변수 `NEXT_PUBLIC_DEPLOY_ENV` · v3.7 2026-10-16 직접결제 전환 — 등껍질 충전 · 차감 삭제, 운세 건별 원화 결제 · 정책 v4 · 호스팅 AWS Amplify 예정 · v3.6 2026-10-14 저녁 PG 심사 점검 · 퀵오픈 방향 · 정책 원고 표시 구조 · v3.5 2026-10-14 기능 명세서 v0.4 반영 — PD 확정 문구 · 일반 운세 질문 칩 · 일반 운세 진짜 연결 · 수능 8장 카드 · 구매 완료 안내 · v3.4 2026-10-13 BE 고객센터 환불 전환 대응 · PAY-03 유료 · 보너스 내역 · 지갑 확인 안내 · v3.3 2026-10-12 FE 진짜 연결 코드 완료 · 결과 서버 구조 · 구매 상태 · v3.2 2026-10-11 BE ↔ FE 연결 점검 · 수능운 견적 · 구매 adapter · v3.1 2026-10-10 오전 팀 답 반영 · OpenAPI 생성 타입 · 첫 adapter 2개 · v3.0 2026-10-09 오후 PG 가짜 범위 배치 완료 · BE-B PR #15 연동 TODO · v2.9 PD 추가 화면 PAY-03 ~ 05 · INFO · COMMON, 디자인 시스템 확정 · v2.8 유료 운세 5종 · 궁합 · 잔액 부족 · 분석 로딩 가짜 범위 · 2026-10-08 와이어 배치 LAYOUT-FIGMA · BE-A PR #14 · 2026-10-05 MOCK-PORT 진행 · 2026-10-04 GitHub 팀 문서 + 팀 답 + 팀 결정 + 최종 와이어프레임 + 기능 명세서 v0.3)
 > 변경: 2026-09-26 — 프론트엔드 스택 확정(3-1), 손그림 테두리 `border-image`(4장), 서비스명 「뿌기사주」(구 D-11), FE 전용 내용은 `FRONTEND.md` 로 분리
 > 변경: 2026-09-30 — 용어 복원(DOCS-RESTORE), FE 브랜치 `boyeon`(BRANCH), Phase 0 · 1 체크박스, 글꼴 보류(FONT-HOLD), 라우트 오류 · 404 화면, `frontend/docs/` 로 이동(DOCS-FE-OWN)
 > 변경: 2026-10-03 — **v2**: 공용 문서(PR #5) 반영. 구 D-xx 닫고 팀 ID 로 전환(DECISION-IDS). **PG 심사 트랙 신설 · 최우선 — 백엔드 연결과 결제 플로우만, 디자인 요소 배제 (PG-FIRST)**. Phase 2 를 PG 트랙에 흡수. 운세 6종(일반 5 + 수능운), 선물 단건 · 원화 결제 · 알림톡, 충전 상품 6종(P-02 변경). 결과 뷰어 ReadingViewer 하나(VIEWER), 손그림체(STYLE-HAND). (10/1 에 만든 v1 은 배치하지 않고 이 판으로 대체)
@@ -24,6 +24,7 @@
 > 변경: 2026-10-14 — **v3.5 기능 명세서 v0.4 반영**: PD 10/13 1 · 2차 답 · 정책 v2 · 와이어 수정안을 FE 가 기능 명세서 v0.4 로 옮겨 `main` 병합(PR #38 `84f87f0`, SPEC-V04 — PD 는 GitHub 를 쓰지 않아 검토는 팀 확인 요청 문서로). 그 뒤 코드: 수능 카드 · 교시 · 준비물 이름(`608a5f5`), 구매 상태 COMMON-02 ~ 04 · 문의하기 메일(`4e6cab1`), 충전 동의 · 안내 · PAY-06(`9be6276`), PAY-03 ~ 05 문구(`d777e5a`), 다시 결제 상품 유지(`df940fb`, TOPUP-RETRY-URL), 로그인 · 푸터 문구(`94f697f`), 일반 운세 질문 칩 · 복원 v4(`536b810`), 일반 운세 5종 진짜 adapter(`2f505f7`), 수능 8장 카드(`f8148ea`), 구매 완료 안내(`b3d2051`), 궁합 「연인」 미리 고르기(`6cee20d`). 새 질문 Q-42 ~ Q-63 (TEAM-QUESTIONS)
 > 변경: 2026-10-14 (저녁) — **v3.6 PG 심사 점검 · 퀵오픈 방향**: `main` 과 토스 심사 체크리스트를 대조 — 충전 상품 6종 비활성 · 정책 본문 · 푸터 3개 값 · 상품 이미지 · 운영 배포가 없고, 일반 심사(최대 10 ~ 14영업일)로는 10/31 에 결제가 안 열린다. 사용자 방향: 토스 **퀵오픈** 추진(R-10 — 10/15 토스 통화 후 확정, 안 되면 계좌이체 수동 충전). PG 트랙 일정 · PG-4 · BE-A 줄 · 리스크 갱신. 통신판매업은 신고 진행(R-07). 정책 원고 표시 구조(`7fb0658`). `main` PR #33 · #39 · #41(BE-A — 선물 관리자 · 견적 고객센터 조회 · 직접 링크 재발급, 팀 문서 4개에 선물 1차 직접 공유) → Phase 5 이름 · Q-54 · Q-55
 > 변경: 2026-10-15 ~ 16 — **v3.7 직접결제 전환 (DIRECT-PAY)**: 10/15 정책 v3 배치(`10e26c7`) · 푸터 항목 이름 한 줄 · 충전 버튼 「N원 결제하기」(`d8ddb91`) · 만들지 않은 화면은 「준비 중이에요」 만 · HOME-02 윤달 줄(`683506a`) · 유선번호(`c4b1e8d`) · 기능 명세서 MY-03 · 05 · 07 경로 PD 확정(`dc9b9d9`, Q-57). 10/16 사용자 결정으로 등껍질 충전 · 차감을 없애고 운세 한 건씩 원화로 결제한다 — 포트 · 가짜(`7c02326`), 결제하기 팝업(`33d6a83`), 복귀 화면 · 결제 뒤 생성(`06f6dca`), 홈 · `/about` 정리(`45d2422`), 정책 v4 이용약관 · 환불정책(`362d99d`), 진짜 adapter — PR #49 컨트롤러 기준(`274ebf8`), PR #51 병합(`2aadee5`), `/wallet` 삭제(`cf12a00`). PG-3 를 "직접결제 플로우" 로 다시 썼다. BE 답(10/16): PG사 아직 선정 전, 수능운 전용 결제 뒤 생성 경로(Q-64) · 결제 내역 목록(Q-66) · OpenAPI(Q-68) 진행. 통신판매업은 면제 표기(R-07), 호스팅은 AWS Amplify 로 이전 예정(R-11)
+> 변경: 2026-10-16 저녁 — **v3.8 AWS Amplify 배포 (HOSTING-AMPLIFY 진행)**: 도메인 `ppugi-saju.kr`(Route 53, `www` → 301, SITE-DOMAIN), Amplify 앱 · 루트 `amplify.yml`(`63b0f61`), 배포 단계 변수 `NEXT_PUBLIC_DEPLOY_ENV`(`3fe6072`, DEPLOY-ENV) — PG 트랙 "AWS Amplify 이전 준비" 끝. `boyeon` 미리보기(가짜 모드)가 Amplify 에서 동작, Next.js 16 SSR 확인. BE 는 Elastic Beanstalk(PR #56), `api.ppugi-saju.kr` 인증서 진행 중. `main` PR #57 로 직접결제 컨트롤러 병합 · OpenAPI 는 아직(Q-68), 결과 10섹션 · 생성 미리보기 계약 차이(Q-69)
 > 기준 날짜: 출시 **10/31(토)** · 평가 기간 **10/31 ~ 11/21** · 수능 **11/19(목)** → 출시일은 **수능 D-19**
 > 디자인 소스: Figma `9zEtrqV4SoPbQzuworSNUj` / 페이지 **`와이어프레임 최종`(node `195:91`)** — FIGMA-FINAL. 옛 페이지 `와이어프레임`(node `17:2`)은 기록용
 
@@ -160,7 +161,7 @@ Phase 4 · 5 의 기간은 BE 일정(`BACKEND_ROLE_SPLIT.md` 9장)에 맞췄다 
 
 ### 3-1. 프론트엔드 — ✅ 확정
 
-Next.js(App Router)+TypeScript · Vercel · pnpm · Tailwind + CSS 변수 토큰 · 손그림 SVG `border-image` · 글꼴 보류(FONT-HOLD) · vaul/Radix · TanStack Query · openapi-typescript+openapi-fetch · 토스페이먼츠 SDK v2(TOSS-SDK) · RHF+Zod · Zustand(선물 위저드 한정) · dayjs(Asia/Seoul) · `generateMetadata`+Kakao JS SDK · Biome/Vitest/Playwright · Sentry/PostHog. 선택 이유와 API 연결 규칙은 **[`FRONTEND.md`](FRONTEND.md) 1장**.
+Next.js(App Router)+TypeScript · AWS Amplify(10/16 — Vercel 미리보기 병행) · pnpm · Tailwind + CSS 변수 토큰 · 손그림 SVG `border-image` · 글꼴 보류(FONT-HOLD) · vaul/Radix · TanStack Query · openapi-typescript+openapi-fetch · 토스페이먼츠 SDK v2(TOSS-SDK) · RHF+Zod · Zustand(선물 위저드 한정) · dayjs(Asia/Seoul) · `generateMetadata`+Kakao JS SDK · Biome/Vitest/Playwright · Sentry/PostHog. 선택 이유와 API 연결 규칙은 **[`FRONTEND.md`](FRONTEND.md) 1장**.
 
 ### 3-2. 백엔드 · 인프라 — ✅ 확정 (팀 문서)
 
@@ -324,16 +325,17 @@ AppShell · API 클라이언트 · 로그인 가드 · Checkout(PG 결제 / 등�
   - [x] (FE) 전자우편 `ppugisaju@gmail.com` (`b33cfb5`), COMMON-01 「문의는 이메일이 가장 빨라요.」 (`94f697f`)
   - [x] (FE) 유선번호 `010-7429-0716` (`c4b1e8d`, 10/15)
   - [x] (FE) 통신판매업 — 신고하지 않고 「면제 (직전연도 통신판매 거래 50회 미만)」 표기 (10/16 사용자 결정, R-07 — 이 세션 문서 커밋 앞의 코드 커밋)
-  - [ ] (FE) 호스팅서비스 제공자 상호 — AWS Amplify 이전 뒤 법적 상호 (Q-44 · R-11)
+  - [ ] (FE) 호스팅서비스 제공자 상호 — AWS Amplify 이전 뒤 법적 상호 (Q-44 · R-11). 10/16 FE 는 Amplify 로 옮김 — AWS 계정의 계약 법인명(결제 화면)을 사용자가 확인해 주면 넣는다. 카드사 심사 요청 전에
 - [ ] (FE) **PG-5 운영 도메인 실기기** — 로그인 → 충전 결제창 열림 · 카드사 노출 · 복귀를 Android Chrome · 카카오톡 인앱에서 확인 (iOS 는 R-03), 심사용 테스트 계정 경로 확인 (R-05)
 - [x] (BE-A · BE-B) BE 프로젝트 골격 — 공통 응답 · 오류 · traceId · 최소 보안 (`a605afa`, `main`, 10/3). 스테이징 · 업무 API 없음
 - [ ] (BE-A) 상품 · 견적 · 지갑 · 충전 주문 · 토스 승인 API (스테이징) — 제공일 재산정 중 (R-06). 도메인 타입 · 내부 계약 · 확정 정책 골격은 `main` `2c682e0` (10/4, `backend/docs/BACKEND_A_SCAFFOLD.md`) — 업무 API · DB · 토스 연동 없음. → 10/6 PR #14(`a064ea6`): 상품 · 견적(30분) · 견적 잔액 계산(추천 충전) · 지갑 잔액 · 내역 조회를 DB · 서비스로 구현, 충전 상품 6종(50,000원 80 · 580) 비활성 등록 — HTTP API 없음 (`backend/docs/FE_COMPATIBILITY.md`). → PR #17 · #19 · #21 로 지갑 · 충전 주문 · 상품 목록 · 승인 · 주문 조회 · 토스 승인 HTTP API 가 `main`(10/11), PR #24 로 충전 환불 · 결제 대사 · 지갑 운영(10/12, 기능 꺼짐 — Q-41). 스테이징 없음 (R-06)
 - [x] (BE-B) 카카오 OAuth · 세션 · CSRF — `main` PR #23 (`7bac2a1`, 10/12). 스테이징 배포 · 카카오 callback 등록은 R-04 · R-06
-- [ ] (BE-A) 토스페이먼츠 가입 · 심사 요청 (10/14 전후) → **10/15 대표가 퀵오픈 신청** (R-10, 개인사업자는 대표 본인만 신청). 시크릿 키는 BE 환경 변수에만, 클라이언트 키는 FE(Vercel Production)
+- [ ] (BE-A) 토스페이먼츠 가입 · 심사 요청 (10/14 전후) → **10/15 대표가 퀵오픈 신청** (R-10, 개인사업자는 대표 본인만 신청). 시크릿 키는 BE 환경 변수에만, 클라이언트 키는 FE(Amplify `main` 환경 변수)
 - [ ] ~~(BE-A) 충전 상품 활성화 마이그레이션~~ — 10/16 DIRECT-PAY 로 필요 없음. 대신 (BE-A) 직접결제 PR #49 병합 · 운세 상품 원화 가격(`V202610151400`) · 수능운 전용 결제 뒤 생성(Q-64) · 결제 내역 목록(Q-66) · OpenAPI(Q-68) · P-07 팀 문서(Q-67)
 - [ ] (BE-A · 대표) PG사 선정 · 계약 · 테스트 키 (R-10 — BE 답 10/16: 아직 선정 전)
-- [ ] (FE) AWS Amplify 이전 준비 — 운영 mock 차단 · Sentry/PostHog 키 검사 · 관측 환경 이름을 Vercel 변수 대신 우리 배포 단계 변수로, 미리보기(가짜 모드) 다시 만들기, Next.js 16 · rewrites 첫 배포 확인 (R-11)
-- [ ] (BE-A · BE-B) 운영 배포 · `FRONTEND_BASE_URL` · 카카오 운영 callback · 토스 웹훅 주소 (R-04 · R-06)
+- [x] (FE) AWS Amplify 이전 준비 — 운영 mock 차단 · Sentry/PostHog 키 검사 · 관측 환경 이름을 배포 단계 변수 `NEXT_PUBLIC_DEPLOY_ENV` 로(`3fe6072`, DEPLOY-ENV), 루트 `amplify.yml`(`63b0f61`), 미리보기(가짜 모드) `boyeon` 브랜치, Next.js 16 SSR 빌드 확인 (R-11, 10/16). rewrites(`/api` → BE)는 BE 주소가 나온 뒤 확인
+- [ ] (사용자) 도메인 `ppugi-saju.kr` · Route 53 · Amplify 사용자 지정 도메인 — 연결 끝(10/16), `main` 빌드는 PR 병합 뒤. `main` 환경 변수 덮어쓰기(`production` · `real`) 확인, BE 주소가 나오면 `API_PROXY_TARGET`
+- [ ] (BE-A · BE-B) 운영 배포 · `FRONTEND_BASE_URL` · 카카오 운영 callback · 토스 웹훅 주소 (R-04 · R-06) — 10/16: AWS Elastic Beanstalk prelaunch 문서(PR #56), 주소 `https://api.ppugi-saju.kr` · `FRONTEND_BASE_URL=https://ppugi-saju.kr` · redirect `https://ppugi-saju.kr/api/v1/auth/kakao/callback` 전달, ACM 확인 레코드 수령. 심사용은 prelaunch 가 아니라 PG 테스트 키 설정
 - [ ] (BE-A · FE) 심사용 결제 경로 파일 (R-05) — 운영 배포 후
 - [ ] (대안일 때만) (BE-A) 관리자 수동 지급 API · (FE) 입금 안내 · 대기 화면 — 계좌이체 수동 충전 (R-10)
 

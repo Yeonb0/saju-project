@@ -1,9 +1,29 @@
 import type { Breadcrumb, ErrorEvent } from "@sentry/nextjs";
 import type { CaptureResult } from "posthog-js";
-import { describe, expect, it } from "vitest";
-import { posthogOptions, sentryOptions } from "./config";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getEnvironment, posthogOptions, sentryOptions } from "./config";
 
 // 이 파일의 토큰 · 주문번호 · 금액은 픽스처일 뿐, 실제 형식 · 가격과 무관하다.
+
+describe("getEnvironment (HOSTING-AMPLIFY · R-11)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("m. NEXT_PUBLIC_DEPLOY_ENV 가 있으면 그 값, 비면 NEXT_PUBLIC_VERCEL_ENV, 둘 다 없으면 local", () => {
+    vi.stubEnv("NEXT_PUBLIC_DEPLOY_ENV", "staging");
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "production");
+    expect(getEnvironment()).toBe("staging");
+
+    vi.stubEnv("NEXT_PUBLIC_DEPLOY_ENV", "");
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "preview");
+    expect(getEnvironment()).toBe("preview");
+
+    vi.stubEnv("NEXT_PUBLIC_DEPLOY_ENV", undefined);
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", undefined);
+    expect(getEnvironment()).toBe("local");
+  });
+});
 
 describe("sentryOptions", () => {
   const options = sentryOptions("https://dsn.example/1", "development");
