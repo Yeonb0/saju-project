@@ -6,26 +6,29 @@
 
 ## 현재 상태
 
-- **현재 단계**: **PG 트랙 — 직접결제 (DIRECT-PAY, 10/16)** + 가짜 구현(MOCK-PORT) + 진짜 adapter(ADAPTER-HTTP). 등껍질 충전 · 차감을 없애고 운세 한 건씩 원화로 결제한다. 가짜 모드에서는 수능운 · 일반 운세 5종 모두 「결제하기 → 결제창 → 승인 → 운세 생성 → 결과」 가 끝까지 동작한다. 최종 와이어의 글자 · 상자 배치는 넣는다(LAYOUT-FIGMA) — 글꼴 · 손그림 외곽선 · 색 토큰은 Q-32 · 적용 시작 전까지 넣지 않는다. 사용자 문구는 기능 명세서 v0.4 · PD 정책 v4 문장, 그 밖은 자리표시. 코드는 Claude Code, 웹 대화는 명세 · 검토 · 작업 공간 재현 · 변이 확인 (CODE-BY-CC · SCREEN-CHECK)
-- **저장소 (10/16 낮)**: `main` `2aadee5` (PR #51 — 직접결제 6커밋). `boyeon` = `main` + `cf12a00`(`/wallet` 삭제) + 통신판매업 면제 표기 코드 커밋 + 이 문서 커밋 — **`boyeon` → `main` PR 은 문서까지 끝난 뒤 사용자가 올린다**(DOCS-BEFORE-PR, 10/16)
+- **현재 단계**: **PG 트랙 — 직접결제 (DIRECT-PAY, 10/16)** + 가짜 구현(MOCK-PORT) + 진짜 adapter(ADAPTER-HTTP). 등껍질 충전 · 차감을 없애고 운세 한 건씩 원화로 결제한다. 가짜 모드에서는 수능운 · 일반 운세 5종 모두 「결제하기 → 결제창 → 승인 → 운세 생성 → 결과」 가 끝까지 동작한다. 최종 와이어의 글자 · 상자 배치는 넣는다(LAYOUT-FIGMA) — 글꼴 · 손그림 외곽선 · 색 토큰은 Q-32 · 적용 시작 전까지 넣지 않는다. 사용자 문구는 기능 명세서 v0.4 · PD 정책 v4 문장, 그 밖은 자리표시. 코드는 Claude Code, 웹 대화는 명세 · 검토 · 작업 공간 재현 · 변이 확인 (CODE-BY-CC · SCREEN-CHECK). **10/16 저녁 — 호스팅 AWS Amplify 로 옮기기 시작 (HOSTING-AMPLIFY)**: 도메인 `ppugi-saju.kr`, 미리보기 `boyeon` 브랜치 빌드 성공 · 가짜 모드 동작, 배포 단계 변수 `NEXT_PUBLIC_DEPLOY_ENV`(DEPLOY-ENV)
+- **저장소 (10/16 저녁)**: `main` `b774026` (PR #55 = 10/16 낮 FE 문서 · 통신판매업 면제 표기, PR #56 AWS prelaunch 배포 문서 · 구매 쓰기 차단, PR #57 직접결제 컨트롤러 · 유료 운세 생성 확장, PR #59 판매 상태). `boyeon` = `main` + `63b0f61`(루트 `amplify.yml`) + `3fe6072`(배포 단계 변수) + 이 문서 커밋 — **`boyeon` → `main` PR 은 이 문서 커밋 뒤 사용자가 올린다**(DOCS-BEFORE-PR). 병합되면 Amplify `main` 이 빌드되어 `https://ppugi-saju.kr` 이 열린다
 - **위험 (10/16)**
   - **PG사가 아직 선정 전이다** (BE 답 10/16, R-10). 실제 승인 · 취소 확인은 PG 선정 · 계약 · 테스트 키 뒤에만 된다. FE 결제창은 토스 V2 형식 — 다른 PG 면 결제창 포트 구현만 바꾼다. 10/15 토스 통화 · 퀵오픈 결과는 FE 문서에 기록되지 않았다
-  - **BE 직접결제(PR #49 `feat/direct-payment-gift-fulfillment` `c2a1392`)는 미병합**, 공유 OpenAPI 에도 없다(Q-68). FE 진짜 adapter 는 컨트롤러 기준(`274ebf8`) — 병합 · OpenAPI 반영 때 생성 타입과 대조
-  - **수능운은 결제 뒤 생성 경로가 없다**(Q-64) — BE 가 수능운 전용 `suneung-fulfillment` 를 만들기로 답함(10/16). 그 전에는 진짜 모드 수능운이 결제 뒤 「확인이 필요한 구매예요」 로 끝난다 → 10/17 본인 수능운 E2E 는 이 경로 · 스테이징 · PG 가 있어야 한다
+  - **BE 직접결제 컨트롤러는 `main` 에 들어왔다**(PR #57 `6eca68c` — 생성 · 조회 · `confirm` · `reading-fulfillment` · `talisman-fulfillment`, PR #49 `c2a1392` 이후 경로 변경 없음). PR #49 브랜치 자체는 미병합. **공유 OpenAPI 에는 아직 없다**(Q-68) — FE 진짜 adapter 는 컨트롤러 기준(`274ebf8`), OpenAPI 반영 때 생성 타입과 대조
+  - **수능운은 결제 뒤 생성 경로가 없다**(Q-64, `main` PR #57 에도 없음) — BE 가 수능운 전용 `suneung-fulfillment` 를 만들기로 답함(10/16). 그 전에는 진짜 모드 수능운이 결제 뒤 「확인이 필요한 구매예요」 로 끝난다 → 10/17 본인 수능운 E2E 는 이 경로 · 스테이징 · PG 가 있어야 한다
   - **정책 v4 와 화면이 어긋나는 곳**: 생성 실패 자동 취소(환불 6조 · 약관 7조 1항 — BE 는 지금 불가, PD 문장 수정 필요, Q-65), 마이페이지 다시 보기 · 선물 링크 다시 만들기(화면 없음 — Q-57 · Q-66 · Q-54)
-  - **스테이징 · 운영 배포가 없다**(R-06) — 진짜 모드 실제 확인 0. 호스팅은 Vercel → **AWS Amplify(백 + 프론트) 이전 예정**(R-11) — FE 의 운영 mock 차단 · 모니터링 키 검사가 Vercel 변수에 기대므로 이전 전 FE 작업 필요. 도메인이 바뀌면 카카오 callback · `FRONTEND_BASE_URL`(CSRF Origin) · PG 성공 · 실패 주소도 같이
-  - 팀 문서(`main`)는 아직 등껍질 결제(P-02 · P-03 · P-04 · P-07, 기능 명세서 7 · 8장 — Q-67)
+  - **BE 배포가 아직 없다**(R-06) — 진짜 모드 실제 확인 0. BE 는 AWS Elastic Beanstalk prelaunch 프로필(로그인 · 인물 · 무료 기능만, 구매 쓰기는 503 `PAYMENT_FULFILLMENT_UNAVAILABLE`, PR #56 `backend/docs/AWS_PRELAUNCH_DEPLOYMENT.md`)을 준비했고, `api.ppugi-saju.kr` 인증서(ACM) 확인 레코드를 받은 상태(10/16 저녁). **PG 심사용 사이트는 prelaunch 가 아니라 PG 테스트 키를 넣은 설정이어야 결제창이 열린다** — BE 와 맞출 것. FE 는 Amplify 로 옮김(R-11 FE 부분 끝)
+  - 팀 문서(`main`): P-07 · 재화 · 선물 결제 · 호스팅 줄은 직접결제 · AWS 로 고쳐졌다(PR #56 · #57). P-02 · P-03 · P-03A · P-04 · 기능 명세서 7 · 8장은 아직 등껍질(Q-67)
+  - **새로 생긴 계약 차이 (Q-69)**: `main` API_SPEC 8장(PR #57)이 일반 운세 결과에 소제목이 있는 `sections[]`(`title` · `content` · `sourceFactKeys`, 10개)와 구매 상태 `generationPreview` 를 적었지만 공유 OpenAPI 에는 없다. Q-62(소제목)와 생성 대기 화면에 걸린다 — OpenAPI 반영 전에는 코드 금지(TQ-ANSWERS). 신살 구성도 13종으로 바뀜(기능 명세서 F-03)
 - **10/15 ~ 16 새로 들어온 것**
   - 10/15 FE: 정책 v3 이용약관 · 환불정책(`10e26c7`), 푸터 항목 이름 한 줄 · 충전 버튼 「N원 결제하기」(`d8ddb91`), 만들지 않은 화면은 「준비 중이에요」 만 · HOME-02 「윤달이에요」 · 「저장하고 시작하기」(`683506a`), 유선번호 `010-7429-0716`(`c4b1e8d`), 기능 명세서 2장 MY-03 · 05 · 07 경로 PD 확정(`dc9b9d9`, Q-57). PR #44 · #46 · #47 병합
   - 10/15 BE: 행운 부적 추가 구매(견적 · 원자 구매 · 상태, `6fc5fcd` 공유 OpenAPI 타입 동기화 포함), 선물 공개 API 요청 제한 · 받은 선물 목록 · 수신 접근(PR #37 · #45), 10/16 새벽 선물 직접 링크(PR #50)
   - 10/15 PD: 정책 **v4** 3종(직접결제 · 시행 10/31 · 통신판매업 면제 표기 · 전화번호), 오늘의 운세 데이터 · 부적 조합 리스트, BE 에 서버 리전 · R2 위치 질문(사용자 전달, 저장소 밖)
   - 10/16 BE: 직접결제 FE 전달본(`DIRECT_PAYMENT_FRONTEND_HANDOFF.md`, PR #49 기준 — 저장소 밖), Q-64 ~ Q-68 · R-10 답("직접결제 관련 BE 답변 — PG사 선정 전 진행 가능 범위")
   - 10/16 사용자: **DIRECT-PAY**, 통신판매업은 신고하지 않고 면제 표기, 호스팅 AWS Amplify 이전 예정, 세션 문서까지 끝낸 뒤 PR
-- **마지막으로 끝낸 작업** (10/16, 1 ~ 14단계 · 매 단계 웹 대화가 작업 공간에서 diff 재현 · 검사 · 변이 확인 · 가짜 모드 화면 대조 후 커밋)
-  - Figma 직접결제 수정안(`와이어프레임 최종` 페이지, 등껍질 없는 화면 묶음)
-  - 직접결제 포트 · 가짜(`7c02326`) → 결제하기 팝업 `DirectCheckout`(`33d6a83`, `ShellCheckout` 삭제) → 복귀 화면 `DirectPaymentReturn`(`06f6dca`) → 홈 잔액 · 충전 진입 삭제 · `/about` 상품 · 가격 · 제공 · 환불 · 고객센터(`45d2422`) → 정책 v4 이용약관 · 환불정책(`362d99d`) → 진짜 adapter(`274ebf8`) → PR #51 병합(`2aadee5`) → `/wallet` · 충전 복귀 닫기(`cf12a00`) → 통신판매업 면제 표기
-  - 팀 확인 요청 문서 claude.ai **"뿌기사주 팀 확인 요청 (FE, 10/16 직접결제)"** https://claude.ai/artifact/XzMwGPDS3335afCUyzokLc — BE 6건 · PD 5건 · 대표 2건, BE · 대표 답 적음
-  - 테스트 85 파일 · 1026 개 (`cf12a00` 기준)
+  - 10/16 저녁 BE: PR #56 AWS prelaunch 배포 문서(Elastic Beanstalk Java SE, FE 는 Amplify, 구매 쓰기 차단 필터), PR #57 직접결제 컨트롤러 · 유료 운세 10섹션 · 생성 미리보기 · 오늘의 운세 문구 · 부적 조합, PR #59 운세 판매 상태 · 선물 목록. PENDING_DECISIONS P-07 직접결제 · 백엔드 AWS EB · 프론트 Amplify
+  - 10/16 저녁 사용자: 도메인 `ppugi-saju.kr` 구매(메가존 hosting.kr → 네임서버 Route 53), AWS Amplify 앱 `d3iqzbdae9iq50` · 사용자 지정 도메인(`www` → 루트 301) · Route 53 호스팅 영역 — 데스크톱 Claude(Chrome)로 설정. 카카오 등록은 뿌기사주 앱 소유 계정(BE)으로 넘김
+- **마지막으로 끝낸 작업** (10/16 저녁, 1 ~ 5단계 — 이 문서는 6단계)
+  - `boyeon` 을 `main` `b774026` 에 맞춤(fast-forward). 루트 `amplify.yml`(`63b0f61` — appRoot `frontend` · Node 22 · pnpm 10.33.0 · `--frozen-lockfile --config.node-linker=hoisted`)
+  - 배포 단계 변수(`3fe6072`, DEPLOY-ENV): `src/lib/deployEnv.ts` 의 `resolveDeployEnv` · `assertBuildEnv` — `next.config.ts` 의 Vercel 검사 두 블록 대체, `mode.ts` 운영 · 스테이징 mock 차단, Sentry 환경 이름. 웹 대화가 작업 공간에서 diff 재현 · 변이 4개 · Amplify 와 같은 변수로 빌드 확인
+  - Amplify `boyeon` 미리보기 빌드 성공 — Next.js 16.3.6 SSR 이 Amplify 에서 빌드 · 서비스됨(AWS 공식 표는 12 ~ 15 까지라 직접 확인). 정책 2쪽 · not-found(404) 정상, 환경 변수 넣기 전 빌드는 `assertBuildEnv` 로 멈춤(의도), 넣은 뒤 가짜 모드 홈 · 조작판 보임
+  - 테스트 86 파일 · 1041 개 (`3fe6072` 기준)
 - **진짜 adapter 현황 — 전부 `ports/index.ts` 에 연결**: 세션 · 인물 · 오행분석 · 운세(수능운 · 일반 5종 견적 · 재확인 · 상품 목록 — 가격 원화만) · 결과(`GET /readings/{readingId}`) · 구매 상태 조회 · **직접결제(주문 · 승인 · 조회 · 결제 뒤 생성 — 수능운은 Q-64 전 막힘)** · 토스 결제창. 화면 없이 남은 것: 지갑 · 충전 · 환불 조회(옛 충전 — BE 가 충전 API 를 닫을 때 지운다). 만들지 않은 것: 결제 내역(Q-66), 오늘의 운세(Q-46), 가입 동의(Q-59), 선물 · 부적 추가 결제, 운세별 결과 상세 경로
 - **화면 현황 (10/16, 가짜 모드)**
   - 동작 + 배치: HOME-01 ~ 04(홈 잔액 없음), FORT-01 ~ 03 · 05, MATCH-01 ~ 03, CSAT-01 ~ 06, (팝업) 결제하기 · 구매 완료, PAY-04 · 05(직접결제 복귀), MY-01, INFO-01(`/about` 직접결제 기준) · 02(정책 v4), COMMON-01(통신판매업 면제 · 호스팅 미정) ~ 04
@@ -33,12 +36,12 @@
   - 부분: FORT-06 · 07 소제목(Q-62), FORT-10 생성 실패(Q-61 · Q-65)
   - 보류: TODAY, CSAT-08(Q-63), MY-03(결제 내역 Q-66) · 04 · 05 · 07(Q-57 경로는 03 · 05 · 07 확정), HOME-02 동의(Q-59), 선물 · 수신 · 부적(PG 결제 확인 뒤)
 - **다음 작업** (막힌 것은 건너뛴다)
-  1. (세션 시작) 원격 확인 — 이 문서 커밋 해시 · SHA-256, `boyeon` → `main` PR 병합 여부, PR #49 병합 · 공유 OpenAPI 직접결제 경로(Q-68) · 수능운 `suneung-fulfillment`(Q-64) · 결제 내역 API(Q-66) · P-07 갱신(Q-67), PG사 선정, Amplify · 스테이징 주소, PD 정책 v4.1(Q-65 문장 · 개인정보 리전)
-  2. (PR #49 · OpenAPI 오면) OPENAPI-FE-SYNC → 직접결제 adapter 에 `satisfies` 대조, 수능운 결제 뒤 생성 adapter(Q-64)
-  3. (Amplify 정해지면, 지금도 가능) 운영 mock 차단 · 모니터링 키 검사 · 관측 환경 이름을 Vercel 변수에서 우리 배포 단계 변수로 (R-11)
-  4. (스테이징 · PG 나오면) 진짜 모드 실제 확인: 로그인 → 본인 등록 → 일반 운세 · 수능운 결제 → 결과 → 새로고침 복귀 → 결제창 닫기 · 실패 복귀 → 로그아웃 → 실기기 (PG-5)
-  5. (답 오면) Q-66 → MY-03 결제 내역, Q-65 → 정책 v4.1 재배치, 개인정보처리방침 v4 배치(Q-44), Q-62 · Q-61 · Q-57 · Q-59 · Q-63 · Q-46
-  6. (BE 가 충전 API 를 닫으면) 옛 충전 코드 제거. (PG 결제 확인 뒤) 선물 · 행운 부적 추가 직접결제
+  1. (세션 시작) 원격 확인 — 이 문서 커밋 해시 · SHA-256, `boyeon` → `main` PR 병합 여부, Amplify `main` 빌드 · `https://ppugi-saju.kr` 열림, BE `api.ppugi-saju.kr`(ACM 발급 · EB · readiness), 카카오 운영 redirect 등록, 공유 OpenAPI 직접결제 경로(Q-68) · `suneung-fulfillment`(Q-64) · 결과 `sections[].title` · `generationPreview`(Q-69) · 결제 내역(Q-66), PG사 선정, PD 정책 v4.1(Q-65 · 개인정보 리전)
+  2. (BE 주소 나오면) Amplify `main` 에 `API_PROXY_TARGET=https://api.ppugi-saju.kr` → 다시 빌드 → 진짜 모드 로그인 → 본인 등록 → 새로고침 → 로그아웃(204) 확인. 변경 요청이 모두 403 이면 `FRONTEND_BASE_URL` 부터
+  3. (OpenAPI 오면) OPENAPI-FE-SYNC → 직접결제 adapter `satisfies` 대조, 수능운 결제 뒤 생성 adapter(Q-64), 결과 소제목(Q-69 · Q-62)
+  4. (PG 테스트 키 · 심사용 BE 설정 나오면) 결제 확인: 일반 운세 · 수능운 결제 → 결과 → 새로고침 복귀 → 결제창 닫기 · 실패 복귀 → 실기기 (PG-5)
+  5. (답 오면) Q-66 → MY-03 결제 내역, Q-65 → 정책 v4.1 재배치, 개인정보처리방침 v4 배치(Q-44), 푸터 호스팅 제공자(AWS 계약 법인명), Q-61 · Q-57 · Q-59 · Q-63 · Q-46 · Q-67 기능 명세서 문구 PR
+  6. (BE 가 충전 API 를 닫으면) 옛 충전 코드 제거. (PG 결제 확인 뒤) 선물 · 행운 부적 추가 직접결제. (Amplify 운영 확인 뒤) Vercel 프로젝트 정리 여부 사용자 결정
 - **보류 (재개 조건)**
   - 디자인 — 글꼴(FONT-HOLD), 손그림 외곽선 · 색 토큰(Q-32), 캐릭터 · 아이콘 · 상품 이미지 에셋: 팀 문서 반영 · 적용 시작 결정 후
   - 네이버 · 구글 로그인 버튼 — PG 심사 후 (LOGIN-3 개정 · Q-43)
@@ -59,7 +62,7 @@
   - 진짜 모드 로컬 연결: `API_PROXY_TARGET=http://localhost:8080` · `NEXT_PUBLIC_API_MODE=real`. `.env.example` 에 `NEXT_PUBLIC_MOCK_*` · 토스 변수 줄은 아직 없다 (사용자 할 일). `.env.local` 의 `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER=toss` 되돌리기 (사용자 할 일)
   - 구매 선택 복원 저장값 **v5**(`7c02326` · `33d6a83` — 앞 화면 · 견적 · 선택 · 주문 키 · 주문 ID · 결제 뒤 생성 키). v4 · v3 · v2 는 읽을 때 지운다
   - 토스 실패 복귀 실기기 확인(사용자): 이제 주소는 `/pay/fail?flow=direct&return=…&code=…` — 「다시 결제하기」 가 앞 화면으로 가는지, `?` 가 두 번 나오지 않는지 (PG 정해진 뒤)
-  - Vercel "Automatically expose System Environment Variables" 켜짐(10/4) — 운영 mock 차단 · Sentry 키 검사가 기댄다 → Amplify 이전 때 바꾼다(R-11)
+  - **배포 (10/16 저녁, HOSTING-AMPLIFY · DEPLOY-ENV)**: AWS Amplify 앱 `d3iqzbdae9iq50`(서울, 사용자 계정 끝 9147). 기준 주소 `https://ppugi-saju.kr`(`www` → 301), DNS 는 Route 53 호스팅 영역 `ppugi-saju.kr`. 브랜치 `main` → 운영(`NEXT_PUBLIC_DEPLOY_ENV=production` · `NEXT_PUBLIC_API_MODE=real` — 덮어쓰기 들어갔는지 사용자 확인), `boyeon` → 미리보기 `https://boyeon.d3iqzbdae9iq50.amplifyapp.com`(`preview` · `mock`, 가짜 조작판). Sentry/PostHog 키 3개는 앱 전체 변수(Vercel 과 같은 프로젝트 — Sentry 환경 이름으로 구분, Allowed Domains 확인은 사용자). `API_PROXY_TARGET` 은 빌드 때 rewrites 에 굳으므로 BE 주소가 나오면 `main` 에 넣고 다시 빌드. Amplify 의 기존 404 Rewrite(`/<*>` → `/index.html`) 규칙은 not-found 를 막지 않음(확인). 「비밀 관리」 에 넣은 세 항목은 쓰지 않는다. Vercel 미리보기는 `VERCEL_ENV` 로 그대로 동작 — 정리는 나중에
   - `pnpm test` — 사용자 PC 는 `--maxWorkers=2` 로 240 ~ 440초(10/16). 작업 공간은 기본 설정으로 약 100초
   - 명세 정확도 (웹 대화 자체 점검): "이 조건을 빼면 이 테스트가 실패해야 한다" 요구가 10/8 ~ 10/16 에 일곱 번 성립하지 않았다(10/16 은 없음). 10/16 웹 대화 검토로 잡은 것: 완료 시점에 복원값을 지우면 새로고침이 확인 필요 화면으로 감(5단계 → 버튼 누를 때 삭제), `/about` 테스트가 조회 전에도 있는 안내 목록 li 를 기다림(7단계), 홈 테스트가 주입하지 않은 포트를 감시함(7단계). 지시서 쪽 실수: 파일 수 29 → 27(4단계), 보고에 diff 첨부가 두 번 빠짐
   - 사업자등록증 원본은 저장소에 두지 않는다. 푸터에는 사용자가 준 값만
@@ -82,7 +85,7 @@
 | 10/15 (목) | **토스 통화 · 퀵오픈 결정 · 통신판매업 신고 시작** (R-10 · R-07) | ⬜ 통화 결과는 FE 문서에 미기록. 10/16 결제 구조를 직접결제로 바꿈(DIRECT-PAY) — BE 답: PG사 아직 선정 전. 통신판매업은 신고하지 않고 면제 표기(10/16) |
 | 10/15 (목) | 디자인 에셋 확정 · 콘텐츠 1차 (D-03 · D-04) | ⬜ Q-40 은 10/14 해결(기능 명세서 v0.4). 이날 답 기한: Q-54(→ PD 확인) · Q-57 · Q-59 · Q-46. 상품 이미지 포함 · 10/15: Q-54 결정 · Q-57 경로 일부 확정 · PD 정책 v4 |
 | 10/16 (금) | **FE 결제 마무리 (직접결제)** | ✅ FE — 가짜 모드 전 흐름 · 진짜 adapter(PR #49 기준) · `/about` · 정책 v4 · `/wallet` 삭제 (PR #51 `2aadee5` + `cf12a00`). 진짜 확인은 PR #49 · Q-64 · 스테이징 · PG 선정 뒤 |
-| 10/16 ~ 10/20 | BE PR #49 병합 · OpenAPI(Q-68) · 수능운 경로(Q-64) · 결제 내역(Q-66) · AWS Amplify 배포(R-11) · callback · PG사 선정(R-10) | ⬜ |
+| 10/16 ~ 10/20 | BE PR #49 병합 · OpenAPI(Q-68) · 수능운 경로(Q-64) · 결제 내역(Q-66) · AWS Amplify 배포(R-11) · callback · PG사 선정(R-10) | ⬜ 직접결제 컨트롤러는 `main`(PR #57), OpenAPI · Q-64 · Q-66 아직. FE Amplify · 도메인 · 배포 단계 변수 끝(10/16 저녁), BE EB · `api.ppugi-saju.kr` 인증서 진행 중. PG사 미선정 |
 | 10/20 ~ 10/22 | 운영 결제 확인 · 소액 실결제와 환불 · 실기기 (퀵오픈 일정 안) | ⬜ |
 | 10/17 (토) | 본인 수능운 `사주/사주+부적` E2E | ⬜ 위험 — 수능운 결제 뒤 생성 경로(Q-64) · 스테이징 · PG 가 있어야 한다 |
 | 10/20 (화) | 콘텐츠 검수 · PG 미승인 시 대안 판단 | ⬜ |
@@ -96,11 +99,13 @@
 
 | ID | 결정 | 날짜 | 결정자 |
 |---|---|---|---|
+| DEPLOY-ENV | 배포 단계는 `NEXT_PUBLIC_DEPLOY_ENV`(local · preview · staging · production) 하나로 정한다 — 비면 Vercel 의 `VERCEL_ENV`(production · preview, development 는 local). Amplify 빌드(`AWS_APP_ID` 있음)에서 비면 빌드 실패. staging · production 에서 `NEXT_PUBLIC_API_MODE=mock` 이면 빌드(`next.config.ts` → `assertBuildEnv`) · 실행(`mode.ts`) 실패, local 이 아니면 Sentry/PostHog 키 3개가 비면 빌드 실패. Sentry 환경 이름도 이 값. Amplify 브랜치: `main` = production · real, `boyeon` = preview · mock (`3fe6072`, R-11) | 2026-10-16 | 사용자 (추천 채택) |
+| SITE-DOMAIN | 기준 주소는 `https://ppugi-saju.kr` 하나 — `www` 는 301 로 넘긴다(CSRF Origin 검사가 정확히 같아야 함). BE 는 `https://api.ppugi-saju.kr`(브라우저는 부르지 않고 Amplify 서버의 `/api` rewrites 만). `FRONTEND_BASE_URL=https://ppugi-saju.kr`, 카카오 redirect `https://ppugi-saju.kr/api/v1/auth/kakao/callback`. DNS 는 Route 53(네임서버 이전) — 국내 등록 업체가 루트 도메인 ALIAS 를 지원하지 않아서 | 2026-10-16 | 사용자 (도메인 구매 · 추천 채택) |
 | DIRECT-PAY | 등껍질 충전 · 차감을 없애고 운세 한 건씩 원화로 바로 결제한다 — 주문(`POST /direct-payment-batches`) → PG 결제창 → 승인(키 = 주문 ID) → 주문 `PAID` 일 때만 결제 뒤 생성 → `FULFILLED` + `readingId` 일 때만 결과 버튼. `REVIEW_REQUIRED` · 충돌은 새 주문 없이 문의, 생성 실패는 「다시 시도」 없이 문의. 복원 v5(주문 키 · 주문 ID · 생성 키). `/wallet` · 충전 복귀 닫음. 2026-10-03 의 "원화는 충전만 · 선물도 등껍질"(P-07) 을 대체 — 팀 문서 반영은 Q-67 (`7c02326` ~ `cf12a00`) | 2026-10-16 | 사용자 ("등껍질 없는 버전으로", 오늘까지 결제 마무리) |
 | DIRECT-PAY-ADAPTER-EARLY | 직접결제 진짜 adapter 는 TQ-ANSWERS 의 "OpenAPI · 팀 문서 반영 후" 를 예외로, 미병합 PR #49(`c2a1392`) 컨트롤러 record 를 근거로 먼저 만든다 — 경로 상수는 `satisfies` 없이 TODO(OPENAPI-FE-SYNC), 응답은 zod 로 검사. PR #49 병합 · 공유 OpenAPI 반영(Q-68) 때 생성 타입과 대조하고 다르면 고친다. 수능운은 경로가 없어 요청 전에 던진다(Q-64) (`274ebf8`) | 2026-10-16 | 사용자 (10/16 결제 마무리 — 웹 대화 지시 승인) |
 | DOCS-BEFORE-PR | `boyeon` → `main` PR 은 세션 마무리 문서(PROGRESS · PHASES · TEAM-QUESTIONS · CLAUDE)까지 `boyeon` 에 커밋한 뒤 올린다 — 코드만 먼저 PR 하고 문서로 또 PR 하지 않는다 | 2026-10-16 | 사용자 |
 | MAIL-ORDER-EXEMPT | 통신판매업은 신고하지 않고 푸터에 「면제 (직전연도 통신판매 거래 50회 미만)」(PD 정책 v4 표기)를 넣는다. 10/14 "대표 신고 진행"(PG-QUICKOPEN 의 일부) 을 대체 — 국민카드 심사 제외 위험은 남는다 (R-07) | 2026-10-16 | 사용자 |
-| HOSTING-AMPLIFY | 호스팅을 Vercel(프론트) · Railway(백, 팀 문서) 에서 AWS Amplify 로 옮길 예정(백 + 프론트). FE 는 이전 전 Vercel 변수에 기대는 운영 mock 차단 · 모니터링 검사를 바꾼다. 푸터 호스팅 값은 이전 뒤 법적 상호 (R-11 · Q-44) | 2026-10-16 | 사용자 (예정) |
+| HOSTING-AMPLIFY | 호스팅을 Vercel(프론트) · Railway(백, 팀 문서) 에서 AWS Amplify 로 옮길 예정(백 + 프론트). FE 는 이전 전 Vercel 변수에 기대는 운영 mock 차단 · 모니터링 검사를 바꾼다. 푸터 호스팅 값은 이전 뒤 법적 상호 (R-11 · Q-44). → **10/16 저녁 진행**: FE 는 Amplify Hosting(앱 `d3iqzbdae9iq50`, 루트 `amplify.yml` `63b0f61`), BE 는 Elastic Beanstalk Java SE(PR #56 문서) | 2026-10-16 | 사용자 |
 | PG-QUICKOPEN | 일반 카드사 심사(계약 완료 후 최대 10 ~ 14영업일)로는 10/31 출시에 결제가 열리지 않으므로 토스 **퀵오픈** 을 추진한다 — 개인사업자 · 토스 첫 가입이면 연동 즉시 결제, 심사는 따로, 정산은 심사 결과까지 보류. 심사 요건(상품 · 정책 · 푸터 · 이미지)은 그대로 맞춘다. 10/15 토스 통화 후 확정하고, 안 되거나 정산 보류가 대회 매출 인정에 걸리면 계좌이체 수동 충전(BE-A 지급 API · FE 입금 안내)으로 간다. 통신판매업은 일반과세자라 면제 확인 대신 신고 (R-10 · R-07) | 2026-10-14 | 사용자 ("현실적으로 10/31 까지 어렵다, 대안" → 퀵오픈 추천 채택) |
 | POLICY-MD | 정책 3페이지 원고는 `frontend/src/content/policies/{terms,privacy,refund}.md` — 웹 대화가 PD 확정본을 정해진 마크다운(`# 제목` 한 번 · `시행일:` 줄 · `##` 조 · `###` · 문단 · `-` · `1.` 과 한 단계 하위 `-` · 표 · `**굵게**`)으로 옮기고 DOCS-PLACE 로 배치한다. 빌드 때 한 번 읽어 정적 페이지로. `[ ]` · `○` · 링크 · HTML · 인용 · 코드가 있으면 빌드 실패 — 빈칸이 남은 원고는 공개되지 않는다. 파일이 없으면 빈 자리 (`7fb0658`) | 2026-10-14 | 사용자 (지시문 승인) |
 | SPEC-V04 | PD 10/13 1 · 2차 답 · 정책 v2 · 와이어 수정안 중 결정된 것을 FE 가 기능 명세서 v0.4 로 옮겨 `main` 에 넣고(`ad4d928` → PR #38 `84f87f0`), 그 문서를 근거로 코드에 반영한다. PD 는 GitHub 를 쓰지 않아 검토 · 수정 요청은 claude.ai 확인 요청 문서로 받는다. 선물 · 정책 원문 · 미정 항목은 v0.4 에서 빼고 ⚠️ · Q 로 남긴다 (DOCS-TEAM-PR) | 2026-10-14 | 사용자 ("일단 결정된 것 기준으로 바꾸기") |
@@ -172,6 +177,7 @@
 
 ## 세션 로그
 
+- 2026-10-16 (저녁) · 1 ~ 6단계(6단계 = 이 문서): 원격 확인 — PR #55 · #56 · #57 · #59 병합(`b774026`), 직접결제 컨트롤러 `main` · OpenAPI 없음 · P-07 갱신 · API_SPEC 결과 10섹션(Q-69). 사용자 "배포할 정도로 준비됐나 · PG 신청 준비됐나" → 판매 배포 · PG 신청 모두 아직(PG사 · BE 배포 · 개인정보처리방침 · 상품 이미지 · 정책 v4.1). 도메인 `ppugi-saju.kr` 구매 → Route 53 · Amplify 앱 · 사용자 지정 도메인(데스크톱 Claude, Chrome). `boyeon` fast-forward + 루트 `amplify.yml`(`63b0f61`) → Amplify `boyeon` 빌드 성공(Next 16). 배포 단계 변수(`3fe6072`, DEPLOY-ENV) → 환경 변수 전 빌드 실패(의도) → 넣은 뒤 가짜 모드 미리보기 동작. 결정 DEPLOY-ENV · SITE-DOMAIN. `api.ppugi-saju.kr` ACM 확인 레코드 수령
 - 2026-10-16 · 1 ~ 14단계(14단계 = 통신판매업 면제 표기 코드 + 이 문서): 사용자 "오늘까지 결제 마무리 · 등껍질 없는 버전" → Figma 직접결제 수정안, 결정 DIRECT-PAY. 포트 · 가짜(`7c02326`) → 결제하기 팝업(`33d6a83`) → 복귀 화면 · 결제 뒤 생성(`06f6dca`, 복원값은 버튼 누를 때 삭제로 보정) → 홈 · `/about`(`45d2422`, 테스트 기다림 보정 2건) → 정책 v4 이용약관 · 환불정책(`362d99d`) → 진짜 adapter PR #49 기준(`274ebf8`, DIRECT-PAY-ADAPTER-EARLY) → PR #51 병합(`2aadee5`) · `boyeon` fast-forward → `/wallet` · 충전 복귀 닫기(`cf12a00`) → 통신판매업 면제 표기. 팀 확인 요청 문서 "(FE, 10/16 직접결제)" — BE 답(PG사 선정 전 · Q-64 전용 경로 · Q-65 자동 취소 불가 · Q-66 · Q-68 · P-07 가능) · 사용자 답(통신판매업 면제 · AWS Amplify 이전 예정) 반영. 새 질문 Q-64 ~ Q-68 · R-11. 결정 DOCS-BEFORE-PR · MAIL-ORDER-EXEMPT · HOSTING-AMPLIFY. PHASES v3.7
 - 2026-10-15 · (문서 갱신 없이 끝난 세션 — 10/16 에 커밋으로 복원) 정책 v3 이용약관 · 환불정책(`10e26c7`), 푸터 항목 이름 · 충전 버튼 「N원 결제하기」 · 충전 상품 원화 표기(`d8ddb91`), 만들지 않은 화면 「준비 중이에요」 · HOME-02 윤달(`683506a`), 기능 명세서 2장 MY-03 · 05 · 07 경로 PD 확정(`dc9b9d9`, 웹 대화 직접 push), 유선번호(`c4b1e8d`). PR #44 · #46 · #47 병합. 선물 1차 직접 링크 결정(Q-54)
 - 2026-10-14 (저녁) · 21 ~ 23단계: PR #40 병합 확인(`aee1bb1`). BE 연결 점검 — FE 미연결 BE 경로(가입 동의 · 충전 내역 · 결과 목록 · 인물 수정 · 삭제 · 탈퇴 · 부적 · 오늘의 운세 · 선물)는 모두 팀 답 대기, 심사에 필요한 연결은 끝남. 토스 심사 체크리스트 대조 → 심사 요건 미충족 · 일정 불가 → 결정 PG-QUICKOPEN, claude.ai 문서 "뿌기사주 PG 퀵오픈 준비 (10/14)". 사업자등록증 재확인(개인 일반과세자 · 단독 대표) → 통신판매업 신고 진행. 22단계: `boyeon` 을 `main` `06568f2`(PR #33 · #39 · #41)로 fast-forward, 정책 원고 표시 구조(`7fb0658`, 결정 POLICY-MD — 웹 대화가 diff 검토). PR #41 이 팀 문서에 선물 1차 직접 공유 반영 → Q-54 · Q-55. 문서 갱신(PROGRESS · PHASES v3.6 · TEAM-QUESTIONS R-10). 테스트 80 파일 · 1038 개

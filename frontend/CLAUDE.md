@@ -94,7 +94,7 @@
 
 ### 프론트엔드 — 확정 (상세 · 이유는 `docs/FRONTEND.md` 1장)
 
-- Next.js (App Router) + TypeScript, pnpm, Vercel 배포 (AWS Amplify 로 옮길 예정 — R-11)
+- Next.js (App Router) + TypeScript, pnpm, AWS Amplify 배포 (`https://ppugi-saju.kr`, 2026-10-16 — Vercel 미리보기는 정리 전까지 병행, HOSTING-AMPLIFY)
 - 스타일: Tailwind CSS + CSS 변수 토큰 (토큰 적용은 PG 심사 요청 후)
 - 폰트: **보류 (FONT-HOLD)** — 결정 전까지 코드에서 글꼴을 지정하지 않는다. 결정되면 `next/font/local` 서브셋으로 셀프호스팅
 - 오버레이: vaul(바텀시트), Radix Dialog(모달) — shadcn/ui 사용 안 함
@@ -113,7 +113,7 @@
 
 ### 백엔드 — 확정 (팀 문서)
 
-Spring Boot 3 + PostgreSQL, 배포(local · staging · production 분리)는 AWS 로 옮길 예정(10/16 사용자 — 팀 문서는 Railway, R-11), API prefix `/api/v1`, 카카오 OAuth + 서버 세션 쿠키, 토스페이먼츠, Cloudflare R2, OpenAPI 는 springdoc 생성 (I-01 · I-02 · I-03 · I-04, `backend/README.md`).
+Spring Boot 3 + PostgreSQL, 배포(local · staging · production 분리)는 AWS Elastic Beanstalk Java SE(PR #56 `backend/docs/AWS_PRELAUNCH_DEPLOYMENT.md`, 주소 `https://api.ppugi-saju.kr` 예정 — R-11), API prefix `/api/v1`, 카카오 OAuth + 서버 세션 쿠키, 토스페이먼츠, Cloudflare R2, OpenAPI 는 springdoc 생성 (I-01 · I-02 · I-03 · I-04, `backend/README.md`).
 골격은 `main` 에 있다(`a605afa`, 10/3) — 업무 API 없음, springdoc 은 `local` 프로필에서만 공개 (FE 가 받을 경로는 Q-18). → OpenAPI 파일은 `docs/openapi/api-v1.json` (BE-A PR #17, 10/9 · BE-B PR #23 재생성 `75350c6`, 10/12). 10/13 FE 가 백엔드 `exportOpenApi` 로 다시 만들었다(`78c8b10`, BE-A 위임 — `backend/docs/CUSTOMER_CENTER_REFUNDS_20261013.md`): 사용자 환불 POST 제거 · `PARTIALLY_REFUNDED` 추가, 결과가 `backend/docs/openapi/payment-operations-v1.json` 과 같다. 관리자 계약 `admin-operations-v1.json` 은 FE 가 쓰지 않는다 (OPENAPI-FE-SYNC).
 
 ## 폴더 구조
@@ -127,7 +127,7 @@ saju-project/
 │  ├─ src/lib/        공용 유틸 (date.ts = Asia/Seoul 고정, screens.ts = 라우트 표)
 │  ├─ src/lib/ports/  화면이 부르는 포트 (FE 모델, MOCK-PORT)
 │  ├─ src/lib/api/    공통 응답 · 오류 · CSRF · 멱등, adapters/ = OpenAPI 생성 타입 → 포트 모델
-│  ├─ src/mocks/      가짜 구현 (개발 서버 · 미리보기 전용, 운영 배포 금지)
+│  ├─ src/mocks/      가짜 구현 (배포 단계 local · preview 전용, staging · production 금지 — DEPLOY-ENV)
 │  ├─ src/types/      api.d.ts — pnpm api:types 로 생성. 손으로 고치지 않는다
 │  └─ e2e/            Playwright
 ├─ backend/           Spring Boot — BE 담당. backend/docs/ 에 BE 역할 분담
@@ -154,7 +154,7 @@ saju-project/
 | `pnpm api:types` | `docs/openapi/api-v1.json`(저장소 루트, BE 가 갱신 — BE 가 FE 에 넘긴 경우 FE 가 `backend/` 에서 `./gradlew --no-daemon exportOpenApi` 로 만들어 같은 커밋에, OPENAPI-FE-SYNC) → `src/types/api.d.ts` 타입 생성. 생성 파일은 손으로 고치지 않는다 — OpenAPI 파일이 바뀌면 다시 실행 (동기화 테스트가 실패로 알려 준다) |
 
 - 환경 변수: `frontend/.env.example` 을 복사해 `frontend/.env.local` 로 쓴다 (사용자가 직접 작성 — Claude Code 는 `.env*` 를 읽거나 쓰지 않는다). `API_PROXY_TARGET` 에 백엔드 주소, `NEXT_PUBLIC_API_MODE`(mock · real). 가짜 모드: `NEXT_PUBLIC_MOCK_SESSION_SCENARIO` · `NEXT_PUBLIC_MOCK_TOP_UP_SCENARIO` · `NEXT_PUBLIC_MOCK_FORTUNE_SCENARIO` · `NEXT_PUBLIC_MOCK_PAYMENT_LAUNCHER`(값 목록은 `docs/PROGRESS.md`). 토스 클라이언트 키 `NEXT_PUBLIC_TOSS_CLIENT_KEY` — 키 원문은 문서 · Git · 스크린샷에 넣지 않는다. 바꾸면 `pnpm dev` 재시작.
-- 배포: Vercel (AWS Amplify 로 옮길 예정 — R-11. 운영 mock 차단 · Sentry/PostHog 키 검사 · 관측 환경 이름이 Vercel 변수(`VERCEL` · `VERCEL_ENV` · `NEXT_PUBLIC_VERCEL_ENV`)에 기대므로 이전 전에 FE 가 바꿔야 한다). `main` → 스테이징, PR → 미리보기 URL. 실기기 확인은 미리보기의 브랜치 주소, PG 심사 대상 확인은 운영 도메인.
+- 배포: **AWS Amplify** (앱 `d3iqzbdae9iq50`, 저장소 루트 `amplify.yml` — appRoot `frontend` · Node 22 · pnpm 10.33.0, HOSTING-AMPLIFY). 기준 주소 `https://ppugi-saju.kr`(`www` → 301, SITE-DOMAIN). `main` → 운영(`NEXT_PUBLIC_DEPLOY_ENV=production` · `NEXT_PUBLIC_API_MODE=real`), `boyeon` → 미리보기 `https://boyeon.d3iqzbdae9iq50.amplifyapp.com`(`preview` · `mock`, 가짜 조작판). **배포 단계는 `NEXT_PUBLIC_DEPLOY_ENV`(local · preview · staging · production) 하나로 정한다 (DEPLOY-ENV, `src/lib/deployEnv.ts`)** — 비면 Vercel 의 `VERCEL_ENV`, Amplify 빌드(`AWS_APP_ID`)에서 비면 빌드 실패, staging · production 에서 mock 이면 빌드 · 실행 실패, local 이 아니면 Sentry/PostHog 키 3개가 비면 빌드 실패. 배포 환경 판단에 Vercel 변수를 새로 쓰지 않는다. 브라우저는 `/api` 를 Amplify 서버의 rewrites 로만 부른다 — `API_PROXY_TARGET` 은 빌드 때 굳으므로 바꾸면 다시 빌드. Amplify 환경 변수 · 도메인 · 카카오 등록은 사용자가 UI 에서 한다(키 값은 문서 · 대화에 옮기지 않는다). Vercel 은 정리 전까지 병행. 실기기 확인은 미리보기 브랜치 주소, PG 심사 대상 확인은 운영 도메인.
 
 ## 브랜치 · PR
 

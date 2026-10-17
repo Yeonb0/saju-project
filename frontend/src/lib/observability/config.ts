@@ -1,11 +1,17 @@
 import type { Breadcrumb, ErrorEvent } from "@sentry/nextjs";
 import type { CaptureResult, PostHogConfig } from "posthog-js";
+import { resolveDeployEnv } from "../deployEnv";
 import { maskUrl } from "./maskUrl";
 
 // 라이브러리 초기화 호출은 두지 않는다 — 옵션 객체만 만들어 테스트할 수 있게 한다.
 
+// Sentry 환경 이름. 배포 단계(local · preview · staging · production)를 그대로 쓴다 (HOSTING-AMPLIFY · R-11).
+// process.env.NEXT_PUBLIC_* 는 빌드 때 글자 그대로 치환되므로 이 형태로 직접 읽는다.
 export function getEnvironment(): string {
-  return process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development";
+  return resolveDeployEnv(
+    process.env.NEXT_PUBLIC_DEPLOY_ENV,
+    process.env.NEXT_PUBLIC_VERCEL_ENV,
+  );
 }
 
 export function sentryOptions(dsn: string, environment: string) {
