@@ -84,7 +84,9 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
         jdbc.update("INSERT INTO direct_payment_batches(id,buyer_user_id,quote_id,product_code,product_name,unit_amount_krw,quantity,total_amount_krw,key_hash,status,created_at) VALUES (?,?,NULL,'GIFT_SUNEUNG_BATCH','수능 선물',3000,1,3000,?,'PAID',?)",
                 batch, owner, "d".repeat(64), Timestamp.from(time));
         jdbc.update("INSERT INTO direct_gift_batches(payment_batch_id,buyer_user_id,status,recipient_count,created_at) VALUES (?,?,'PAID',1,?)", batch, owner, Timestamp.from(time));
-        jdbc.update("INSERT INTO direct_gift_batch_recipients(id,payment_batch_id,recipient_index,option,amount_krw,state,created_at) VALUES (?,?,0,'READING_WITH_TALISMAN',3000,'PENDING_PAYMENT',?)", recipient, batch, Timestamp.from(time));
+        String privatePayload = cipher.encrypt("{\"recipientName\":\"민지\",\"senderName\":\"서인\",\"message\":\"수능 대박 나자!\",\"option\":\"READING_WITH_TALISMAN\"}",
+                "direct-gift|" + batch + "|" + recipient);
+        jdbc.update("INSERT INTO direct_gift_batch_recipients(id,payment_batch_id,recipient_index,option,amount_krw,state,created_at,private_payload) VALUES (?,?,0,'READING_WITH_TALISMAN',3000,'PENDING_PAYMENT',?,?)", recipient, batch, Timestamp.from(time), privatePayload);
 
         String raw;
         var start = new CountDownLatch(1);
@@ -116,8 +118,12 @@ class GiftRecipientPostgresTest extends GiftLifecyclePostgresTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(java.util.Map.of("token", raw))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.recipientId").value(recipient.toString()))
-                .andExpect(jsonPath("$.data.status").value("LINK_ACTIVE"));
+                .andExpect(jsonPath("$.data.recipientName").value("민지"))
+                .andExpect(jsonPath("$.data.senderName").value("서인"))
+                .andExpect(jsonPath("$.data.message").value("수능 대박 나자!"))
+                .andExpect(jsonPath("$.data.option").value("READING_WITH_TALISMAN"))
+                .andExpect(jsonPath("$.data.includedContents[0]").value("LETTER"))
+                .andExpect(jsonPath("$.data.includedContents[3]").value("SUNEUNG_CHECKLIST"));
 
         recipientService.submit(raw, "direct-recipient", new com.sajuppugi.gift.application.GiftRecipientService.Command(
                 "recipient", "2007-03-14", null, true,

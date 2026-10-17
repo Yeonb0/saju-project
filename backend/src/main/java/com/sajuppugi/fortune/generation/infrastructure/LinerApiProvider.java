@@ -60,14 +60,17 @@ public class LinerApiProvider implements LinerProvider {
     public LinerResponse generate(LinerRequest request) {
         ObjectNode payload = payload(request);
         try {
-            JsonNode response = client.post().uri(RESPONSE_PATH).body(payload).retrieve()
+            String responseBody = client.post().uri(RESPONSE_PATH).body(payload).retrieve()
                     .onStatus(HttpStatusCode::isError, (httpRequest, httpResponse) -> {
                         throw new LinerApiException("Liner returned HTTP " + httpResponse.getStatusCode().value());
                     })
-                    .body(JsonNode.class);
-            return parseResponse(response);
+                    .body(String.class);
+            if (!StringUtils.hasText(responseBody)) throw new LinerApiException("Liner response body is missing");
+            return parseResponse(mapper.readTree(responseBody));
         } catch (LinerApiException exception) {
             throw exception;
+        } catch (IOException exception) {
+            throw new LinerApiException("Liner response is not valid JSON", exception);
         } catch (RestClientException exception) {
             throw new LinerApiException("Liner request failed", exception);
         }

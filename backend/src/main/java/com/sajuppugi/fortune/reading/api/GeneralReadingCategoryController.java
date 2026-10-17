@@ -305,7 +305,7 @@ public class GeneralReadingCategoryController {
     private ReadingMeta meta(OwnedReading reading) {
         return new ReadingMeta(reading.id(), reading.productOption().name(), reading.subjectDisplayName(),
                 reading.questionKey(), reading.calculationVersion(), reading.generationVersion(),
-                reading.contentVersion(), reading.generationMode().name(), reading.createdAt(),
+                reading.ruleVersion(), reading.contentVersion(), reading.evidenceSummary(), reading.generationMode().name(), reading.createdAt(),
                 List.of("FOR_ENTERTAINMENT"), reading.talismanId() == null ? null
                         : new Talisman(reading.talismanId(), reading.talismanStatus()));
     }
@@ -369,8 +369,8 @@ public class GeneralReadingCategoryController {
                                          SectionContent summary, String generationMode, Instant createdAt) {}
 
     public record ReadingMeta(UUID id, String productOption, String subjectDisplayName, String questionKey,
-                              String calculationVersion, String generationVersion, String contentVersion,
-                              String generationMode, Instant createdAt, List<String> disclaimers,
+                              String calculationVersion, String generationVersion, String ruleVersion, String contentVersion,
+                              List<OwnedReading.SectionEvidence> evidenceSummary, String generationMode, Instant createdAt, List<String> disclaimers,
                               Talisman talisman) {}
 
     public record SectionContent(String title, String content, List<String> sourceFactKeys) {

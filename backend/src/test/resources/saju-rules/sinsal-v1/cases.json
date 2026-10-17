@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "solar-kst-2024-09-01-0508",
+    "calculationPolicyVersion": "manse-2026.10-v1",
+    "ruleVersion": "sinsal-v1",
+    "input": { "birthDate": "2024-09-01", "birthTime": "05:08", "calendarType": "SOLAR", "leapMonth": false, "gender": "FEMALE" },
+    "expected": {
+      "natalTypeCount": 13,
+      "occurrenceCounts": { "RED_CHARM": 2, "WHITE_TIGER": 1 },
+      "requiresActivations": true
+    }
+  }
+]

@@ -145,8 +145,8 @@ public class GeneralReadingService {
             OwnedReading reading = new OwnedReading(readingId, generated.resultId(), userId, purchase.id(),
                     fortuneType, option, personId, subjects.primary().displayName(), counterpartPersonId,
                     subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),
-                    questionKey, null, generated.response(), generated.calculationVersion(),
-                    generated.generationVersion(), generated.contentVersion(), generated.generationMode(),
+                    questionKey, null, generated.response(), generated.calculationVersion(), facts.specialStars().ruleVersion(),
+                    generated.generationVersion(), generated.contentVersion(), OwnedReading.evidenceFrom(generated.response()), generated.generationMode(),
                     null, null, clock.instant());
             if (option == ProductOption.READING_WITH_TALISMAN) {
                 reading = bundledFulfillment.fulfill(purchase, reading, new CreateTalisman(

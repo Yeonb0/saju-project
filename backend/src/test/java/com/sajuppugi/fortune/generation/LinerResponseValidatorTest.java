@@ -56,6 +56,61 @@ class LinerResponseValidatorTest {
     }
 
     @Test
+    void rejectsNamedPillarAndSpecialStarThatAreAbsentFromFacts() {
+        var facts = mapper.createObjectNode();
+        facts.putObject("pillars").putObject("day").put("display", "계사");
+        var occurrence = facts.putObject("specialStars").putArray("natal").addObject();
+        occurrence.put("type", "PEACH_BLOSSOM");
+        occurrence.put("count", 1);
+        LinerRequest constrained = new LinerRequest("e".repeat(64), "calc-v1", "gen-v1",
+                FortuneType.OVERALL, LocalDate.of(2026, 10, 8), null, facts,
+                List.of(), List.of(SectionKey.SUMMARY));
+
+        LinerResponse wrongPillar = new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY,
+                "갑자 일주라고 단정하지 말아야 합니다.", List.of("pillars.day.display"))), List.of());
+        LinerResponse wrongStar = new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY,
+                "백호살이 있다고 단정하지 말아야 합니다.", List.of("specialStars.natal[0].type"))), List.of());
+
+        assertThatThrownBy(() -> validator.validate(constrained, wrongPillar))
+                .isInstanceOf(InvalidGenerationException.class)
+                .extracting(exception -> ((InvalidGenerationException) exception).code())
+                .isEqualTo("LINER_UNSUPPORTED_ENTITY");
+        assertThatThrownBy(() -> validator.validate(constrained, wrongStar))
+                .isInstanceOf(InvalidGenerationException.class)
+                .extracting(exception -> ((InvalidGenerationException) exception).code())
+                .isEqualTo("LINER_UNSUPPORTED_ENTITY");
+    }
+
+    @Test
+    void rejectsAYearThatIsNeitherTheReferenceDateNorPresentInFacts() {
+        var facts = mapper.createObjectNode();
+        facts.putObject("luck").putArray("annual").addObject().put("year", 2026);
+        LinerRequest constrained = new LinerRequest("f".repeat(64), "calc-v1", "gen-v1",
+                FortuneType.OVERALL, LocalDate.of(2026, 10, 8), null, facts,
+                List.of(), List.of(SectionKey.SUMMARY));
+        LinerResponse response = new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY,
+                "2028년에 결과가 확정된다고 단정하지 마세요.", List.of("luck.annual[0].year"))), List.of());
+
+        assertThatThrownBy(() -> validator.validate(constrained, response))
+                .isInstanceOf(InvalidGenerationException.class)
+                .extracting(exception -> ((InvalidGenerationException) exception).code())
+                .isEqualTo("LINER_UNSUPPORTED_ENTITY");
+    }
+
+    @Test
+    void acceptsAYearPresentInAnAnnualLuckFact() {
+        var facts = mapper.createObjectNode();
+        facts.putObject("luck").putArray("annual").addObject().put("year", 2027);
+        LinerRequest constrained = new LinerRequest("g".repeat(64), "calc-v1", "gen-v1",
+                FortuneType.OVERALL, LocalDate.of(2026, 10, 8), null, facts,
+                List.of(), List.of(SectionKey.SUMMARY));
+        LinerResponse response = new LinerResponse(List.of(new GeneratedSection(SectionKey.SUMMARY,
+                "2027년의 흐름은 참고로만 살펴보세요.", List.of("luck.annual[0].year"))), List.of());
+
+        assertThatCode(() -> validator.validate(constrained, response)).doesNotThrowAnyException();
+    }
+
+    @Test
     void rejectsAnEmptyPaidResultAndOmittedRequiredSections() {
         LinerResponse empty = new LinerResponse(List.of(), List.of(SectionKey.SUMMARY));
 

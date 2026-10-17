@@ -1,7 +1,6 @@
 package com.sajuppugi.gift.api;
 
 import com.sajuppugi.common.api.ApiResponse;
-import com.sajuppugi.gift.application.DirectGiftFulfillmentService;
 import com.sajuppugi.gift.application.GiftAccessPort;
 import com.sajuppugi.gift.application.PublicGiftRateLimiter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -19,23 +18,19 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnProperty(name = "app.gift.purchases-enabled", havingValue = "true")
 @RequestMapping("/api/v1/public/direct-gifts")
 public class PublicDirectGiftController {
-    private final DirectGiftFulfillmentService service;
     private final GiftAccessPort access;
     private final PublicGiftRateLimiter limits;
 
-    public PublicDirectGiftController(DirectGiftFulfillmentService service, GiftAccessPort access,
-            PublicGiftRateLimiter limits) {
-        this.service = service;
+    public PublicDirectGiftController(GiftAccessPort access, PublicGiftRateLimiter limits) {
         this.access = access;
         this.limits = limits;
     }
 
     @PostMapping("/access")
-    public ApiResponse<DirectGiftFulfillmentService.PublicGift> access(@Valid @RequestBody Request request,
+    public ApiResponse<GiftAccessPort.PublicGift> access(@Valid @RequestBody Request request,
             HttpServletRequest http) {
         limits.check(request.token(), http.getRemoteAddr());
-        access.verify(request.token());
-        return ApiResponse.of(service.access(request.token()));
+        return ApiResponse.of(access.describe(request.token()));
     }
 
     @Schema(name = "PublicDirectGiftAccessRequest", requiredProperties = "token")

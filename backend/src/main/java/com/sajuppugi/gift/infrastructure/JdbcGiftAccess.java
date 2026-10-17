@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.util.List;
 import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -57,8 +58,9 @@ public class JdbcGiftAccess implements GiftAccessPort {
                 """, (rs, row) -> {
             UUID userId = rs.getObject(1, UUID.class), orderId = rs.getObject(2, UUID.class);
             DraftPayload payload = decrypt(rs.getString(3), userId + "|" + orderId);
-            return new PublicGift(payload.recipientName(), payload.senderName(), payload.message(),
-                    option(rs.getString(4)), state(rs.getString(6)), rs.getTimestamp(5).toInstant());
+            PublicGift.ProductOption option = option(rs.getString(4));
+            return new PublicGift(payload.recipientName(), payload.senderName(), payload.message(), option,
+                    includedContents(option), state(rs.getString(6)), rs.getTimestamp(5).toInstant());
         }, hash(rawToken), Timestamp.from(clock.instant()));
         return rows.stream().findFirst().orElseThrow(this::unavailable);
     }
@@ -82,6 +84,12 @@ public class JdbcGiftAccess implements GiftAccessPort {
     private PublicGift.AccessState state(String receiptState) {
         if (receiptState == null) return PublicGift.AccessState.INPUT_REQUIRED;
         return "PROVIDED".equals(receiptState) ? PublicGift.AccessState.READY : PublicGift.AccessState.PROCESSING;
+    }
+    private List<PublicGift.IncludedContent> includedContents(PublicGift.ProductOption option) {
+        return option == PublicGift.ProductOption.TALISMAN_ONLY
+                ? List.of(PublicGift.IncludedContent.LETTER, PublicGift.IncludedContent.TALISMAN)
+                : List.of(PublicGift.IncludedContent.LETTER, PublicGift.IncludedContent.TALISMAN,
+                        PublicGift.IncludedContent.READING, PublicGift.IncludedContent.SUNEUNG_CHECKLIST);
     }
     private String hash(String token) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8))); }

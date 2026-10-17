@@ -76,8 +76,9 @@ public class GenerationRecoveryService {
                 context.counterpartPersonId(), context.counterpartDisplayName(), context.relationType(),
                 context.questionKey(), generated.fortuneType().name().equals("SUNEUNG")
                         ? context.command().referenceDate() : null,
-                generated.response(), generated.calculationVersion(), generated.generationVersion(),
-                generated.contentVersion(), generated.generationMode(), null, null, clock.instant());
+                generated.response(), generated.calculationVersion(), context.command().calculationFacts().specialStars().ruleVersion(),
+                generated.generationVersion(), generated.contentVersion(), OwnedReading.evidenceFrom(generated.response()),
+                generated.generationMode(), null, null, clock.instant());
     }
 
     public enum Outcome { FULFILLED, FAILED, RETRY_SCHEDULED, FENCED_OFF, CLAIMED_BY_OTHER, SKIPPED }

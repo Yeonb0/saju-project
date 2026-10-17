@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +35,19 @@ public class LinerResponseValidator {
             Pattern.compile("(질병|정신질환).{0,12}(진단|확정)"),
             Pattern.compile("(죽음|사망).{0,12}(예정|확정|운명)"),
             Pattern.compile("시스템\\s*프롬프트", Pattern.CASE_INSENSITIVE));
+    private static final Map<String, String> SPECIAL_STAR_LABELS = Map.ofEntries(
+            Map.entry("천을귀인", "HEAVENLY_NOBLE"), Map.entry("문창귀인", "LITERARY_NOBLE"),
+            Map.entry("양인살", "YANG_BLADE"), Map.entry("도화살", "PEACH_BLOSSOM"),
+            Map.entry("역마살", "TRAVEL_HORSE"), Map.entry("화개살", "CANOPY"),
+            Map.entry("공망살", "VOID"), Map.entry("원진살", "YUANJIN"),
+            Map.entry("귀문관살", "SPIRIT_GATE"), Map.entry("백호살", "WHITE_TIGER"),
+            Map.entry("괴강살", "GANG_STRENGTH"), Map.entry("망신살", "DISGRACE"),
+            Map.entry("홍염살", "RED_CHARM"));
+    private static final Pattern GANJI = Pattern.compile("[갑을병정무기경신임계][자축인묘진사오미신유술해]");
+    // A ganji can also occur as ordinary Korean verb syllables (for example, "정해").
+    // Treat it as a factual claim only when the response gives it a pillar label.
+    private static final Pattern GANJI_MENTION = Pattern.compile("([갑을병정무기경신임계][자축인묘진사오미신유술해])\\s*(?:년주|월주|일주|시주|기둥)");
+    private static final Pattern YEAR = Pattern.compile("(?<!\\d)(?:19|20)\\d{2}(?!\\d)");
     private final ObjectMapper mapper;
     private final JsonSchema schema;
     private final JsonSchema suneungSchema;
@@ -84,6 +98,7 @@ public class LinerResponseValidator {
             if (FORBIDDEN.stream().anyMatch(pattern -> pattern.matcher(content).find())) {
                 throw new InvalidGenerationException("LINER_FORBIDDEN_EXPRESSION", "forbidden expression found");
             }
+            validateMentionedEntities(title + "\n" + content, request);
             if (section.sourceFactKeys().isEmpty()
                     || section.sourceFactKeys().stream().anyMatch(path -> !validFactPaths.contains(path))) {
                 throw new InvalidGenerationException("LINER_SOURCE_FACT_INVALID", "sourceFactKeys must reference supplied facts");
@@ -116,6 +131,65 @@ public class LinerResponseValidator {
             throw new InvalidGenerationException("LINER_SECTION_INVALID", "paid reading must contain ten sections");
         }
         validateSuneungGuide(request, response);
+    }
+
+    /**
+     * Source fact keys prove that a section cites some fact, but do not prove that every named
+     * 간지 or 신살 is present. Check only unambiguous domain labels so ordinary Korean prose is
+     * not treated as a calculation assertion.
+     */
+    private void validateMentionedEntities(String text, LinerRequest request) {
+        JsonNode facts = request.facts();
+        Set<String> presentStars = new LinkedHashSet<>();
+        JsonNode natal = facts.path("specialStars").path("natal");
+        if (natal.isArray()) {
+            for (JsonNode occurrence : natal) {
+                if (occurrence.path("count").asInt() > 0 && occurrence.hasNonNull("type")) {
+                    presentStars.add(occurrence.path("type").asText());
+                }
+            }
+        }
+        for (Map.Entry<String, String> label : SPECIAL_STAR_LABELS.entrySet()) {
+            if (text.contains(label.getKey()) && !presentStars.contains(label.getValue())) {
+                throw new InvalidGenerationException("LINER_UNSUPPORTED_ENTITY",
+                        "mentioned special star is absent from supplied facts: " + label.getKey());
+            }
+        }
+        Set<String> pillars = textualValues(facts).stream()
+                .filter(value -> GANJI.matcher(value).matches()).collect(Collectors.toSet());
+        var matcher = GANJI_MENTION.matcher(text);
+        while (matcher.find() && !pillars.contains(matcher.group(1))) {
+            throw new InvalidGenerationException("LINER_UNSUPPORTED_ENTITY",
+                    "mentioned pillar is absent from supplied facts: " + matcher.group(1));
+        }
+        Set<String> supportedYears = new LinkedHashSet<>();
+        supportedYears.add(String.valueOf(request.referenceDate().getYear()));
+        for (String value : textualValues(facts)) {
+            var yearMatcher = YEAR.matcher(value);
+            while (yearMatcher.find()) supportedYears.add(yearMatcher.group());
+        }
+        var yearMatcher = YEAR.matcher(text);
+        while (yearMatcher.find() && !supportedYears.contains(yearMatcher.group())) {
+            throw new InvalidGenerationException("LINER_UNSUPPORTED_ENTITY",
+                    "mentioned year is absent from supplied facts: " + yearMatcher.group());
+        }
+    }
+
+    private Set<String> textualValues(JsonNode node) {
+        Set<String> values = new LinkedHashSet<>();
+        collectText(node, values);
+        return values;
+    }
+
+    private void collectText(JsonNode node, Set<String> values) {
+        if (node == null || node.isNull()) return;
+        if (node.isObject()) {
+            node.elements().forEachRemaining(value -> collectText(value, values));
+        } else if (node.isArray()) {
+            node.elements().forEachRemaining(value -> collectText(value, values));
+        } else if (node.isTextual() || node.isNumber()) {
+            values.add(node.asText());
+        }
     }
 
     private void validateEvidenceFit(GeneratedSection section) {

@@ -10,8 +10,16 @@ spring:
       # Cached test contexts each own a pool; leave room for independent transactions.
       maximum-pool-size: 6
       minimum-idle: 1
+      connection-timeout: 3000
+      validation-timeout: 1000
 
 app:
+  database:
+    pool:
+      max-size: 6
+      min-idle: 1
+      connection-timeout-ms: 3000
+      validation-timeout-ms: 1000
   reading:
     generation-context-protection:
       encryption-key: dGVzdC1nZW5lcmF0aW9uLWNvbnRleHQta2V5LTAwMDA=

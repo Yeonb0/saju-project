@@ -23,7 +23,7 @@ public class PaymentOperationsScheduler {
     public PaymentOperationsScheduler(CashRefundService refunds, JdbcCashRefunds refundJobs, PaymentOperationsService operations, JdbcPaymentReconciliation jobs, Clock clock) {
         this.refunds = refunds; this.refundJobs = refundJobs; this.operations = operations; this.jobs = jobs; this.clock = clock;
     }
-    @Scheduled(fixedDelayString = "${app.toss.operations-delay:60000}")
+    @Scheduled(scheduler = "paymentOperationsScheduler", fixedDelayString = "${app.toss.operations-delay:60000}")
     public void run() {
         for (var order : refundJobs.due(clock.instant())) {
             try { refunds.recover(order); } catch (RuntimeException failure) { log.warn("Cash refund deferred: orderId={}", order); }

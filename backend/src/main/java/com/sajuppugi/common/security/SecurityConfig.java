@@ -36,11 +36,13 @@ public class SecurityConfig {
                     "/api/v1/public/gifts/recipient-profile", "/api/v1/public/gifts/result",
                     "/api/v1/public/direct-gifts/access").permitAll();
             authorize.requestMatchers(HttpMethod.GET, "/api/v1/daily-fortune-shares/*").permitAll();
+            authorize.requestMatchers(HttpMethod.GET, "/api/v1/public/result-shares/*").permitAll();
+            authorize.requestMatchers(HttpMethod.DELETE, "/api/v1/result-shares/*").authenticated();
             authorize.requestMatchers(HttpMethod.DELETE, "/api/v1/daily-fortune-shares/*").authenticated();
             authorize.requestMatchers("/api/v1/admin/**").access((authentication, context) ->
                     new org.springframework.security.authorization.AuthorizationDecision(admin.allows(authentication.get(),
                             !java.util.List.of("GET", "HEAD", "OPTIONS").contains(context.getRequest().getMethod()))));
-            authorize.requestMatchers("/api/v1/fortune/basic").authenticated();
+            authorize.requestMatchers("/api/v1/fortune/basic", "/api/v1/fortune/element-preview").authenticated();
             authorize.requestMatchers("/api/v1/quotes/{quoteId}", "/api/v1/wallet").authenticated();
             authorize.requestMatchers("/api/v1/top-up-orders", "/api/v1/top-up-orders/**").authenticated();
             authorize.requestMatchers("/api/v1/direct-gift-batches", "/api/v1/direct-gift-batches/**",

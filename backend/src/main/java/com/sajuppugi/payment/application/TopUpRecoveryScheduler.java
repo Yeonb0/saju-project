@@ -22,7 +22,7 @@ public class TopUpRecoveryScheduler {
             PaymentProviderPort requiredProvider) {
         this.executions = executions; this.payments = payments; this.clock = clock;
     }
-    @Scheduled(fixedDelayString = "${app.toss.recovery.poll-delay:30s}", initialDelayString = "${app.toss.recovery.poll-delay:30s}")
+    @Scheduled(scheduler = "paymentOperationsScheduler", fixedDelayString = "${app.toss.recovery.poll-delay:30s}", initialDelayString = "${app.toss.recovery.poll-delay:30s}")
     public void poll() {
         for (var order : executions.due(clock.instant())) {
             try { payments.recover(order); }
