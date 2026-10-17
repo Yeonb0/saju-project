@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { assertBuildEnv } from "./src/lib/deployEnv";
+import { wwwRedirects } from "./src/lib/siteDomain";
 
 // frontend/docs/FRONTEND.md · I-02: `/api/*` 를 rewrites 로 백엔드에 프록시해 같은 출처로 쿠키 · CORS 문제를 없앤다.
 // 백엔드 주소는 배포 환경(local · staging · production)마다 달라 환경 변수로만 받는다 (I-01). 값이 없으면 프록시하지 않는다.
@@ -12,6 +13,10 @@ assertBuildEnv(process.env);
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  // SITE-DOMAIN · HOSTING-AMPLIFY: www 를 기준 주소로 301 이동 (규칙은 src/lib/siteDomain.ts).
+  async redirects() {
+    return wwwRedirects();
+  },
   async rewrites() {
     if (!apiProxyTarget) {
       return [];
