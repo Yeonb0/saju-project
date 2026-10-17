@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-17: 비결제 백엔드 배포 전 재점검 (격리 PostgreSQL 17)
+
+- 배포 실행과 결제 provider 실연동을 제외하고 인증/세션, 카카오 실패 callback, 회원 동의·탈퇴, 인물 CRUD·소유권, 기본 사주, 오늘의 운세·공유, 상품 lifecycle, 기존 부적 소유권, prelaunch 쓰기 차단을 묶어 재실행했다. PostgreSQL 17에서 67건이 실행되어 실패/오류 없이 통과했다.
+- 별도 opt-in PostgreSQL suite 8건도 시스템 속성을 테스트 JVM에 명시적으로 전달해 실제 실행했다. 세션·CSRF·로그아웃과 OAuth state 동시 소비, 인물 생성 제한의 DB 잠금, generation context 재암호화와 두 worker lease 경쟁·재개가 실패/오류/제외 없이 통과했다. 앞선 일반 suite의 선택 제외 12건 중 이 8건은 이번 결과로 보완했다.
+- 기존 55432 테스트 컨테이너는 삭제하지 않고 중지한 동안 tmpfs 일회용 DB를 사용한 뒤 다시 시작했다. 실제 카카오 계정 callback, Liner API, R2 원본/서명 URL, AWS 로그·알람, 브라우저 FE proxy, 백업 복원·부하 시험은 외부 환경 검증이므로 확인하지 않았다. prelaunch 설정상 선물 구매·부적 render·복구 worker·관리자·앱 내부 운영 알림은 꺼져 있으므로 해당 기능을 제공 가능한 상태로 판정하지 않는다.
+- 적용: 6-1 세션/CSRF/소유권, 6-4 generation lease 복구, 6-5 기존 부적 접근 경계, 6-6 PostgreSQL migration/API 회귀, 6-9 개인정보 응답 최소화. 실제 외부 환경과 6-7 복원, 6-8 CloudWatch/SNS 전달, 6-10 용량은 미검증이다.
+
 ### 2026-10-17: 수능운 상품 활성화 요청 반영 (migration 추가)
 
 - 새 `V202610171000` migration이 KRW 수능운 읽기 상품 `SUNEUNG_READING_WITH_TALISMAN`만 활성화한다. 기존 catalog 가격(3,000원)과 판매 기간 값은 건드리지 않으며, 현재 migration 이력상 등록된 판매 기간이 비어 있어 활성화 후 `AVAILABLE`이다. 상품 catalog·quote 생성은 활성화되지만 prelaunch 결제 batch 등 실제 결제 쓰기의 503 차단은 유지된다.
