@@ -3,8 +3,15 @@
 ### 2026-10-17: 수능운 상품 활성화 요청 반영 (migration 추가)
 
 - 새 `V202610171000` migration이 KRW 수능운 읽기 상품 `SUNEUNG_READING_WITH_TALISMAN`만 활성화한다. 기존 catalog 가격(3,000원)과 판매 기간 값은 건드리지 않으며, 현재 migration 이력상 등록된 판매 기간이 비어 있어 활성화 후 `AVAILABLE`이다. 상품 catalog·quote 생성은 활성화되지만 prelaunch 결제 batch 등 실제 결제 쓰기의 503 차단은 유지된다.
-- 정적 검토에서 상품 스키마·가용성 판정, 해당 상품의 기존 등록/가격 migration, prelaunch 결제 차단을 대조했다. migration은 아직 DB에 적용하거나 배포하지 않았고 PostgreSQL 실행 검증·운영 환경 상태는 미확인이다.
-- 적용: 6-6 새 additive migration으로 이미 적용된 migration을 수정하지 않는다. 결제/지갑 테이블·원장·외부 PG 호출에는 변경이 없고, 실제 결제 권한은 prelaunch 차단 범위 그대로다. 배포 후 catalog의 `AVAILABLE`과 quote 발급을 확인해야 한다.
+- 정적 검토에서 상품 스키마·가용성 판정, 해당 상품의 기존 등록/가격 migration, prelaunch 결제 차단을 대조했다. 이후 격리 PostgreSQL 17의 빈 DB에서 prelaunch 프로필로 실제 JAR를 기동해 63개 migration을 적용했고, HTTP catalog 응답의 수능운 `KRW 3,000`·`AVAILABLE`을 확인했다. 운영 DB에 적용하거나 배포한 것은 아니다.
+- 적용: 6-6 새 additive migration으로 이미 적용된 migration을 수정하지 않는다. 결제/지갑 테이블·원장·외부 PG 호출에는 변경이 없고, 실제 결제 권한은 prelaunch 차단 범위 그대로다. 운영 배포 뒤 catalog·quote 확인이 남아 있다.
+
+### 2026-10-17: 백엔드 prelaunch 배포 점검 (결제 실연동 제외)
+
+- 현재 `feat/catalog-sale-lifecycle`은 `origin/main`보다 로컬 commit 2개(`ef6f2a8`, `056961f`) 앞서 있다. PostgreSQL 17 격리 테스트 DB에서 `clean check bootJar beanstalkPrelaunchBundle`을 실행해 800건 테스트, 실패/오류 0, 선택 제외 12건을 확인했다. 제외에는 명시적 opt-in PostgreSQL session/security 3건, person concurrency 1건, generation recovery 4건 및 live Liner/OpenAPI export/demo가 포함된다. 결제 provider 호출이나 실제 Liner 호출은 하지 않았다. EB ZIP은 `app.jar`, `Procfile`, `.ebextensions/01-prelaunch.config`만 포함하고 `unzip -t`를 통과했다.
+- ZIP의 실행 JAR를 별도 빈 PostgreSQL 17 DB와 `staging,prelaunch`로 직접 기동했다. Flyway 63개 migration 적용, `/actuator/health/liveness`와 `/actuator/health/readiness` 각각 HTTP 200/UP, 수능운 상품 KRW 3,000·`AVAILABLE` 응답, graceful shutdown을 확인했다. 이 검증의 OAuth/Liner/암호화 설정은 로컬 placeholder이며 AWS 값·TLS·FE proxy/browser·실제 로그인은 검증하지 않았다.
+- 배포 전 외부 환경 확인 필요: EB 환경에 DB TLS/CA, 고정 FE HTTPS origin 및 같은 origin의 Kakao callback, OAuth·Liner·암호화 키가 맞게 등록되어야 한다. AWS 계정/EB environment, 실제 DB와 migration 이력, security group/HTTPS/Amplify proxy/카카오 callback은 읽지 않았으므로 실제 배포 가능 여부를 확정하지 않았다. 현재 변경 2개가 원격 main에 없으므로, GitHub main 기반 배포라면 해당 commit을 먼저 원격 feature/PR/main 흐름에 반영해야 한다.
+- 모니터링 공백: 저장소에서 CloudWatch alarm/SNS topic/subscription 또는 Grafana datasource/dashboard provisioning을 찾지 못했다. EB 설정은 readiness health check path만 선언하고, 앱 `OPERATIONS_ALERTS_ENABLED` 기본값은 false이며 prelaunch guard도 이를 켜지 못하게 한다. 서버 중단 시 알림 수신은 AWS에서 EnvironmentHealth/HTTP 5xx 등 CloudWatch alarm과 SNS 구독을 별도로 구성한 뒤 실제 시험해야 한다. 적용: 6-6·6-8·6-9. 기존 영구 로컬 테스트 컨테이너는 보존했으므로 해당 opt-in suite는 이번 임시 DB에 연결해 재실행하지 않았다. 실제 운영 로그의 개인정보 마스킹, backup/restore, 외부 Liner 지연·비용, 부하/용량, CloudWatch/SNS 전달은 미검증이다.
 
 ### 2026-10-17: KRW 견적 응답과 direct-payment batch 진입 보수 (PostgreSQL 17)
 
