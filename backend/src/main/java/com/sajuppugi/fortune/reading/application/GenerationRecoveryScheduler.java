@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
-@ConditionalOnProperty(name = {"app.wallet.purchases-enabled", "app.reading.generation-recovery.enabled"}, havingValue = "true")
+@ConditionalOnProperty(name = "app.reading.generation-recovery.enabled", havingValue = "true")
 public class GenerationRecoveryScheduler {
     private static final Logger log = LoggerFactory.getLogger(GenerationRecoveryScheduler.class);
     private final ReadingRepository readings;

@@ -9,6 +9,7 @@ import com.sajuppugi.fortune.talisman.domain.Talisman;
 import com.sajuppugi.fortune.talisman.domain.Talisman.Animal;
 import com.sajuppugi.fortune.talisman.domain.Talisman.AssetKeys;
 import com.sajuppugi.fortune.talisman.domain.Talisman.Status;
+import com.sajuppugi.fortune.talisman.domain.TalismanComposition;
 import com.sajuppugi.fortune.talisman.port.TalismanRepository;
 import java.time.Instant;
 import java.util.UUID;
@@ -34,6 +35,8 @@ class TalismanPersistenceTest {
 
         assertThat(saved).isEqualTo(pending);
         assertThat(repository.findOwned(pending.ownerUserId(), pending.id())).contains(pending);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM talisman_compositions WHERE talisman_id = ?", Integer.class,
+                pending.id())).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT source FROM talisman_ownerships WHERE talisman_id = ?",
                 String.class, pending.id())).isEqualTo("PURCHASE");
         assertThat(jdbc.queryForList("SELECT * FROM talismans WHERE id = ?", pending.id()).getFirst().keySet())
@@ -80,7 +83,12 @@ class TalismanPersistenceTest {
     private Talisman pending() {
         return new Talisman(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), FortuneType.SUNEUNG,
                 Element.WATER, Animal.RABBIT, "차분한 집중, 고요한 힘을 모아요",
-                "물 기운을 채울 수 있도록 검푸른빛을 담았어요.", "suneung-2026.10.08",
+                "물 기운을 채울 수 있도록 검푸른빛을 담았어요.", composition(), "suneung-2026.10.08",
                 Status.PENDING, null, null, Instant.parse("2026-10-08T03:00:00Z"), null);
+    }
+
+    private TalismanComposition composition() {
+        return new TalismanComposition("border_water_2", "paper_water_1", "animal_rabbit", "item_csat_2",
+                new TalismanComposition.Phrase("합격기원", "合格祈願", "꼭 합격하길 빌어요"), "seal_default");
     }
 }

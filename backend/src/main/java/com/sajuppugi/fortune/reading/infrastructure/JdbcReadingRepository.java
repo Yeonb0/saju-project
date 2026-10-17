@@ -79,6 +79,11 @@ public class JdbcReadingRepository implements ReadingRepository {
     }
 
     @Override
+    public boolean markDirectPaid(UUID purchaseId) {
+        return jdbc.update("UPDATE reading_purchases SET status = 'DEBITED' WHERE id = ? AND status = 'CREATED'", purchaseId) == 1;
+    }
+
+    @Override
     public void saveGenerationContext(UUID purchaseId, GenerationResumeContext context) {
         int updated = jdbc.update("""
                 UPDATE reading_purchases SET generation_context = ?
