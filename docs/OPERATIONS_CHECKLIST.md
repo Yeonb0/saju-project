@@ -1,5 +1,32 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-17: 비결제 백엔드 배포 전 재점검 (격리 PostgreSQL 17)
+
+- 배포 실행과 결제 provider 실연동을 제외하고 인증/세션, 카카오 실패 callback, 회원 동의·탈퇴, 인물 CRUD·소유권, 기본 사주, 오늘의 운세·공유, 상품 lifecycle, 기존 부적 소유권, prelaunch 쓰기 차단을 묶어 재실행했다. PostgreSQL 17에서 67건이 실행되어 실패/오류 없이 통과했다.
+- 별도 opt-in PostgreSQL suite 8건도 시스템 속성을 테스트 JVM에 명시적으로 전달해 실제 실행했다. 세션·CSRF·로그아웃과 OAuth state 동시 소비, 인물 생성 제한의 DB 잠금, generation context 재암호화와 두 worker lease 경쟁·재개가 실패/오류/제외 없이 통과했다. 앞선 일반 suite의 선택 제외 12건 중 이 8건은 이번 결과로 보완했다.
+- 기존 55432 테스트 컨테이너는 삭제하지 않고 중지한 동안 tmpfs 일회용 DB를 사용한 뒤 다시 시작했다. 실제 카카오 계정 callback, Liner API, R2 원본/서명 URL, AWS 로그·알람, 브라우저 FE proxy, 백업 복원·부하 시험은 외부 환경 검증이므로 확인하지 않았다. prelaunch 설정상 선물 구매·부적 render·복구 worker·관리자·앱 내부 운영 알림은 꺼져 있으므로 해당 기능을 제공 가능한 상태로 판정하지 않는다.
+- 적용: 6-1 세션/CSRF/소유권, 6-4 generation lease 복구, 6-5 기존 부적 접근 경계, 6-6 PostgreSQL migration/API 회귀, 6-9 개인정보 응답 최소화. 실제 외부 환경과 6-7 복원, 6-8 CloudWatch/SNS 전달, 6-10 용량은 미검증이다.
+
+### 2026-10-17: 수능운 상품 활성화 요청 반영 (migration 추가)
+
+- 새 `V202610171000` migration이 KRW 수능운 읽기 상품 `SUNEUNG_READING_WITH_TALISMAN`만 활성화한다. 기존 catalog 가격(3,000원)과 판매 기간 값은 건드리지 않으며, 현재 migration 이력상 등록된 판매 기간이 비어 있어 활성화 후 `AVAILABLE`이다. 상품 catalog·quote 생성은 활성화되지만 prelaunch 결제 batch 등 실제 결제 쓰기의 503 차단은 유지된다.
+- 정적 검토에서 상품 스키마·가용성 판정, 해당 상품의 기존 등록/가격 migration, prelaunch 결제 차단을 대조했다. 이후 격리 PostgreSQL 17의 빈 DB에서 prelaunch 프로필로 실제 JAR를 기동해 63개 migration을 적용했고, HTTP catalog 응답의 수능운 `KRW 3,000`·`AVAILABLE`을 확인했다. 운영 DB에 적용하거나 배포한 것은 아니다.
+- 적용: 6-6 새 additive migration으로 이미 적용된 migration을 수정하지 않는다. 결제/지갑 테이블·원장·외부 PG 호출에는 변경이 없고, 실제 결제 권한은 prelaunch 차단 범위 그대로다. 운영 배포 뒤 catalog·quote 확인이 남아 있다.
+
+### 2026-10-17: 백엔드 prelaunch 배포 점검 (결제 실연동 제외)
+
+- 현재 `feat/catalog-sale-lifecycle`은 `origin/main`보다 로컬 commit 2개(`ef6f2a8`, `056961f`) 앞서 있다. PostgreSQL 17 격리 테스트 DB에서 `clean check bootJar beanstalkPrelaunchBundle`을 실행해 800건 테스트, 실패/오류 0, 선택 제외 12건을 확인했다. 제외에는 명시적 opt-in PostgreSQL session/security 3건, person concurrency 1건, generation recovery 4건 및 live Liner/OpenAPI export/demo가 포함된다. 결제 provider 호출이나 실제 Liner 호출은 하지 않았다. EB ZIP은 `app.jar`, `Procfile`, `.ebextensions/01-prelaunch.config`만 포함하고 `unzip -t`를 통과했다.
+- ZIP의 실행 JAR를 별도 빈 PostgreSQL 17 DB와 `staging,prelaunch`로 직접 기동했다. Flyway 63개 migration 적용, `/actuator/health/liveness`와 `/actuator/health/readiness` 각각 HTTP 200/UP, 수능운 상품 KRW 3,000·`AVAILABLE` 응답, graceful shutdown을 확인했다. 이 검증의 OAuth/Liner/암호화 설정은 로컬 placeholder이며 AWS 값·TLS·FE proxy/browser·실제 로그인은 검증하지 않았다.
+- 배포 전 외부 환경 확인 필요: EB 환경에 DB TLS/CA, 고정 FE HTTPS origin 및 같은 origin의 Kakao callback, OAuth·Liner·암호화 키가 맞게 등록되어야 한다. AWS 계정/EB environment, 실제 DB와 migration 이력, security group/HTTPS/Amplify proxy/카카오 callback은 읽지 않았으므로 실제 배포 가능 여부를 확정하지 않았다. 현재 변경 2개가 원격 main에 없으므로, GitHub main 기반 배포라면 해당 commit을 먼저 원격 feature/PR/main 흐름에 반영해야 한다.
+- 모니터링 공백: 저장소에서 CloudWatch alarm/SNS topic/subscription 또는 Grafana datasource/dashboard provisioning을 찾지 못했다. EB 설정은 readiness health check path만 선언하고, 앱 `OPERATIONS_ALERTS_ENABLED` 기본값은 false이며 prelaunch guard도 이를 켜지 못하게 한다. 서버 중단 시 알림 수신은 AWS에서 EnvironmentHealth/HTTP 5xx 등 CloudWatch alarm과 SNS 구독을 별도로 구성한 뒤 실제 시험해야 한다. 적용: 6-6·6-8·6-9. 기존 영구 로컬 테스트 컨테이너는 보존했으므로 해당 opt-in suite는 이번 임시 DB에 연결해 재실행하지 않았다. 실제 운영 로그의 개인정보 마스킹, backup/restore, 외부 Liner 지연·비용, 부하/용량, CloudWatch/SNS 전달은 미검증이다.
+
+### 2026-10-17: KRW 견적 응답과 direct-payment batch 진입 보수 (PostgreSQL 17)
+
+- `QuoteFundingService`가 `READING`, `GIFT`, `TALISMAN_ADDON`의 KRW quote를 wallet 조회 없이 반환하도록 수정했다. 기존 응답 필드는 유지하며 `walletBalance=0`, `shortage=0`, `balanceAfter=null`, `recommendedTopUp=null`을 준다. 등껍질 견적은 기존 잔액·부족액·충전 추천 계산을 유지한다. `GiftQuoteService`의 quote 재조회도 KRW gift를 통과시키되 소유자·quote context 검사는 유지한다.
+- `QuoteWalletApiTest`에서 일반 운세 5종의 KRW quote 201 및 응답 필드를 확인하고, 종합운 quote에서 `direct-payment-batches` 생성이 `PAYMENT_PENDING`으로 이어지는 것을 확인했다. 수능운 KRW quote와 `GiftQuoteApiTest`의 KRW gift quote도 각각 확인했다. wallet ledger/구매 debit이나 PG 호출은 발생하지 않았다.
+- 격리된 일회용 PostgreSQL 17 DB(`localhost:55434`, tmpfs)에서 해당 회귀 테스트 8건을 실행해 통과했다. `PrelaunchDeploymentGuardTest`, `TossPaymentConfigurationTest`, `beanstalkPrelaunchBundle`도 통과했고 ZIP 산출물을 만들었다. AWS CLI는 환경에 없고 Elastic Beanstalk 콘솔은 로그인 화면이라 실제 prelaunch 업로드·health/readiness·FE 브라우저 확인은 아직 수행하지 않았다. PG 승인·결제창 테스트는 하지 않았다.
+- 적용: 6-1 인증된 requester와 기존 소유권 경로 유지, 6-2 KRW 견적을 shell wallet에서 분리·원장 변경 없음, 6-3 외부 PG 미호출, 6-6 schema/migration 변경 없음·실제 배포 미완료. 6-8 운영 알림 설정과 6-10 용량 측정은 이번 범위에 포함하지 않았다.
+
 ### 2026-10-16: AWS PG 비활성 첫 배포 준비
 
 - FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.

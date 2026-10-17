@@ -104,6 +104,75 @@ class QuoteWalletApiTest {
         assertNoWalletWrites();
     }
 
+    @ParameterizedTest
+    @CsvSource({"overall,OVERALL_FLOW,OVERALL_READING_ONLY",
+            "love,CURRENT_RELATIONSHIP,LOVE_READING_ONLY",
+            "wealth,OVERALL_WEALTH,WEALTH_READING_ONLY",
+            "compatibility,OVERALL_MATCH,COMPATIBILITY_READING_ONLY",
+            "sinsal,OVERALL_SINSAL,SINSAL_READING_ONLY"})
+    void krwCategoryQuotesKeepTheWalletCompatibleResponse(String category, String question, String productCode)
+            throws Exception {
+        jdbc.update("UPDATE products SET active = TRUE, price_currency = 'KRW', price_amount = 1800, regular_price_amount = NULL WHERE code = ?",
+                productCode);
+        String extra = category.equals("compatibility")
+                ? ",\"counterpartPersonId\":\"" + counterpart + "\",\"relationType\":\"LOVER\"" : "";
+
+        mvc.perform(post("/api/v1/quotes/fortune/{category}", category)
+                        .with(user(owner.toString())).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"personId\":\"" + person + "\",\"productOption\":\"READING_ONLY\","
+                                + "\"questionKey\":\"" + question + "\"" + extra + "}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.charged.currency").value("KRW"))
+                .andExpect(jsonPath("$.data.charged.amount").value(1800))
+                .andExpect(jsonPath("$.data.walletBalance").value(0))
+                .andExpect(jsonPath("$.data.shortage").value(0))
+                .andExpect(jsonPath("$.data.balanceAfter").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.recommendedTopUp").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.regularPrice").value(org.hamcrest.Matchers.nullValue()));
+        assertNoWalletWrites();
+    }
+
+    @Test
+    void krwGeneralQuoteCanCreateDirectPaymentBatch() throws Exception {
+        jdbc.update("UPDATE products SET active = TRUE, price_currency = 'KRW', price_amount = 1800, regular_price_amount = NULL WHERE code = 'OVERALL_READING_ONLY'");
+        String quoteResponse = mvc.perform(post("/api/v1/quotes/fortune/overall")
+                        .with(user(owner.toString())).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"personId\":\"" + person
+                                + "\",\"productOption\":\"READING_ONLY\",\"questionKey\":\"OVERALL_FLOW\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.charged.currency").value("KRW"))
+                .andExpect(jsonPath("$.data.walletBalance").value(0))
+                .andExpect(jsonPath("$.data.shortage").value(0))
+                .andReturn().getResponse().getContentAsString();
+        UUID quoteId = UUID.fromString(JsonPath.read(quoteResponse, "$.data.quoteId"));
+
+        mvc.perform(post("/api/v1/direct-payment-batches").with(user(owner.toString())).with(csrf())
+                        .header("Idempotency-Key", "krw-quote-direct-batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quoteId\":\"" + quoteId + "\",\"quantity\":1}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.amount").value(1800))
+                .andExpect(jsonPath("$.data.currency").value("KRW"))
+                .andExpect(jsonPath("$.data.status").value("PAYMENT_PENDING"));
+        assertNoWalletWrites();
+    }
+
+    @Test
+    void krwSuneungQuoteReturnsZeroWalletFunding() throws Exception {
+        jdbc.update("UPDATE products SET active = TRUE, price_currency = 'KRW', price_amount = 3000, regular_price_amount = NULL WHERE code = 'SUNEUNG_READING_WITH_TALISMAN'");
+        mvc.perform(post("/api/v1/quotes/fortune").with(user(owner.toString())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"personId\":\"" + person + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.charged.currency").value("KRW"))
+                .andExpect(jsonPath("$.data.charged.amount").value(3000))
+                .andExpect(jsonPath("$.data.walletBalance").value(0))
+                .andExpect(jsonPath("$.data.shortage").value(0))
+                .andExpect(jsonPath("$.data.balanceAfter").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.recommendedTopUp").value(org.hamcrest.Matchers.nullValue()));
+        assertNoWalletWrites();
+    }
+
     @Test
     void suneungQuoteAndReloadUseCurrentBalanceWithoutConsumingTheQuote() throws Exception {
         lot(owner, "BONUS", 7, -1, 3600);
