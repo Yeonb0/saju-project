@@ -27,10 +27,17 @@ public class QuoteFundingService {
     public FundingView get(UUID requesterUserId, UUID quoteId) {
         PurchaseQuote quote = catalog.getQuote(requesterUserId, quoteId);
         Product product = quote.productSnapshot();
-        if (product.price().currency() != Price.Currency.TURTLE_SHELL
-                || (product.category() != Product.Category.READING
-                    && product.category() != Product.Category.GIFT
-                    && product.category() != Product.Category.TALISMAN_ADDON)) {
+        if (product.category() != Product.Category.READING
+                && product.category() != Product.Category.GIFT
+                && product.category() != Product.Category.TALISMAN_ADDON) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST);
+        }
+        if (product.price().currency() == Price.Currency.KRW) {
+            // KRW checkout is funded by the direct-payment flow, not the shell wallet.
+            // Preserve the existing FE contract while keeping this quote read-only.
+            return new FundingView(quote, 0, null, 0, null);
+        }
+        if (product.price().currency() != Price.Currency.TURTLE_SHELL) {
             throw new ApiException(ErrorCode.INVALID_REQUEST);
         }
         int balance = wallets.getBalance(requesterUserId).balance();

@@ -1,5 +1,12 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-17: KRW 견적 응답과 direct-payment batch 진입 보수 (PostgreSQL 17)
+
+- `QuoteFundingService`가 `READING`, `GIFT`, `TALISMAN_ADDON`의 KRW quote를 wallet 조회 없이 반환하도록 수정했다. 기존 응답 필드는 유지하며 `walletBalance=0`, `shortage=0`, `balanceAfter=null`, `recommendedTopUp=null`을 준다. 등껍질 견적은 기존 잔액·부족액·충전 추천 계산을 유지한다. `GiftQuoteService`의 quote 재조회도 KRW gift를 통과시키되 소유자·quote context 검사는 유지한다.
+- `QuoteWalletApiTest`에서 일반 운세 5종의 KRW quote 201 및 응답 필드를 확인하고, 종합운 quote에서 `direct-payment-batches` 생성이 `PAYMENT_PENDING`으로 이어지는 것을 확인했다. 수능운 KRW quote와 `GiftQuoteApiTest`의 KRW gift quote도 각각 확인했다. wallet ledger/구매 debit이나 PG 호출은 발생하지 않았다.
+- 격리된 일회용 PostgreSQL 17 DB(`localhost:55434`, tmpfs)에서 해당 회귀 테스트 8건을 실행해 통과했다. `PrelaunchDeploymentGuardTest`, `TossPaymentConfigurationTest`, `beanstalkPrelaunchBundle`도 통과했고 ZIP 산출물을 만들었다. AWS CLI는 환경에 없고 Elastic Beanstalk 콘솔은 로그인 화면이라 실제 prelaunch 업로드·health/readiness·FE 브라우저 확인은 아직 수행하지 않았다. PG 승인·결제창 테스트는 하지 않았다.
+- 적용: 6-1 인증된 requester와 기존 소유권 경로 유지, 6-2 KRW 견적을 shell wallet에서 분리·원장 변경 없음, 6-3 외부 PG 미호출, 6-6 schema/migration 변경 없음·실제 배포 미완료. 6-8 운영 알림 설정과 6-10 용량 측정은 이번 범위에 포함하지 않았다.
+
 ### 2026-10-16: AWS PG 비활성 첫 배포 준비
 
 - FE Amplify / BE Elastic Beanstalk Java SE·Corretto 21용 prelaunch 구성을 준비했다. `staging,prelaunch` 기동 검사는 PG adapter와 금융/선물/관리자 작업을 차단하며, 실제 AWS 자원 생성·배포는 수행하지 않았다.

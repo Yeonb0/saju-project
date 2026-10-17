@@ -62,6 +62,19 @@ class GiftQuoteApiTest {
         assertNoMoneyWrites();
     }
 
+    @Test void krwGiftQuoteReturnsZeroWalletFunding() throws Exception {
+        jdbc.update("UPDATE products SET active = TRUE, price_currency = 'KRW', price_amount = 1000 WHERE code = 'GIFT_SUNEUNG_TALISMAN_ONLY'");
+        mvc.perform(request("TALISMAN_ONLY"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.charged.currency").value("KRW"))
+                .andExpect(jsonPath("$.data.charged.amount").value(1000))
+                .andExpect(jsonPath("$.data.walletBalance").value(0))
+                .andExpect(jsonPath("$.data.shortage").value(0))
+                .andExpect(jsonPath("$.data.balanceAfter").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.recommendedTopUp").value(org.hamcrest.Matchers.nullValue()));
+        assertNoMoneyWrites();
+    }
+
     @Test void talismanOnlyQuoteDoesNotPromiseTheExamChecklist() throws Exception {
         mvc.perform(request("TALISMAN_ONLY")).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.includedContents.length()").value(2))

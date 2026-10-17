@@ -2,7 +2,6 @@ package com.sajuppugi.gift.application;
 
 import com.sajuppugi.catalog.application.CatalogUseCase;
 import com.sajuppugi.catalog.application.QuoteFundingService;
-import com.sajuppugi.catalog.domain.Price;
 import com.sajuppugi.catalog.domain.Product;
 import com.sajuppugi.common.api.ApiException;
 import com.sajuppugi.common.api.ErrorCode;
@@ -39,8 +38,7 @@ public class GiftQuoteService {
         Option option = java.util.Arrays.stream(Option.values())
                 .filter(value -> value.productCode().equals(product.code())).findFirst()
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (product.category() != Product.Category.GIFT || product.price().currency() != Price.Currency.TURTLE_SHELL
-                || !quote.contextHash().equals(context(option))) {
+        if (product.category() != Product.Category.GIFT || !quote.contextHash().equals(context(option))) {
             throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
         }
         return new View(funding.get(user, quoteId), Product.FortuneType.SUNEUNG, option, option.includedContents());
