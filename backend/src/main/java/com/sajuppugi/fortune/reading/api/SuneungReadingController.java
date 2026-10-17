@@ -61,11 +61,12 @@ public class SuneungReadingController {
         if (request.fortuneType() == null) {
             if (!request.isLegacySuneung()) throw new ApiException(ErrorCode.INVALID_REQUEST);
             result = service.purchase(userId(authentication), request.quoteId(), request.personId(),
-                    new IdempotencyKey(idempotencyKey));
+                    request.personalizedConcern(), new IdempotencyKey(idempotencyKey));
         } else {
             result = generalService.purchase(userId(authentication), request.quoteId(), request.fortuneType(),
                     request.productOption(), request.personId(), request.counterpartPersonId(),
-                    request.relationType(), request.questionKey(), new IdempotencyKey(idempotencyKey));
+                    request.relationType(), request.questionKey(), request.personalizedConcern(),
+                    new IdempotencyKey(idempotencyKey));
         }
         HttpStatus status = result.status() == com.sajuppugi.fortune.reading.domain.ReadingPurchase.Status.FULFILLED
                 ? HttpStatus.CREATED : HttpStatus.ACCEPTED;
@@ -121,7 +122,8 @@ public class SuneungReadingController {
 
     public record PurchaseRequest(@NotNull UUID quoteId, @NotNull UUID personId,
                                   FortuneType fortuneType, ProductOption productOption, String questionKey,
-                                  UUID counterpartPersonId, RelationType relationType) {
+                                  UUID counterpartPersonId, RelationType relationType,
+                                  @jakarta.validation.constraints.Size(max = 100) String personalizedConcern) {
         boolean isLegacySuneung() {
             return productOption == null && questionKey == null && counterpartPersonId == null && relationType == null;
         }

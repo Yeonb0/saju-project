@@ -69,14 +69,16 @@ public class LinerResponseValidator {
         List<String> seenContents = new java.util.ArrayList<>();
         Set<String> validFactPaths = factPaths(request.facts());
         for (GeneratedSection section : response.sections()) {
-            if (section == null || section.key() == null || section.content() == null || section.sourceFactKeys() == null) {
+            if (section == null || section.key() == null || section.title() == null
+                    || section.content() == null || section.sourceFactKeys() == null) {
                 throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "section fields are required");
             }
             if (!allowed.contains(section.key()) || !seen.add(section.key())) {
                 throw new InvalidGenerationException("LINER_SECTION_INVALID", "unapproved or duplicate section");
             }
             String content = section.content().strip();
-            if (content.isEmpty() || content.length() > MAX_CONTENT_LENGTH) {
+            String title = section.title().strip();
+            if (title.length() < 2 || title.length() > 50 || content.isEmpty() || content.length() > MAX_CONTENT_LENGTH) {
                 throw new InvalidGenerationException("LINER_SCHEMA_INVALID", "content length is invalid");
             }
             if (FORBIDDEN.stream().anyMatch(pattern -> pattern.matcher(content).find())) {
@@ -109,6 +111,9 @@ public class LinerResponseValidator {
         if (allowed.contains(SectionKey.MISSING_ELEMENT)) required.add(SectionKey.MISSING_ELEMENT);
         if (seen.isEmpty() || !seen.containsAll(required)) {
             throw new InvalidGenerationException("LINER_SECTION_INVALID", "required sections cannot be omitted");
+        }
+        if (request.allowedSections().size() == 10 && response.sections().size() != 10) {
+            throw new InvalidGenerationException("LINER_SECTION_INVALID", "paid reading must contain ten sections");
         }
         validateSuneungGuide(request, response);
     }
@@ -146,6 +151,13 @@ public class LinerResponseValidator {
         Map<SectionKey, List<String>> values = new EnumMap<>(SectionKey.class);
         values.put(SectionKey.MISSING_ELEMENT, List.of("fiveElements."));
         values.put(SectionKey.GOOD_PERIOD, List.of("luck."));
+        values.put(SectionKey.SINSAL_TIMING, List.of("specialStars."));
+        values.put(SectionKey.SPECIAL_STARS, List.of("specialStars."));
+        values.put(SectionKey.SINSAL_POPULAR, List.of("specialStars."));
+        values.put(SectionKey.SINSAL_MOVEMENT, List.of("specialStars."));
+        values.put(SectionKey.SINSAL_INTUITION, List.of("specialStars."));
+        values.put(SectionKey.SINSAL_INTENSITY, List.of("specialStars."));
+        values.put(SectionKey.BALANCING_SPECIAL_STARS, List.of("specialStars."));
         values.put(SectionKey.MATCH_STRENGTH, List.of("counterpart."));
         values.put(SectionKey.MATCH_CONFLICT, List.of("counterpart."));
         values.put(SectionKey.COMMUNICATION, List.of("counterpart."));

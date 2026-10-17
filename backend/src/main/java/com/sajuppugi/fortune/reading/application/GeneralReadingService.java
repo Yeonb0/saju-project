@@ -77,7 +77,15 @@ public class GeneralReadingService {
     public PurchaseResult purchase(UUID userId, UUID quoteId, FortuneType fortuneType, ProductOption option,
                                    UUID personId, UUID counterpartPersonId, RelationType relationType,
                                    String questionKey, IdempotencyKey key) {
+        return purchase(userId, quoteId, fortuneType, option, personId, counterpartPersonId, relationType,
+                questionKey, null, key);
+    }
+
+    public PurchaseResult purchase(UUID userId, UUID quoteId, FortuneType fortuneType, ProductOption option,
+                                   UUID personId, UUID counterpartPersonId, RelationType relationType,
+                                   String questionKey, String personalizedConcern, IdempotencyKey key) {
         validateInput(fortuneType, option, personId, counterpartPersonId, relationType, questionKey);
+        String concern = PersonalizedConcern.normalize(personalizedConcern);
         ReadingPurchase existing = readings.findPurchaseByQuote(userId, quoteId).orElse(null);
         if (existing != null) {
             PurchaseQuote snapshot = validateQuoteSnapshot(catalog.getQuoteSnapshot(userId, quoteId), fortuneType,
@@ -107,7 +115,7 @@ public class GeneralReadingService {
         GenerationCommand command = new GenerationCommand(userId, fortuneType,
                 LocalDate.now(clock.withZone(ZONE)), questionKey, facts, counterpartFacts,
                 value(relationType), policy.allowedSections(), missingFields,
-                GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion());
+                GeneralReadingPolicy.GENERATION_VERSION, policy.contentVersion(), concern);
         GenerationResumeContext resumeContext = new GenerationResumeContext(command, option, personId,
                 subjects.primary().displayName(), counterpartPersonId,
                 subjects.counterpart() == null ? null : subjects.counterpart().displayName(), value(relationType),

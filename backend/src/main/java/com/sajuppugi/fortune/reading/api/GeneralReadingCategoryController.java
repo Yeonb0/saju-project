@@ -21,6 +21,7 @@ import com.sajuppugi.fortune.reading.domain.RelationType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
@@ -94,7 +95,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.OVERALL, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::overall);
     }
 
@@ -103,7 +104,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.LOVE, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::love);
     }
 
@@ -112,7 +113,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.WEALTH, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::wealth);
     }
 
@@ -121,7 +122,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody CompatibilityPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.COMPATIBILITY, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(),
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(),
                 request.counterpartPersonId(), request.relationType());
         return purchaseResponse(result, this::compatibility);
     }
@@ -131,7 +132,7 @@ public class GeneralReadingCategoryController {
             Authentication authentication, @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody StandardPurchaseRequest request) {
         PurchaseResult result = purchase(authentication, key, FortuneType.SINSAL, request.quoteId(),
-                request.personId(), request.productOption(), request.questionKey(), null, null);
+                request.personId(), request.productOption(), request.questionKey(), request.personalizedConcern(), null, null);
         return purchaseResponse(result, this::sinsal);
     }
 
@@ -211,10 +212,10 @@ public class GeneralReadingCategoryController {
     }
 
     private PurchaseResult purchase(Authentication authentication, String key, FortuneType type, UUID quoteId,
-                                    UUID personId, ProductOption option, String questionKey,
+                                    UUID personId, ProductOption option, String questionKey, String personalizedConcern,
                                     UUID counterpartPersonId, RelationType relationType) {
         return readings.purchase(userId(authentication), quoteId, type, option, personId,
-                counterpartPersonId, relationType, questionKey, new IdempotencyKey(key));
+                counterpartPersonId, relationType, questionKey, personalizedConcern, new IdempotencyKey(key));
     }
 
     private <T> ResponseEntity<ApiResponse<CategoryPurchaseResponse<T>>> purchaseResponse(
@@ -264,7 +265,7 @@ public class GeneralReadingCategoryController {
                 values.get(SectionKey.CURRENT_FLOW), values.get(SectionKey.RELATIONSHIPS),
                 values.get(SectionKey.STUDY_AND_WORK), values.get(SectionKey.WEALTH_FLOW),
                 values.get(SectionKey.CONDITION), values.get(SectionKey.LUCKY_POINT),
-                values.get(SectionKey.MISSING_ELEMENT));
+                values.get(SectionKey.MISSING_ELEMENT), orderedSections(reading));
     }
 
     private LoveReadingResponse love(OwnedReading reading) {
@@ -272,7 +273,7 @@ public class GeneralReadingCategoryController {
         return new LoveReadingResponse(meta(reading), values.get(SectionKey.SUMMARY),
                 values.get(SectionKey.CURRENT_FLOW), values.get(SectionKey.GOOD_PERIOD),
                 values.get(SectionKey.CAUTION), values.get(SectionKey.ACTION_TIP),
-                values.get(SectionKey.MISSING_ELEMENT));
+                values.get(SectionKey.MISSING_ELEMENT), orderedSections(reading));
     }
 
     private WealthReadingResponse wealth(OwnedReading reading) {
@@ -280,7 +281,8 @@ public class GeneralReadingCategoryController {
         return new WealthReadingResponse(meta(reading), values.get(SectionKey.SUMMARY),
                 values.get(SectionKey.WEALTH_FLOW), values.get(SectionKey.INCOME),
                 values.get(SectionKey.SPENDING_CAUTION), values.get(SectionKey.GOOD_PERIOD),
-                values.get(SectionKey.ACTION_TIP), values.get(SectionKey.MISSING_ELEMENT));
+                values.get(SectionKey.ACTION_TIP), values.get(SectionKey.MISSING_ELEMENT),
+                orderedSections(reading));
     }
 
     private CompatibilityReadingResponse compatibility(OwnedReading reading) {
@@ -289,14 +291,15 @@ public class GeneralReadingCategoryController {
                 reading.counterpartPersonId(), reading.counterpartDisplayName(), reading.relationType()),
                 values.get(SectionKey.SUMMARY), values.get(SectionKey.MATCH_STRENGTH),
                 values.get(SectionKey.MATCH_CONFLICT), values.get(SectionKey.COMMUNICATION),
-                values.get(SectionKey.RELATIONSHIP_TIP), values.get(SectionKey.MISSING_ELEMENT));
+                values.get(SectionKey.RELATIONSHIP_TIP), values.get(SectionKey.MISSING_ELEMENT),
+                orderedSections(reading));
     }
 
     private SinsalReadingResponse sinsal(OwnedReading reading) {
         Map<SectionKey, SectionContent> values = sections(reading);
         return new SinsalReadingResponse(meta(reading), values.get(SectionKey.SUMMARY),
                 values.get(SectionKey.SPECIAL_STARS), values.get(SectionKey.BALANCING_SPECIAL_STARS),
-                values.get(SectionKey.MISSING_ELEMENT));
+                values.get(SectionKey.MISSING_ELEMENT), orderedSections(reading));
     }
 
     private ReadingMeta meta(OwnedReading reading) {
@@ -319,7 +322,11 @@ public class GeneralReadingCategoryController {
     }
 
     private SectionContent view(GeneratedSection section) {
-        return new SectionContent(section.content(), section.sourceFactKeys());
+        return new SectionContent(section.title(), section.content(), section.sourceFactKeys());
+    }
+
+    private List<SectionContent> orderedSections(OwnedReading reading) {
+        return reading.sections().sections().stream().map(this::view).toList();
     }
 
     public record StandardQuoteRequest(@NotNull UUID personId, @NotNull ProductOption productOption,
@@ -330,13 +337,15 @@ public class GeneralReadingCategoryController {
                                              @NotNull ProductOption productOption, @NotBlank String questionKey) {}
 
     public record StandardPurchaseRequest(@NotNull UUID quoteId, @NotNull UUID personId,
-                                          @NotNull ProductOption productOption, @NotBlank String questionKey) {}
+                                          @NotNull ProductOption productOption, @NotBlank String questionKey,
+                                          @Size(max = 100) String personalizedConcern) {}
 
     public record CompatibilityPurchaseRequest(@NotNull UUID quoteId, @NotNull UUID personId,
                                                 @NotNull UUID counterpartPersonId,
                                                 @NotNull RelationType relationType,
                                                 @NotNull ProductOption productOption,
-                                                @NotBlank String questionKey) {}
+                                                @NotBlank String questionKey,
+                                                @Size(max = 100) String personalizedConcern) {}
 
     @Schema(requiredProperties = {"quoteId", "productCode", "productOption", "questionKey", "charged",
             "expiresAt", "walletBalance", "balanceAfter", "shortage", "recommendedTopUp", "productName", "regularPrice"})
@@ -364,7 +373,7 @@ public class GeneralReadingCategoryController {
                               String generationMode, Instant createdAt, List<String> disclaimers,
                               Talisman talisman) {}
 
-    public record SectionContent(String content, List<String> sourceFactKeys) {
+    public record SectionContent(String title, String content, List<String> sourceFactKeys) {
         public SectionContent {
             sourceFactKeys = List.copyOf(sourceFactKeys);
         }
@@ -373,24 +382,28 @@ public class GeneralReadingCategoryController {
     public record OverallReadingResponse(ReadingMeta meta, SectionContent summary, SectionContent currentFlow,
                                          SectionContent relationships, SectionContent studyAndWork,
                                          SectionContent wealthFlow, SectionContent condition,
-                                         SectionContent luckyPoint, SectionContent missingElement) {}
+                                         SectionContent luckyPoint, SectionContent missingElement,
+                                         List<SectionContent> sections) {}
 
     public record LoveReadingResponse(ReadingMeta meta, SectionContent summary, SectionContent currentFlow,
                                       SectionContent goodPeriod, SectionContent caution,
-                                      SectionContent actionTip, SectionContent missingElement) {}
+                                      SectionContent actionTip, SectionContent missingElement,
+                                      List<SectionContent> sections) {}
 
     public record WealthReadingResponse(ReadingMeta meta, SectionContent summary, SectionContent wealthFlow,
                                         SectionContent income, SectionContent spendingCaution,
                                         SectionContent goodPeriod, SectionContent actionTip,
-                                        SectionContent missingElement) {}
+                                        SectionContent missingElement, List<SectionContent> sections) {}
 
     public record CompatibilityReadingResponse(ReadingMeta meta, Counterpart counterpart,
                                                 SectionContent summary, SectionContent matchStrength,
                                                 SectionContent matchConflict, SectionContent communication,
-                                                SectionContent relationshipTip, SectionContent missingElement) {}
+                                                SectionContent relationshipTip, SectionContent missingElement,
+                                                List<SectionContent> sections) {}
 
     public record SinsalReadingResponse(ReadingMeta meta, SectionContent summary, SectionContent specialStars,
-                                        SectionContent balancingGuide, SectionContent missingElement) {}
+                                        SectionContent balancingGuide, SectionContent missingElement,
+                                        List<SectionContent> sections) {}
 
     public record Counterpart(UUID personId, String displayName, String relationType) {}
     public record Charged(String currency, int amount) {}

@@ -19,7 +19,15 @@ public record CalculationFacts(
         TenGods tenGods,
         TwelveStages twelveStages,
         Relations relations,
-        Luck luck) {
+        Luck luck,
+        SpecialStars specialStars) {
+
+    public CalculationFacts(Meta meta, CalendarDates calendarDates, Pillars pillars, Stem dayMaster,
+                            FiveElements fiveElements, TenGods tenGods, TwelveStages twelveStages,
+                            Relations relations, Luck luck) {
+        this(meta, calendarDates, pillars, dayMaster, fiveElements, tenGods, twelveStages, relations, luck,
+                new SpecialStars("sinsal-v1", List.of(), List.of(), List.of()));
+    }
 
     public record Meta(
             String engine,
@@ -129,4 +137,27 @@ public record CalculationFacts(
     public record DecadeLuck(int startAge, int endAge, Pillar pillar) {}
 
     public record AnnualLuck(int year, Pillar pillar) {}
+
+    public enum SpecialStarType {
+        HEAVENLY_NOBLE, LITERARY_NOBLE, YANG_BLADE, PEACH_BLOSSOM, TRAVEL_HORSE,
+        CANOPY, VOID, YUANJIN, SPIRIT_GATE, WHITE_TIGER, GANG_STRENGTH, DISGRACE, RED_CHARM
+    }
+
+    public record SpecialStarOccurrence(SpecialStarType type, List<PillarPosition> positions, int count) {
+        public SpecialStarOccurrence {
+            positions = List.copyOf(positions);
+        }
+    }
+
+    public record SpecialStarActivation(SpecialStarType type, Integer startAge, Integer endAge,
+                                        Integer year, Pillar pillar) {}
+
+    public record SpecialStars(String ruleVersion, List<SpecialStarOccurrence> natal,
+                               List<SpecialStarType> abundant, List<SpecialStarActivation> activations) {
+        public SpecialStars {
+            natal = List.copyOf(natal);
+            abundant = List.copyOf(abundant);
+            activations = List.copyOf(activations);
+        }
+    }
 }

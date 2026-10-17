@@ -95,6 +95,7 @@ public class LinerApiProvider implements LinerProvider {
         input.put("referenceDate", request.referenceDate().toString());
         if (request.interestKey() != null) input.put("questionKey", request.interestKey());
         if (request.relationKey() != null) input.put("relationType", request.relationKey());
+        if (request.personalizedConcern() != null) input.put("personalizedConcern", request.personalizedConcern());
         input.set("facts", request.facts());
         input.set("missingFields", mapper.valueToTree(request.missingFields()));
         input.set("allowedSections", mapper.valueToTree(request.allowedSections()));
@@ -106,6 +107,7 @@ public class LinerApiProvider implements LinerProvider {
     private JsonNode tailoredSchema(LinerRequest request) {
         ObjectNode schema = (request.fortuneType() == FortuneType.SUNEUNG
                 ? suneungResponseSchema : responseSchema).deepCopy();
+        schema.remove("title");
         removeUnsupportedSchemaKeywords(schema);
         ArrayNode allowed = mapper.createArrayNode();
         request.allowedSections().forEach(section -> allowed.add(section.name()));
@@ -117,7 +119,7 @@ public class LinerApiProvider implements LinerProvider {
     private void removeUnsupportedSchemaKeywords(JsonNode node) {
         if (node.isObject()) {
             ObjectNode object = (ObjectNode) node;
-            object.remove(List.of("$schema", "$id", "title", "minItems", "minLength", "maxLength", "uniqueItems"));
+            object.remove(List.of("$schema", "$id", "minItems", "minLength", "maxLength", "uniqueItems"));
             object.elements().forEachRemaining(this::removeUnsupportedSchemaKeywords);
         } else if (node.isArray()) {
             node.elements().forEachRemaining(this::removeUnsupportedSchemaKeywords);
