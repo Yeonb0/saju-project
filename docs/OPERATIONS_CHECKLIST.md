@@ -1,5 +1,11 @@
 # 뿌기사주 개발 현황과 운영 구조 점검
 
+### 2026-10-17: 수능운 상품 활성화 요청 반영 (migration 추가)
+
+- 새 `V202610171000` migration이 KRW 수능운 읽기 상품 `SUNEUNG_READING_WITH_TALISMAN`만 활성화한다. 기존 catalog 가격(3,000원)과 판매 기간 값은 건드리지 않으며, 현재 migration 이력상 등록된 판매 기간이 비어 있어 활성화 후 `AVAILABLE`이다. 상품 catalog·quote 생성은 활성화되지만 prelaunch 결제 batch 등 실제 결제 쓰기의 503 차단은 유지된다.
+- 정적 검토에서 상품 스키마·가용성 판정, 해당 상품의 기존 등록/가격 migration, prelaunch 결제 차단을 대조했다. migration은 아직 DB에 적용하거나 배포하지 않았고 PostgreSQL 실행 검증·운영 환경 상태는 미확인이다.
+- 적용: 6-6 새 additive migration으로 이미 적용된 migration을 수정하지 않는다. 결제/지갑 테이블·원장·외부 PG 호출에는 변경이 없고, 실제 결제 권한은 prelaunch 차단 범위 그대로다. 배포 후 catalog의 `AVAILABLE`과 quote 발급을 확인해야 한다.
+
 ### 2026-10-17: KRW 견적 응답과 direct-payment batch 진입 보수 (PostgreSQL 17)
 
 - `QuoteFundingService`가 `READING`, `GIFT`, `TALISMAN_ADDON`의 KRW quote를 wallet 조회 없이 반환하도록 수정했다. 기존 응답 필드는 유지하며 `walletBalance=0`, `shortage=0`, `balanceAfter=null`, `recommendedTopUp=null`을 준다. 등껍질 견적은 기존 잔액·부족액·충전 추천 계산을 유지한다. `GiftQuoteService`의 quote 재조회도 KRW gift를 통과시키되 소유자·quote context 검사는 유지한다.
